@@ -1,0 +1,31 @@
+@import 'variables';
+@import 'simplebar/dist/simplebar.min.css';
+@import '~bootstrap/scss/bootstrap';
+@import '~bootstrap-icons/font/bootstrap-icons.scss';
+@import './layout/sidebar';
+@import './layout/container';
+@import './layout/customizer';
+@import './layout/horizontal';
+@import './layout/topbar';
+@import './layout/rtl/rtl';
+@import 'rsuite/dist/rsuite.css';
+
+#root {
+  padding: 10px;
+}
+* {
+  input,
+  select {
+    text-transform: uppercase;
+  }
+  input::placeholder {
+    text-transform: capitalize;
+  }
+
+  select::placeholder {
+    text-transform: capitalize;
+  }
+  .MuiDataGrid-cell {
+    text-transform: uppercase;
+  }
+}

@@ -1,0 +1,29 @@
+/* IndicadorCard.css */
+.indicador-card {
+  background-color: white;
+  border: 2px solid red;
+  border-radius: 15px;
+  width: 70%;
+  margin: 0 auto 20px auto;
+}
+
+.indicador-card-title {
+  color: red;
+}
+
+.indicador-card-body {
+  color: black;
+}
+
+.indicador-card-value {
+  text-align: center;
+  margin: 0 5px; /* Adiciona espaçamento horizontal entre os valores */
+}
+
+.indicador-card-value h2 {
+  margin: 0;
+}
+
+.indicador-card-value p {
+  margin: 0;
+}

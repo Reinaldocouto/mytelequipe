@@ -1,0 +1,26 @@
+.largura-maior {
+    height: 215px; /* Define a largura desejada, por exemplo, 500 pixels */
+  }
+
+  .comprimento-maior {
+    width: 80%; /* Define a largura desejada, por exemplo, 500 pixels */
+  }  
+
+  .comprimento-menor {
+    width: 10%; /* Define a largura desejada, por exemplo, 500 pixels */
+  }  
+  .comprimento-tamanho {
+    width: 50px; /* Define a largura desejada, por exemplo, 500 pixels */
+  }    
+
+  .comprimento-group {
+    width: 100%; /* Define a largura desejada, por exemplo, 500 pixels */
+  }  
+
+  .largura-compl {
+    height: 125px; /* Define a largura desejada, por exemplo, 500 pixels */
+  }  
+
+  .largura-botao {
+    height: 38px; /* Define a largura desejada, por exemplo, 500 pixels */
+  }  
