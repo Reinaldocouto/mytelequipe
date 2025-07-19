@@ -9,16 +9,15 @@ import {
   useGridSelector,
 } from '@mui/x-data-grid';
 import { Row, Col, Card, CardBody, CardTitle, Button, Input, InputGroup } from 'reactstrap';
-
 import * as Icon from 'react-feather';
+import CheckIcon from '@mui/icons-material/Check';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Pagination from '@mui/material/Pagination';
 import LinearProgress from '@mui/material/LinearProgress';
-import FileCopyIcon from '@mui/icons-material/FileCopy';
-import SecurityIcon from '@mui/icons-material/Security';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import SearchIcon from '@mui/icons-material/Search';
+import Despesasedicao from '../../components/formulario/cadastro/Despesasedicao';
 import api from '../../services/api';
 import Excluirregistro from '../../components/Excluirregistro';
 import Veiculosedicao from '../../components/formulario/cadastro/Veiculosedicao';
@@ -42,12 +41,10 @@ export default function Veiculos() {
   const [titulo, settitulo] = useState('');
   const [statusveiculo, setstatusveiculo] = useState('');
   const [ididentificador, setididentificador] = useState(0);
+  const [ididentificadordespesas, setididentificadordespesas] = useState(0);
   const [permission, setpermission] = useState(0);
   const [showGraphs, setShowGraphs] = useState(false);
-
-  function toggleAdmin() {}
-
-  function duplicateUser() {}
+  const [telalancamentodespesas, setTelalancamentodespesas] = useState(false);
 
   const params = {
     busca: pesqgeral,
@@ -169,16 +166,34 @@ export default function Veiculos() {
           disabled={modoVisualizador()}
           onClick={() => deleteUser(parametros.id)}
         />,
+
         <GridActionsCellItem
-          icon={<SecurityIcon />}
-          label="Verificar Historico"
-          onClick={() => toggleAdmin(parametros.id)}
-          showInMenu
-        />,
-        <GridActionsCellItem
-          icon={<FileCopyIcon />}
-          label="Indicar Usuario"
-          onClick={() => duplicateUser(parametros.id)}
+          icon={<CheckIcon />}
+          label="Lançar Despesas"
+          disabled={modoVisualizador()}
+          onClick={() => {
+            api
+              .post('v1/despesas/novocadastro', {
+                idcliente: localStorage.getItem('sessionCodidcliente'),
+                idusuario: localStorage.getItem('sessionId'),
+                idloja: localStorage.getItem('sessionloja'),
+              })
+              .then((response) => {
+                if (response.status === 201) {
+                  setididentificadordespesas(response.data.retorno);
+                  setTelalancamentodespesas(true);
+                } else {
+                  setmensagem(response.status);
+                }
+              })
+              .catch((err) => {
+                if (err.response) {
+                  setmensagem(err.response.data.erro);
+                } else {
+                  setmensagem('Ocorreu um erro na requisição.');
+                }
+              });
+          }}
           showInMenu
         />,
       ],
@@ -283,141 +298,156 @@ export default function Veiculos() {
       filterVeiculos();
     }, [pesqgeral, veiculos]); */
 
+  const modalLancamentoDeDespesas = () => {
+    return telalancamentodespesas ? (
+      <Despesasedicao
+        show={telalancamentodespesas}
+        setshow={setTelalancamentodespesas}
+        atualiza={() => {}}
+        titulotopo="Cadastro da despesa"
+        ididentificador={ididentificadordespesas}
+      />
+    ) : null;
+  };
+
   return (
     <div>
       {permission && (
-        <Card>
-          <CardBody className="bg-light d-flex justify-content-between align-items-center">
-            <CardTitle tag="h4" className="mb-0">
-              Listagem de Veículos
-            </CardTitle>
-            <Button color="primary" onClick={() => setShowGraphs(!showGraphs)}>
-              {showGraphs ? 'Ocultar Gráficos' : 'Mostrar Gráficos'} <Icon.BarChart2 size={16} />
-            </Button>
-          </CardBody>
-          <CardBody style={{ backgroundColor: 'white' }}>
-            {showGraphs && (
-              <Row>
-                <Col lg="12">
-                  <VeiculosInspecaoPeriodica />
-                </Col>
-                <Col lg="6">
-                  <IndicadorInspecao />
-                </Col>
-                <Col lg="6">
-                  <IndicadorCnh />
-                </Col>
-              </Row>
-            )}
-            {mensagem.length !== 0 ? (
-              <div className="alert alert-danger mt-2" role="alert">
-                {mensagem}
-              </div>
-            ) : null}
-            <div className="row g-3">
-              <div className="col-sm-3">
-                <Input
-                  type="select"
-                  onChange={(e) => setstatusveiculo(e.target.value)}
-                  value={statusveiculo}
-                >
-                  <option value="ATIVO">ATIVO</option>
-                  <option value="INATIVO">INATIVO</option>
-                  <option value="TODOS">TODOS</option>
-                </Input>
-              </div>
-              <div className="col-sm-6">
-                <InputGroup>
+        <div>
+          {modalLancamentoDeDespesas()}
+          <Card>
+            <CardBody className="bg-light d-flex justify-content-between align-items-center">
+              <CardTitle tag="h4" className="mb-0">
+                Listagem de Veículos
+              </CardTitle>
+              <Button color="primary" onClick={() => setShowGraphs(!showGraphs)}>
+                {showGraphs ? 'Ocultar Gráficos' : 'Mostrar Gráficos'} <Icon.BarChart2 size={16} />
+              </Button>
+            </CardBody>
+            <CardBody style={{ backgroundColor: 'white' }}>
+              {showGraphs && (
+                <Row>
+                  <Col lg="12">
+                    <VeiculosInspecaoPeriodica />
+                  </Col>
+                  <Col lg="6">
+                    <IndicadorInspecao />
+                  </Col>
+                  <Col lg="6">
+                    <IndicadorCnh />
+                  </Col>
+                </Row>
+              )}
+              {mensagem.length !== 0 ? (
+                <div className="alert alert-danger mt-2" role="alert">
+                  {mensagem}
+                </div>
+              ) : null}
+              <div className="row g-3">
+                <div className="col-sm-3">
                   <Input
-                    type="text"
-                    placeholder="Pesquise por Nome ou Placa"
-                    onChange={(e) => setpesqgeral(e.target.value)}
-                    value={pesqgeral}
-                  ></Input>
-                  <Button color="primary" onClick={() => listaveiculos()}>
-                    {' '}
-                    <SearchIcon />
-                  </Button>
-                  <Button color="primary" onClick={() => limparfiltro()}>
-                    {' '}
-                    <AutorenewIcon />
-                  </Button>
-                </InputGroup>
-              </div>
+                    type="select"
+                    onChange={(e) => setstatusveiculo(e.target.value)}
+                    value={statusveiculo}
+                  >
+                    <option value="ATIVO">ATIVO</option>
+                    <option value="INATIVO">INATIVO</option>
+                    <option value="TODOS">TODOS</option>
+                  </Input>
+                </div>
+                <div className="col-sm-6">
+                  <InputGroup>
+                    <Input
+                      type="text"
+                      placeholder="Pesquise por Nome ou Placa"
+                      onChange={(e) => setpesqgeral(e.target.value)}
+                      value={pesqgeral}
+                    ></Input>
+                    <Button color="primary" onClick={() => listaveiculos()}>
+                      {' '}
+                      <SearchIcon />
+                    </Button>
+                    <Button color="primary" onClick={() => limparfiltro()}>
+                      {' '}
+                      <AutorenewIcon />
+                    </Button>
+                  </InputGroup>
+                </div>
 
-              <div className=" col-sm-3  d-flex flex-row-reverse">
-                <Button
-                  color="primary"
-                  onClick={() => novocadastro()}
-                  disabled={modoVisualizador()}
-                >
-                  Adicionar <Icon.Plus />
-                </Button>
-                {telacadastro ? (
-                  <>
-                    {' '}
-                    <Veiculosedicao
-                      show={telacadastro}
-                      setshow={settelacadastro}
-                      ididentificador={ididentificador}
-                      atualiza={listaveiculos}
-                      titulotopo={titulo}
-                    />{' '}
-                  </>
-                ) : null}
-                {telacadastroedicao ? (
-                  <>
-                    {' '}
-                    <Veiculosedicao
-                      show={telacadastroedicao}
-                      setshow={settelacadastroedicao}
-                      ididentificador={ididentificador}
-                      atualiza={listaveiculos}
-                      titulotopo={titulo}
-                    />{' '}
-                  </>
-                ) : null}
-                {telaexclusao ? (
-                  <>
-                    <Excluirregistro
-                      show={telaexclusao}
-                      setshow={settelaexclusao}
-                      ididentificador={ididentificador}
-                      quemchamou="VEICULOS"
-                      atualiza={listaveiculos}
-                    />{' '}
-                  </>
-                ) : null}
+                <div className=" col-sm-3  d-flex flex-row-reverse">
+                  <Button
+                    color="primary"
+                    onClick={() => novocadastro()}
+                    disabled={modoVisualizador()}
+                  >
+                    Adicionar <Icon.Plus />
+                  </Button>
+                  {telacadastro ? (
+                    <>
+                      {' '}
+                      <Veiculosedicao
+                        show={telacadastro}
+                        setshow={settelacadastro}
+                        ididentificador={ididentificador}
+                        atualiza={listaveiculos}
+                        titulotopo={titulo}
+                      />{' '}
+                    </>
+                  ) : null}
+                  {telacadastroedicao ? (
+                    <>
+                      {' '}
+                      <Veiculosedicao
+                        show={telacadastroedicao}
+                        setshow={settelacadastroedicao}
+                        ididentificador={ididentificador}
+                        atualiza={listaveiculos}
+                        titulotopo={titulo}
+                      />{' '}
+                    </>
+                  ) : null}
+                  {telaexclusao ? (
+                    <>
+                      <Excluirregistro
+                        show={telaexclusao}
+                        setshow={settelaexclusao}
+                        ididentificador={ididentificador}
+                        quemchamou="VEICULOS"
+                        atualiza={listaveiculos}
+                      />{' '}
+                    </>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          </CardBody>
-          <CardBody style={{ backgroundColor: 'white' }}>
-            <Button color="link" onClick={() => gerarexcel()}>
-              {' '}
-              Exportar Excel
-            </Button>
-            <Box
-              sx={{
-                //    height: filteredVeiculos.length > 10 ? '100%' : 500,
-                height: veiculos.length > 10 ? '100%' : 500,
-                width: '100%',
-                textAlign: 'right',
-              }}
-            >
-              <DataGrid
-                //rows={filteredVeiculos}
-                rows={veiculos}
-                columns={columns}
-                loading={loading}
-                pageSize={pageSize}
-                onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
-                disableSelectionOnClick
-                experimentalFeatures={{ newEditingApi: true }}
-                components={{ Pagination: CustomPagination, LoadingOverlay: LinearProgress }}
-              />
-            </Box>
-          </CardBody>
-        </Card>
+            </CardBody>
+            <CardBody style={{ backgroundColor: 'white' }}>
+              <Button color="link" onClick={() => gerarexcel()}>
+                {' '}
+                Exportar Excel
+              </Button>
+              <Box
+                sx={{
+                  //    height: filteredVeiculos.length > 10 ? '100%' : 500,
+                  height: veiculos.length > 10 ? '100%' : 500,
+                  width: '100%',
+                  textAlign: 'right',
+                }}
+              >
+                <DataGrid
+                  //rows={filteredVeiculos}
+                  rows={veiculos}
+                  columns={columns}
+                  loading={loading}
+                  pageSize={pageSize}
+                  onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+                  disableSelectionOnClick
+                  experimentalFeatures={{ newEditingApi: true }}
+                  components={{ Pagination: CustomPagination, LoadingOverlay: LinearProgress }}
+                />
+              </Box>
+            </CardBody>
+          </Card>
+        </div>
       )}
       {!permission && <Notpermission />}
     </div>

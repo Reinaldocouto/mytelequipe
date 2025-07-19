@@ -19,7 +19,6 @@ import modoVisualizador from '../../../services/modovisualizador';
 import api from '../../../services/api';
 import Loader from '../../../layouts/loader/Loader';
 import Excluirregistro from '../../Excluirregistro';
-import LancamentoDespesas from './Lancamentodespesas';
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -81,9 +80,7 @@ const Veiculosedicao = ({ setshow, show, ididentificador, atualiza }) => {
   const [placaError, setPlacaError] = useState('');
 
   // Estados para lançamento de despesas
-  const [telalancamentodespesas, setTelalancamentodespesas] = useState(false);
-  const [idDespesa, setIdDespesa] = useState(null);
-  const [tituloDespesa, setTituloDespesa] = useState('');
+  
 
   //Parametros
   const params = {
@@ -375,30 +372,6 @@ const Veiculosedicao = ({ setshow, show, ididentificador, atualiza }) => {
       });
   }
 
-  const novocadastroDespesa = () => {
-    api
-      .post('v1/despesas/novocadastro', {
-        idcliente: 1,
-        idusuario: 1,
-        idloja: 1,
-      })
-      .then((response) => {
-        if (response.status === 201) {
-          setIdDespesa(response.data.retorno);
-          setTituloDespesa('Cadastro de Despesas');
-          setTelalancamentodespesas(true);
-        } else {
-          setmensagem(response.status);
-        }
-      })
-      .catch((err) => {
-        if (err.response) {
-          setmensagem(err.response.data.erro);
-        } else {
-          setmensagem('Ocorreu um erro na requisição.');
-        }
-      });
-  };
   const isValidLicensePlate = (plate) => {
     // Old Brazilian format (ABC-1234)
     const oldFormat = /^[A-Z]{3}[0-9]{4}$/;
@@ -779,9 +752,6 @@ const Veiculosedicao = ({ setshow, show, ididentificador, atualiza }) => {
           )}
         </ModalBody>
         <ModalFooter style={{ backgroundColor: 'white' }}>
-          <Button disabled={modoVisualizador()} color="primary" onClick={novocadastroDespesa}>
-            Lançar Despesas
-          </Button>
           <Button color="success" onClick={ProcessaCadastro} disabled={modoVisualizador()}>
             Salvar
           </Button>
@@ -790,15 +760,6 @@ const Veiculosedicao = ({ setshow, show, ididentificador, atualiza }) => {
           </Button>
         </ModalFooter>
       </Modal>
-      {telalancamentodespesas ? (
-        <LancamentoDespesas
-          show={telalancamentodespesas}
-          setShow={setTelalancamentodespesas}
-          atualiza={atualiza}
-          ididentificador={idDespesa}
-          titulotopo={tituloDespesa}
-        />
-      ) : null}
     </div>
   );
 };

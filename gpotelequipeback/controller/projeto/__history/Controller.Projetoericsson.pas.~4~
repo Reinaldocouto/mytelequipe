@@ -1,0 +1,1490 @@
+unit Controller.Projetoericsson;
+
+interface
+
+uses
+  Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,
+  DataSet.Serialize, Model.Projetoericsson, UtFuncao, Controller.Auth;
+
+procedure Registry;
+
+procedure Lista(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure ListaSelectprojeto(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure ListaSelectcolaboradorclt(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure ListaSelectcolaboradorpj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listaid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listaadicid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listapo(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listamigo(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listadocumentacaofinal(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listadocumentacaofinalcivilwork(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Salva(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Salvaengenharia(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listaatividadeclt(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Salvaatividadeclt(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listaatividadepj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listaatividadepjengenharia(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Salvaatividadepj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Salvaatividadepjengenharia(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listafechamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listafechamentoporempresa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure listapagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Atualizalpu(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Editarpagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Extratopagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure historicopagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure apagarpagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Extratopagamentototal(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Extratopagamentodesconto(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure listalpu(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure listagemlpu(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure listagemgrupolpu(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Novocadastrotarefa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Salvatarefa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Editardesconto(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure criarsite(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure rolloutericsson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+
+implementation
+
+procedure Registry;
+begin
+  THorse.get('v1/projetoericsson', Lista);
+  THorse.get('v1/projetoericsson/fechamento', Listafechamento);
+  THorse.get('v1/projetoericsson/fechamentoporempresa', Listafechamentoporempresa);
+  THorse.get('v1/projetoericsson/extrato', Extratopagamento);
+  THorse.get('v1/projetoericsson/extratototal', extratopagamentototal);
+  THorse.get('v1/projetoericsson/extratodesconto', Extratopagamentodesconto);
+  THorse.get('v1/projetoericsson/historicopagamento', historicopagamento);
+  THorse.get('v1/projetoericsson/listapagamento', listapagamento);
+  THorse.get('v1/projetoericsson/selectprojeto', ListaSelectprojeto);
+  THorse.get('v1/projetoericsson/selectcolaboradorclt', ListaSelectcolaboradorclt);
+  THorse.get('v1/projetoericsson/selectcolaboradorpj', ListaSelectcolaboradorpj);
+  THorse.get('v1/projetoericssonid', Listaid);
+  THorse.get('v1/projetoericssonadicid', Listaadicid);
+  THorse.get('v1/projetoericsson/listapo', Listapo);
+  THorse.get('v1/projetoericsson/listamigo', Listamigo);
+  THorse.get('v1/projetoericsson/documentacaofinal', Listadocumentacaofinal);
+  THorse.get('v1/projetoericsson/documentacaofinalcivilwork', Listadocumentacaofinalcivilwork);
+  THorse.Post('v1/projetoericsson', Salva);
+  THorse.Post('v1/projetoericsson/salvaengenharia', Salvaengenharia);
+  THorse.get('v1/projetoericsson/listaatividadeclt', Listaatividadeclt);
+  THorse.get('v1/projetoericsson/listaatividadepj', Listaatividadepj);
+  THorse.get('v1/projetoericsson/listaatividadepjengenharia', Listaatividadepjengenharia);
+  THorse.post('v1/projetoericsson/listaatividadeclt/salva', Salvaatividadeclt);
+  THorse.post('v1/projetoericsson/listaatividadepj/salva', Salvaatividadepj);
+  THorse.post('v1/projetoericsson/listaatividadepj/salvaengenharia', Salvaatividadepjengenharia);
+
+  THorse.post('v1/projetoericsson/fechamento/salvapagamento', Editarpagamento);
+  THorse.post('v1/projetoericsson/fechamento/apagapagamento', apagarpagamento);
+
+  THorse.get('v1/projetoericsson/atualizalpu', Atualizalpu);
+  THorse.get('v1/projetoericsson/listalpu/:idc/:cr', listalpu);
+
+  THorse.get('v1/projetoericsson/listagemlpu', listagemlpu);
+  THorse.get('v1/projetoericsson/selectlpu', listagemgrupolpu);
+
+  THorse.post('v1/projetoericsson/novocadastrotarefa', Novocadastrotarefa);
+  THorse.post('v1/projetoericsson/salvatarefa', salvatarefa);
+
+  THorse.post('v1/projetoericsson/salvadesconto', Editardesconto);
+  THorse.post('v1/projetoericsson/criarsite', criarsite);
+  THorse.get('v1/rolloutericsson', rolloutericsson);
+
+
+end;
+
+procedure Novocadastrotarefa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TProjetoericsson.Create;
+  try
+    try
+      body := Req.body<TJSONObject>;
+      if servico.Novocadastrotarefa(erro) > 0 then
+        Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idtarefamigo)).Status(THTTPStatus.Created)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure Listalpu(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  servico.idcolaboradorpj := Req.Params['idc'].ToInteger;
+  if Req.Params['cr'] = 'undefined' then
+    servico.cr := '0'
+  else
+    servico.cr := Req.Params['cr'];
+  qry := servico.Listalpu(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Extratopagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.Extratopagamento(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure listagemgrupolpu(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.listagemgrupolpu(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure listagemlpu(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.listagemlpu(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Historicopagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.Historicopagamento(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Extratopagamentodesconto(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONObject;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.extratopagamentodesconto(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONObject();
+      if erro = '' then
+        Res.Send<TJSONObject>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Extratopagamentototal(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONObject;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.Extratopagamentototal(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONObject();
+      if erro = '' then
+        Res.Send<TJSONObject>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Editarpagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TProjetoericsson.Create;
+  try
+    erro := '';
+    try
+      body := Req.body<TJSONObject>;
+
+      servico.mespagamento := body.getvalue<string>('mespagamento', '');
+      servico.porcentagem := body.getvalue<double>('porcentagem', 0);
+      servico.observacaopagamento := body.getvalue<string>('observacao', '');
+      servico.observacaopagamentointerna := body.getvalue<string>('observacaointerna', '');
+      servico.descricaopagamento := body.getvalue<string>('servicosel', '');
+      servico.popagamento := body.getvalue<string>('codigoservicosel', '');
+      servico.empresapagamento := body.getvalue<string>('empresa', '');
+      servico.status := body.getvalue<string>('status', '');
+      servico.datadopagamento := body.GetValue<TDateTime>('datapagamento', 0);
+      servico.idgeralfechamento := body.getvalue<integer>('geralfechamento', 0);
+      servico.repostaalteracao := body.getvalue<integer>('repostaalteracao', 0);
+      servico.numero := '0';
+
+
+      if Length(servico.mespagamento) = 0 then
+        erro := 'Falta selecionar o mes de pagamento!';
+
+      if Length(erro) = 0 then
+      begin
+
+        if (servico.consultapagamento) then
+        begin
+          if servico.Editarpagamento(erro) then
+            Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.numero)).Status(THTTPStatus.Created)
+          else
+            Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+        end
+        else
+        begin
+
+          if (servico.repostaalteracao = 1) then
+          begin
+            if servico.alterarpagamento(erro) then
+              Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.numero)).Status(THTTPStatus.Created)
+            else
+              Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+          end
+          else
+            Res.Send<TJSONObject>(CreateJsonObj('erro', 'Já existe pagamento nesse periodo')).Status(THTTPStatus.BadRequest);
+
+        end;
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure apagarpagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TProjetoericsson.Create;
+  try
+    erro := '';
+    try
+      body := Req.body<TJSONObject>;
+
+      servico.mespagamento := body.getvalue<string>('mespagamentol', '');
+      servico.descricaopagamento := body.getvalue<string>('deascricao', '');
+      servico.popagamento := body.getvalue<string>('po', '');
+      servico.empresapagamento := body.getvalue<string>('empresa', '');
+
+      if Length(servico.mespagamento) = 0 then
+        erro := 'Falta selecionar o mes de pagamento!';
+
+      if Length(erro) = 0 then
+      begin
+        if servico.apagarpagamento(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.numero)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure Atualizalpu(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  erro: string;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  Writeln('Iniciando Atualização ');
+  if servico.atualizarlpu(erro) then
+    Res.Send<TJSONObject>(CreateJsonObj('Retorno', 'OK')).Status(THTTPStatus.OK)
+  else
+    Res.Send<TJSONObject>(CreateJsonObj('Retorno', erro)).Status(THTTPStatus.InternalServerError);
+  Writeln('Finalizando Atualização ');
+end;
+
+procedure Salvaatividadeclt(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro, xdata: string;
+begin
+  servico := TProjetoericsson.Create;
+  try
+    erro := '';
+    try
+      body := Req.body<TJSONObject>;
+
+      if strisint(body.getvalue<string>('idgeral', '')) then
+        servico.idgeral := body.getvalue<integer>('idgeral', 0)
+      else
+        servico.idgeral := 0;
+
+      servico.numero := body.getvalue<string>('numero', '');
+
+      if strisint(body.getvalue<string>('idcolaboradorclt', '')) then
+        servico.idcolaboradorclt := body.getvalue<integer>('idcolaboradorclt', 0)
+      else
+        servico.idcolaboradorclt := 0;
+
+      servico.idposervico := body.getvalue<string>('idposervico', '');
+      servico.descricaoservico := body.getvalue<string>('descricaoservico', '');
+
+      try
+        servico.datainicio := body.GetValue<string>('datainicioclt', '');
+      except
+        erro := 'Erro na Data do Inicio do Periodo;'
+      end;
+
+      try
+        servico.datafim := body.GetValue<string>('datafinalclt', '');
+      except
+        erro := 'Erro na Data do Fim do Periodo;'
+      end;
+
+      servico.horanormalclt := body.getvalue<double>('horanormalclt', 0);
+      servico.hora50clt := body.getvalue<double>('hora50clt', 0);
+      servico.hora100clt := body.getvalue<double>('hora100clt', 0);
+
+      servico.valorhora := body.getvalue<double>('valorhora', 0);
+
+      servico.escopo := body.getvalue<string>('escopo', '');
+      servico.po := body.getvalue<string>('po', '');
+      servico.observacaoclt := body.getvalue<string>('observacaoclt', '');
+      servico.totalhorasclt := body.getvalue<string>('totalhorasclt', '');
+
+      if Length(erro) = 0 then
+      begin
+        if servico.Editaratividadeclt(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idgeral)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure Salvaatividadepj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TProjetoericsson.Create;
+  try
+    erro := '';
+    try
+      body := Req.body<TJSONObject>;
+
+      if strisint(body.getvalue<string>('idgeral', '')) then
+        servico.idgeral := body.getvalue<integer>('idgeral', 0)
+      else
+        servico.idgeral := 0;
+
+      servico.numero := body.getvalue<string>('numero', '');
+
+      if strisint(body.getvalue<string>('idcolaboradorpj', '')) then
+        servico.idcolaboradorpj := body.getvalue<integer>('idcolaboradorpj', 0)
+      else
+        servico.idcolaboradorpj := 0;
+
+      servico.po := body.getvalue<string>('selecao', '');
+      servico.observacaopj := body.getvalue<string>('observacaopj', '');
+
+      servico.lpuhistorico := body.getvalue<string>('lpuhistorico', '');
+
+      try
+        servico.valornegociado := StrToFloat(body.getvalue<string>('valornegociadonum', ''))
+      except
+        servico.valornegociado := 0;
+      end;
+
+      if Length(erro) = 0 then
+      begin
+        if servico.Editaratividadepj(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idgeral)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure Salvaatividadepjengenharia(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TProjetoericsson.Create;
+  try
+    erro := '';
+    try
+      body := Req.body<TJSONObject>;
+
+      if strisint(body.getvalue<string>('idgeral', '')) then
+        servico.idgeral := body.getvalue<integer>('idgeral', 0)
+      else
+        servico.idgeral := 0;
+
+      servico.numero := body.getvalue<string>('numero', '');
+
+      if strisint(body.getvalue<string>('idcolaboradorpj', '')) then
+        servico.idcolaboradorpj := body.getvalue<integer>('idcolaboradorpj', 0)
+      else
+        servico.idcolaboradorpj := 0;
+
+      servico.po := body.getvalue<string>('numpo', '');
+      servico.poitem := body.getvalue<string>('numpoitem', '');
+      servico.codigo := body.getvalue<string>('codigo', '');
+      servico.descricaoservico := body.getvalue<string>('descricao', '');
+
+      servico.observacaopj := body.getvalue<string>('observacaopj', '');
+
+      servico.lpuhistorico := body.getvalue<string>('lpuhistorico', '');
+
+      try
+        servico.valornegociado := StrToFloat(body.getvalue<string>('valornegociadonum', ''))
+      except
+        servico.valornegociado := 0;
+      end;
+
+      if Length(erro) = 0 then
+      begin
+        if servico.Editaratividadepjengenharia(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idgeral)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure editardesconto(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TProjetoericsson.Create;
+  try
+    erro := '';
+    try
+      body := Req.body<TJSONObject>;
+
+      servico.desconto := body.getvalue<double>('desconto', 0);
+
+      servico.mespagamento := body.getvalue<string>('mespg', '');
+      servico.empresapagamento := body.getvalue<string>('empresa', '');
+      servico.numero := body.getvalue<string>('numerol', '');
+
+      if Length(erro) = 0 then
+      begin
+        if servico.alterardesconto(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.numero)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure Salvatarefa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TProjetoericsson.Create;
+  try
+    erro := '';
+    try
+      body := Req.body<TJSONObject>;
+
+      if strisint(body.getvalue<string>('idtarefa', '')) then
+        servico.idtarefamigo := body.getvalue<integer>('idtarefa', 0)
+      else
+        servico.idtarefamigo := 0;
+
+      servico.numero := body.getvalue<string>('nobra', '');
+
+      servico.datatarefa := body.getvalue<string>('data', '');
+
+      servico.descricaoservico := body.getvalue<string>('descricao', '');
+
+      servico.codigoservico := body.getvalue<string>('codigoservico', '');
+      servico.site   := body.getvalue<string>('site', '');
+
+      if Length(erro) = 0 then
+      begin
+        if servico.Editartarefa(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.numero)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure Salva(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TProjetoericsson.Create;
+  try
+    erro := '';
+    try
+      body := Req.body<TJSONObject>;
+
+      servico.numero := body.getvalue<string>('numero', '');
+
+      servico.cliente := body.getvalue<string>('cliente', '');
+      servico.regiona := body.getvalue<string>('regiona', '');
+      servico.site := body.getvalue<string>('site', '');
+      servico.situacaoimplantacao := body.getvalue<string>('situacaoimplantacao', '');
+      servico.situacaodaintegracao := body.getvalue<string>('situacaodaintegracao', '');
+      servico.datadacriacaodademandadia := body.getvalue<string>('datadacriacaodademandadia', '');
+      servico.dataaceitedemandadia := body.getvalue<string>('dataaceitedemandadia', '');
+      servico.datainicioentregamosplanejadodia := body.getvalue<string>('datainicioentregamosplanejadodia', '');
+      servico.datarecebimentodositemosreportadodia := body.getvalue<string>('datarecebimentodositemosreportadodia', '');
+      servico.datafiminstalacaoplanejadodia := body.getvalue<string>('datafiminstalacaoplanejadodia', '');
+      servico.dataconclusaoreportadodia := body.getvalue<string>('dataconclusaoreportadodia', '');
+      servico.datavalidacaoinstalacaodia := body.getvalue<string>('datavalidacaoinstalacaodia', '');
+      servico.dataintegracaoplanejadodia := body.getvalue<string>('dataintegracaoplanejadodia', '');
+      servico.datavalidacaoeriboxedia := body.getvalue<string>('datavalidacaoeriboxedia', '');
+
+      if Length(erro) = 0 then
+      begin
+        if servico.Editar(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.numero)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure Salvaengenharia(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TProjetoericsson.Create;
+  try
+    erro := '';
+    try
+      body := Req.body<TJSONObject>;
+
+      servico.numero := body.getvalue<string>('obraid', '');
+
+      servico.poitem := body.getvalue<string>('numpoitem', '');
+      servico.po := body.getvalue<string>('numpo', '');
+
+      if Length(erro) = 0 then
+      begin
+        if servico.Editarengenharia(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.numero)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure criarsite(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TProjetoericsson.Create;
+  try
+    erro := '';
+    try
+      body := Req.body<TJSONObject>;
+
+      servico.numero := body.getvalue<string>('obraid', '');
+      servico.cliente := body.getvalue<string>('nome', '');
+      servico.site := body.getvalue<string>('site', '');
+      servico.regiona := body.getvalue<string>('regional', '');
+
+      if Length(erro) = 0 then
+      begin
+        if servico.criarsite(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.numero)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+
+procedure Lista(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.Lista(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Listafechamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.ListaFechamento(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Listafechamentoporempresa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.ListaFechamentoporempresa(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure listapagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.listapagamento(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Listapo(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+
+  qry := servico.Listapo(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure ListaSelectprojeto(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.ListaSelect1(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure ListaSelectcolaboradorclt(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.ListaSelectcolaboradorclt(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure ListaSelectcolaboradorpj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.ListaSelectcolaboradorpj(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Listamigo(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+
+  qry := servico.Listamigo(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Listadocumentacaofinal(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+
+  qry := servico.Listadocumentacaofinal(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Listadocumentacaofinalcivilwork(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+
+  qry := servico.Listadocumentacaofinalcivilwork(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Listaid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONObject;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.Listaid(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONObject;
+      if erro = '' then
+        Res.Send<TJSONObject>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Listaadicid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONObject;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.Listaadicid(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONObject;
+      if erro = '' then
+        Res.Send<TJSONObject>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Listaatividadeclt(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.Listaatividadeclt(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Listaatividadepj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.Listaatividadepj(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Listaatividadepjengenharia(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.Listaatividadepjengenharia(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+
+procedure rolloutericsson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+begin
+  servico := nil;
+  qry := nil;
+  arraydados := nil;
+
+  try
+    try
+      servico := TProjetoericsson.Create;
+      qry := servico.rolloutericsson(Req.Query.Dictionary, erro);
+
+      if Assigned(qry) then
+      begin
+        if erro = '' then
+        begin
+          arraydados := qry.ToJSONArray();
+          Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK);
+        end
+        else
+        begin
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro))
+            .Status(THTTPStatus.InternalServerError);
+        end;
+      end
+      else
+      begin
+        Res.Send<TJSONObject>(CreateJsonObj('erro', 'Consulta retornou vazia'))
+          .Status(THTTPStatus.InternalServerError);
+      end;
+    except
+      on ex: Exception do
+      begin
+        Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro no servidor: ' + ex.Message))
+          .Status(THTTPStatus.InternalServerError);
+      end;
+    end;
+  finally
+    // Libera recursos na ordem inversa de criação
+    if Assigned(arraydados) then
+      arraydados.Free;
+
+    if Assigned(qry) then
+      qry.Free;
+
+    if Assigned(servico) then
+      servico.Free;
+  end;
+end;
+
+end.
+

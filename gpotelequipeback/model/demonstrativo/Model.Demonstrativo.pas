@@ -132,63 +132,105 @@ end;
 function TDemonstrativo.painelcontrole(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
+  anoStr, site, regional: string;
+  anoInt: Integer;
 begin
+  qry := nil;
   try
     qry := TFDQuery.Create(nil);
-    qry.connection := FConn;
+    qry.Connection := FConn;
+
+    // Configuração da query SQL
     with qry do
     begin
-      Active := false;
       SQL.Clear;
-      SQL.Add('SELECT ');
-      SQL.Add('COUNT(CASE WHEN seed THEN obrasericssonlistasites.seed END) AS demanda, ');
-      SQL.Add('COUNT(CASE WHEN mosreal IS NOT NULL THEN obrasericssonlistasites.seed END) AS entrega, ');
-      SQL.Add('COUNT(CASE WHEN mosreal IS NULL THEN obrasericssonlistasites.seed END) AS entregaandamento, ');
-      SQL.Add('COUNT(CASE WHEN fiminstalacaoreal IS NOT NULL and mosreal IS NOT NULL THEN obrasericssonlistasites.seed END) AS instalacao, ');
-      SQL.Add('COUNT(CASE WHEN fiminstalacaoreal IS NULL and mosreal IS NOT NULL  THEN obrasericssonlistasites.seed END) AS instalacaoandamento, ');
-      SQL.Add('COUNT(CASE WHEN validacaoinstalacao IS NOT NULL and mosreal IS NOT NULL and fiminstalacaoreal IS NOT NULL THEN obrasericssonlistasites.seed END) AS valinstalacao, ');
-      SQL.Add('COUNT(CASE WHEN validacaoinstalacao IS NULL and mosreal IS NOT NULL and fiminstalacaoreal IS NOT NULL THEN obrasericssonlistasites.seed END) AS valinstalacaoandamento, ');
-      SQL.Add('COUNT(CASE WHEN integracaoconfirmada IS NOT NULL and mosreal IS NOT NULL and fiminstalacaoreal IS NOT NULL and validacaoinstalacao IS NOT NULL THEN obrasericssonlistasites.seed END) AS integracao, ');
-      SQL.Add('COUNT(CASE WHEN integracaoconfirmada IS NULL and mosreal IS NOT NULL and fiminstalacaoreal IS NOT NULL  and validacaoinstalacao IS NOT NULL THEN obrasericssonlistasites.seed END) AS integracaoandamento, ');
-      SQL.Add('COUNT(CASE WHEN doc.DocumentacaoSituacaoValidacao = ''Validação Completa'' ');
-      SQL.Add('and obrasericssonlistasites.integracaoconfirmada Is Not Null ');
-      SQL.Add('and obrasericssonlistasites.mosreal Is Not Null ');
-      SQL.Add('and obrasericssonlistasites.fiminstalacaoreal Is Not Null ');
-      SQL.Add('and obrasericssonlistasites.validacaoinstalacao Is Not Null THEN obrasericssonlistasites.seed END) AS documentacao, ');
-      SQL.Add('COUNT(CASE WHEN (doc.DocumentacaoSituacaoValidacao <> ''Validação Completa'' or doc.DocumentacaoSituacaoValidacao is null ) ');
-      SQL.Add('and obrasericssonlistasites.integracaoconfirmada Is Not Null ');
-      SQL.Add('and obrasericssonlistasites.mosreal Is Not Null ');
-      SQL.Add('and obrasericssonlistasites.fiminstalacaoreal Is Not Null ');
-      SQL.Add('and obrasericssonlistasites.validacaoinstalacao Is Not Null THEN obrasericssonlistasites.seed END) AS documentacaoandamento, ');
-      SQL.Add('COUNT(CASE WHEN doc.DocumentacaoSituacaoValidacao = ''Validação Completa''  ');
-      SQL.Add('and obrasericssonlistasites.integracaoconfirmada Is Not Null ');
-      SQL.Add('and obrasericssonlistasites.mosreal Is Not Null ');
-      SQL.Add('and obrasericssonlistasites.fiminstalacaoreal Is Not Null ');
-      SQL.Add('and obrasericssonlistasites.validacaoinstalacao Is Not Null ');
-      SQL.Add('and obrasericssonlistasites.aceitacaofinal  is Not Null   THEN obrasericssonlistasites.seed END) AS aceito, ');
-      SQL.Add('COUNT(CASE WHEN doc.DocumentacaoSituacaoValidacao = ''Validação Completa'' ');
-      SQL.Add('and obrasericssonlistasites.integracaoconfirmada Is Not Null ');
-      SQL.Add('and obrasericssonlistasites.mosreal Is Not Null ');
-      SQL.Add('and obrasericssonlistasites.fiminstalacaoreal Is Not Null ');
-      SQL.Add('and obrasericssonlistasites.validacaoinstalacao Is Not Null ');
-      SQL.Add('and obrasericssonlistasites.aceitacaofinal  is Null   THEN obrasericssonlistasites.seed END) AS naoaceito ');
-      SQL.Add('From ');
-      SQL.Add('obrasericssonlistasites Left Join ');
-      SQL.Add('(Select ');
-      SQL.Add('obradocumentacaoobrafinal.numero, ');
-      SQL.Add('Max(obradocumentacaoobrafinal.DocumentacaoSituacaoValidacao) As DocumentacaoSituacaoValidacao ');
-      SQL.Add('From ');
-      SQL.Add('obradocumentacaoobrafinal ');
-      SQL.Add('Group By ');
-      SQL.Add('obradocumentacaoobrafinal.numero) As doc On obrasericssonlistasites.SEED = doc.numero ');
-      Active := true;
+     SQL.Add('SELECT');
+    SQL.Add('  -- Etapa MOS');
+    SQL.Add('  COUNT(CASE WHEN `Baseline MOS` IS NOT NULL THEN seed END) AS total_mos,');
+    SQL.Add('  COUNT(CASE WHEN mosreal IS NOT NULL AND mosreal <= `Baseline MOS` THEN seed END) AS mos_concluido,');
+    SQL.Add('  COUNT(CASE WHEN mosreal IS NULL AND `Baseline MOS` IS NOT NULL THEN seed END) AS mos_andamento,');
+    SQL.Add('  COUNT(CASE WHEN mosreal > `Baseline MOS` THEN seed END) AS mos_atrasado,');
+
+    SQL.Add('  -- Etapa Instalação');
+    SQL.Add('  COUNT(CASE WHEN `Baseline Fim Instalação` IS NOT NULL THEN seed END) AS total_instalacao,');
+    SQL.Add('  COUNT(CASE WHEN fiminstalacaoreal IS NOT NULL AND fiminstalacaoreal <= `Baseline Fim Instalação` THEN seed END) AS instalacao_concluida,');
+    SQL.Add('  COUNT(CASE WHEN fiminstalacaoreal IS NULL AND `Baseline Fim Instalação` IS NOT NULL THEN seed END) AS instalacao_andamento,');
+    SQL.Add('  COUNT(CASE WHEN fiminstalacaoreal > `Baseline Fim Instalação` THEN seed END) AS instalacao_atrasado,');
+
+    SQL.Add('  -- Etapa Validação');
+    SQL.Add('  COUNT(CASE WHEN fiminstalacaoreal IS NOT NULL THEN seed END) AS total_validacao,');
+    SQL.Add('  COUNT(CASE WHEN validacaoinstalacao IS NOT NULL THEN seed END) AS validacao_concluida,');
+    SQL.Add('  COUNT(CASE WHEN validacaoinstalacao IS NULL AND fiminstalacaoreal IS NOT NULL THEN seed END) AS validacao_andamento,');
+    SQL.Add('  0 AS validacao_atrasado,');  // Sem base de atraso
+
+    SQL.Add('  -- Etapa Integração');
+    SQL.Add('  COUNT(CASE WHEN `Baseline Integração` IS NOT NULL THEN seed END) AS total_integracao,');
+    SQL.Add('  COUNT(CASE WHEN integracaoconfirmada IS NOT NULL AND integracaoconfirmada <= `Baseline Integração` THEN seed END) AS integracao_concluida,');
+    SQL.Add('  COUNT(CASE WHEN integracaoconfirmada IS NULL AND `Baseline Integração` IS NOT NULL THEN seed END) AS integracao_andamento,');
+    SQL.Add('  COUNT(CASE WHEN integracaoconfirmada > `Baseline Integração` THEN seed END) AS integracao_atrasado,');
+
+    SQL.Add('  -- Etapa Documentação');
+    SQL.Add('  COUNT(CASE WHEN integracaoconfirmada IS NOT NULL THEN seed END) AS total_documentacao,');
+    SQL.Add('  COUNT(CASE WHEN doc.documentacaosituacaovalidacao = ''Validação Completa'' THEN seed END) AS documentacao_concluida,');
+    SQL.Add('  COUNT(CASE WHEN doc.documentacaosituacaovalidacao IS NULL OR doc.documentacaosituacaovalidacao <> ''Validação Completa'' THEN seed END) AS documentacao_andamento,');
+    SQL.Add('  0 AS documentacao_atrasado,');  // Sem data para atraso
+
+    SQL.Add('  -- Etapa Aceitação');
+    SQL.Add('  COUNT(CASE WHEN `Site Apto para Aceitação Plan` IS NOT NULL THEN seed END) AS total_aceitacao,');
+    SQL.Add('  COUNT(CASE WHEN aceitacaofinal IS NOT NULL AND aceitacaofinal <= `Site Apto para Aceitação Plan` THEN seed END) AS aceitacao_concluida,');
+    SQL.Add('  COUNT(CASE WHEN aceitacaofinal IS NULL AND `Site Apto para Aceitação Plan` IS NOT NULL THEN seed END) AS aceitacao_andamento,');
+    SQL.Add('  COUNT(CASE WHEN aceitacaofinal > `Site Apto para Aceitação Plan` THEN seed END) AS aceitacao_atrasado');
+
+    SQL.Add('FROM obrasericssonlistasites');
+    SQL.Add('LEFT JOIN (');
+    SQL.Add('  SELECT numero, MAX(documentacaosituacaovalidacao) AS documentacaosituacaovalidacao');
+    SQL.Add('  FROM obradocumentacaofinal');
+    SQL.Add('  GROUP BY numero');
+    SQL.Add(') AS doc ON doc.numero = obrasericssonlistasites.seed');
+    SQL.Add('WHERE 1=1');
+
+    if AQuery.TryGetValue('ano', anoStr) and TryStrToInt(anoStr, anoInt) then
+    begin
+      SQL.Add('  AND YEAR(COALESCE(mosreal, `Baseline MOS`, `Baseline Fim Instalação`, fiminstalacaoreal, integracaoconfirmada, aceitacaofinal)) = :ano');
+      Params.CreateParam(ftInteger, 'ano', ptInput);
+      ParamByName('ano').AsInteger := anoInt;
     end;
+
+    if AQuery.TryGetValue('site', site) and (site.Trim <> '') then
+    begin
+      SQL.Add('  AND obrasericssonlistasites.site = :site');
+      Params.CreateParam(ftString, 'site', ptInput);
+      ParamByName('site').AsString := site;
+    end;
+
+            {
+    if AQuery.TryGetValue('regional', regional) and (regional.Trim <> '') then
+    begin
+      // Supondo que os valores venham separados por vírgula
+      regionalList := regional.Split([',']);
+      SQL.Add('  AND (');
+      for i := 0 to High(regionalList) do
+      begin
+        if i > 0 then
+          SQL.Add(' OR ');
+        SQL.Add(Format('obrasericssonlistasites.regional LIKE :regional%d', [i]));
+        Params.CreateParam(ftString, Format('regional%d', [i]), ptInput);
+        ParamByName(Format('regional%d', [i])).AsString := '%' + Trim(regionalList[i]) + '%';
+      end;
+      SQL.Add(')');
+    end;
+           }
+
+    Open;
+    end;
+
     erro := '';
     Result := qry;
   except
-    on ex: exception do
+    on E: Exception do
     begin
-      erro := 'Erro ao consultar : ' + ex.Message;
+      erro := 'Erro ao consultar painel de controle: ' + E.Message;
+      FreeAndNil(qry);
       Result := nil;
     end;
   end;

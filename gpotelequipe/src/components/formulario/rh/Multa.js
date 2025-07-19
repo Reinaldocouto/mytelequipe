@@ -1,391 +1,522 @@
-import React, { useState } from 'react';
-import {
-    Button,
-    Input,
-    FormGroup,
-    Modal,
-    ModalBody,
-    ModalHeader,
-    ModalFooter,
-} from 'reactstrap';
+import { useState, useEffect } from 'react';
 import { Box } from '@mui/material';
 import {
-    DataGrid,
-    gridPageCountSelector,
-    gridPageSelector,
-    useGridApiContext,
-    useGridSelector,
-    GridOverlay,
-    ptBR,
+  DataGrid,
+  GridActionsCellItem,
+  gridPageCountSelector,
+  gridPageSelector,
+  useGridApiContext,
+  useGridSelector,
+  GridOverlay,
 } from '@mui/x-data-grid';
 import PropTypes from 'prop-types';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { toast, ToastContainer } from 'react-toastify';
+import Select from 'react-select';
+import {
+  Card,
+  CardBody,
+  CardTitle,
+  Button,
+  Input,
+  InputGroup,
+  Modal,
+  ModalBody,
+  ModalHeader,
+  ModalFooter,
+} from 'reactstrap';
+import * as Icon from 'react-feather';
+import EditIcon from '@mui/icons-material/Edit';
 import Pagination from '@mui/material/Pagination';
 import LinearProgress from '@mui/material/LinearProgress';
-import Loader from '../../../layouts/loader/Loader';
+import SearchIcon from '@mui/icons-material/Search';
+import AutorenewIcon from '@mui/icons-material/Autorenew';
 import api from '../../../services/api';
-//import exportExcel from '../../../data/exportexcel/Excelexport';
+import Excluirregistro from '../../Excluirregistro';
+import Multasedicao from '../cadastro/Multasedicao';
+import Notpermission from '../../../layouts/notpermission/notpermission';
+import exportExcel from '../../../data/exportexcel/Excelexport';
+import modoVisualizador from '../../../services/modovisualizador';
 
-const Multa = ({ setshow, show }) => {
-    const [pageSize, setPageSize] = useState(100);
-    const [loading, setLoading] = useState(false);
-    const [folhapagamento, setfolhapagamento] = useState([]);
-    const [mensagem, setmensagem] = useState('');
-    const [datapagamento, setdatapagamento] = useState('');
+export default function Multas({ setshow }) {
+  const [multas, setmultas] = useState([]);
+  const [pesqgeral, setpesqgeral] = useState('');
+  const [telacadastro, settelacadastro] = useState('');
+  const [telacadastroedicao, settelacadastroedicao] = useState('');
+  const [telaexclusao, settelaexclusao] = useState('');
+  const [mensagem, setmensagem] = useState('');
+  const [pageSize, setPageSize] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [titulo, settitulo] = useState('');
+  const [ididentificador, setididentificador] = useState(0);
+  const [permission, setpermission] = useState(0);
+  const [rowSelectionModel, setRowSelectionModel] = useState([]);
+  const [selectedoptiondebitado, setselectedoptiondebitado] = useState('');
+  const statuslista = [
+    {
+      value: 'Pendente',
+      label: 'Pendente',
+    },
+    {
+      value: 'Debitado',
+      label: 'Debitado',
+    },
+    {
+      value: '',
+      label: 'Todos',
+    },
+  ];
 
-    const params = {
+  const toggleShow = () => {
+    setshow(false);
+  };
+  const params = {
+    busca: pesqgeral,
+    idcliente: localStorage.getItem('sessionCodidcliente'),
+    idusuario: localStorage.getItem('sessionId'),
+    idloja: localStorage.getItem('sessionloja'),
+    deletado: 0,
+    debitado: selectedoptiondebitado,
+  };
+
+  function CustomNoRowsOverlay() {
+    return (
+      <GridOverlay>
+        <div>Nenhum dado encontrado</div>
+      </GridOverlay>
+    );
+  }
+  const listamultas = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/v1/multas', { params: { ...params } });
+      setmultas(response.data);
+      setpesqgeral('');
+      setmensagem('');
+    } catch (err) {
+      setmensagem(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  function deleteUser(stat) {
+    setididentificador(stat);
+    settelaexclusao(true);
+    listamultas();
+  }
+  function userpermission() {
+    const permissionstorage = JSON.parse(localStorage.getItem('permission'));
+    setpermission(permissionstorage.gestaomultas === 1);
+  }
+
+  function alterarUser(stat) {
+    settitulo('Editar Multas');
+    settelacadastroedicao(true);
+    setididentificador(stat);
+    listamultas();
+  }
+
+  function limparfiltro() {
+    setselectedoptiondebitado('');
+    listamultas();
+  }
+
+  const novocadastro = () => {
+    api
+      .post('v1/multas/novocadastro', {
         idcliente: localStorage.getItem('sessionCodidcliente'),
         idusuario: localStorage.getItem('sessionId'),
         idloja: localStorage.getItem('sessionloja'),
-        deletado: 0,
-        datafolha: datapagamento,
-    };
+      })
+      .then((response) => {
+        if (response.status === 201) {
+          setididentificador(response.data.retorno);
+          settitulo('Cadastro de Veículos');
+          settelacadastro(true);
+        } else {
+          setmensagem(response.status);
+        }
+      })
+      .catch((err) => {
+        if (err.response) {
+          setmensagem(err.response.data.erro);
+        } else {
+          setmensagem('Ocorreu um erro na requisição.');
+        }
+      });
+  };
+  const debitar = () => {
+    const ids = rowSelectionModel.join(',');
+    setLoading(true);
+    api
+      .post('v1/multas/debitados', {
+        ids,
+      })
+      .then(() => {
+        setRowSelectionModel([]);
+        listamultas();
+        toast.success('Multa debitada com sucesso');
+      })
+      .catch((err) => {
+        if (err.response?.data?.erro) {
+          toast.error(`Erro: ${err.response.data.erro}`);
+        } else {
+          toast.error('Erro a gravas a multa multa. Verifique os campos e tente novamente.');
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
+  const gerarexcel = () => {
+    const excelData = multas.map((item) => {
+      return {
+        'Nome Indicado': item.funcionario,
+        Placa: item.placa,
+        Debitado: item.debitado,
+        'Numero AIT': item.numeroait,
+        'Data/Hora Infracao': item.datainfracao,
+        'Local Infração': item.local,
+        Infracao: item.infracao,
+        Valor: item.valor,
+        'Data Limite Indicacao': item.dataindicacao,
+        Natureza: item.natureza,
+        Pontuação: item.pontuacao,
+        'Data Envio Colaborador': item.datacolaborador,
+        Multa: item.statusmulta,
+      };
+    });
+    exportExcel({ excelData, fileName: 'multas' });
+  };
 
-    const listafolhapagamento = async () => {
-        if (datapagamento.length > 0) {
-            try {
-                setLoading(true);
-                console.log(params)
-                await api.get('v1/rh/folhapagamento', { params }).then((response) => {
-                    setfolhapagamento(response.data);
-                    setmensagem('');
-                });
-            } catch (err) {
-                setmensagem(err.message);
-            } finally {
-                setLoading(false);
-            }
-        } else { setmensagem('Falta selecionar o periodo de visualização') }
-    };
+  const columns = [
+    {
+      field: 'actions',
+      headerName: 'Ação',
+      type: 'actions',
+      width: 110,
+      align: 'center',
+      getActions: (parametros) => {
+        const actionsArray = [
+          <GridActionsCellItem
+            icon={<EditIcon />}
+            label="Alterar"
+            hint="Alterar"
+            onClick={() => alterarUser(parametros.id)}
+          />,
+        ];
+        if (parametros.row.debitado === 'Pendente') {
+          actionsArray.push(
+            <GridActionsCellItem
+              disabled={modoVisualizador()}
+              icon={<DeleteIcon />}
+              label="Delete"
+              onClick={() => deleteUser(parametros.id)}
+            />,
+          );
+        }
+        return actionsArray;
+      },
+    },
+    {
+      field: 'funcionario',
+      headerName: 'Nome Indicado',
+      type: 'string',
+      width: 250,
+      align: 'rigth',
+      editable: false,
+    },
+    {
+      field: 'placa',
+      headerName: 'Placa',
+      width: 100,
+      align: 'rigth',
+      editable: false,
+    },
+    {
+      field: 'debitado',
+      headerName: 'Debitado',
+      width: 100,
+      align: 'rigth',
+      editable: false,
+    },
+    {
+      field: 'numeroait',
+      headerName: 'Número AIT',
+      type: 'string',
+      width: 150,
+      align: 'rigth',
+      editable: false,
+    },
+    {
+      field: 'datainfracao',
+      headerName: 'Data/Hora Infração',
+      type: 'string',
+      width: 150,
+      align: 'rigth',
+      editable: false,
+    },
+    {
+      field: 'local',
+      headerName: 'Local Infração',
+      type: 'string',
+      width: 400,
+      align: 'rigth',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'infracao',
+      headerName: 'Infração',
+      type: 'string',
+      width: 400,
+      align: 'rigth',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'valor',
+      headerName: 'Valor',
+      type: 'string',
+      width: 100,
+      align: 'rigth',
+      editable: false,
+    },
+    {
+      field: 'dataindicacao',
+      headerName: 'Data Limite Indicação ',
+      type: 'string',
+      width: 180,
+      align: 'rigth',
+      editable: false,
+    },
+    {
+      field: 'natureza',
+      headerName: 'Natureza',
+      type: 'string',
+      width: 150,
+      align: 'rigth',
+      editable: false,
+    },
+    {
+      field: 'pontuacao',
+      headerName: 'Pontuação',
+      type: 'string',
+      width: 150,
+      align: 'rigth',
+      editable: false,
+    },
+    {
+      field: 'datacolaborador',
+      headerName: 'Data Envio Colaborador',
+      type: 'string',
+      width: 170,
+      align: 'rigth',
+      editable: false,
+    },
+    {
+      field: 'statusmulta',
+      headerName: 'Status',
+      type: 'string',
+      width: 300,
+      align: 'rigth',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+  ];
 
-    const columns = [
-        // { field: 'id', headerName: 'ID', width: 80, align: 'center' },
-        {
-            field: 'codigo',
-            headerName: 'Codigo',
-            width: 100,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'nome',
-            headerName: 'Nome',
-            width: 300,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'tipopessoa',
-            headerName: 'Tipo Pessoa',
-            width: 120,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'dataadmissao',
-            headerName: 'Data Admissao',
-            width: 120,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'cargo',
-            headerName: 'Cargo',
-            width: 200,
-            align: 'left',
-            type: 'string',
-            editable: false,
-            renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
-        },
-        {
-            field: 'cbo',
-            headerName: 'CBO',
-            width: 120,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'pis',
-            headerName: 'PIS',
-            width: 180,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'rgrne',
-            headerName: 'RG/RNE',
-            width: 180,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'datanascimento',
-            headerName: 'Data Nascimento',
-            width: 180,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'cpf',
-            headerName: 'CPF',
-            width: 180,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'banco',
-            headerName: 'Banco',
-            width: 120,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'agencia',
-            headerName: 'Agência',
-            width: 120,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'containformada',
-            headerName: 'Conta Informada',
-            width: 180,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'salariobruto',
-            headerName: 'salariobruto',
-            width: 350,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'salariobase',
-            headerName: 'salariobase',
-            width: 350,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'salariofamilia',
-            headerName: 'salariofamilia',
-            width: 350,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'outros',
-            headerName: 'outros',
-            width: 350,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'horaextra',
-            headerName: 'horaextra',
-            width: 350,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'adian40',
-            headerName: 'adian40',
-            width: 350,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'adian6',
-            headerName: 'adian6',
-            width: 350,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'portoseg',
-            headerName: 'portoseg',
-            width: 350,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'inss',
-            headerName: 'inss',
-            width: 350,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'irrf',
-            headerName: 'irrf',
-            width: 350,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-        {
-            field: 'salarioliquido',
-            headerName: 'salarioliquido',
-            width: 350,
-            align: 'left',
-            type: 'string',
-            editable: false,
-        },
-    ];
+  function CustomPagination() {
+    const apiRef = useGridApiContext();
+    const page = useGridSelector(apiRef, gridPageSelector);
+    const pageCount = useGridSelector(apiRef, gridPageCountSelector);
 
-    function CustomNoRowsOverlay() {
-        return (
-            <GridOverlay>
-                <div>Nenhum dado encontrado</div>
-            </GridOverlay>
-        );
-    }
-    function CustomPagination() {
-        const apiRef = useGridApiContext();
-        const page = useGridSelector(apiRef, gridPageSelector);
-        const pageCount = useGridSelector(apiRef, gridPageCountSelector);
-
-        return (
-            <Pagination
-                color="primary"
-                count={pageCount}
-                page={page + 1}
-                onChange={(event, value) => apiRef.current.setPage(value - 1)}
-            />
-        );
-    }
-
-    const toggle = () => {
-        setshow(!show);
-    };
-
-
-    /*    const gerarexcel = () => {
-            const excelData = totalacionamento.map((item) => ({
-                PO: item.po,
-                "PO ITEM": item.poitem,
-                Sigla: item.sigla,
-                IDsydle: item.idsydle,
-                NOME: item.nome,
-                'cliente': item.cliente,
-                'Estado': item.estado,
-                'Codigo Serviço': item.codigo,
-                'Descricao': item.descricao,
-                'Mes Pagamento': item.mespagamento,
-                'Numero': item.numero,
-                'Porcentagem': item.porcentagem,
-                'valor Pagamento': item.valorpagamento,
-                'Observacao': item.observacao,
-                'Empresa': item.empresa
-            }));
-            exportExcel({ excelData, fileName: 'Relatorio_Total_acionamento' });
-        };*/
     return (
-        <>
-            <Modal
-                isOpen={show}
-                toggle={toggle}
-                backdrop="static"
-                keyboard={false}
-                className="modal-dialog modal-fullscreen modal-dialog-scrollable"
-            >
-                <ModalHeader style={{ backgroundColor: 'white' }}>Folha de Pagamento</ModalHeader>
-                <ModalBody style={{ backgroundColor: 'white' }}>
-                    {mensagem.length > 0 ? (
-                        <div className="alert alert-danger mt-2" role="alert">
-                            {mensagem}
-                        </div>
-                    ) : null}
-                    {loading ? (
-                        <Loader />
-                    ) : (
-                        <>
-                            <FormGroup>
-                                <div className="row g-3">
-                                    <div className="col-sm-2">
-                                        <Input
-                                            type="month"
-                                            onChange={(e) => setdatapagamento(e.target.value)}
-                                            value={datapagamento}
-                                        />
-                                    </div>
-                                    <div className="col-sm-1">
-                                        <Button color="primary" onClick={listafolhapagamento} >
-                                            Visualizar
-                                        </Button>
-                                    </div>
-                                    <div className="col-sm-2">
-                                        <Button color="primary" >
-                                            Nova Folha
-                                        </Button>
-                                    </div>
-                                    <div className="col-sm-3">
-                                        <Button color="primary" >
-                                            Fechar Folha
-                                        </Button>
-                                    </div>
-
-                                </div>
-                            </FormGroup>
-
-
-                            {/*   <Button color="link" onClick={gerarexcel}>
-                                Exportar Excel
-                            </Button> */}
-
-                            <Box sx={{ height: '100%', width: '100%' }}>
-                                <DataGrid
-                                    rows={folhapagamento}
-                                    columns={columns}
-                                    loading={loading}
-                                    pageSize={pageSize}
-                                    onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
-                                    disableSelectionOnClick
-                                    components={{
-                                        Pagination: CustomPagination,
-                                        LoadingOverlay: LinearProgress,
-                                        NoRowsOverlay: CustomNoRowsOverlay,
-                                    }}
-                                    localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
-                                />
-                            </Box>
-                        </>
-                    )}
-                </ModalBody>
-                <ModalFooter style={{ backgroundColor: 'white' }}>
-                    <Button color="secondary" onClick={toggle}>
-                        Fechar
-                    </Button>
-                </ModalFooter>
-            </Modal>
-        </>
+      <Pagination
+        color="primary"
+        count={pageCount}
+        page={page + 1}
+        onChange={(event, value) => apiRef.current.setPage(value - 1)}
+      />
     );
-};
+  }
 
-Multa.propTypes = {
-    show: PropTypes.bool.isRequired,
-    setshow: PropTypes.func.isRequired,
-};
+  useEffect(() => {
+    userpermission();
+    const fetchMultas = async () => {
+      await listamultas();
+    };
 
-export default Multa;
+    fetchMultas();
+  }, []);
+
+  return (
+    <>
+      <Modal
+        isOpen
+        keyboard={false}
+        className="modal-dialog modal-fullscreen modal-dialog-scrollable"
+      >
+        <ModalHeader>Multa</ModalHeader>
+        <ModalBody>
+          <div>
+            <ToastContainer
+              style={{ zIndex: 9999999 }}
+              position="top-right"
+              autoClose={5000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              containerStyle={{ zIndex: 99999 }}
+            />
+          </div>
+          <div>
+            {permission && (
+              <Card>
+                <CardBody className="bg-light">
+                  <CardTitle tag="h4" className="mb-0">
+                    Listagem de Multas
+                  </CardTitle>
+                </CardBody>
+                <CardBody style={{ backgroundColor: 'white' }}>
+                  {mensagem.length !== 0 ? (
+                    <div className="alert alert-danger mt-2" role="alert">
+                      {mensagem}
+                    </div>
+                  ) : null}
+                  <div className="row g-3">
+                    <div className="col-sm-6">
+                      <InputGroup>
+                        <Input
+                          type="text"
+                          placeholder="Pesquise por Nome"
+                          onChange={(e) => setpesqgeral(e.target.value)}
+                          value={pesqgeral}
+                        ></Input>
+                        <div className="col-sm-4">
+                          <Select
+                            isSearchable
+                            name="veiculo"
+                            options={statuslista}
+                            placeholder="Selecione"
+                            isLoading={loading}
+                            onChange={(e) => {
+                              setselectedoptiondebitado(e.value ?? '');
+                            }}
+                            value={statuslista.find((opt) => opt.value === selectedoptiondebitado)}
+                          />
+                        </div>
+                        <Button color="primary" onClick={() => listamultas()}>
+                          {' '}
+                          <SearchIcon />
+                        </Button>
+                        <Button color="primary" onClick={() => limparfiltro()}>
+                          {' '}
+                          <AutorenewIcon />
+                        </Button>
+                      </InputGroup>
+                    </div>
+
+                    <div className=" col-sm-6  d-flex flex-row-reverse">
+                      <Button
+                        color="primary"
+                        onClick={() => novocadastro()}
+                        disabled={modoVisualizador()}
+                      >
+                        Adicionar <Icon.Plus />
+                      </Button>
+                      {telacadastro ? (
+                        <>
+                          {' '}
+                          <Multasedicao
+                            show={telacadastro}
+                            setshow={settelacadastro}
+                            ididentificador={ididentificador}
+                            atualiza={listamultas}
+                            titulotopo={titulo}
+                          />{' '}
+                        </>
+                      ) : null}
+                      {telacadastroedicao ? (
+                        <>
+                          {' '}
+                          <Multasedicao
+                            show={telacadastroedicao}
+                            setshow={settelacadastroedicao}
+                            ididentificador={ididentificador}
+                            atualiza={listamultas}
+                            titulotopo={titulo}
+                          />{' '}
+                        </>
+                      ) : null}
+                      {telaexclusao ? (
+                        <>
+                          <Excluirregistro
+                            show={telaexclusao}
+                            setshow={settelaexclusao}
+                            ididentificador={ididentificador}
+                            quemchamou="MULTAS"
+                            atualiza={listamultas}
+                          />{' '}
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                  <br></br>
+                </CardBody>
+                <CardBody style={{ backgroundColor: 'white' }}>
+                  <Button color="link" onClick={() => gerarexcel()}>
+                    {' '}
+                    Exportar Excel
+                  </Button>
+                  {rowSelectionModel.length > 0 ? (
+                    <Button color="link" onClick={() => debitar()}>
+                      {' '}
+                      Multa debitada
+                    </Button>
+                  ) : null}
+                  <Box sx={{ height: multas.length > 0 ? '450px' : 500, width: '100%' }}>
+                    {' '}
+                    <DataGrid
+                      rows={multas}
+                      columns={columns}
+                      loading={loading}
+                      pageSize={pageSize}
+                      onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+                      disableSelectionOnClick
+                      checkboxSelection
+                      onRowSelectionModelChange={(newRowSelectionModel) => {
+                        setRowSelectionModel(newRowSelectionModel);
+                      }}
+                      experimentalFeatures={{ newEditingApi: true }}
+                      components={{
+                        NoRowsOverlay: CustomNoRowsOverlay,
+                        Pagination: CustomPagination,
+                        LoadingOverlay: LinearProgress,
+                      }}
+                    />
+                  </Box>
+                </CardBody>
+              </Card>
+            )}
+
+            {!permission && <Notpermission />}
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button color="secondary" onClick={toggleShow}>
+            Sair
+          </Button>
+        </ModalFooter>
+      </Modal>
+    </>
+  );
+}
+
+Multas.propTypes = {
+  setshow: PropTypes.func.isRequired,
+};

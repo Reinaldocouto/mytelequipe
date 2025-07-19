@@ -183,7 +183,7 @@ export default function Solicitacao() {
       field: 'descricao',
       headerName: 'Descrição',
       type: 'string',
-      width: 250,
+      width: 400,
       align: 'left',
       editable: false,
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
@@ -211,6 +211,16 @@ export default function Solicitacao() {
       width: 150,
       align: 'center',
       editable: false,
+    },
+    {
+      field: 'observacao',
+      headerName: 'Observação',
+      type: 'string',
+      width: 250,
+      align: 'left',
+      renderCell: (parametros) => (
+        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
+      ),
     },
   ];
 
@@ -267,6 +277,7 @@ export default function Solicitacao() {
         Unidade: item.unidade,
         'Quant. Solicitada': item.quantidade,
         'Quant. Estoque': item.estoque,
+        'Observação': item.observacao,
       };
     });
     exportExcel({ excelData, fileName: 'solicitacao-avulso' });
@@ -337,7 +348,7 @@ export default function Solicitacao() {
               </Button>
               <Box
                 sx={{
-                  height: solicitacao.length > 6 ? '100%' : 500,
+                  height: 500,
                   width: '100%',
                 }}
               >

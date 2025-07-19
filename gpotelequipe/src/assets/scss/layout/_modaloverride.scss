@@ -1,0 +1,14 @@
+
+.modal-dialog.solicitacao-dialog {
+  height: 65vh;
+  max-width: 80vw;
+  top: 5%;
+}
+
+.modal-dialog.solicitacao-dialog .modal-content {
+  height: 100%;        
+}
+
+.modal-dialog.solicitacao-dialog .modal-body {
+  overflow-y: auto;      // rolagem só dentro do body
+}

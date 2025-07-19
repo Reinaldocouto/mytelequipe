@@ -52,7 +52,7 @@ const TreinamentoHorizontal = () => {
               trainingsData[item.descricao][status] += 1;
             } else if (hoje > dataVencimento) {
               trainingsData[item.descricao].Vencido += 1;
-            } else if (diasParaVencimento <= 30) {
+            } else if (diasParaVencimento <= 60) {
               trainingsData[item.descricao].Renovar += 1;
             } else if (hoje >= dataEmissao && hoje <= dataVencimento) {
               trainingsData[item.descricao].Aprovado += 1;

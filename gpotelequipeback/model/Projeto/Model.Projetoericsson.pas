@@ -181,6 +181,8 @@ type
     function Editartarefa(out erro: string): Boolean;
     function criarsite(out erro: string): Boolean;
 
+    function rolloutericsson(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+
   end;
 
 implementation
@@ -2625,6 +2627,38 @@ begin
     end;
   end;
 
+end;
+
+function TProjetoericsson.rolloutericsson(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+begin
+  qry := nil;
+  try
+    if not Assigned(FConn) then
+      raise Exception.Create('Conexão não inicializada');
+
+    qry := TFDQuery.Create(nil);
+    qry.Connection := FConn;
+
+    with qry do
+    begin
+      SQL.Text := 'SELECT * FROM obraericsson';
+      Open;
+
+      if RecordCount = 0 then
+        erro := 'Nenhum registro ativo encontrado';
+    end;
+
+    Result := qry;
+  except
+    on ex: Exception do
+    begin
+      erro := 'Erro na consulta: ' + ex.Message;
+      FreeAndNil(qry);
+      Result := nil;
+    end;
+  end;
 end;
 
 end.

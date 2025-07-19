@@ -79,7 +79,6 @@ export default function Solicitacao() {
     try {
       setLoading(true);
       await api.get('v1/solicitacao/lista', { params }).then((response) => {
-        console.log('solicitação lista: ', response.data);
         setsolicitacao(response.data);
         setpesqgeral('');
         setmensagem('');
@@ -89,7 +88,8 @@ export default function Solicitacao() {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
 
   const atender = async (stat, qty, produto) => {
     try {
@@ -240,6 +240,28 @@ export default function Solicitacao() {
       align: 'center',
       editable: false,
     },
+    {
+      field: 'observacao',
+      headerName: 'Observação',
+      type: 'string',
+      width: 400,
+      align: 'left',
+      editable: false,
+      renderCell: (parametros) => (
+        <div
+          style={{
+            whiteSpace: 'pre-wrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+          }}
+        >
+          {parametros.value}
+        </div>
+      ),
+    },
   ];
 
   const lancaritens = async (idcompra, idprod, idcompraitem, qntd) => {
@@ -352,14 +374,38 @@ export default function Solicitacao() {
         Unidade: item.unidade,
         'Quant. Solicitada': item.quantidade,
         'Quant. Estoque': item.estoque,
+        Observação: item.observacao,
       };
     });
     exportExcel({ excelData, fileName: 'solicitacao' });
   };
 
+  const gerarexcelRelatorioCustoCompleto = async () => {
+    await api
+      .post('v1/controleestoque/relatorioCustoSolicitacao', {
+        idcliente: localStorage.getItem('sessionCodidcliente'),
+        idusuario: localStorage.getItem('sessionId'),
+        idloja: localStorage.getItem('sessionloja'),
+      })
+      .then((response) => {
+        const totalData = response.data;
+        const excelData = totalData.map((item) => {
+          return {
+            'Obra/OS': item.obra,
+            Projeto: item.projeto,
+            Entrada: item.entrada,
+            Saída: item.saida,
+            'Custo Total': item.valorTotal,
+          };
+        });
+        exportExcel({ excelData, fileName: 'relatorio_custo_completo' });
+      });
+  };
   useEffect(() => {
+    setstatussolicitacao('AGUARDANDO');
     listasolicitacao();
     userpermission();
+
   }, []);
 
   return (
@@ -397,7 +443,7 @@ export default function Solicitacao() {
                   <InputGroup>
                     <Input
                       type="text"
-                      placeholder="Pesquise por Código ou Produto"
+                      placeholder="Pesquise por Produto"
                       onChange={(e) => setpesqgeral(e.target.value)}
                       value={pesqgeral}
                     ></Input>
@@ -408,10 +454,10 @@ export default function Solicitacao() {
                         value={statussolicitacao}
                         className="comprimento-tamanho"
                       >
-                        <option value="">TODOS</option>
                         <option value="AGUARDANDO">AGUARDANDO</option>
                         <option value="EM PROCESSO">EM PROCESSO</option>
                         <option value="ATENDIDO">ATENDIDO</option>
+                        <option value="TODOS">TODOS</option>
                       </Input>
                     </div>
                     <Button color="primary" onClick={() => listasolicitacao()}>
@@ -440,10 +486,14 @@ export default function Solicitacao() {
               <Button color="link" onClick={() => gerarexcel()}>
                 Exportar Excel
               </Button>
+              <Button color="link" onClick={() => gerarexcelRelatorioCustoCompleto()}>
+                Exportar Excel Relatório Custo Completo
+              </Button>
               <Box
                 sx={{
-                  height: solicitacao.length > 6 ? '100%' : 500,
+                  height: 600,
                   width: '100%',
+                  overflowX: 'auto',
                 }}
               >
                 <DataGrid

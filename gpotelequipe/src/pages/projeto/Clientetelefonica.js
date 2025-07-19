@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -11,8 +11,8 @@ import {
   FormControl,
   Checkbox,
   ListItemText,
-  //  Autocomplete, 
-  //  TextField,
+  //  Autocomplete,
+  //  TextField
 } from '@mui/material';
 //import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 //import CheckBoxIcon from '@mui/icons-material/CheckBox';
@@ -26,10 +26,8 @@ import {
   Legend,
   ResponsiveContainer,
   LabelList,
-} from "recharts";
+} from 'recharts';
 import { Button, CardBody } from 'reactstrap';
-
-
 //import IndicadorAlerta from '../../components/dashboard/Indicadores/AlertaIndicador';
 import BreadCrumbs from '../../layouts/breadcrumbs/BreadCrumbs';
 import Ericssoncontrolelpu from '../../components/formulario/projeto/Ericssoncontrolelpu';
@@ -47,6 +45,8 @@ import Telefonicaconsolidado from '../../components/formulario/projeto/Telefonic
 import Telefonicaacionamento from '../../components/formulario/projeto/Telefonicaacionamento';
 import Relatoriototalacionamentotelefonica from '../../components/formulario/relatorio/Relatoriototalacionamentotelefonica';
 import api from '../../services/api';
+import Relatoriofechamentohistorico from '../../components/formulario/relatorio/Relatoriofechamentohistorico';
+import Relatoriodespesastelefonica from '../../components/formulario/relatorio/Relatoriodespesastelefonica';
 
 export default function Clientetelefonica() {
   const [telaacionamento, settelaacionamento] = useState('');
@@ -58,19 +58,22 @@ export default function Clientetelefonica() {
   const [telaimplantacao, settelaimplantacao] = useState('');
   const [telavistoria, settelavistoria] = useState('');
   const [telafechamento, settelafechamento] = useState('');
+  const [telarelatorioDespesas, settelarelatorioDespesas] = useState('');
+
   const [telarelatorio, settelarelatorio] = useState('');
   const [telarelatoriodespesa, settelarelatoriodespesa] = useState('');
   const [telarelatoriofechamento, settelarelatoriofechamento] = useState('');
+  const [telarelatoriohistoricofechamento, settelarelatoriohistoricofechamento] = useState('');
   const [teladocumento, setteladocumento] = useState('');
   const [telatotalacionamento, settelatotalacionamento] = useState('');
-  const [year, setYear] = useState("2025");
-  const [period, setPeriod] = useState("Mês");
-  const [filter0, setFilter0] = useState(["Todos"]);
-  const [filter1, setFilter1] = useState("Todos");
-  const [filter2, setFilter2] = useState(["Todos"]);
-  const [filter3, setFilter3] = useState(["Todos"]);
-  const [filter4, setFilter4] = useState(["Todos"]);
-  const [filter5, setFilter5] = useState(["Todos"]);
+  const [year, setYear] = useState('2025');
+  const [period, setPeriod] = useState('Mês');
+  const [filter0, setFilter0] = useState(['Todos']);
+  const [filter1, setFilter1] = useState('Todos');
+  const [filter2, setFilter2] = useState(['Todos']);
+  const [filter3, setFilter3] = useState(['Todos']);
+  const [filter4, setFilter4] = useState(['Todos']);
+  // const [filter5, setFilter5] = useState(['Todos']);
   const permissionstorage = JSON.parse(localStorage.getItem('permission')) || {};
   const [optionsregional, setoptionsregional] = useState([]);
   const [optionsidpmts, setoptionsidpmts] = useState([]);
@@ -93,18 +96,29 @@ export default function Clientetelefonica() {
   const [initialtunningplan, setinitialtunningplan] = useState('');
   const [initialtunningreal, setinitialtunningreal] = useState('');
   const [graficopormes, setgraficopormes] = useState([]);
-
-
-  const optionsmos = ["CONCLUIDO", "PLANEJADO", 'PLANEJAR'];
-  const optionsinstalacao = ["ATRASADO", "CONCLUÍDO", "PLANEJADO", "PLANEJAR"];
-  const optionsintegracao = ["ATRASADO", "CONCLUÍDO", "PLANEJADO", "PLANEJAR", "VERIFICAR"];
-
+  const [dt, setdt] = useState([]);
+  const [outras, setoutras] = useState([]);
+  const [instalacao, setinstalacao] = useState([]);
+  const [vistoria, setvistoria] = useState([]);
+  const [infra, setinfra] = useState([]);
+  const [totalPMTS, settotalipmts] = useState([]);
+  const [marcadoresEmAndamento, setMarcadoresEmAndamento] = useState({
+    dtAndamento: 0,
+    entregaAndamento: 0,
+    initialtunningAndamento: 0,
+    instalacaoAndamento: 0,
+    integracaoAndamento: 1,
+    vistoriaAndamento: 0,
+  });
+  // const optionsmos = ['CONCLUIDO', 'PLANEJADO', 'PLANEJAR'];
+  // const optionsinstalacao = ['ATRASADO', 'CONCLUÍDO', 'PLANEJADO', 'PLANEJAR'];
+  // const optionsintegracao = ['ATRASADO', 'CONCLUÍDO', 'PLANEJADO', 'PLANEJAR', 'VERIFICAR'];
 
   // const icon = <CheckBoxOutlineBlankIcon fontSize="small" />;
   // const checkedIcon = <CheckBoxIcon fontSize="small" />;
-
-
-
+  function relatorioDespesas() {
+    settelarelatorioDespesas(true);
+  }
   const emailadicional = async () => {
     try {
       const response = await api.get('v1/projetotelefonica/regionaltelefonica');
@@ -123,14 +137,13 @@ export default function Clientetelefonica() {
         params: {
           regional: Array.isArray(filter0) ? filter0.join(',') : '',
           idpmts: Array.isArray(filter2) ? filter2.join(',') : '',
-        }
+        },
       });
       setgraficopormes(response.data);
     } catch (err) {
       console.error(err.message);
     }
   };
-
 
   const listaidpmts = async () => {
     try {
@@ -140,7 +153,6 @@ export default function Clientetelefonica() {
       console.error(err.message);
     }
   };
-
 
   /* function SelectPMTS() {
      return (
@@ -185,16 +197,22 @@ export default function Clientetelefonica() {
      );
    }  */
 
-
   const listamarcadores = async () => {
     try {
       const response = await api.get('v1/projetotelefonica/marcadorestelefonica', {
         params: {
           regional: Array.isArray(filter0) ? filter0.join(',') : '',
           idpmts: Array.isArray(filter2) ? filter2.join(',') : '',
-        }
+        },
       });
-
+      setMarcadoresEmAndamento({
+        dtAndamento: response.data.dt_andamento || 0,
+        entregaAndamento: response.data.entrega_andamento || 0,
+        initialtunningAndamento: response.data.initialtunning_andamento || 0,
+        instalacaoAndamento: response.data.instalacao_andamento || 0,
+        integracaoAndamento: response.data.integracao_andamento || 0,
+        vistoriaAndamento: response.data.vistoria_andamento || 0,
+      });
       setvistoriaplan(response.data.vistoriaplan);
       setvistoriareal(response.data.vistoriareal);
       setentregaplan(response.data.entregaplan);
@@ -212,13 +230,39 @@ export default function Clientetelefonica() {
     }
   };
 
+  const listadashboardtelefonicaposicionamentofinanceiro = async () => {
+    try {
+      const response = await api.get('v1/projetotelefonica/dashboardtelefinicatiporatividades', {
+        params: {
+          regional: Array.isArray(filter0) ? filter0.join(',') : '',
+          idpmts: Array.isArray(filter2) ? filter2.join(',') : '',
+        },
+      });
+
+      const resultdt = response.data.find((item) => item.TipoAtividade === 'DT');
+      const resultinstalacao = response.data.find((item) => item.TipoAtividade === 'Instalação');
+      const resultoutros = response.data.find((item) => item.TipoAtividade === 'Outros');
+      const resultvistoria = response.data.find((item) => item.TipoAtividade === 'Vistoria');
+      const resultinfra = response.data.find((item) => item.TipoAtividade === 'Infra');
+
+      setvistoria(resultvistoria);
+      setdt(resultdt);
+      setoutras(resultoutros);
+      setinstalacao(resultinstalacao);
+      setinfra(resultinfra);
+      settotalipmts(resultdt.totalPMTS);
+    } catch (err) {
+      console.error(err.message);
+    }
+  };
+
   const listamarcadoresatrasado = async () => {
     try {
       const response = await api.get('v1/projetotelefonica/marcadorestelefonicaatrasado', {
         params: {
           regional: Array.isArray(filter0) ? filter0.join(',') : '',
           idpmts: Array.isArray(filter2) ? filter2.join(',') : '',
-        }
+        },
       });
       setvistoriaatrasado(response.data.vistoriaatrasado);
       setentregaatrasado(response.data.entregaatrasado);
@@ -231,133 +275,115 @@ export default function Clientetelefonica() {
     }
   };
 
-
   const handleFilter0Change = (event) => {
     const {
       target: { value },
     } = event;
 
-    let selectedValues = typeof value === "string" ? value.split(",") : value;
+    let selectedValues = typeof value === 'string' ? value.split(',') : value;
 
     // Se "Todos" estava marcado anteriormente, e clicaram em outras opções, remove "Todos"
-    if (filter0.includes("Todos")) {
-      selectedValues = selectedValues.filter((v) => v !== "Todos");
+    if (filter0.includes('Todos')) {
+      selectedValues = selectedValues.filter((v) => v !== 'Todos');
     }
 
-
     // Se clicou em "Todos"
-    if (selectedValues.includes("Todos")) {
+    if (selectedValues.includes('Todos')) {
       // Se estava desmarcado e agora marcou "Todos", zera os outros e mantém só "Todos"
-      setFilter0(["Todos"]);
+      setFilter0(['Todos']);
       return;
     }
 
-
     setFilter0(selectedValues);
   };
-
 
   const handleFilter2Change = (event) => {
     const {
       target: { value },
     } = event;
 
-    let selectedValues = typeof value === "string" ? value.split(",") : value;
+    let selectedValues = typeof value === 'string' ? value.split(',') : value;
 
     // Se "Todos" estava marcado anteriormente, e clicaram em outras opções, remove "Todos"
-    if (filter2.includes("Todos")) {
-      selectedValues = selectedValues.filter((v) => v !== "Todos");
+    if (filter2.includes('Todos')) {
+      selectedValues = selectedValues.filter((v) => v !== 'Todos');
     }
-
 
     // Se clicou em "Todos"
-    if (selectedValues.includes("Todos")) {
+    if (selectedValues.includes('Todos')) {
       // Se estava desmarcado e agora marcou "Todos", zera os outros e mantém só "Todos"
-      setFilter2(["Todos"]);
+      setFilter2(['Todos']);
       return;
     }
-
 
     setFilter2(selectedValues);
   };
 
+  // const handleFilter3Change = (event) => {
+  //   const {
+  //     target: { value },
+  //   } = event;
 
+  //   let selectedValues = typeof value === 'string' ? value.split(',') : value;
 
+  //   // Se "Todos" estava marcado anteriormente, e clicaram em outras opções, remove "Todos"
+  //   if (filter3.includes('Todos')) {
+  //     selectedValues = selectedValues.filter((v) => v !== 'Todos');
+  //   }
 
+  //   // Se clicou em "Todos"
+  //   if (selectedValues.includes('Todos')) {
+  //     // Se estava desmarcado e agora marcou "Todos", zera os outros e mantém só "Todos"
+  //     setFilter3(['Todos']);
+  //     return;
+  //   }
 
-  const handleFilter3Change = (event) => {
-    const {
-      target: { value },
-    } = event;
+  //   setFilter3(selectedValues);
+  // };
 
-    let selectedValues = typeof value === "string" ? value.split(",") : value;
+  // const handleFilter4Change = (event) => {
+  //   const {
+  //     target: { value },
+  //   } = event;
 
-    // Se "Todos" estava marcado anteriormente, e clicaram em outras opções, remove "Todos"
-    if (filter3.includes("Todos")) {
-      selectedValues = selectedValues.filter((v) => v !== "Todos");
-    }
+  //   let selectedValues = typeof value === 'string' ? value.split(',') : value;
 
+  //   // Se "Todos" estava marcado anteriormente, e clicaram em outras opções, remove "Todos"
+  //   if (filter4.includes('Todos')) {
+  //     selectedValues = selectedValues.filter((v) => v !== 'Todos');
+  //   }
 
-    // Se clicou em "Todos"
-    if (selectedValues.includes("Todos")) {
-      // Se estava desmarcado e agora marcou "Todos", zera os outros e mantém só "Todos"
-      setFilter3(["Todos"]);
-      return;
-    }
+  //   // Se clicou em "Todos"
+  //   if (selectedValues.includes('Todos')) {
+  //     // Se estava desmarcado e agora marcou "Todos", zera os outros e mantém só "Todos"
+  //     setFilter4(['Todos']);
+  //     return;
+  //   }
 
+  //   setFilter4(selectedValues);
+  // };
 
-    setFilter3(selectedValues);
-  };
+  // const handleFilter5Change = (event) => {
+  //   const {
+  //     target: { value },
+  //   } = event;
 
+  //   let selectedValues = typeof value === 'string' ? value.split(',') : value;
 
-  const handleFilter4Change = (event) => {
-    const {
-      target: { value },
-    } = event;
+  //   // Se "Todos" estava marcado anteriormente, e clicaram em outras opções, remove "Todos"
+  //   if (filter5.includes('Todos')) {
+  //     selectedValues = selectedValues.filter((v) => v !== 'Todos');
+  //   }
 
-    let selectedValues = typeof value === "string" ? value.split(",") : value;
+  //   // Se clicou em "Todos"
+  //   if (selectedValues.includes('Todos')) {
+  //     // Se estava desmarcado e agora marcou "Todos", zera os outros e mantém só "Todos"
+  //     setFilter5(['Todos']);
+  //     return;
+  //   }
 
-    // Se "Todos" estava marcado anteriormente, e clicaram em outras opções, remove "Todos"
-    if (filter4.includes("Todos")) {
-      selectedValues = selectedValues.filter((v) => v !== "Todos");
-    }
-
-
-    // Se clicou em "Todos"
-    if (selectedValues.includes("Todos")) {
-      // Se estava desmarcado e agora marcou "Todos", zera os outros e mantém só "Todos"
-      setFilter4(["Todos"]);
-      return;
-    }
-
-
-    setFilter4(selectedValues);
-  };
-
-  const handleFilter5Change = (event) => {
-    const {
-      target: { value },
-    } = event;
-
-    let selectedValues = typeof value === "string" ? value.split(",") : value;
-
-    // Se "Todos" estava marcado anteriormente, e clicaram em outras opções, remove "Todos"
-    if (filter5.includes("Todos")) {
-      selectedValues = selectedValues.filter((v) => v !== "Todos");
-    }
-
-
-    // Se clicou em "Todos"
-    if (selectedValues.includes("Todos")) {
-      // Se estava desmarcado e agora marcou "Todos", zera os outros e mantém só "Todos"
-      setFilter5(["Todos"]);
-      return;
-    }
-
-
-    setFilter5(selectedValues);
-  };
-
+  //   setFilter5(selectedValues);
+  // };
 
   function acionamento() {
     settelaacionamento(true);
@@ -391,7 +417,7 @@ export default function Clientetelefonica() {
     settelaimplantacao(true);
   }
 
-  function vistoria() {
+  function handletelavistoria() {
     settelavistoria(true);
   }
 
@@ -407,57 +433,98 @@ export default function Clientetelefonica() {
     acionamento();
     acesso();
     implantacao();
-    vistoria();
+    handletelavistoria();
   }
 
-
   const allData = {
-    Dia: [
-      { name: "01", instalacao: 0, integracao: 0, mos: 0 },
-
-    ],
+    Dia: [{ name: '01', instalacao: 0, integracao: 0, mos: 0 }],
     Mês: graficopormes,
-    Ano: [
-      { name: "2025", instalacao: 0, integracao: 0, mos: 0 },
-    ],
+    Ano: [{ name: '2025', instalacao: 0, integracao: 0, mos: 0 }],
   };
 
   const dataChart = allData[period];
-
   const limparFiltros = () => {
-    setYear("2025");
-    setFilter1("Todos");
-    setFilter2("Todos");
-    setFilter3("Todos");
-    setFilter4("Todos");
+    setYear('2025');
+    setFilter1('Todos');
+    setFilter2('Todos');
+    setFilter3('Todos');
+    setFilter4('Todos');
   };
 
-
   const allCards = [
-    ["Vistoria Plan", vistoriaplan],
-    ["MOS Plan", entregaplan],
-    ["Instalação Plan", fiminstalacaoplan],
-    ["Integração Plan", integracaoplan],
-    ["Initial Tunning Plan", initialtunningplan],
-    ["DT Plan", dtplan],
+    ['ID PMTS', totalPMTS],
+    // TII Emitidas
+    ['Vistoria - TII Emitidas', vistoria?.TII_Emitidas || 142],
+    ['Instalação - TII Emitidas', instalacao?.TII_Emitidas || 0],
+    ['DT - TII Emitidas', dt?.TII_Emitidas || 0],
+    ['Infra - TII Emitidas', infra?.TII_Emitidas || 0],
+    ['Outros - TII Emitidas', outras?.TII_Emitidas || 0],
 
-    ["Vistoria Concluído", vistoriareal],
-    ["MOS Concluído", entregareal],
-    ["Instalação Concluído", fiminstalacaoreal],
-    ["Integração Concluído", integracaoreal],
-    ["Initial Tunning Concluído", initialtunningreal],
-    ["DT Concluído", dtreal],
+    ['', ''], // Espaçador
 
-    ["Vistoria Atrasada", vistoriaatrasado],
-    ["MOS Atrasada", entregaatrasado],
-    ["Instalação Atrasada", instalacaoatrasado],
-    ["Integração Atrasada", integracaoatrasado],
-    ["Initial Tunning Atrasado", initialtunningatrasado],
-    ["DT Atrasada", dtatrasado],
+    // TIV Emitidas
+    ['Vistoria - TIV Emitidas', vistoria?.TIV_Emitidas || 0],
+    ['Instalação - TIV Emitidas', instalacao?.TIV_Emitidas || 0],
+    ['DT - TIV Emitidas', dt?.TIV_Emitidas || 0],
+    ['Infra - TIV Emitidas', infra?.TIV_Emitidas || 0],
+    ['Outros - TIV Emitidas', outras?.TIV_Emitidas || 0],
+
+    ['', ''], // Espaçador
+
+    // PO Preenchido (ajustado para manter padrão)
+    ['Vistoria - PO Preenchido', vistoria?.PO_Preenchido || 124],
+    ['Instalação - PO Preenchido', instalacao?.PO_Preenchido || 0],
+    ['DT - PO Preenchido', dt?.PO_Preenchido || 0],
+    ['Infra - PO Preenchido', infra?.PO_Preenchido || 0],
+    ['Outros - PO Preenchido', outras?.PO_Preenchido || 0],
+
+    ['', ''], // Espaçador
+
+    // Carta TAF Emitida
+    ['Vistoria - Carta TAF Emitida', vistoria?.Carta_TAF_Emitida || 0],
+    ['Instalação - Carta TAF Emitida', instalacao?.Carta_TAF_Emitida || 0],
+    ['DT - Carta TAF Emitida', dt?.Carta_TAF_Emitida || 0],
+    ['Infra - Carta TAF Emitida', infra?.Carta_TAF_Emitida || 0],
+    ['Outros - Carta TAF Emitida', outras?.Carta_TAF_Emitida || 0],
+    [
+      // ['Vistoria - Total Itens', vistoria?.TotalItens || 303],
+      // ['Instalação - Total Itens', instalacao?.TotalItens || 0],
+      // ['DT - Total Itens', dt?.TotalItens || 0],
+      // ['Infra - Total Itens', infra?.TotalItens || 0],
+      // ['Outros - Total Itens', outras?.TotalItens || 0],
+
+      'Vistoria Plan',
+      vistoriaplan,
+    ],
+    ['MOS Plan', entregaplan],
+    ['Instalação Plan', fiminstalacaoplan],
+    ['Integração Plan', integracaoplan],
+    ['Initial Tunning Plan', initialtunningplan],
+    ['DT Plan', dtplan],
+
+    ['Vistoria Concluído', vistoriareal],
+    ['MOS Concluído', entregareal],
+    ['Instalação Concluído', fiminstalacaoreal],
+    ['Integração Concluído', integracaoreal],
+    ['Initial Tunning Concluído', initialtunningreal],
+    ['DT Concluído', dtreal],
+    ['Vistoria Em Andamento', marcadoresEmAndamento.vistoriaAndamento],
+    ['MOS Em Andamento', marcadoresEmAndamento.entregaAndamento],
+    ['Instalação Em Andamento', marcadoresEmAndamento.instalacaoAndamento],
+    ['Integração Em Andamento', marcadoresEmAndamento.integracaoAndamento],
+    ['Initial Tunning Em Andamento', marcadoresEmAndamento.initialtunningAndamento],
+    ['DT Em Andamento', marcadoresEmAndamento.dtAndamento],
+    ['Vistoria Atrasada', vistoriaatrasado],
+    ['MOS Atrasada', entregaatrasado],
+    ['Instalação Atrasada', instalacaoatrasado],
+    ['Integração Atrasada', integracaoatrasado],
+    ['Initial Tunning Atrasado', initialtunningatrasado],
+    ['DT Atrasada', dtatrasado],
   ];
 
-  const firstGroup = allCards.slice(0, 12);
-  const lastGroup = allCards.slice(12);
+  const firstGroup = allCards.slice(0, 24);
+  const middleGroup = allCards.slice(24, 42);
+  const lastGroup = allCards.slice(42, 52);
 
   const iniciatabelas = () => {
     listamarcadores();
@@ -465,27 +532,46 @@ export default function Clientetelefonica() {
     filtrograficopormes();
     listaidpmts();
     emailadicional();
+    listadashboardtelefonicaposicionamentofinanceiro();
   };
   const iniciatabelas2 = () => {
     listamarcadores();
+    listadashboardtelefonicaposicionamentofinanceiro();
     listamarcadoresatrasado();
     console.log('filter0', filter0);
-  }
-  useEffect(() => { iniciatabelas2() }, [year, filter0, filter1, filter2, filter3, filter4, filter5]);
+  };
+  useEffect(() => {
+    iniciatabelas2();
+    //filter5
+  }, [year, filter0, filter1, filter2, filter3, filter4]);
 
   useEffect(() => {
     iniciatabelas();
   }, []);
+
+  const handlePrevisaoClick = () => {
+    settelarelatoriofechamento(true);
+  };
+
+  const handlehistoricoClick = () => {
+    settelarelatoriohistoricofechamento(true);
+  };
+
   return (
     <div className="col-sm-12">
-
-
       {telaacionamento ? (
         <>
           <Telefonicaacionamento show={telaacionamento} setshow={settelaacionamento} />
         </>
       ) : null}
-
+      {telarelatorioDespesas ? (
+        <>
+          <Relatoriodespesastelefonica
+            show={telarelatorioDespesas}
+            setshow={settelarelatorioDespesas}
+          />
+        </>
+      ) : null}
       {telalpu ? (
         <>
           <Ericssoncontrolelpu show={telalpu} setshow={settelalpu} />
@@ -550,14 +636,16 @@ export default function Clientetelefonica() {
         </>
       ) : null}
 
-      {telarelatoriofechamento ? (
-        <>
-          <Relatoriofechamento
-            show={telarelatoriofechamento}
-            setshow={settelarelatoriofechamento}
-          />
-        </>
-      ) : null}
+      {telarelatoriofechamento && (
+        <Relatoriofechamento show={telarelatoriofechamento} setshow={settelarelatoriofechamento} />
+      )}
+
+      {telarelatoriohistoricofechamento && (
+        <Relatoriofechamentohistorico
+          show={telarelatoriohistoricofechamento}
+          setshow={settelarelatoriohistoricofechamento}
+        />
+      )}
 
       {telatotalacionamento ? (
         <>
@@ -579,9 +667,11 @@ export default function Clientetelefonica() {
 
             {/* Filtros */}
             <Box display="flex" gap={2} flexWrap="wrap" mb={3}>
-              <Button variant="contained" onClick={limparFiltros}>Limpar Filtros</Button>
+              <Button variant="contained" onClick={limparFiltros}>
+                Limpar Filtros
+              </Button>
 
-              <FormControl size="small">
+              {/* <FormControl size="small">
                 <InputLabel id="ano-label">Ano</InputLabel>
                 <Select
                   labelId="ano-label"
@@ -592,7 +682,7 @@ export default function Clientetelefonica() {
                   <MenuItem value="2025">2025</MenuItem>
                   <MenuItem value="2024">2024</MenuItem>
                 </Select>
-              </FormControl>
+              </FormControl> */}
 
               <FormControl size="small">
                 <InputLabel id="regional">Regional</InputLabel>
@@ -604,14 +694,14 @@ export default function Clientetelefonica() {
                   label="Regional"
                   size="small"
                   renderValue={(selected) => {
-                    if (selected.includes("Todos")) return "Todos";
+                    if (selected.includes('Todos')) return 'Todos';
                     if (selected.length === 1) return selected;
                     return `${selected.length} selecionado(s)`;
                   }}
                   sx={{ width: 100 }}
                 >
                   <MenuItem value="Todos">
-                    <Checkbox checked={filter0.includes("Todos")} />
+                    <Checkbox checked={filter0.includes('Todos')} />
                     <ListItemText primary="Todos" />
                   </MenuItem>
                   {optionsregional.map((option) => (
@@ -623,21 +713,20 @@ export default function Clientetelefonica() {
                 </Select>
               </FormControl>
 
-
-
-
-
-              <FormControl size="small">
+              {/* <FormControl size="small">
                 <InputLabel id="precisorevisitar">Revisitar?</InputLabel>
                 <Select
                   labelId="precisorevisitar"
-                  value={filter1} onChange={(e) => setFilter1(e.target.value)} size="small" label="Revisitar?">
+                  value={filter1}
+                  onChange={(e) => setFilter1(e.target.value)}
+                  size="small"
+                  label="Revisitar?"
+                >
                   <MenuItem value="Todos">Todos</MenuItem>
                   <MenuItem value="Sim">Sim</MenuItem>
                   <MenuItem value="Não">Não</MenuItem>
                 </Select>
-              </FormControl>
-
+              </FormControl> */}
 
               <FormControl size="small">
                 <InputLabel id="idpmts">ID PMTS</InputLabel>
@@ -649,14 +738,14 @@ export default function Clientetelefonica() {
                   label="ID PMTS"
                   size="small"
                   renderValue={(selected) => {
-                    if (selected.includes("Todos")) return "Todos";
+                    if (selected.includes('Todos')) return 'Todos';
                     if (selected.length === 1) return selected;
                     return `${selected.length} selecionado(s)`;
                   }}
                   sx={{ width: 170 }}
                 >
                   <MenuItem value="Todos">
-                    <Checkbox checked={filter2.includes("Todos")} />
+                    <Checkbox checked={filter2.includes('Todos')} />
                     <ListItemText primary="Todos" />
                   </MenuItem>
                   {optionsidpmts.map((option) => (
@@ -668,7 +757,6 @@ export default function Clientetelefonica() {
                 </Select>
               </FormControl>
 
-
               {/*
               <SelectPMTS
                 optionsidpmts={optionsidpmts}
@@ -677,10 +765,7 @@ export default function Clientetelefonica() {
               />
               */}
 
-
-
-
-              <FormControl size="small">
+              {/* <FormControl size="small">
                 <InputLabel id="mos">MOS</InputLabel>
                 <Select
                   labelId="mos"
@@ -690,14 +775,14 @@ export default function Clientetelefonica() {
                   label="MOS"
                   size="small"
                   renderValue={(selected) => {
-                    if (selected.includes("Todos")) return "Todos";
+                    if (selected.includes('Todos')) return 'Todos';
                     if (selected.length === 1) return selected;
                     return `${selected.length} selecionado(s)`;
                   }}
                   sx={{ width: 170 }}
                 >
                   <MenuItem value="Todos">
-                    <Checkbox checked={filter3.includes("Todos")} />
+                    <Checkbox checked={filter3.includes('Todos')} />
                     <ListItemText primary="Todos" />
                   </MenuItem>
                   {optionsmos.map((option) => (
@@ -707,13 +792,8 @@ export default function Clientetelefonica() {
                     </MenuItem>
                   ))}
                 </Select>
-              </FormControl>
-
-
-
-
-
-
+              </FormControl> */}
+              {/* 
               <FormControl size="small">
                 <InputLabel id="instalacao">Instalação</InputLabel>
                 <Select
@@ -724,14 +804,14 @@ export default function Clientetelefonica() {
                   label="instalacao"
                   size="small"
                   renderValue={(selected) => {
-                    if (selected.includes("Todos")) return "Todos";
+                    if (selected.includes('Todos')) return 'Todos';
                     if (selected.length === 1) return selected;
                     return `${selected.length} selecionado(s)`;
                   }}
                   sx={{ width: 170 }}
                 >
                   <MenuItem value="Todos">
-                    <Checkbox checked={filter4.includes("Todos")} />
+                    <Checkbox checked={filter4.includes('Todos')} />
                     <ListItemText primary="Todos" />
                   </MenuItem>
                   {optionsinstalacao.map((option) => (
@@ -741,9 +821,9 @@ export default function Clientetelefonica() {
                     </MenuItem>
                   ))}
                 </Select>
-              </FormControl>
+              </FormControl> */}
 
-              <FormControl size="small">
+              {/* <FormControl size="small">
                 <InputLabel id="integracao">Integração</InputLabel>
                 <Select
                   labelId="integracao"
@@ -753,14 +833,14 @@ export default function Clientetelefonica() {
                   label="integracao"
                   size="small"
                   renderValue={(selected) => {
-                    if (selected.includes("Todos")) return "Todos";
+                    if (selected.includes('Todos')) return 'Todos';
                     if (selected.length === 1) return selected;
                     return `${selected.length} selecionado(s)`;
                   }}
                   sx={{ width: 170 }}
                 >
                   <MenuItem value="Todos">
-                    <Checkbox checked={filter5.includes("Todos")} />
+                    <Checkbox checked={filter5.includes('Todos')} />
                     <ListItemText primary="Todos" />
                   </MenuItem>
                   {optionsintegracao.map((option) => (
@@ -770,18 +850,14 @@ export default function Clientetelefonica() {
                     </MenuItem>
                   ))}
                 </Select>
-              </FormControl>
-
+              </FormControl> */}
             </Box>
-
-
-
             <Grid container spacing={2}>
               {firstGroup.map(([label, value]) => (
                 <Grid item xs={12} sm={6} md={2} key={label}>
                   <Card
                     sx={{
-                      backgroundColor: label.includes("Atrasada") ? "#fff5f5" : "#f5f5f5",
+                      backgroundColor: label.includes('Atrasada') ? '#fff5f5' : '#f5f5f5',
                       height: '100%',
                     }}
                   >
@@ -790,8 +866,37 @@ export default function Clientetelefonica() {
                         variant="h4"
                         align="center"
                         sx={{
-                          color: label.includes("Concluído") ? 'green' : '#001f3f',
-                          wordWrap: 'break-word'
+                          color: label.includes('Concluído') ? 'green' : '#001f3f',
+                          wordWrap: 'break-word',
+                        }}
+                      >
+                        {value}
+                      </Typography>
+                      <Typography variant="body2" align="center">
+                        {label}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+            <hr></hr>
+            <Grid container spacing={2} mt={1}>
+              {middleGroup.map(([label, value]) => (
+                <Grid item xs={12} sm={6} md={2} key={label}>
+                  <Card
+                    sx={{
+                      backgroundColor: label.includes('Atrasada') ? '#fff5f5' : '#f5f5f5',
+                      height: '100%',
+                    }}
+                  >
+                    <CardContent>
+                      <Typography
+                        variant="h4"
+                        align="center"
+                        sx={{
+                          color: label.includes('Concluído') ? 'green' : '#001f3f',
+                          wordWrap: 'break-word',
                         }}
                       >
                         {value}
@@ -808,7 +913,7 @@ export default function Clientetelefonica() {
             <Grid container spacing={2} mt={1}>
               {lastGroup.map(([label, value]) => (
                 <Grid item xs={12} sm={6} md={2} key={label}>
-                  <Card sx={{ backgroundColor: "#fff5f5", height: '100%' }}>
+                  <Card sx={{ backgroundColor: '#fff5f5', height: '100%' }}>
                     <CardContent>
                       <Typography variant="h4" align="center" sx={{ color: 'red' }}>
                         {value}
@@ -822,14 +927,13 @@ export default function Clientetelefonica() {
               ))}
             </Grid>
 
-
             {/* Botões de período */}
             <Box mt={4} display="flex" gap={2} justifyContent="center">
-              {["Dia", "Mês", "Ano"].map((p) => (
+              {['Dia', 'Mês', 'Ano'].map((p) => (
                 <Button
                   key={p}
-                  variant={period === p ? "contained" : "outlined"}
-                  color={period === p ? "secondary" : "primary"}
+                  variant={period === p ? 'contained' : 'outlined'}
+                  color={period === p ? 'secondary' : 'primary'}
                   onClick={() => setPeriod(p)}
                   sx={{ minWidth: 100 }}
                 >
@@ -857,8 +961,6 @@ export default function Clientetelefonica() {
               </Box>
             </Box>  */}
 
-
-
             <Box mt={4}>
               <Typography variant="h6">Conclusões por período</Typography>
               <Box mt={2} height={300}>
@@ -871,26 +973,48 @@ export default function Clientetelefonica() {
                     <Legend />
 
                     <Bar dataKey="mos" stackId="a" fill="#ffc658" name="Total MOS Concluído">
-                      <LabelList dataKey="mos" position="center" fill="white" fontWeight="bold" fontSize={12} />
+                      <LabelList
+                        dataKey="mos"
+                        position="center"
+                        fill="white"
+                        fontWeight="bold"
+                        fontSize={12}
+                      />
                     </Bar>
 
-                    <Bar dataKey="instalacao" stackId="a" fill="#8884d8" name="Total Instalação Concluído">
-                      <LabelList dataKey="instalacao" position="center" fill="white" fontWeight="bold" fontSize={12} />
+                    <Bar
+                      dataKey="instalacao"
+                      stackId="a"
+                      fill="#8884d8"
+                      name="Total Instalação Concluído"
+                    >
+                      <LabelList
+                        dataKey="instalacao"
+                        position="center"
+                        fill="white"
+                        fontWeight="bold"
+                        fontSize={12}
+                      />
                     </Bar>
 
-                    <Bar dataKey="integracao" stackId="a" fill="#82ca9d" name="Total Integração Concluído">
-                      <LabelList dataKey="integracao" position="center" fill="white" fontWeight="bold" fontSize={12} />
+                    <Bar
+                      dataKey="integracao"
+                      stackId="a"
+                      fill="#82ca9d"
+                      name="Total Integração Concluído"
+                    >
+                      <LabelList
+                        dataKey="integracao"
+                        position="center"
+                        fill="white"
+                        fontWeight="bold"
+                        fontSize={12}
+                      />
                     </Bar>
-
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
             </Box>
-
-
-
-
-
           </Box>
         </CardBody>
 
@@ -930,17 +1054,21 @@ export default function Clientetelefonica() {
           <Box p={2}>
             <Typography variant="h6">Relatórios</Typography>
             <CardBody style={{ backgroundColor: 'white' }}>
-              {/*  <Button color="link" onClick={() => despesas()}>
-                            Despesas
-                        </Button>
-                        <br></br> */}
               <Button color="link" onClick={() => totalacionamento()}>
                 Total de Acionamentos
               </Button>
               <br></br>
-              <Button color="link">Previsão de Fechamento</Button>
+              <Button color="link" onClick={() => relatorioDespesas()}>
+                Histórico de Despesas
+              </Button>
               <br></br>
-              <Button color="link">Historico de Fechamento</Button>
+              <Button onClick={handlePrevisaoClick} color="link">
+                Previsão de Fechamento
+              </Button>
+              <br></br>
+              <Button onClick={handlehistoricoClick} color="link">
+                Histórico de Fechamento
+              </Button>
             </CardBody>
           </Box>
         )}

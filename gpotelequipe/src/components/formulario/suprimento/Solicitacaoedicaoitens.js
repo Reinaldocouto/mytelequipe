@@ -215,7 +215,7 @@ const Solicitacaoedicaoitens = ({
             </div>
             <br></br>
 
-            <div className="row g-3">
+            <div className="d-flex flex-column gap-3">
               <div className="col-sm-4">
                 Qtde
                 <Input

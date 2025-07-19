@@ -5,8 +5,26 @@ interface
 uses
   FireDAC.Comp.Client, Data.DB, SysUtils, model.connection, StrUtils, Classes,
   FireDAC.DApt, Generics.Collections, IdSMTP, IdMessage, IdSSLOpenSSL,
-  IdExplicitTLSClientServerBase, IdText, IdAttachmentFile, DateUtils;
+  IdExplicitTLSClientServerBase, IdText, IdAttachmentFile, DateUtils,  System.RegularExpressions;
 
+type
+  TDiariaDTO = record
+    Numero: string;
+    DataSolicitacao: TDateTime;
+    Colaborador: string;
+    NomeColaborador: string;
+    Projeto: string;
+    SiteId: string;
+    SiglaSite: string;
+    PO: string;
+    Local: string;
+    Descricao: string;
+    Cliente: string;
+    ValorOutrasSolicitacoes: Double;
+    Diarias: Double;
+    ValorTotal: Double;
+    Solicitante: string;
+  end;
 type
   Temail = class
   private
@@ -62,6 +80,12 @@ type
     function Executeextratocosmx: string;
     function Executeacionamentotelefonica: string;
     function Executeextratotelefonica: string;
+    function ExecuteOrdemServico(AOrdemID: Integer;
+      const ADest1, ADest2, AAssunto: string): Boolean;
+
+    function EnviarEmailDiaria(dadosDiaria: TDiariaDTO; out erro: string): Boolean;
+    function IsValidEmail(const Email: string): Boolean;
+    function HtmlEncode(const Value: string): string;
   end;
 
 const
@@ -70,6 +94,23 @@ const
 implementation
 
 { Temail }
+function Temail.IsValidEmail(const Email: string): Boolean;
+var
+  Regex: TRegEx;
+begin
+  Regex := TRegEx.Create('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+  Result := Regex.IsMatch(Email);
+end;
+
+function Temail.HtmlEncode(const Value: string): string;
+begin
+  Result := Value;
+  Result := StringReplace(Result, '&', '&amp;', [rfReplaceAll]);
+  Result := StringReplace(Result, '<', '&lt;', [rfReplaceAll]);
+  Result := StringReplace(Result, '>', '&gt;', [rfReplaceAll]);
+  Result := StringReplace(Result, '"', '&quot;', [rfReplaceAll]);
+  Result := StringReplace(Result, '''', '&#39;', [rfReplaceAll]);
+end;
 
 procedure Temail.assinatura;
 var
@@ -147,11 +188,11 @@ var
   IdText: TIdText;
 begin
   if destinatario.IsEmpty then
-    raise Exception.Create('E-mail do destintário não informado');
+    raise Exception.Create('E-mail do destintï¿½rio nï¿½o informado');
   if assunto.IsEmpty then
-    raise Exception.Create('Assunto do e-mail não informado');
+    raise Exception.Create('Assunto do e-mail nï¿½o informado');
   if texto.IsEmpty then
-    raise Exception.Create('Texto do e-mail não informado');
+    raise Exception.Create('Texto do e-mail nï¿½o informado');
 
   Msg := TIdMessage.Create(nil);
   IdSSLIOHandlerSocket := TIdSSLIOHandlerSocketOpenSSL.Create();
@@ -338,10 +379,10 @@ begin
   try
     Query.Connection := FConn;
 
-    // Gera um token único (exemplo simples, use uma biblioteca segura para produção)
+    // Gera um token ï¿½nico (exemplo simples, use uma biblioteca segura para produï¿½ï¿½o)
     token := IntToStr(Random(1000000));
 
-    // Verifica se já existe um token para o email fornecido
+    // Verifica se jï¿½ existe um token para o email fornecido
     Query.SQL.Clear;
     Query.SQL.Add('SELECT COUNT(*) FROM recuperarsenhatoken WHERE email = :email');
     Query.ParamByName('email').AsString := email;
@@ -350,7 +391,7 @@ begin
       Query.Open;
       if Query.Fields[0].AsInteger > 0 then
       begin
-        // Se já existe um token, faz o update
+        // Se jï¿½ existe um token, faz o update
         Query.SQL.Clear;
         Query.SQL.Add('UPDATE recuperarsenhatoken');
         Query.SQL.Add('SET token = :token, criado = NOW(), expira = DATE_ADD(NOW(), INTERVAL 1 HOUR), usadoEm = NULL');
@@ -363,7 +404,7 @@ begin
       end
       else
       begin
-        // Se não existe, insere um novo token
+        // Se nï¿½o existe, insere um novo token
         Query.SQL.Clear;
         Query.SQL.Add('INSERT INTO recuperarsenhatoken (token, email, criado, expira) VALUES (:token, :email, NOW(), DATE_ADD(NOW(), INTERVAL 1 HOUR))');
         Query.ParamByName('token').AsString := token;
@@ -375,16 +416,16 @@ begin
     except
       on E: Exception do
       begin
-        // Tratar erros de execução, como violação de chave primária ou problemas de conexão
+        // Tratar erros de execuï¿½ï¿½o, como violaï¿½ï¿½o de chave primï¿½ria ou problemas de conexï¿½o
         FConn.Rollback;
         raise Exception.Create('Erro ao inserir o token: ' + E.Message);
       end;
     end;
 
-    htmlEmail := '<!DOCTYPE html>' + '<html lang="pt-BR">' + '<head>' + '  <meta charset="UTF-8">' + '  <meta name="viewport" content="width=device-width, initial-scale=1.0">' + '  <title>Recuperação de Senha</title>' + '  <style>' + '    body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }' + '    .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }' +
+    htmlEmail := '<!DOCTYPE html>' + '<html lang="pt-BR">' + '<head>' + '  <meta charset="UTF-8">' + '  <meta name="viewport" content="width=device-width, initial-scale=1.0">' + '  <title>Recuperaï¿½ï¿½o de Senha</title>' + '  <style>' + '    body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }' + '    .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }' +
       '    h2 { color: #333333; text-align: center; }' + '    p { color: #555555; font-size: 16px; line-height: 1.6; }' + '    .token { background-color: #f9f9f9; padding: 15px; border: 1px solid #dddddd; border-radius: 4px; text-align: center; font-size: 20px; font-weight: bold; color: #007BFF; margin: 20px 0; }' + '    .footer { text-align: center; margin-top: 20px; font-size: 14px; color: #888888; }' + '    .footer a { color: #007BFF; text-decoration: none; }' + '  </style>' + '</head>' + '<body>' +
-      '  <div class="container">' + '    <h2>Recuperação de Senha</h2>' + '    <p>Olá,</p>' + '    <p>Você solicitou a recuperação de senha. Segue abaixo o seu token:</p>' + '    <div class="token">' + token + '</div>' + '    <p>Este token é válido por <strong>1 hora</strong>. Utilize-o para redefinir sua senha.</p>' + '    <p>Se você não solicitou esta recuperação, ignore este e-mail.</p>' + '    <div class="footer">' + '      <p>Atenciosamente,<br>Equipe de Suporte</p>' + '    </div>' + '  </div>' + '</body>' + '</html>';
-    if SendEmail(email, 'Recuperação de Senha', htmlEmail, erro) then
+      '  <div class="container">' + '    <h2>Recuperaï¿½ï¿½o de Senha</h2>' + '    <p>Olï¿½,</p>' + '    <p>Vocï¿½ solicitou a recuperaï¿½ï¿½o de senha. Segue abaixo o seu token:</p>' + '    <div class="token">' + token + '</div>' + '    <p>Este token ï¿½ vï¿½lido por <strong>1 hora</strong>. Utilize-o para redefinir sua senha.</p>' + '    <p>Se vocï¿½ nï¿½o solicitou esta recuperaï¿½ï¿½o, ignore este e-mail.</p>' + '    <div class="footer">' + '      <p>Atenciosamente,<br>Equipe de Suporte</p>' + '    </div>' + '  </div>' + '</body>' + '</html>';
+    if SendEmail(email, 'Recuperaï¿½ï¿½o de Senha', htmlEmail, erro) then
       Result := True
     else
       erro := 'Erro ao enviar e-mail: ' + erro;
@@ -399,6 +440,160 @@ begin
   Query.Free;
 end;
 
+function TEmail.EnviarEmailDiaria(dadosDiaria: TDiariaDTO; out erro: string): Boolean;
+var
+  Query: TFDQuery;
+  htmlEmail: string;
+  destinatarios: TStringList;
+  i: Integer;
+begin
+  Result := False;
+  Query := TFDQuery.Create(nil);
+  destinatarios := TStringList.Create;
+  try
+    // 1. Validaï¿½ï¿½o dos campos obrigatï¿½rios
+    if Trim(dadosDiaria.Numero) = '' then
+    begin
+      erro := 'Nï¿½mero da diï¿½ria nï¿½o informado';
+      Exit;
+    end;
+
+    if dadosDiaria.DataSolicitacao = 0 then
+    begin
+      erro := 'Data de solicitaï¿½ï¿½o nï¿½o informada';
+      Exit;
+    end;
+
+    if Trim(dadosDiaria.NomeColaborador) = '' then
+    begin
+      erro := 'Nome do colaborador nï¿½o informado';
+      Exit;
+    end;
+
+
+    if dadosDiaria.ValorTotal <= 0 then
+    begin
+      erro := 'Valor total deve ser maior que zero';
+      Exit;
+    end;
+
+    Query.Connection := FConn;
+
+    Query.SQL.Clear;
+    Query.SQL.Add('SELECT emails FROM gesemailconfiguracao WHERE tipo = ''diaria''');
+    try
+      Query.Open;
+      if not Query.IsEmpty then
+      begin
+        destinatarios.Delimiter := ',';
+        destinatarios.StrictDelimiter := True; // Considera apenas vï¿½rgulas como delimitador
+        destinatarios.DelimitedText := Query.FieldByName('emails').AsString;
+
+        // Remove espaï¿½os em branco e verifica e-mails vï¿½lidos
+        for i := destinatarios.Count - 1 downto 0 do
+        begin
+          destinatarios[i] := Trim(destinatarios[i]);
+          if destinatarios[i] = '' then
+            destinatarios.Delete(i)
+          else if not IsValidEmail(destinatarios[i]) then
+          begin
+            erro := 'E-mail invï¿½lido encontrado na configuraï¿½ï¿½o: ' + destinatarios[i];
+            Exit;
+          end;
+        end;
+
+        if destinatarios.Count = 0 then
+        begin
+          erro := 'Nenhum e-mail vï¿½lido encontrado na configuraï¿½ï¿½o';
+          Exit;
+        end;
+      end
+      else
+      begin
+        erro := 'Nenhum e-mail configurado para o tipo "diaria"';
+        Exit;
+      end;
+    except
+      on E: Exception do
+      begin
+        erro := 'Erro ao buscar e-mails configurados: ' + E.Message;
+        Exit;
+      end;
+    end;
+
+    // 3. Preparar o HTML do e-mail
+    try
+      htmlEmail := '<!DOCTYPE html>' +
+                   '<html lang="pt-BR">' +
+                   '<head>' +
+                   '  <meta charset="UTF-8">' +
+                   '  <meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+                   '  <title>Nova Diï¿½ria Registrada</title>' +
+                   '  <style>' +
+                   '    body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }' +
+                   '    .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }' +
+                   '    h2 { color: #333333; text-align: center; }' +
+                   '    table { width: 100%; border-collapse: collapse; margin: 20px 0; }' +
+                   '    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #dddddd; }' +
+                   '    th { background-color: #f9f9f9; }' +
+                   '    .footer { text-align: center; margin-top: 20px; font-size: 14px; color: #888888; }' +
+                   '    .valor { text-align: right; }' +
+                   '  </style>' +
+                   '</head>' +
+                   '<body>' +
+                   '  <div class="container">' +
+                   '    <h2>Nova Diï¿½ria Registrada</h2>' +
+                   '    <p>Uma nova diï¿½ria foi registrada no sistema. Seguem os detalhes:</p>' +
+                   '    <table>' +
+                   '      <tr><th>Nï¿½mero:</th><td>' + HtmlEncode(dadosDiaria.Numero) + '</td></tr>' +
+                   '      <tr><th>Data:</th><td>' + FormatDateTime('dd/mm/yyyy', dadosDiaria.DataSolicitacao) + '</td></tr>' +
+                   '      <tr><th>Colaborador:</th><td>' + HtmlEncode(dadosDiaria.NomeColaborador) + '</td></tr>' +
+                   '      <tr><th>Projeto:</th><td>' + HtmlEncode(dadosDiaria.Projeto) + '</td></tr>' +
+                   '      <tr><th>Site ID:</th><td>' + HtmlEncode(dadosDiaria.SiteId) + '</td></tr>' +
+                   '      <tr><th>Sigla Site:</th><td>' + HtmlEncode(dadosDiaria.SiglaSite) + '</td></tr>' +
+                   '      <tr><th>PO:</th><td>' + HtmlEncode(dadosDiaria.PO) + '</td></tr>' +
+                   '      <tr><th>Local:</th><td>' + HtmlEncode(dadosDiaria.Local) + '</td></tr>' +
+                   '      <tr><th>Descriï¿½ï¿½o:</th><td>' + HtmlEncode(dadosDiaria.Descricao) + '</td></tr>' +
+                   '      <tr><th>Cliente:</th><td>' + HtmlEncode(dadosDiaria.Cliente) + '</td></tr>' +
+                   '      <tr><th>Outras Solicitaï¿½ï¿½es:</th><td class="valor">' + FormatFloat('R$ #,##0.00', dadosDiaria.ValorOutrasSolicitacoes) + '</td></tr>' +
+                   '      <tr><th>Diï¿½rias:</th><td class="valor">' + HtmlEncode(dadosDiaria.Diarias.ToString) + '</td></tr>' +
+                   '      <tr><th>Valor Total:</th><td class="valor"><strong>' + FormatFloat('R$ #,##0.00', dadosDiaria.ValorTotal) + '</strong></td></tr>' +
+                   '    </table>' +
+                   '    <div class="footer">' +
+                   '      <p>Este ï¿½ um e-mail automï¿½tico, favor nï¿½o responder.</p>' +
+                   '    </div>' +
+                   '  </div>' +
+                   '</body>' +
+                   '</html>';
+    except
+      on E: Exception do
+      begin
+        erro := 'Erro ao gerar HTML do e-mail: ' + E.Message;
+        Exit;
+      end;
+    end;
+
+    // 4. Enviar para todos os destinatï¿½rios
+    for i := 0 to destinatarios.Count - 1 do
+    begin
+      if not SendEmail(destinatarios[i], 'Nova Diï¿½ria Registrada - ' + dadosDiaria.Numero, htmlEmail, erro) then
+      begin
+        erro := 'Erro ao enviar e-mail para ' + destinatarios[i] + ': ' + erro;
+        Exit;
+      end;
+    end;
+
+    Result := True;
+  except
+    on E: Exception do
+    begin
+      erro := 'Erro inesperado ao enviar e-mail de diï¿½ria: ' + E.Message;
+      Result := False;
+    end;
+  end;
+  Query.Free;
+  destinatarios.Free;
+end;
 function TEmail.ExecuteSelectzte: string; // acionamento
 var
   Query: TFDQuery;
@@ -593,7 +788,7 @@ begin
     html1 := html1 + '<th>Item</th> ';
     html1 := html1 + '<th>Sigla</th> ';
     html1 := html1 + '<th>ID Sydle</th> ';
-    html1 := html1 + '<th>Descrição</th> ';
+    html1 := html1 + '<th>Descriï¿½ï¿½o</th> ';
     html1 := html1 + '<th>Qtd</th> ';
     html1 := html1 + '<th>Empresa</th> ';
     html1 := html1 + '<th>Valor PJ</th> ';
@@ -713,7 +908,7 @@ begin
       html1 := html1 + '</head> ';
       html1 := html1 + '<body> ';
       html1 := html1 + '<h4> Senhores, </h4> ';
-      html1 := html1 + '<h4> Segue acionamento para atividades no projeto SIRIUS - Telefonica:</h4> ';
+      html1 := html1 + '<h4> Segue acionamento para atividades no projeto SIRIUSï¿½-ï¿½Telefonica:</h4> ';
       html1 := html1 + '<h2> </h2> ';
       html1 := html1 + '<h4>' + Query.FieldByName('observacao').AsString + '</h4> ';
       html1 := html1 + '<h2> </h2> ';
@@ -725,9 +920,9 @@ begin
       html1 := html1 + '<th>SIGLA</th> ';
       html1 := html1 + '<th>Atividade</th> ';
       html1 := html1 + '<th>Reg</th> ';
-      html1 := html1 + '<th>Descrição Atividade</th> ';
+      html1 := html1 + '<th>Descriï¿½ï¿½o Atividade</th> ';
       html1 := html1 + '<th>Qtd.</th> ';
-      html1 := html1 + '<th>Código LPU VIVO</th> ';
+      html1 := html1 + '<th>Cï¿½digo LPU VIVO</th> ';
       html1 := html1 + '<th>Valor Acionamento</th> ';
       html1 := html1 + '<th>Empresa</th> ';
       html1 := html1 + '</tr> ';
@@ -848,11 +1043,11 @@ begin
   html1 := html1 + '<th>STATUS</td> ';
   html1 := html1 + '<th>DATA DO PAGTO</td> ';
   html1 := html1 + '<th>CODIGO</td> ';
-  html1 := html1 + '<th>DESCRIÇÃO</td> ';
-  html1 := html1 + '<th>MÊS DE PAGTO</td> ';
+  html1 := html1 + '<th>DESCRIï¿½ï¿½O</td> ';
+  html1 := html1 + '<th>Mï¿½S DE PAGTO</td> ';
   html1 := html1 + '<th>PORCENTAGEM</td> ';
   html1 := html1 + '<th>VALOR (R$)</td> ';
-  html1 := html1 + '<th>OBSERVAÇÃO</td> ';
+  html1 := html1 + '<th>OBSERVAï¿½ï¿½O</td> ';
   html1 := html1 + '</tr> ';
   html1 := html1 + '</thead> ';
   html1 := html1 + '<tbody> ';
@@ -963,7 +1158,7 @@ begin
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
-    html2 := html2 + '<td><b> Valor de Serviços: ' + floattostrf(total, ffCurrency, 18, 2) + '</b></td> ';
+    html2 := html2 + '<td><b> Valor de Serviï¿½os: ' + floattostrf(total, ffCurrency, 18, 2) + '</b></td> ';
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
@@ -1082,7 +1277,7 @@ begin
   html1 := html1 + '<th>%</td> ';
   html1 := html1 + '<th>VALOR (R$)</td> ';
   html1 := html1 + '<th>ENVIO FECHAMENTO</td> ';
-  html1 := html1 + '<th>RELATÓRIO ACEITAÇÃO</td> ';
+  html1 := html1 + '<th>RELATï¿½RIO ACEITAï¿½ï¿½O</td> ';
   html1 := html1 + '</tr> ';
   html1 := html1 + '</thead> ';
   html1 := html1 + '<tbody> ';
@@ -1135,7 +1330,7 @@ begin
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
-    html2 := html2 + '<td><b> Valor de Serviços: ' + floattostrf(total, ffCurrency, 18, 2) + '</b></td> ';
+    html2 := html2 + '<td><b> Valor de Serviï¿½os: ' + floattostrf(total, ffCurrency, 18, 2) + '</b></td> ';
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
     html2 := html2 + '</tr> ';
@@ -1244,12 +1439,12 @@ begin
   html1 := html1 + '<th>CODIGO LPU</th> ';
   html1 := html1 + '<th>VALOR PJ</th> ';
   html1 := html1 + '<th>ENTREGA REAL</th> ';
-  html1 := html1 + '<th>INSTALAÇÃO REAL</th> ';
-  html1 := html1 + '<th>INTEGRAÇÃO REAL</th> ';
-  html1 := html1 + '<th>ATIVAÇÃO</th> ';
+  html1 := html1 + '<th>INSTALAï¿½ï¿½O REAL</th> ';
+  html1 := html1 + '<th>INTEGRAï¿½ï¿½O REAL</th> ';
+  html1 := html1 + '<th>ATIVAï¿½ï¿½O</th> ';
   html1 := html1 + '<th>Data do PGT</th> ';
   html1 := html1 + '<th>Status</th> ';
-  html1 := html1 + '<th>DOCUMENTAÇÃO</th> ';
+  html1 := html1 + '<th>DOCUMENTAï¿½ï¿½O</th> ';
   html1 := html1 + '<th>DT REAL</th> ';
   html1 := html1 + '<th>MES PAGAMENTO</th> ';
   html1 := html1 + '<th>%</th> ';
@@ -1402,7 +1597,7 @@ begin
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
-    html2 := html2 + '<td><b> Valor de Serviços: ' + floattostrf(total, ffCurrency, 18, 2) + '</b></td> ';
+    html2 := html2 + '<td><b> Valor de Serviï¿½os: ' + floattostrf(total, ffCurrency, 18, 2) + '</b></td> ';
     html2 := html2 + '</tr> ';
     html2 := html2 + '<tr> ';
     html2 := html2 + '<td></td> ';
@@ -1504,6 +1699,27 @@ begin
     FConn.Rollback;
   end;
 end;
+
+function TEmail.ExecuteOrdemServico(AOrdemID: Integer;
+                                    const ADest1, ADest2, AAssunto: string): Boolean;
+var
+  bodyHTML: string;
+begin
+  // monta corpo HTML simples da OS
+  bodyHTML := Format(
+    '<h3>Ordem de Serviï¿½o #%d criada</h3>' +
+    '<p>Verifique os detalhes no sistema.</p>',
+    [AOrdemID]
+  );
+
+  // envia usando o mï¿½todo centralizado
+  Result := SendEmail(
+    ADest1 + ';' + ADest2,  // destinatï¿½rios concatenados
+    AAssunto,               // assunto
+    bodyHTML                // corpo HTML
+  );
+end;
+
 
 end.
 

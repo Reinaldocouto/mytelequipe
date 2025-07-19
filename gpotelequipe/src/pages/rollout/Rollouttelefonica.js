@@ -391,6 +391,115 @@ const Rollouttelefonica = ({ setshow, show }) => {
       type: 'string',
       editable: false,
     },
+
+    {
+      field: 'vistoriareal',
+      headerName: 'Vistoria Real',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'entregareal',
+      headerName: 'Entrega Real',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'fiminstalacaoreal',
+      headerName: 'Fim Instalação Real',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'integracaoreal',
+      headerName: 'Integração Real',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'ativacao',
+      headerName: 'Ativação Real',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'documentacao',
+      headerName: 'Documentação',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'initialtunningreal',
+      headerName: 'Initial Tunning Real',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: ({ value }) => {
+        if (!value) return null;
+        const data = new Date(value);
+        data.setDate(data.getDate() + 1); // Corrige o deslocamento
+        return data;
+      },
+      valueFormatter: ({ value }) =>
+        value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
+
+      editable: false,
+    },
+    {
+      field: 'dtreal',
+      headerName: 'DT Real',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
     {
       field: 'docplan',
       headerName: 'Documentação Vistoria Plan',
@@ -449,34 +558,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: false,
     },
     {
-      field: 'entregareal',
-      headerName: 'Entrega Real',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
       field: 'fiminstalacaoplan',
       headerName: 'Fim Instalação Plan',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'fiminstalacaoreal',
-      headerName: 'Fim Instalação Real',
       width: 200,
       align: 'left',
       type: 'date',
@@ -501,59 +584,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: false,
     },
     {
-      field: 'integracaoreal',
-      headerName: 'Integração Real',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'ativacao',
-      headerName: 'Ativação Real',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'documentacao',
-      headerName: 'Documentação',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'initialtunningreal',
-      headerName: 'Initial Tunning Real',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'initialtunningstatus',
+      field: 'initialtunnigstatus',
       headerName: 'Initial Tunning Status',
       width: 200,
       align: 'left',
@@ -563,19 +594,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
     {
       field: 'dtplan',
       headerName: 'DT Plan',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'dtreal',
-      headerName: 'DT Real',
       width: 200,
       align: 'left',
       type: 'date',
@@ -823,135 +841,143 @@ const Rollouttelefonica = ({ setshow, show }) => {
     iniciatabelas();
   }, []);
 
- /* ---------- helpers -------------------------------------------------- */
-const dateFields = new Set([
-  // já existentes
-  'ENTRGA_REQUEST', 'ENTREGA_PLAN', 'ENTREGA_REAL',
-  'FIM_INSTALACAO_PLAN', 'FIM_INSTALACAO_REAL',
-  'INTEGRACAO_PLAN', 'INTEGRACAO_REAL',
-  'DT_PLAN', 'DT_REAL', 'DELIVERY_PLAN',
-  'REGIONAL_LIB_SITE_P', 'REGIONAL_LIB_SITE_R',
-  'EQUIPAMENTO_ENTREGA_P', 'REGIONAL_CARIMBO',
-  'ATIVACAO_REAL', 'DOCUMENTACAO', 'INITIAL_TUNNING_REAL', 'INITIAL_TUNNING_STATUS',
-  'VISTORIA_PLAN', 'VISTORIA_REAL',
-  'DOCUMENTACAO_VISTORIA_PLAN',
-  'DOCUMENTACAO_VISTORIA_REAL', 'REQ'
-]);
+  /* ---------- helpers -------------------------------------------------- */
+  const dateFields = new Set([
+    // já existentes
+    'ENTRGA_REQUEST',
+    'ENTREGA_PLAN',
+    'ENTREGA_REAL',
+    'FIM_INSTALACAO_PLAN',
+    'FIM_INSTALACAO_REAL',
+    'INTEGRACAO_PLAN',
+    'INTEGRACAO_REAL',
+    'DT_PLAN',
+    'DT_REAL',
+    'DELIVERY_PLAN',
+    'REGIONAL_LIB_SITE_P',
+    'REGIONAL_LIB_SITE_R',
+    'EQUIPAMENTO_ENTREGA_P',
+    'REGIONAL_CARIMBO',
+    'ATIVACAO_REAL',
+    'DOCUMENTACAO',
+    'INITIAL_TUNNING_REAL',
+    'INITIAL_TUNNING_STATUS',
+    'VISTORIA_PLAN',
+    'VISTORIA_REAL',
+    'DOCUMENTACAO_VISTORIA_PLAN',
+    'DOCUMENTACAO_VISTORIA_REAL',
+    'REQ',
+  ]);
 
-const toBRDate = (v) => {
-  if (!v) return v;            
-  // “datas nulas” → vazio
-  if (/^(1899-12-(30|31)|0000-00-00)/.test(v)) return '';
+  const toBRDate = (v) => {
+    if (!v) return v;
+    // “datas nulas” → vazio
+    if (/^(1899-12-(30|31)|0000-00-00)/.test(v)) return '';
 
-  // "YYYY-MM-DD HH:MM:SS" ⇒ "YYYY-MM-DDTHH:MM:SS"
-  const spaced = typeof v === 'string' && v.includes(' ')
-    ? v.replace(' ', 'T')
-    : v;
+    // "YYYY-MM-DD HH:MM:SS" ⇒ "YYYY-MM-DDTHH:MM:SS"
+    const spaced = typeof v === 'string' && v.includes(' ') ? v.replace(' ', 'T') : v;
 
-  const d = spaced instanceof Date ? spaced : new Date(spaced);
-  if (!Number.isNaN(d.getTime()))
-    return d.toLocaleDateString('pt-BR');              // 28/04/2025
+    const d = spaced instanceof Date ? spaced : new Date(spaced);
+    if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('pt-BR'); // 28/04/2025
 
-  // dd/mm/aaaa ou dd-mm-aaaa
-  const br = typeof v === 'string' &&
-             v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-  if (br) {
-    const [, dd, mm, yyyy] = br;
-    const normal = `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}`;
-    if (normal === '31/12/1899' || normal === '30/12/1899') return '';
-    return normal;
-  }
-  return v;                                            // valor não reconhecido
-};
+    // dd/mm/aaaa ou dd-mm-aaaa
+    const br = typeof v === 'string' && v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    if (br) {
+      const [, dd, mm, yyyy] = br;
+      const normal = `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}`;
+      if (normal === '31/12/1899' || normal === '30/12/1899') return '';
+      return normal;
+    }
+    return v; // valor não reconhecido
+  };
 
-const formatDatesBR = (row) =>
-  Object.fromEntries(
-    Object.entries(row).map(([k, v]) => [k, dateFields.has(k) ? toBRDate(v) : v])
-  );
+  const formatDatesBR = (row) =>
+    Object.fromEntries(
+      Object.entries(row).map(([k, v]) => [k, dateFields.has(k) ? toBRDate(v) : v]),
+    );
 
-const upperStrings = (row) =>
-  Object.fromEntries(
-    Object.entries(row).map(([k, v]) => [k, typeof v === 'string' ? v.toUpperCase() : v])
-  );
+  const upperStrings = (row) =>
+    Object.fromEntries(
+      Object.entries(row).map(([k, v]) => [k, typeof v === 'string' ? v.toUpperCase() : v]),
+    );
 
-/* ---------- função principal ---------------------------------------- */
-const gerarexcel = () => {
-  const excelData = totalacionamento
-    .map((item) => ({
-      PMOREF: item.pmoref,
-      PMOCATEGORIA: item.pmocategoria,
-      UIDIDPMTS: item.uididpmts,
-      UFSIGLA: item.ufsigla,
-      PMOSIGLA: item.pmosigla,
-      PMOUF: item.pmouf,
-      PMOREGIONAL: item.pmoregional,
-      CIDADE: item.cidade,
-      EAPAUTOMATICA: item.eapautomatica,
-      REGIONAL_EAP_INFRA: item.regionaleapinfra,
-      STATUS_MENSAL_TX: item.statusmensaltx,
-      MASTEROBR_STATUS_ROLLOUT: item.masterobrastatusrollout,
-      REGIONAL_LIB_SITE_P: item.regionallibsitep,
-      REGIONAL_LIB_SITE_R: item.regionallibsiter,
-      EQUIPAMENTO_ENTREGA_P: item.equipamentoentregap,
-      REGIONAL_CARIMBO: item.regionalcarimbo,
-      RSORSA_SCI: item.rsorsasci,
-      RSORSA_SCI_STATUS: item.rsorsascistatus,
-      REGIONAL_OFENSOR_DETALHE: item.regionalofensordetalhe,
-      VENDOR_VISTORIA: item.vendorvistoria,
-      VENDOR_PROJETO: item.vendorprojeto,
-      VENDOR_INSTALADOR: item.vendorinstalador,
-      VENDOR_INTEGRADOR: item.vendorintegrador,
-      PMO_TECN_EQUIP: item.pmotecnequip,
-      PMO_FREQ_EQUIP: item.pmofreqequip,
-      UID_IDCPOMRF: item.uididcpomrf,
-      STATUS_OBRA: item.statusobra,
-      VISTORIA_PLAN: item.vistoriaplan,
-      VISTORIA_REAL: item.vistoriareal,
-      DOCUMENTACAO_VISTORIA_PLAN: item.docplan, 
-      DOCUMENTACAO_VISTORIA_REAL: item.documentacaovistoriareal,
-      REQ: item.req,
-      ENTREGA_PLAN: item.entregaplan,
-      ENTREGA_REAL: item.entregareal,
-      FIM_INSTALACAO_PLAN: item.fiminstalacaoplan,
-      FIM_INSTALACAO_REAL: item.fiminstalacaoreal,
-      INTEGRACAO_PLAN: item.integracaoplan,
-      INTEGRACAO_REAL: item.integracaoreal,
-      ATIVACAO_REAL: item.ativacao,
-      DOCUMENTACAO: item.documentacao,
-      INITIAL_TUNNING_REAL: item.initialtunningreal,
-      INITIAL_TUNNING_STATUS: item.initialtunningstatus,
-      DT_PLAN: item.dtplan,
-      DT_REAL: item.dtreal,
-      OBSERVACAO: item.acompanhamentofisicoobservacao,
-      ROLLOUT: item.rollout,
-      ACIONAMENTO: item.acionamento,
-      NOME_DO_SITE: item.nomedosite,
-      ENDERECO: item.endereco,
-      RSORSA_DETENTORA: item.rsorsadetentora,
-      RSORSA_ID_DETENTORA: item.rsorsaiddetentora,
-      RESUMO_DA_FASE: item.resumodafase,
-      INFRA_VIVO: item.infravivo,
-      EQUIPE: item.equipe,
-      DELIVERY_PLAN: item.deliverypolan,
-      OV: item.ov,
-      ACESSO: item.acesso,
-      T2_INSTALACAO: item.t2instalacao,
-      NUMERO_DA_REQ: item.numerodareq,
-      NUMERO_T2: item.numerot2,
-      PEDIDO: item.pedido,
-      T2_VISTORIA: item.t2vistoria,
-      NUMERO_DA_REQ_VISTORIA: item.numerodareqvistoria,
-      NUMERO_T2_VISTORIA: item.numerot2vistoria,
-      PEDIDO_VISTORIA: item.pedidovistoria
-    }))
-    .map(formatDatesBR)   // 1. converte datas / zera 1899-12-xx
-    .map(upperStrings);   // 2. caixa-alta
+  /* ---------- função principal ---------------------------------------- */
+  const gerarexcel = () => {
+    const excelData = totalacionamento
+      .map((item) => ({
+        VISTORIA_REAL: item.vistoriareal,
+        ENTREGA_REAL: item.entregareal,
+        FIM_INSTALACAO_REAL: item.fiminstalacaoreal,
+        INTEGRACAO_REAL: item.integracaoreal,
+        ATIVACAO_REAL: item.ativacao,
+        DOCUMENTACAO: item.documentacao,
+        INITIAL_TUNNING_REAL: item.initialtunningreal,
+        DT_REAL: item.dtreal,
+        PMOREF: item.pmoref,
+        PMOCATEGORIA: item.pmocategoria,
+        UIDIDPMTS: item.uididpmts,
+        UFSIGLA: item.ufsigla,
+        PMOSIGLA: item.pmosigla,
+        PMOUF: item.pmouf,
+        PMOREGIONAL: item.pmoregional,
+        CIDADE: item.cidade,
+        EAPAUTOMATICA: item.eapautomatica,
+        REGIONAL_EAP_INFRA: item.regionaleapinfra,
+        STATUS_MENSAL_TX: item.statusmensaltx,
+        MASTEROBR_STATUS_ROLLOUT: item.masterobrastatusrollout,
+        REGIONAL_LIB_SITE_P: item.regionallibsitep,
+        REGIONAL_LIB_SITE_R: item.regionallibsiter,
+        EQUIPAMENTO_ENTREGA_P: item.equipamentoentregap,
+        REGIONAL_CARIMBO: item.regionalcarimbo,
+        RSORSA_SCI: item.rsorsasci,
+        RSORSA_SCI_STATUS: item.rsorsascistatus,
+        REGIONAL_OFENSOR_DETALHE: item.regionalofensordetalhe,
+        VENDOR_VISTORIA: item.vendorvistoria,
+        VENDOR_PROJETO: item.vendorprojeto,
+        VENDOR_INSTALADOR: item.vendorinstalador,
+        VENDOR_INTEGRADOR: item.vendorintegrador,
+        PMO_TECN_EQUIP: item.pmotecnequip,
+        PMO_FREQ_EQUIP: item.pmofreqequip,
+        UID_IDCPOMRF: item.uididcpomrf,
+        STATUS_OBRA: item.statusobra,
+        //VISTORIA_PLAN: item.vistoriaplan,
+        //DOCUMENTACAO_VISTORIA_PLAN: item.docplan,
+        //DOCUMENTACAO_VISTORIA_REAL: item.documentacaovistoriareal,
+        //REQ: item.req,
+        ENTREGA_REQUEST: item.entregarequest,
+        ENTREGA_PLAN: item.entregaplan,
+        FIM_INSTALACAO_PLAN: item.fiminstalacaoplan,
+        INTEGRACAO_PLAN: item.integracaoplan,
+        INITIAL_TUNNING_STATUS: item.initialtunningstatus,
+        DT_PLAN: item.dtplan,
+        OBSERVACAO: item.acompanhamentofisicoobservacao,
+        ROLLOUT: item.rollout,
+        ACIONAMENTO: item.acionamento,
+        NOME_DO_SITE: item.nomedosite,
+        ENDERECO: item.endereco,
+        RSORSA_DETENTORA: item.rsorsadetentora,
+        RSORSA_ID_DETENTORA: item.rsorsaiddetentora,
+        RESUMO_DA_FASE: item.resumodafase,
+        INFRA_VIVO: item.infravivo,
+        EQUIPE: item.equipe,
+        DOCA_PLAN: item.docaplan,
+        DELIVERY_PLAN: item.deliverypolan,
+        OV: item.ov,
+        ACESSO: item.acesso,
+        T2_INSTALACAO: item.t2instalacao,
+        NUMERO_DA_REQ: item.numerodareq,
+        NUMERO_T2: item.numerot2,
+        PEDIDO: item.pedido,
+        T2_VISTORIA: item.t2vistoria,
+        NUMERO_DA_REQ_VISTORIA: item.numerodareqvistoria,
+        NUMERO_T2_VISTORIA: item.numerot2vistoria,
+        PEDIDO_VISTORIA: item.pedidovistoria,
+      }))
+      .map(formatDatesBR) // 1. converte datas / zera 1899-12-xx
+      .map(upperStrings); // 2. caixa-alta
 
-  exportExcel({ excelData, fileName: 'ROLLOUT TELEFONICA' });
-};
-
-
-
+    exportExcel({ excelData, fileName: 'ROLLOUT TELEFONICA' });
+  };
 
   return (
     <>
@@ -1385,9 +1411,10 @@ const gerarexcel = () => {
 
             <div className="d-flex align-items-center gap-3 mb-3">
               <input
-                type="checkbox" 
-                id="chkEntregaRequest" 
-                style={{ width: '20px', height: '20px' }} />
+                type="checkbox"
+                id="chkEntregaRequest"
+                style={{ width: '20px', height: '20px' }}
+              />
               <span className="mb-0">ENTREGA-REQUEST</span>
               <input
                 type="text"
@@ -1413,6 +1440,21 @@ const gerarexcel = () => {
                 aria-label="Filtro ENTREGA-PLAN"
               />
             </div>
+            <div className="d-flex align-items-center gap-3 mb-3">
+              <input
+                type="checkbox"
+                id="chkvistoriareal"
+                style={{ width: '20px', height: '20px' }}
+              />
+              <span className="mb-0">VISTORIA-REAL</span>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Digite VISTORIA-REAL"
+                style={{ width: '400px', height: '40px' }}
+                aria-label="Filtro VISTORIA-REAL"
+              />
+            </div>
 
             <div className="d-flex align-items-center gap-3 mb-3">
               <input
@@ -1433,22 +1475,6 @@ const gerarexcel = () => {
             <div className="d-flex align-items-center gap-3 mb-3">
               <input
                 type="checkbox"
-                id="chkFimInstalacaoPlan"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">FIM INSTALAÇÃO PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite FIM INSTALAÇÃO PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro FIM INSTALAÇÃO PLAN"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
                 id="chkFimInstalacaoReal"
                 style={{ width: '20px', height: '20px' }}
               />
@@ -1459,22 +1485,6 @@ const gerarexcel = () => {
                 placeholder="Digite FIM INSTALAÇÃO REAL"
                 style={{ width: '400px', height: '40px' }}
                 aria-label="Filtro FIM INSTALAÇÃO REAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkIntegracaoPlan"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">INTEGRAÇÃO PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite INTEGRAÇÃO PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro INTEGRAÇÃO PLAN"
               />
             </div>
 
@@ -1523,7 +1533,11 @@ const gerarexcel = () => {
             </div>
 
             <div className="d-flex align-items-center gap-3 mb-3">
-              <input type ="checkbox" id="chkInitialTunningReal" style={{ width: '20px', height: '20px' }} />
+              <input
+                type="checkbox"
+                id="chkInitialTunningReal"
+                style={{ width: '20px', height: '20px' }}
+              />
               <span className="mb-0">INITIAL TUNNING REAL</span>
               <input
                 type="text"
@@ -1535,7 +1549,55 @@ const gerarexcel = () => {
             </div>
 
             <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkInitialTunningStatus" style={{ width: '20px', height: '20px' }} />
+              <input type="checkbox" id="chkDtReal" style={{ width: '20px', height: '20px' }} />
+              <span className="mb-0">DT REAL</span>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Digite DT REAL"
+                style={{ width: '400px', height: '40px' }}
+                aria-label="Filtro DT REAL"
+              />
+            </div>
+
+            <div className="d-flex align-items-center gap-3 mb-3">
+              <input
+                type="checkbox"
+                id="chkFimInstalacaoPlan"
+                style={{ width: '20px', height: '20px' }}
+              />
+              <span className="mb-0">FIM INSTALAÇÃO PLAN</span>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Digite FIM INSTALAÇÃO PLAN"
+                style={{ width: '400px', height: '40px' }}
+                aria-label="Filtro FIM INSTALAÇÃO PLAN"
+              />
+            </div>
+
+            <div className="d-flex align-items-center gap-3 mb-3">
+              <input
+                type="checkbox"
+                id="chkIntegracaoPlan"
+                style={{ width: '20px', height: '20px' }}
+              />
+              <span className="mb-0">INTEGRAÇÃO PLAN</span>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Digite INTEGRAÇÃO PLAN"
+                style={{ width: '400px', height: '40px' }}
+                aria-label="Filtro INTEGRAÇÃO PLAN"
+              />
+            </div>
+
+            <div className="d-flex align-items-center gap-3 mb-3">
+              <input
+                type="checkbox"
+                id="chkInitialTunningStatus"
+                style={{ width: '20px', height: '20px' }}
+              />
               <span className="mb-0">INITIAL TUNNING STATUS</span>
               <input
                 type="text"
@@ -1555,18 +1617,6 @@ const gerarexcel = () => {
                 placeholder="Digite DT PLAN"
                 style={{ width: '400px', height: '40px' }}
                 aria-label="Filtro DT PLAN"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkDtReal" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">DT REAL</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite DT REAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro DT REAL"
               />
             </div>
 
@@ -2184,6 +2234,10 @@ const gerarexcel = () => {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
                     },
+                    "& .MuiDataGrid-columnHeader[data-field='vistoriareal']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
                     "& .MuiDataGrid-columnHeader[data-field='entregareal']": {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
@@ -2229,6 +2283,10 @@ const gerarexcel = () => {
                       color: 'white',
                     },
                     "& .MuiDataGrid-columnHeader[data-field='rollout']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='acompanhamentofisicoobservacao']": {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
                     },
@@ -2288,7 +2346,6 @@ const gerarexcel = () => {
     </>
   );
 };
-
 Rollouttelefonica.propTypes = {
   show: PropTypes.bool.isRequired,
   setshow: PropTypes.func.isRequired,

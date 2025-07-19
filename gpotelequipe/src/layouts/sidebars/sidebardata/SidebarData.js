@@ -358,6 +358,13 @@ const SidebarData = () => {
                 id: 10.1,
                 collapisble: false,
               },
+              {
+                title: 'Configuração de Avisos',
+                href: '/configuracao/avisos',
+                icon: <Icon.Disc />,
+                id: 10.2,
+                collapisble: false,
+              },
             ],
           });
         }

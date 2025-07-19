@@ -483,7 +483,7 @@ const Pessoasedicao = ({ setshow, show, ididentificador, atualiza }) => {
         if (statusTreinamento !== 'NAO SE APLICA' && statusTreinamento !== 'PENDENTE') {
           if (hoje > dataVencimento) {
             statusTreinamento = 'VENCIDO';
-          } else if (diasParaVencimento <= 30) {
+          } else if (diasParaVencimento <= 60) {
             statusTreinamento = 'RENOVAR';
           } else if (hoje >= dataEmissao && hoje <= dataVencimento) {
             statusTreinamento = 'APROVADO';

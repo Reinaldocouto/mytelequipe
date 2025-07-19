@@ -1376,7 +1376,58 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
     exportExcel({ excelData, fileName: 'Fechamento_aguardando_pagamento' });
   };
 
-  const gerarexcelhist = () => {};
+  const gerarexcelhist = () => {
+        const excelData = projetohistorico.map((item) => {
+            const formatarData = (data) => {
+                if (!data) return '';
+                const d = new Date(data);
+                if (
+                    d.getFullYear() === 1899 &&
+                    d.getMonth() === 11 &&
+                    d.getDate() === 30
+                ) {
+                    return '';
+                }
+                return d.toLocaleDateString('pt-BR');
+            };
+    
+            return {
+            IDMPTS: item.idpmts,
+            REGIONAL: item.regional,
+            PO: item.po,
+            PMOSIGLA: item.pmosigla,
+            UFSIGLA: item.ufsigla,
+            ATIVIDADE: item.atividade,
+            QUANTIDADE: item.quantidade,
+            'CODIGO LPU VIVO': item.codigolpuvivo,
+            TAREFAS: item.tarefas,
+            VALOR:  item.valor?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+            'DATA ACIONAMENTO': formatarData(item.dataacionamento),
+            'DATA ENVIO EMAIL': formatarData(item.dataenvioemail),
+            COLABORADOR: item.nome,
+            'VISTORIA REAL': formatarData(item.vistoriareal),
+            'ENTREGA REAL': formatarData(item.entregareal),
+            'FIM INSTALACAO REAL': formatarData(item.fiminstalacaoreal),
+            'INTEGRACAO REAL': formatarData(item.integracaoreal),
+            ATIVACAO: formatarData(item.ativacao),
+            DOCUMENTACAO: formatarData(item.documentacao),
+            'INITIAL TUNNING REAL': formatarData(item.initialtunningreal),
+            'DT REAL': formatarData(item.dtreal),
+            'STATUS OBRA': item.statusobra,
+            'MES PAGAMENTO': item.mespagamento,
+            'DATA PAGAMENTO': formatarData(item.datapagamento),
+            'VALOR PAGO': item.valorpagamento?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+            '% PAGO': item.porcentagem ? `${(item.porcentagem * 100).toFixed(2)}%` : '0%', 
+            'TIPO PAGAENTO': item.tipopagamento,
+        };
+    });
+
+    exportExcel({ excelData, fileName: 'Relatório - Historico Fechamento' });
+};
+
+
+
+
 
   useEffect(() => {
     const selecionados = projeto.filter((row) => selectedIds.includes(row.id));

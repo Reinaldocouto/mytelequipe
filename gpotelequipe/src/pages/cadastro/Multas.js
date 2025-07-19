@@ -139,20 +139,27 @@ export default function Multas() {
       type: 'actions',
       width: 110,
       align: 'center',
-      getActions: (parametros) => [
-        <GridActionsCellItem
-          icon={<EditIcon />}
-          label="Alterar"
-          hint="Alterar"
-          onClick={() => alterarUser(parametros.id)}
-        />,
-        <GridActionsCellItem
-          icon={<DeleteIcon />}
-          disabled={modoVisualizador()}
-          label="Delete"
-          onClick={() => deleteUser(parametros.id)}
-        />,
-      ],
+      getActions: (parametros) => {
+        const actionsArray = [
+          <GridActionsCellItem
+            icon={<EditIcon />}
+            label="Alterar"
+            hint="Alterar"
+            onClick={() => alterarUser(parametros.id)}
+          />,
+        ];
+        if (parametros.row.debitado === 'Pendente') {
+          actionsArray.push(
+            <GridActionsCellItem
+              disabled={modoVisualizador()}
+              icon={<DeleteIcon />}
+              label="Delete"
+              onClick={() => deleteUser(parametros.id)}
+            />,
+          );
+        }
+        return actionsArray;
+      },
     },
     {
       field: 'funcionario',

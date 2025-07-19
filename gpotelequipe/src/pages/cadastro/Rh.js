@@ -34,8 +34,6 @@ export default function Rh() {
     settelavaletransporte(true);
   }
 
-
-
   return (
     <div className="col-sm-12">
       <Card>
@@ -53,7 +51,7 @@ export default function Rh() {
 
           {telamulta ? (
             <>
-              <Multa show={telamulta} setshow={settelamulta} />
+              <Multa setshow={settelamulta} />
             </>
           ) : null}
           {telaconvenio ? (
@@ -71,7 +69,6 @@ export default function Rh() {
               <Valetransporte show={telavaletransporte} setshow={settelavaletransporte} />
             </>
           ) : null}
-
 
           <Button color="link" onClick={() => folhapagamento()}>
             Folha de Pagamento
@@ -93,9 +90,7 @@ export default function Rh() {
             Convenio
           </Button>
           <br></br>
-          <Button color="link" >
-            Ferias PJ
-          </Button>
+          <Button color="link">Ferias PJ</Button>
         </CardBody>
       </Card>
     </div>

@@ -34,6 +34,8 @@ procedure lancarestoque(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure cancelarlancarestoque(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
+procedure AprovacaoDaOrdemCompra(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
 implementation
 
 procedure Registry;
@@ -51,6 +53,7 @@ begin
   THorse.Post('v1/ordemcompra/mudarstatus', mudarstatus);
   THorse.Post('v1/ordemcompra/lancarestoque', lancarestoque);
   THorse.Post('v1/ordemcompra/cancelarlancarestoque', cancelarlancarestoque);
+  THorse.Post('v1/ordemcompra/aprovacao', AprovacaoDaOrdemCompra);
 end;
 
 procedure novocadastro(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -447,6 +450,46 @@ begin
       if Length(erro) = 0 then
       begin
         if servico.EditarItens(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idordemcompraitens)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure AprovacaoDaOrdemCompra(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TOrdemCompra;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TOrdemCompra.Create;
+  try
+    erro := '';
+    try
+      body := Req.body<TJSONObject>;
+
+      if strisint(body.getvalue<string>('idordemcompra', '')) then
+        servico.idordemcompra := body.getvalue<integer>('idordemcompra', 0);
+
+      servico.aprovadopor := body.getvalue<string>('aprovadopor', '');
+      servico.idusuario := body.getvalue<integer>('idusuario', 0);
+      servico.idcliente := body.getvalue<integer>('idcliente', 0);
+      servico.idloja := body.getvalue<integer>('idloja', 0);
+
+      if Length(erro) = 0 then
+      begin
+        if servico.AprovacaoDaOrdemDeServico(erro) then
           Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idordemcompraitens)).Status(THTTPStatus.Created)
         else
           Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);

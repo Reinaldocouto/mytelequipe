@@ -22,6 +22,8 @@ procedure salvalancamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure novocadastro(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
+procedure RelatorioCustoSolicitacao(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
 implementation
 
 procedure Registry;
@@ -33,6 +35,7 @@ begin
   THorse.get('v1/controleestoquelancamentotipo', Listalancamentotipo);
   THorse.post('v1/controleestoquelancamento', salvalancamento);
   THorse.post('v1/controleestoquelancamento/novocadastro', novocadastro);
+  THorse.post('v1/controleestoque/relatorioCustoSolicitacao', RelatorioCustoSolicitacao);
 end;
 
 procedure novocadastro(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -181,6 +184,39 @@ begin
     exit;
   end;
   qry := servico.Listadetalhe(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+
+procedure RelatorioCustoSolicitacao(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: Tcontroleestoque;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := Tcontroleestoque.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.RelatorioCustoSolicitacao(Req.Query.Dictionary, erro);
   try
     try
       arraydados := qry.ToJSONArray();

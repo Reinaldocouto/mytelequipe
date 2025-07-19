@@ -1,4 +1,4 @@
-unit Model.Solicitacao;
+ï»¿unit Model.Solicitacao;
 
 interface
 
@@ -49,7 +49,8 @@ type
     Fvalortotal: Double;
     Fsolicitante: string;
     Fdataautorizacao: string;
-
+    Fidusuarioaprovador: string;
+    Fnomeaprovador: string;
 
   public
     constructor Create;
@@ -94,6 +95,8 @@ type
     property valortotal: Double read Fvalortotal write Fvalortotal;
     property solicitante: string read Fsolicitante write Fsolicitante;
     property dataautorizacao: string read Fdataautorizacao write Fdataautorizacao;
+    property nomeaprovador: string read Fnomeaprovador write Fnomeaprovador;
+    property idusuarioaprovador: string read Fidusuarioaprovador write Fidusuarioaprovador;
 
     function Listasolicitacao(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
@@ -109,12 +112,56 @@ type
     function Atendesolicitacao(out erro: string): Boolean;
     function NovoCadastrodiaria(out erro: string): integer;
     function Editardiaria(out erro: string): Boolean;
+    function Aprovarsolicitacao(out erro: string): Boolean;
 
   end;
 
 implementation
 
 { Tsolicitacao }
+
+function Tsolicitacao.Aprovarsolicitacao(out erro: string): Boolean;
+var
+  qry: TFDQuery;
+begin
+  Result := False;
+  erro := '';
+  qry := nil;
+
+  try
+    qry := TFDQuery.Create(nil);
+    qry.Connection := FConn;
+
+    FConn.StartTransaction;
+    try
+      qry.SQL.Clear;
+      qry.SQL.Add('UPDATE gessolicitacaoitens ' + 'SET statusaprovacao = :statusaprovacao, ' + 'idusuarioaprovador = :idusuarioaprovador, ' + 'nomeaprovador = :nomeaprovador, ' + 'dataaprovada = :dataaprovada ' + 'WHERE idsolicitacao = :idsolicitacaoitens and idproduto = :idproduto');
+
+      qry.ParamByName('statusaprovacao').AsString := 'APROVADO';
+      qry.ParamByName('idusuarioaprovador').AsString := idusuarioaprovador;
+      qry.ParamByName('idproduto').AsInteger := idproduto;
+      qry.ParamByName('nomeaprovador').AsString := nomeaprovador;
+      qry.ParamByName('dataaprovada').AsDateTime := Now;
+      qry.ParamByName('idsolicitacaoitens').AsInteger := idsolicitacao;
+
+      qry.ExecSQL;
+
+      FConn.Commit;
+      Result := True;
+
+    except
+      on E: Exception do
+      begin
+        FConn.Rollback;
+        erro := 'Erro ao aprovar solicitaï¿½ï¿½o: ' + E.Message;
+        Result := False;
+      end;
+    end;
+
+  finally
+    qry.Free;
+  end;
+end;
 
 function Tsolicitacao.Atendesolicitacao(out erro: string): Boolean;
 var
@@ -140,12 +187,12 @@ begin
         if evento = 'Atender' then
         begin
           ParamByName('status').AsString := 'ATENDIDO';
-          desc := 'Solicitação de produto';
+          desc := 'Solicitaï¿½ï¿½o de produto';
         end
         else
         begin
           ParamByName('status').AsString := 'AGUARDANDO';
-          desc := 'Cancelando Solicitação de produto';
+          desc := 'Cancelando Solicitaï¿½ï¿½o de produto';
         end;
         ParamByName('idsolicitacaoitens').AsInteger := idsolicitacao;
         ExecSQL;
@@ -177,7 +224,7 @@ begin
           ExecSQL;
         end;
         FConn.Commit;
-        erro := 'Erro ao salvar lançamento: Problema ao atualizar estoque';
+        erro := 'Erro ao salvar lanï¿½amento: Problema ao atualizar estoque';
         Result := false;
       end;
 
@@ -185,7 +232,7 @@ begin
       on ex: exception do
       begin
         FConn.Rollback;
-        erro := 'Erro ao Atender solicitação: ' + ex.Message;
+        erro := 'Erro ao Atender solicitaï¿½ï¿½o: ' + ex.Message;
         Result := false;
       end;
     end;
@@ -221,30 +268,37 @@ begin
     begin
       Active := false;
       SQL.Clear;
-      SQL.Add('Select  ');
-      SQL.Add('gessolicitacaoitens.idsolicitacaoitens As id, ');
-      SQL.Add('gessolicitacao.idsolicitacao, ');
-      SQL.Add('gessolicitacao.data, ');
-      SQL.Add('gessolicitacaoitens.status, ');
-      SQL.Add('gesusuario.nome, ');
-      SQL.Add('gessolicitacao.obra, ');
-      SQL.Add('gessolicitacaoitens.idproduto, ');
-      SQL.Add('gesproduto.descricao,  ');
-      SQL.Add('gesproduto.unidade,  ');
-      SQL.Add('gessolicitacaoitens.quantidade,  ');
-      SQL.Add('gesproduto.estoque,  ');
-      SQL.Add('gessolicitacao.projeto,  ');
-      SQL.Add('gessolicitacaoitens.dataatendimento,  ');
-      SQL.Add('gessolicitacaoitens.atendidopor,  ');
-      SQL.Add('gesusuario1.nome As nomeatendente  ');
-      SQL.Add('from  ');
-      SQL.Add('gessolicitacao Left Join  ');
-      SQL.Add('gesusuario On gesusuario.idusuario = gessolicitacao.idcolaborador Left Join  ');
-      SQL.Add('gessolicitacaoitens On gessolicitacaoitens.idsolicitacao = gessolicitacao.idsolicitacao Left Join  ');
-      SQL.Add('gesproduto On gesproduto.idproduto = gessolicitacaoitens.idproduto Left Join  ');
-      SQL.Add('gesusuario gesusuario1 On gesusuario1.idgeral = gessolicitacaoitens.atendidopor  ');
-      SQL.Add('where  ');
-      SQL.Add('gessolicitacaoitens.deletado = 0 and gessolicitacaoitens.status = ''ATENDIDO''   order by idsolicitacao desc ');
+      SQL.Add('SELECT ');
+      SQL.Add('  gessolicitacaoitens.idsolicitacaoitens AS id, ');
+      SQL.Add('  gessolicitacao.idsolicitacao, ');
+      SQL.Add('  gessolicitacao.data, ');
+      SQL.Add('  gessolicitacaoitens.status, ');
+      SQL.Add('  gesusuario.nome, ');
+      SQL.Add('  gessolicitacao.obra, ');
+      SQL.Add('  gessolicitacao.observacao,');
+      SQL.Add('  gessolicitacaoitens.idproduto, ');
+      SQL.Add('  gesproduto.descricao, ');
+      SQL.Add('  gesproduto.unidade, ');
+      SQL.Add('  gessolicitacaoitens.quantidade, ');
+      SQL.Add('  gessolicitacaoitens.idusuarioaprovador, ');
+      SQL.Add('  gessolicitacaoitens.observacao, ');
+      SQL.Add('  gesproduto.estoque, ');
+      SQL.Add('  gessolicitacao.projeto, ');
+      SQL.Add('  DATE_FORMAT(gessolicitacaoitens.dataaprovada, "%d/%m/%Y") AS dataaprovada, ');
+      SQL.Add('  gessolicitacaoitens.dataatendimento, ');
+      SQL.Add('  gessolicitacaoitens.statusaprovacao, ');
+      SQL.Add('  gessolicitacaoitens.nomeaprovador, ');
+      SQL.Add('  gessolicitacaoitens.atendidopor, ');
+      SQL.Add('  gesusuario1.nome AS nomeatendente ');
+      SQL.Add('FROM gessolicitacao ');
+      SQL.Add('LEFT JOIN gesusuario ON gesusuario.idusuario = gessolicitacao.idcolaborador ');
+      SQL.Add('LEFT JOIN gessolicitacaoitens ON gessolicitacaoitens.idsolicitacao = gessolicitacao.idsolicitacao ');
+      SQL.Add('LEFT JOIN gesproduto ON gesproduto.idproduto = gessolicitacaoitens.idproduto ');
+      SQL.Add('LEFT JOIN gesusuario AS gesusuario1 ON gesusuario1.idgeral = gessolicitacaoitens.atendidopor ');
+      SQL.Add('WHERE gessolicitacaoitens.deletado = 0 ');
+      SQL.Add('  AND gessolicitacaoitens.status = "ATENDIDO" ');
+      SQL.Add('ORDER BY gessolicitacao.idsolicitacao DESC;');
+
       Active := true;
     end;
     erro := '';
@@ -397,7 +451,7 @@ begin
       begin
         Active := false;
         sql.Clear;
-        // Configuração de formato
+        // Configuraï¿½ï¿½o de formato
         formatSettings := TFormatSettings.Create;
         formatSettings.DateSeparator := '/';
         formatSettings.ShortDateFormat := 'dd/mm/yyyy';
@@ -414,7 +468,7 @@ begin
           SQL.Add('INSERT INTO gesdiaria (numero, datasolicitacao, colaborador, nomecolaborador, projeto, siteid, siglasite, po, local, descricao, cliente,');
           SQL.Add('valoroutrassolicitacoes, diarias, valortotal, solicitante, deletado)');
           SQL.Add('VALUES (:numero, :datasolicitacao, :colaborador, :nomecolaborador, :projeto, :siteid, :siglasite, :po, :local, :descricao, :cliente,');
-          SQL.Add(':valoroutrassolicitacoes, :diarias, :valortotal, :solicitante, :deletado);'); // <-- parêntese e ponto e vírgula adicionados
+          SQL.Add(':valoroutrassolicitacoes, :diarias, :valortotal, :solicitante, :deletado);'); // <-- parï¿½ntese e ponto e vï¿½rgula adicionados
 
           ParamByName('deletado').AsBoolean := False;
           ParamByName('numero').AsInteger := numero;
@@ -432,6 +486,7 @@ begin
           ParamByName('diarias').AsInteger := diarias;
           ParamByName('valortotal').AsFloat := valortotal;
           ParamByName('solicitante').AsString := solicitante;
+
 
           execsql;
         end
@@ -451,8 +506,6 @@ begin
     qry.Free;
   end;
 end;
-
-
 
 function Tsolicitacao.Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
@@ -783,45 +836,60 @@ begin
     qry.connection := FConn;
     with qry do
     begin
-      Active := False;
-  SQL.Clear;
+      Active := false;
+      SQL.Clear;
+      SQL.Add('Select  ');
+      SQL.Add('gessolicitacaoitens.idsolicitacaoitens As id, ');
+      SQL.Add('gessolicitacao.idsolicitacao, ');
+      SQL.Add('gessolicitacao.data, ');
+      SQL.Add('gessolicitacaoitens.status, ');
+      SQL.Add('gesusuario.nome, ');
+      SQL.Add('gessolicitacao.obra, ');
+      SQL.Add('  gessolicitacao.observacao,');
+      SQL.Add('gessolicitacaoitens.idproduto, ');
+      SQL.Add('gesproduto.descricao,  ');
+      SQL.Add('gesproduto.unidade,  ');
+      SQL.Add('gessolicitacaoitens.quantidade,  ');
+      SQL.Add('gesproduto.estoque,  ');
+      SQL.Add('gessolicitacao.projeto ');
+      SQL.Add('From  ');
+      SQL.Add('gessolicitacao Left Join   ');
+      SQL.Add('gesusuario On gesusuario.idusuario = gessolicitacao.idcolaborador Left Join   ');
+      SQL.Add('gessolicitacaoitens On gessolicitacaoitens.idsolicitacao = gessolicitacao.idsolicitacao Left Join   ');
+      SQL.Add('gesproduto On gesproduto.idproduto = gessolicitacaoitens.idproduto  ');
+      SQL.Add('Where  ');
+      SQL.Add('gessolicitacaoitens.deletado = 0  ');      //and gessolicitacaoitens.status <> ''ATENDIDO''
+      if AQuery.ContainsKey('status') then
+      begin
+      a :=  AQuery.Items['status'];
 
-  SQL.Add('Select');
-  SQL.Add('  gessolicitacaoitens.idsolicitacaoitens As id,');
-  SQL.Add('  gessolicitacao.idsolicitacao,');
-  SQL.Add('  gessolicitacao.data,');
-  SQL.Add('  gessolicitacaoitens.status,');
-  SQL.Add('  gesusuario.nome,');
-  SQL.Add('  gessolicitacao.obra,');
-  SQL.Add('  gessolicitacaoitens.idproduto,');
-  SQL.Add('  gesproduto.descricao,');
-  SQL.Add('  gesproduto.unidade,');
-  SQL.Add('  gessolicitacaoitens.quantidade,');
-  SQL.Add('  gesproduto.estoque,');
-  SQL.Add('  gessolicitacao.projeto');
+        if Length(AQuery.Items['status']) > 0 then
+        begin
+          if AQuery.Items['status'] <> 'TODOS' then
+          begin
+            SQL.Add('AND gessolicitacaoitens.status = :status');
+            ParamByName('status').Value := AQuery.Items['status'];
+          end;
+        end
+        else
+        begin
+          SQL.Add('AND gessolicitacaoitens.status = :status');
+          ParamByName('status').Value := 'AGUARDANDO';
+        end
 
-  SQL.Add('From');
-  SQL.Add('  gessolicitacao');
-  SQL.Add('  Left Join gesusuario');
-  SQL.Add('    On gesusuario.idusuario = gessolicitacao.idcolaborador');
-  SQL.Add('  Left Join gessolicitacaoitens');
-  SQL.Add('    On gessolicitacaoitens.idsolicitacao = gessolicitacao.idsolicitacao');
-  SQL.Add('  Left Join gesproduto');
-  SQL.Add('    On gesproduto.idproduto = gessolicitacaoitens.idproduto');
+      end;
 
-  SQL.Add('Where');
-  SQL.Add('  gessolicitacaoitens.deletado = 0');
+      if AQuery.ContainsKey('busca') then
+      begin
+        if Length(AQuery.Items['busca']) > 0 then
+        begin
+          SQL.Add('AND gesproduto.descricao like ''%' + AQuery.Items['busca'] + '%'' ');
+        end;
+      end;
 
-  if AQuery.TryGetValue('status', Status) and (Trim(Status) <> '') then
-    SQL.Add('  AND gessolicitacaoitens.status = ''' + Status + '''');
+      SQL.Add('order by idsolicitacao desc');
 
-  if AQuery.TryGetValue('projeto', Projeto) and (Projeto = 'Avulso') then
-    SQL.Add('  AND gessolicitacao.projeto = ''Avulso''');
-
-  SQL.Add('Order by');
-  SQL.Add('  idsolicitacao desc');
-
-  Active := True;
+      Active := true;
     end;
     erro := '';
     Result := qry;

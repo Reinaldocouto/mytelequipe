@@ -95,6 +95,7 @@ const Comprasedicao = ({ setshow, show, ididentificador, atualiza }) => {
     idordemcomprabusca: ididentificador,
     idpessoabusca: idfornecedor,
     idpedido: ididentificador,
+    idordemcompra: ididentificador,
     origem: 'PEDIDOCOMPRA',
     deletado: 0,
   };

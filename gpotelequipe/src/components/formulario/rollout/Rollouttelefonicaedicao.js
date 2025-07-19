@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Modal, ModalHeader, ModalBody, Input, CardBody, Button, InputGroup, ModalFooter } from 'reactstrap';
+import {
+  Modal,
+  ModalHeader,
+  ModalBody,
+  Input,
+  CardBody,
+  Button,
+  InputGroup,
+  ModalFooter,
+} from 'reactstrap';
 import * as Icon from 'react-feather';
 import { Box } from '@mui/material';
 import {
@@ -13,6 +22,8 @@ import {
   GridOverlay,
   ptBR,
 } from '@mui/x-data-grid';
+import { debounce } from 'lodash';
+
 import Pagination from '@mui/material/Pagination';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
@@ -30,10 +41,15 @@ import Mensagemsimples from '../../Mensagemsimples';
 import Solicitardiaria from '../projeto/Solicitardiaria';
 import Tarefaedicaotelefonica from '../projeto/Tarefaedicaotelefonica';
 
-
-
-const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, pmuf, idr, idpmtslocal }) => {
-
+const Rollouttelefonicaedicao = ({
+  setshow,
+  show,
+  titulotopo,
+  ididentificador,
+  pmuf,
+  idr,
+  idpmtslocal,
+}) => {
   const [acompanhamentofinanceiro, setacompanhamentofinanceiro] = useState([]);
   const [pacotes, setpacotes] = useState([]);
   const [pacotesacionadospj, setpacotesacionadospj] = useState([]);
@@ -122,7 +138,9 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
   const [rollout, setrollout] = useState('');
   const [acompanhamentofisicoobservacao, setacompanhamentofisicoobservacao] = useState('');
   const [telaexclusaopj, settelaexclusaopj] = useState(false);
+  const [telaexclusaoclt, settelaexclusaoclt] = useState(false);
   const [idacionamentopj, setidacionamentopj] = useState(0);
+  const [idacionamentoclt, setidacionamentoclt] = useState(0);
   const [idcolaboradorclt, setidcolaboradorclt] = useState('');
   const [selectedoptioncolaboradorclt, setselectedoptioncolaboradorclt] = useState(null);
   const [colaboradorlistaclt, setcolaboradorlistaclt] = useState([]);
@@ -158,6 +176,8 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
   const [equipe, setequipe] = useState('');
   const [tarefaedicao, settarefaedicao] = useState(false);
   const [usuario, setusuario] = useState('');
+  const [valorTotal, setValorTotal] = useState('');
+  const [despesas, setdespesas] = useState([]);
 
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
@@ -276,8 +296,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
           setselectedoptionlpu({ value: stat.value, label: stat.label });
           listapacotes(stat.label);
         }
-      }
-      else {
+      } else {
         setlpuhistorico(stat.label);
         setselectedoptionlpu({ value: stat.value, label: stat.label });
         listapacotes(stat.label);
@@ -295,10 +314,8 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
       setloading(true);
 
       const response = await api.get('v1/projetotelefonicaid', { params });
-      console.log(response.data)
 
       if (response.status === 200) {
-
         setuididpmts(response.data.uididpmts);
         setufsigla(response.data.ufsigla);
         setuididcpomrf(response.data.uididcpomrf);
@@ -321,6 +338,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
         setacessodatasolicitacao(trataData(response.data.acessodatasolicitacao));
         setacessodatainicial(trataData(response.data.acessodatainicial));
         setacessodatafinal(trataData(response.data.acessodatafinal));
+
         setacessostatus(response.data.acessos);
         setentregaplan(trataData(response.data.entregaplan));
         setentregareal(trataData(response.data.entregareal));
@@ -335,8 +353,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
         setdocplan(trataData(response.data.docplan));
         setdocvitoriareal(trataData(response.data.docvitoriareal));
         setdtplan(trataData(response.data.dtplan));
-        setinitialtunningstatus(trataData(response.data.initialtunningstatus));
-        setinitialtunningreal(trataData(response.data.initialtunningreal));
         setdtreal(trataData(response.data.dtreal));
         setstatusobra(response.data.statusobra);
         setdocaplan(trataData(response.data.docaplan));
@@ -346,6 +362,8 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
         setrollout(response.data.rollout);
         setequipe(response.data.equipe);
         setacompanhamentofisicoobservacao(response.data.acompanhamentofisicoobservacao);
+        setinitialtunningreal(trataData(response.data.initialtunningreal));
+        setinitialtunningstatus(response.data.initialtunnigstatus);
       } else {
         toast.error(`Erro: ${response.status}`);
       }
@@ -357,17 +375,15 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
     }
   };
 
-
   const listalpu = async () => {
     try {
       await api.get(`v1/projetotelefonica/listalpu`, { params }).then((response) => {
         setlpulista(response.data);
-        console.log(response.data)
       });
     } catch (err) {
       toast.error(err.message);
     }
-  }
+  };
   const handleChangecolaboradorpj = (stat) => {
     if (stat !== null) {
       setidcolaboradorpj(stat.value);
@@ -410,8 +426,8 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
         setdatafinalclt(integracaoreal);
       }
       if (stat === 'VISTORIA') {
-        setdatainicioclt(integracaoreal)
-        setdatafinalclt(vistoriareal)
+        setdatainicioclt(integracaoreal);
+        setdatafinalclt(vistoriareal);
       }
     }
   };
@@ -493,36 +509,36 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
 
     ...(modofinanceiro()
       ? [
-        {
-          field: 'valor',
-          headerName: 'VALOR R$',
-          type: 'currency',
-          width: 150,
-          align: 'left',
-          editable: false,
-          valueFormatter: (parametros) => {
-            if (parametros.value == null) return '';
-            return parametros.value.toLocaleString('pt-BR', {
-              style: 'currency',
-              currency: 'BRL',
-            });
+          {
+            field: 'valor',
+            headerName: 'VALOR R$',
+            type: 'currency',
+            width: 150,
+            align: 'left',
+            editable: false,
+            valueFormatter: (parametros) => {
+              if (parametros.value == null) return '';
+              return parametros.value.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              });
+            },
           },
-        },
-        {
-          field: 'valortotal',
-          headerName: 'VALOR TOTAL',
-          width: 150,
-          align: 'left',
-          editable: false,
-          valueFormatter: (parametros) => {
-            if (parametros.value == null) return '';
-            return parametros.value.toLocaleString('pt-BR', {
-              style: 'currency',
-              currency: 'BRL',
-            });
+          {
+            field: 'valortotal',
+            headerName: 'VALOR TOTAL',
+            width: 150,
+            align: 'left',
+            editable: false,
+            valueFormatter: (parametros) => {
+              if (parametros.value == null) return '';
+              return parametros.value.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              });
+            },
           },
-        },
-      ]
+        ]
       : []),
     {
       field: 'statust2',
@@ -640,15 +656,13 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
   const listaatividades = async () => {
     try {
       setloading(true);
-      await api
-        .get('v1/projetotelefonica/listaatividade', { params })
-        .then((response) => {
-          if (response.status === 200) {
-            setatividades(response.data);
-          } else {
-            toast.error(`Erro: ${response.status}`);
-          }
-        });
+      await api.get('v1/projetotelefonica/listaatividade', { params }).then((response) => {
+        if (response.status === 200) {
+          setatividades(response.data);
+        } else {
+          toast.error(`Erro: ${response.status}`);
+        }
+      });
     } catch (err) {
       if (err.response) {
         toast.error(err.response.data.erro);
@@ -811,6 +825,10 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
     setidacionamentopj(stat);
     settelaexclusaopj(true);
   }
+  function deleteuserclt(stat) {
+    setidacionamentoclt(stat);
+    settelaexclusaoclt(true);
+  }
 
   const colunaspacotesacionados = [
     {
@@ -919,7 +937,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
           icon={<DeleteIcon />}
           disabled={modoVisualizador()}
           label="Delete"
-          onClick={() => deleteUser(parametros.id)}
+          onClick={() => deleteuserclt(parametros.id)}
         />,
       ],
     },
@@ -1007,7 +1025,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
     },
   ];
 
-
   const colunasmaterialeservico = [
     {
       field: 'actions',
@@ -1051,7 +1068,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
       editable: false,
     },
   ];
-
 
   /*  const salvarpj = async (pacoteid, atividadeid) => {
   
@@ -1127,8 +1143,18 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
     }
   };
 
-
   const salvarclt = async (atividadeid) => {
+    if (!datainicioclt) {
+      toast.error('É necessário informar a data de início.');
+      return;
+    }
+
+    if (!datafinalclt) {
+      toast.error('É necessário informar a data de fim.');
+      return;
+    }
+    console.log(rowSelectionModel);
+    const { po } = atividades.find((result) => result.id === atividadeid);
     api
       .post('v1/projetotelefonica/acionamentoclt', {
         idrollout: idr,
@@ -1143,6 +1169,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
         horanormalclt,
         hora50clt,
         hora100clt,
+        po,
         idfuncionario: localStorage.getItem('sessionId'),
       })
       .then((response) => {
@@ -1152,12 +1179,11 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
           setdatainicioclt('');
           setdatafinalclt('');
           settotalhorasclt('0');
-          setobservacaoclt('0');
+          setobservacaoclt('');
           sethoranormalclt('0');
           sethora50clt('0');
           sethora100clt('0');
           listapacotesacionadosclt();
-
         }
       })
       .catch((err) => {
@@ -1170,7 +1196,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
   };
 
   function ProcessaCadastro(e) {
-    console.log(infravivo)
+    console.log(infravivo);
     e.preventDefault();
     api
       .post('v1/projetotelefonica', {
@@ -1246,13 +1272,11 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
       }
 
       const resultados = await Promise.allSettled(
-        rowSelectionModelpacotepj.map((poite) =>
-          salvarpj(poite, rowSelectionModel[0])
-        )
+        rowSelectionModelpacotepj.map((poite) => salvarpj(poite, rowSelectionModel[0])),
       );
 
       const algumSucesso = resultados.some(
-        (res) => res.status === 'fulfilled' && res.value === true
+        (res) => res.status === 'fulfilled' && res.value === true,
       );
 
       const algumErro = resultados.some((res) => res.status === 'rejected');
@@ -1279,40 +1303,31 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
     }
   };
   const execacionamentoclt = async () => {
+    // Validação das datas
+    if (!datainicioclt || !datafinalclt) {
+      toast.error('Não é possível salvar sem data de início ou fim do CLT');
+      return;
+    }
+
+    // Validação da seleção
+    if (!rowSelectionModel || rowSelectionModel.length === 0) {
+      toast.error('Selecione um item na lista de Atividade');
+      return;
+    }
+
+    if (rowSelectionModel.length > 1) {
+      toast.error('Selecione apenas um item na lista de Atividade');
+      return;
+    }
+
     try {
-      if ((datainicioclt === null) || (datafinalclt === null)) {
-        toast.error('Não é possível salvar sem data de início ou fim do CLT');
-        return;
-      }
-      if (!rowSelectionModel || rowSelectionModel.length === 0) {
-        toast.error('Selecione um item na lista de Atividade');
-        return; // Sai da função
-      }
+      await salvarclt(rowSelectionModel[0]);
 
-
-      if (!rowSelectionModel || rowSelectionModel.length === 0) {
-        toast.error('Selecione um item na lista de Atividade');
-        return; // Sai da função
-      }
-      if (rowSelectionModel.length > 1) {
-        toast.error('Selecione apenas um item na lista de Atividade');
-        return;
-      }
-      try {
-        const sucesso = await salvarclt(rowSelectionModel[0]); // Aguarda a Promise
-
-        if (sucesso) {
-          listapacotesacionadosclt(); // Atualiza a lista após o sucesso
-          toast.success('Acionamento salvo com sucesso!');
-        } else {
-          toast.error('Erro ao salvar acionamento.');
-        }
-      } catch (erro) {
-        toast.error('Ocorreu um erro ao salvar.');
-        console.error(erro);
-      }
-    } catch (error) {
-      toast.error(`Erro ao salvar itens: ${error.message || error}`);
+      listapacotesacionadosclt();
+      toast.success('Acionamento salvo com sucesso!');
+    } catch (erro) {
+      console.error(erro);
+      toast.error('Ocorreu um erro ao salvar.');
     }
   };
 
@@ -1420,13 +1435,50 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
     }
   };
 
-
-
   function deletediaria(stat) {
     setiddiaria(stat);
     settelaexclusaodiaria(true);
   }
-
+  const colunasFinanceiro = [
+    {
+      field: 'tipo',
+      headerName: 'Tipo',
+      width: 180,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'descricao',
+      headerName: 'Descrição',
+      width: 600,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'valor',
+      headerName: 'Valor (R$)',
+      width: 200,
+      align: 'right',
+      type: 'number',
+      valueFormatter: ({ value }) => {
+        return value?.toLocaleString('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        });
+      },
+      editable: false,
+      cellClassName: ({ value }) => {
+        return value >= 0 ? 'valor-positivo' : 'valor-negativo';
+      },
+    },
+    {
+      field: 'nome',
+      headerName: 'Responsável',
+      width: 200,
+      align: 'left',
+      editable: false,
+    },
+  ];
   //tabela de dados de despesa diarias
   const colunasdiarias = [
     {
@@ -1443,7 +1495,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
           onClick={() => deletediaria(parametros.id)}
         />,
       ],
-    },    // { field: 'id', headerName: 'ID', width: 60, align: 'center' },
+    }, // { field: 'id', headerName: 'ID', width: 60, align: 'center' },
     {
       field: 'datasolicitacao',
       headerName: 'Data',
@@ -1512,7 +1564,13 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
       editable: false,
     },
   ];
+  const calcularTotalDebounced = debounce((normal, h50, h100) => {
+    settotalhorasclt(Number(normal) + Number(h50) + Number(h100));
+  }, 200);
 
+  useEffect(() => {
+    calcularTotalDebounced(horanormalclt, hora50clt, hora100clt);
+  }, [horanormalclt, hora50clt, hora100clt]);
   const listasolicitacaodiaria = async () => {
     try {
       setloading(true);
@@ -1533,22 +1591,40 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
       console.error(err.message);
     }
   };
-
-  const iniciatabelas = () => {
-    listaid();
-    listaacompanhamentofinanceiro();
-    listaatividades();
-    listacolaboradorpj();
-    listacolaboradorclt();
-    listapacotesacionados();
-    listapacotesacionadosclt();
-    listasolicitacao();
-    listasolicitacaodiaria();
-    emailadicional();
+  async function listaValorTotal() {
+    try {
+      const response = await api.get('v1/projetotelefonica/ListaDespesas', {
+        params: {
+          idpmts: uididpmts,
+          idmpst: uididpmts,
+        },
+      });
+      setdespesas(response.data.dados);
+      setValorTotal(response.data.total_geral);
+    } catch (err) {
+      console.error(err.message);
+    }
+  }
+  const iniciatabelas = async () => {
+    await listaid();
+    await listaacompanhamentofinanceiro();
+    await listaatividades();
+    await listacolaboradorpj();
+    await listacolaboradorclt();
+    await listapacotesacionados();
+    await listapacotesacionadosclt();
+    await listasolicitacao();
+    await listasolicitacaodiaria();
+    await emailadicional();
     setusuario(localStorage.getItem('sessionId'));
   };
 
-  useEffect(() => { listapacotesacionados() }, [motivo]);
+  useEffect(() => {
+    listapacotesacionados();
+  }, [motivo]);
+  useEffect(() => {
+    listaValorTotal();
+  }, [uididpmts]);
 
   useEffect(() => {
     iniciatabelas();
@@ -1557,8 +1633,18 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
       console.log(retanexo);
     }
   }, []);
-
-
+  useEffect(() => {
+    listaValorTotal();
+  }, [
+    telacadastrosolicitacaodiaria,
+    telaexclusaopj,
+    telaexclusaoclt,
+    telaexclusaodiaria,
+    telacadastrosolicitacao,
+    tarefaedicao,
+    telacadastrosolicitacaodiaria,
+    mostra,
+  ]);
   return (
     <>
       <Modal
@@ -1573,19 +1659,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
         </ModalHeader>
         <ModalBody style={{ backgroundColor: 'white' }}>
           <div>
-            <ToastContainer
-              style={{ zIndex: 9999999 }}
-              position="top-right"
-              autoClose={2000}
-              hideProgressBar={false}
-              newestOnTop
-              closeOnClick
-              rtl={false}
-              pauseOnFocusLoss
-              draggable
-              pauseOnHover
-            />
-
             {telaexclusaopj ? (
               <>
                 <Excluirregistro
@@ -1594,6 +1667,17 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                   ididentificador={idacionamentopj}
                   quemchamou="ATIVIDADEPJTELEFONICA"
                   atualiza={listapacotesacionados}
+                />{' '}
+              </>
+            ) : null}
+            {telaexclusaoclt ? (
+              <>
+                <Excluirregistro
+                  show={telaexclusaoclt}
+                  setshow={settelaexclusaoclt}
+                  ididentificador={idacionamentoclt}
+                  quemchamou="ATIVIDADECLTTELEFONICA"
+                  atualiza={listapacotesacionadosclt}
                 />{' '}
               </>
             ) : null}
@@ -1667,6 +1751,18 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                 clientelocal="VIVO"
               />
             ) : null}
+            <ToastContainer
+              style={{ zIndex: 9999999 }}
+              position="top-right"
+              autoClose={2000}
+              hideProgressBar={false}
+              newestOnTop
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+            />
 
             <b>Identificação</b>
             <hr style={{ marginTop: '0px', width: '100%' }} />
@@ -1933,9 +2029,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                 </div>
                 <div className="col-sm-2">
                   Documentação Vistoria Plan
-                  <Input
-                    type="date"
-                    onChange={(e) => setdocplan(e.target.value)} value={docplan} />
+                  <Input type="date" onChange={(e) => setdocplan(e.target.value)} value={docplan} />
                 </div>
                 <div className="col-sm-2">
                   Documentação Vistoria Real
@@ -2048,7 +2142,8 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                     id="initialTunningStatus" /* ← corresponde ao htmlFor */
                     type="select"
                     value={initialtunningstatus}
-                    onChange={(e) => setinitialtunningstatus(e.target.value)}>
+                    onChange={(e) => setinitialtunningstatus(e.target.value)}
+                  >
                     <option value="">Selecione...</option>
                     <option value="AGUARDANDO">Aguardando</option>
                     <option value="EM_ANDAMENTO">Em andamento</option>
@@ -2085,7 +2180,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                     <option value="PARALISADO">PARALISADO</option>
                     <option value="PLANEJAMENTO">PLANEJAMENTO</option>
                     <option value="PROG. INTEGRAÇÃO">PROG. INTEGRAÇÃO</option>
-                    <option value="VISTORIA">VISTORIA</option>                    
+                    <option value="VISTORIA">VISTORIA</option>
                   </Input>
                 </div>
 
@@ -2102,7 +2197,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                   Equipe
                   <Input type="text" onChange={(e) => setequipe(e.target.value)} value={equipe} />
                 </div>
-
 
                 <div className="col-sm-6">
                   Infra Vivo
@@ -2218,7 +2312,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                     onChange={(e) => setdatainicioclt(e.target.value)}
                     value={datainicioclt}
                     placeholder=""
-                    disabled
                   />
                 </div>
                 <div className="col-sm-2">
@@ -2228,7 +2321,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                     onChange={(e) => setdatafinalclt(e.target.value)}
                     value={datafinalclt}
                     placeholder=""
-                    disabled
                   />
                 </div>
                 <div className="col-sm-3">
@@ -2356,7 +2448,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                     {(usuario === '33' || usuario === '35' || usuario === '78') && (
                       <div className="col-sm-2">
                         Valor Negociado
-
                         <NumericFormat
                           className="form-control"
                           value={valornegociado}
@@ -2589,7 +2680,31 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
           <div>
             <b>Financeiro</b>
             <hr style={{ marginTop: '0px', width: '100%' }} />
-            <div className="row g-3"></div>
+            <div className="col-sm-12 mt-3 mb-3">
+              <p className="text-end text-muted text-sm mt-2">
+                Valor total: <strong>R$ {Number(valorTotal).toFixed(2)}</strong>
+              </p>
+            </div>
+            <div className="row g-3">
+              <div className="row g-3">
+                <Box sx={{ height: 400, width: '100%' }}>
+                  <DataGrid
+                    rows={despesas}
+                    columns={colunasFinanceiro}
+                    loading={loading}
+                    disableSelectionOnClick
+                    experimentalFeatures={{ newEditingApi: true }}
+                    components={{
+                      Pagination: CustomPagination,
+                      LoadingOverlay: LinearProgress,
+                      NoRowsOverlay: CustomNoRowsOverlay,
+                    }}
+                    localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                    // Usa estado para controlar a paginação dinamicamente
+                  />
+                </Box>
+              </div>
+            </div>
           </div>
         </ModalBody>
         <ModalFooter style={{ backgroundColor: 'white' }}>

@@ -1,4 +1,4 @@
-unit Model.Projetotelefonica;
+Ôªøunit Model.Projetotelefonica;
 
 interface
 
@@ -70,7 +70,7 @@ type
     Fidfuncionario: Integer;
     Fdatainicioclt: string;
     Fdatafinalclt: string;
-    Ftotalhorasclt: Double;
+    Ftotalhorasclt: integer;
     Fobservacaoclt: string;
     Fhoranormalclt: Double;
     Fhora50clt: Double;
@@ -127,6 +127,8 @@ type
     Fdatadopagamento: TDatetime;
     Fregionalocal: string;
     Frevedescricao: string;
+    Finitialtunningreal: string;
+    Finitialtunningstatus: string;
 
     procedure AddMultipleFiltersFromJSON(AQuery: TDictionary<string, string>; const KeysAndFields: array of string; SQL: TStrings);
 
@@ -193,7 +195,7 @@ type
     property idfuncionario: Integer read Fidfuncionario write Fidfuncionario;
     property datainicioclt: string read Fdatainicioclt write Fdatainicioclt;
     property datafinalclt: string read Fdatafinalclt write Fdatafinalclt;
-    property totalhorasclt: double read Ftotalhorasclt write Ftotalhorasclt;
+    property totalhorasclt: integer read Ftotalhorasclt write Ftotalhorasclt;
     property observacaoclt: string read Fobservacaoclt write Fobservacaoclt;
     property horanormalclt: double read Fhoranormalclt write Fhoranormalclt;
     property hora50clt: double read Fhora50clt write Fhora50clt;
@@ -245,6 +247,8 @@ type
     property tipopagamento: string read Ftipopagamento write Ftipopagamento;
     property diapagamento: string read Fdiapagamento write Fdiapagamento;
     property equipe: string read Fequipe write Fequipe;
+    property initialtunningstatus: string read Finitialtunningstatus write Finitialtunningstatus;
+    property initialtunningreal: string read Finitialtunningreal write Finitialtunningreal;
 
     property idusuario: string read Fidusuario write Fidusuario;
 
@@ -306,6 +310,11 @@ type
     function salvarpagamento(out erro: string): Boolean;
     function salvadesconto(out erro: string): Boolean;
 
+    function ListPrevisaoFechamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+
+    function dashboardtelefonicaposicionamentofinanceiro(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function Listaacionamentoshistoricopagamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function ListaDespesas(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
   end;
 
 implementation
@@ -432,6 +441,120 @@ begin
     end;
   end;
 end;
+
+function TProjetotelefonica.ListaDespesas(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+  DataInicio, DataFinal: TDate;
+  DataStr: string;
+  FormatSettings: TFormatSettings;
+begin
+  Result := nil;
+  erro := '';
+
+  if not Assigned(FConn) then
+  begin
+    erro := 'Conex√£o com o banco de dados n√£o est√° inicializada';
+    Exit;
+  end;
+
+  // Configurar o formato de data esperado
+  FormatSettings := TFormatSettings.Create;
+  FormatSettings.ShortDateFormat := 'yyyy-mm-dd';
+  FormatSettings.DateSeparator := '-';
+
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConn;
+    qry.CachedUpdates := False;
+
+    try
+      qry.SQL.Clear;
+      qry.SQL.Add('SELECT * FROM (');
+      qry.SQL.Add('  SELECT ac.idpmts, gp.nome AS descricao, 0 AS valor, ac.dataacionamento, gu.nome, ''ACIONAMENTO CLT'' AS tipo');
+      qry.SQL.Add('  FROM acionamentovivoclt ac');
+      qry.SQL.Add('  INNER JOIN gespessoa gp ON gp.idpessoa = ac.idcolaborador');
+      qry.SQL.Add('  INNER JOIN gesusuario gu ON gu.idusuario = ac.idfuncionario');
+      qry.SQL.Add('  WHERE ac.deletado = 0');
+
+      qry.SQL.Add('  UNION ALL');
+
+      qry.SQL.Add('  SELECT av.idpmts, CONCAT(ge.nome, '' '', lp.CODIGOLPUVIVO) AS descricao, lp.VALORPJ, av.dataacionamento, gu.nome, ''ACIONAMENTO PJ'' AS tipo');
+      qry.SQL.Add('  FROM acionamentovivo av');
+      qry.SQL.Add('  INNER JOIN lpuvivo lp ON lp.ID = av.idpacote AND lp.HISTORICO = av.lpu');
+      qry.SQL.Add('  INNER JOIN gesempresas ge ON ge.idempresa = av.idcolaborador');
+      qry.SQL.Add('  INNER JOIN gesusuario gu ON gu.idusuario = av.idfuncionario');
+      qry.SQL.Add('  WHERE av.deletado = 0');
+
+      qry.SQL.Add('  UNION ALL');
+
+      qry.SQL.Add('  SELECT rv.UIDIDPMTS AS idpmts, gp.descricao,');
+      qry.SQL.Add('    (SELECT gce.valor FROM gescontroleestoque gce');
+      qry.SQL.Add('     WHERE gce.idtipomovimentacao = 1 AND gce.idproduto = gsi.idproduto LIMIT 1) AS valor,');
+      qry.SQL.Add('    gs.data AS dataacionamento, gu.nome, ''MATERIAL E SERVI√áO'' AS tipo');
+      qry.SQL.Add('  FROM rolloutvivo rv');
+      qry.SQL.Add('  INNER JOIN gessolicitacao gs ON gs.obra = rv.UIDIDPMTS');
+      qry.SQL.Add('  INNER JOIN gessolicitacaoitens gsi ON gsi.idsolicitacao = gs.idsolicitacao');
+      qry.SQL.Add('  INNER JOIN gesproduto gp ON gp.idproduto = gsi.idproduto');
+      qry.SQL.Add('  INNER JOIN gesusuario gu ON gu.idusuario = gs.idcolaborador');
+      qry.SQL.Add('  WHERE gs.projeto = ''TELEFONICA''');
+
+      qry.SQL.Add('  UNION ALL');
+
+      qry.SQL.Add('  SELECT gd.siteid AS idpmts, gd.descricao, gd.valortotal AS valor, gd.datasolicitacao AS dataacionamento, gd.nomecolaborador AS nome, ''DIARIA'' AS tipo');
+      qry.SQL.Add('  FROM gesdiaria gd');
+      qry.SQL.Add('  WHERE gd.projeto = ''TELEFONICA''');
+      qry.SQL.Add(') as d');
+      qry.SQL.Add('WHERE 1=1');
+
+      // Filtro por idpmts
+      if AQuery.ContainsKey('idmpst') and (Trim(AQuery.Items['idmpst']) <> '') then
+      begin
+        qry.SQL.Add(' AND d.idpmts = :idmpst');
+        qry.ParamByName('idmpst').AsString := AQuery.Items['idmpst'];
+      end;
+
+      // Filtro por data de in√≠cio
+      if AQuery.ContainsKey('datainicio') and (Trim(AQuery.Items['datainicio']) <> '') then
+      begin
+        DataStr := AQuery.Items['datainicio'];
+        begin
+          qry.SQL.Add(' AND d.dataacionamento >= :datainicio');
+          qry.ParamByName('datainicio').AsDate := DataInicio;
+        end;
+      end;
+
+      // Filtro por data final
+      if AQuery.ContainsKey('datafinal') and (Trim(AQuery.Items['datafinal']) <> '') then
+      begin
+        DataStr := AQuery.Items['datafinal'];
+        begin
+          qry.SQL.Add(' AND d.dataacionamento <= :datafinal');
+          qry.ParamByName('datafinal').AsDate := DataFinal;
+        end
+      end;
+
+      qry.SQL.Add(' ORDER BY d.dataacionamento DESC');
+
+      qry.Open;
+      Result := qry;
+
+    except
+      on E: Exception do
+      begin
+        erro := 'Erro ao executar a consulta: ' + E.Message;
+        FreeAndNil(qry);
+      end;
+    end;
+  except
+    on E: Exception do
+    begin
+      erro := 'Erro ao criar a query: ' + E.Message;
+      FreeAndNil(qry);
+    end;
+  end;
+end;
+
 
 function TProjetotelefonica.Editarpagamento(out erro: string): Boolean;
 var
@@ -737,10 +860,10 @@ begin
   Result := False;
   erro := '';
 
-  // Verifica se o corpo contÈm o campo "id"
+  // Verifica se o corpo cont√©m o campo "id"
   if not ABody.TryGetValue<Integer>('id', id) then
   begin
-    erro := 'Par‚metro "id" obrigatÛrio.';
+    erro := 'Par√¢metro "id" obrigat√≥rio.';
     Exit;
   end;
 
@@ -951,7 +1074,7 @@ begin
       on ex: exception do
       begin
         FConn.Rollback;
-        erro := 'Erro fazer lanÁamento: ' + ex.Message;
+        erro := 'Erro fazer lan√ßamento: ' + ex.Message;
         Result := false;
       end;
     end;
@@ -1073,19 +1196,19 @@ begin
 
   if not Assigned(AQuery) then
   begin
-    erro := 'Erro: Par‚metros n„o foram fornecidos.';
+    erro := 'Erro: Par√¢metros n√£o foram fornecidos.';
     Exit;
   end;
 
   if not AQuery.ContainsKey('idempresa') then
   begin
-    erro := 'Erro: Par‚metro obrigatÛrio "idempresa" ausente.';
+    erro := 'Erro: Par√¢metro obrigat√≥rio "idempresa" ausente.';
     Exit;
   end;
 
   if not Assigned(FConn) then
   begin
-    erro := 'Erro: Conex„o com banco de dados n„o inicializada.';
+    erro := 'Erro: Conex√£o com banco de dados n√£o inicializada.';
     Exit;
   end;
 
@@ -1258,7 +1381,7 @@ begin
       SQL.Add('From ');
       SQL.Add('lpuvivo ');
       SQL.Add('where lpuvivo.idempresa =:idcolaborador and uf=:uf ');
-      if ((AQuery.Items['idcolaborador'].ToInteger = 140) or (AQuery.Items['idcolaborador'].ToInteger = 144) or (AQuery.Items['idcolaborador'].ToInteger = 87)or (AQuery.Items['idcolaborador'].ToInteger = 322)) then
+      if ((AQuery.Items['idcolaborador'].ToInteger = 140) or (AQuery.Items['idcolaborador'].ToInteger = 144) or (AQuery.Items['idcolaborador'].ToInteger = 87) or (AQuery.Items['idcolaborador'].ToInteger = 322)) then
         ParamByName('idcolaborador').AsInteger := AQuery.Items['idcolaborador'].ToInteger
       else
         ParamByName('idcolaborador').AsInteger := 0;
@@ -1531,6 +1654,8 @@ begin
         SQL.Add('req=:req, ');
         SQL.Add('resumodafase=:resumodafase, ');
         SQL.Add('acompanhamentofisicoobservacao=:acompanhamentofisicoobservacao, ');
+        SQL.Add('initialtunnigstatus=:initialtunnigstatus, ');
+        SQL.Add('initialtunningreal=:initialtunningreal, ');
         SQL.Add('Rollout=:Rollout, equipe=:equipe ');
         SQL.Add('where UIDIDCPOMRF=:UIDIDCPOMRF ');
         ParamByName('infra').asstring := infra;
@@ -1547,6 +1672,8 @@ begin
         ParamByName('acessoobs').asstring := acessoobs;
         ParamByName('equipe').asstring := equipe;
         ParamByName('acompanhamentofisicoobservacao').asstring := acompanhamentofisicoobservacao;
+        ParamByName('initialtunningreal').AsDateTime := ISO8601ToDate(initialtunningreal);
+        ParamByName('initialtunnigstatus').asstring := initialtunningstatus;
         try
           ParamByName('acessodatainicial').AsDateTime := ISO8601ToDate(acessodatainicial);
         except
@@ -1809,7 +1936,7 @@ begin
             SQL.add('update telefonicacontrolet2 set itemt2=:t2, tipo=:tipo  where id=:id ');
             ParamByName('id').asinteger := qry2.fieldbyname('id').asinteger;
             ParamByName('t2').asinteger := cont;
-            ParamByName('tipo').asstring := 'serviÁo' + inttostr(cont);
+            ParamByName('tipo').asstring := 'servi√ßo' + inttostr(cont);
             execsql;
           end;
           Next;
@@ -1826,7 +1953,7 @@ begin
       on ex: exception do
       begin
         FConn.Rollback;
-        erro := 'Erro fazer lanÁamento: ' + ex.Message;
+        erro := 'Erro fazer lan√ßamento: ' + ex.Message;
         Result := false;
       end;
     end;
@@ -1901,7 +2028,7 @@ begin
       on ex: exception do
       begin
         FConn.Rollback;
-        erro := 'Erro fazer lanÁamento: ' + ex.Message;
+        erro := 'Erro fazer lan√ßamento: ' + ex.Message;
         Result := false;
       end;
     end;
@@ -1981,83 +2108,102 @@ begin
 end;
 
 function TProjetotelefonica.salvaacionamentoclt(out erro: string): Boolean;
+function StringToDateISO(const DateStr: string): TDateTime;
 var
-  qry, qry1, qry2: TFDQuery;
-  id, demanda: Integer;
-  valorlpu: Real;
-  cliente, empresa, site, polocal: string;
+  FS: TFormatSettings;
 begin
+  if DateStr = '' then
+    Result := StrToDate('30/12/1899') // Data padr√£o para valores vazios
+  else
+  begin
+    FS := TFormatSettings.Create;
+    FS.DateSeparator := '-';
+    FS.ShortDateFormat := 'yyyy-mm-dd';
+
+    if not TryStrToDate(DateStr, Result, FS) then
+      raise Exception.Create('Formato de data inv√°lido: ' + DateStr);
+  end;
+end;
+var
+  qry: TFDQuery;
+  polocal: string;
+  poValue: Int64; // Para armazenar o PO convertido para BIGINT
+begin
+  Result := False;
+  qry := TFDQuery.Create(nil);
   try
-    qry := TFDQuery.Create(nil);
-    qry.connection := FConn;
+    qry.Connection := FConn;
+    FConn.StartTransaction;
     try
-      FConn.StartTransaction;
       with qry do
       begin
-
-        active := false;
+        // Busca o PO como string
+        Active := False;
         SQL.Clear;
-        SQL.Add('Select consolidadotelefonica.PO From consolidadotelefonica where id=:id');
+        SQL.Add('SELECT consolidadotelefonica.PO FROM consolidadotelefonica WHERE id=:id');
         ParamByName('id').AsInteger := idatividade;
         Open();
-        polocal := fieldbyname('PO').asstring;
+        polocal := FieldByName('PO').AsString;
 
-        active := false;
+        // Converte o PO para Int64 (BIGINT) com tratamento seguro
+        if not TryStrToInt64(polocal, poValue) then
+          poValue := 0; // Valor padr√£o se a convers√£o falhar
+
+        // Insere os dados
+        Active := False;
         SQL.Clear;
-        SQL.Add('insert into acionamentovivoclt(po,atividade,idatividade,idcolaborador,idpacote,valor,dataacionamento,');
-        SQL.Add('idfuncionario,deletado,idrollout,idpmts,dataincio,datafinal,horanormal,horas50,horas100,totaldehoras) ');
-        SQL.Add('                     VALUES(:po,:atividade,:idatividade,:idcolaborador,:idpacote,:valor,:dataacionamento,');
-        SQL.Add(':idfuncionario,:deletado,:idrollout,:idpmts,:dataincio,:datafinal,:horanormal,:horas50,:horas100,:totaldehoras) ');
-        ParamByName('po').asstring := polocal;
-        ParamByName('idcolaborador').asinteger := idcolaborador;
-        ParamByName('idatividade').asinteger := idatividade;
-        ParamByName('idpacote').asinteger := idpacote;
-        ParamByName('valor').asfloat := 0;
-        ParamByName('atividade').asstring := atividade;
-        ParamByName('dataacionamento').AsDateTime := now;
-        ParamByName('idfuncionario').asinteger := idfuncionario;
-        ParamByName('deletado').asinteger := 0;
-        ParamByName('idrollout').asinteger := idrollout;
-        ParamByName('idpmts').asString := idpmts;
-        try
-          ParamByName('dataincio').Asstring := datainicioclt;
-        except
+        SQL.Add('INSERT INTO acionamentovivoclt(po, atividade, idatividade, idcolaborador, idpacote, valor, dataacionamento,');
+        SQL.Add('idfuncionario, deletado, idrollout, idpmts, dataincio, datafinal, horanormal, horas50, horas100, totaldehoras) ');
+        SQL.Add('VALUES(:po, :atividade, :idatividade, :idcolaborador, :idpacote, :valor, :dataacionamento,');
+        SQL.Add(':idfuncionario, :deletado, :idrollout, :idpmts, :dataincio, :datafinal, :horanormal, :horas50, :horas100, :totaldehoras)');
+
+        // Par√¢metros obrigat√≥rios
+        ParamByName('po').AsLargeInt := poValue; // Usando AsLargeInt para BIGINT
+        ParamByName('idcolaborador').AsInteger := idcolaborador;
+        ParamByName('idatividade').AsInteger := idatividade;
+        ParamByName('idpacote').AsInteger := 0;
+        ParamByName('valor').AsFloat := 0;
+        ParamByName('atividade').AsString := atividade;
+        ParamByName('dataacionamento').AsDateTime := Now;
+        ParamByName('idfuncionario').AsInteger := idfuncionario;
+        ParamByName('deletado').AsInteger := 0;
+        ParamByName('idrollout').AsInteger := idrollout;
+        ParamByName('idpmts').AsString := idpmts;
+
+        // Tratamento para datas opcionais
+        if datainicioclt <> '' then
+          ParamByName('dataincio').AsDateTime := StringToDateISO(datainicioclt)
+        else
           ParamByName('dataincio').AsDateTime := StrToDate('30/12/1899');
-        end;
-        try
-          ParamByName('datafinal').Asstring := datafinalclt;
-        except
+
+        if datafinalclt <> '' then
+          ParamByName('datafinal').AsDateTime := StringToDateISO(datafinalclt)
+        else
           ParamByName('datafinal').AsDateTime := StrToDate('30/12/1899');
-        end;
 
-        ParamByName('horanormal').asfloat := horanormalclt;
-        ParamByName('horas50').asfloat := hora50clt;
-        ParamByName('horas100').asfloat := hora100clt;
-        ParamByName('totaldehoras').asfloat := totalhorasclt;
+        // Campos de horas
+        ParamByName('horanormal').AsFloat := horanormalclt;
+        ParamByName('horas50').AsFloat := hora50clt;
+        ParamByName('horas100').AsFloat := hora100clt;
+        ParamByName('totaldehoras').AsFloat := totalhorasclt;
+
         ExecSQL;
-
       end;
 
       FConn.Commit;
-
-      if Length(erro) = 0 then
-        result := true
-      else
-        Result := false;
-
+      Result := True;
     except
-      on ex: exception do
+      on ex: Exception do
       begin
         FConn.Rollback;
-        erro := 'Erro fazer lanÁamento: ' + ex.Message;
-        Result := false;
+        erro := 'Erro ao fazer lan√ßamento: ' + ex.Message;
+        Result := False;
       end;
     end;
   finally
     qry.Free;
   end;
 end;
-
 function TProjetotelefonica.Editaros(out erro: string): Boolean;
 var
   qry: TFDQuery;
@@ -2312,7 +2458,7 @@ begin
       if (JSONStr = '') or (JSONStr = '[]') or (JSONStr = '"Todos"') then
         Continue;
 
-      // Verifica se È array JSON
+      // Verifica se √© array JSON
       if JSONStr.StartsWith('[') then
       begin
         JSONArray := TJSONObject.ParseJSONValue(JSONStr) as TJSONArray;
@@ -2380,6 +2526,7 @@ begin
       Active := false;
       SQL.Clear;
       SQL.Add('SELECT ');
+      // Contagens b√°sicas (planejado x realizado)
       SQL.Add('COUNT(CASE WHEN vistoriaplan       IS NOT NULL AND vistoriaplan       <> ''1899-12-30'' THEN 1 END) AS vistoriaplan, ');
       SQL.Add('COUNT(CASE WHEN vistoriareal       IS NOT NULL AND vistoriareal       <> ''1899-12-30'' THEN 1 END) AS vistoriareal, ');
       SQL.Add('COUNT(CASE WHEN EntregaPlan        IS NOT NULL AND EntregaPlan        <> ''1899-12-30'' THEN 1 END) AS EntregaPlan, ');
@@ -2388,16 +2535,26 @@ begin
       SQL.Add('COUNT(CASE WHEN FimInstalacaoReal  IS NOT NULL AND FimInstalacaoReal  <> ''1899-12-30'' THEN 1 END) AS FimInstalacaoReal, ');
       SQL.Add('COUNT(CASE WHEN IntegracaoPlan     IS NOT NULL AND IntegracaoPlan     <> ''1899-12-30'' THEN 1 END) AS IntegracaoPlan, ');
       SQL.Add('COUNT(CASE WHEN IntegracaoReal     IS NOT NULL AND IntegracaoReal     <> ''1899-12-30'' THEN 1 END) AS IntegracaoReal, ');
-      SQL.Add('COUNT(CASE WHEN initialtunningplan     IS NOT NULL AND initialtunningplan     <> ''1899-12-30'' THEN 1 END) AS Initialtunningplan, ');
-      SQL.Add('COUNT(CASE WHEN initialtunningreal     IS NOT NULL AND initialtunningreal     <> ''1899-12-30'' THEN 1 END) AS initialtunningreal, ');
+      SQL.Add('COUNT(CASE WHEN initialtunningplan IS NOT NULL AND initialtunningplan <> ''1899-12-30'' THEN 1 END) AS Initialtunningplan, ');
+      SQL.Add('COUNT(CASE WHEN initialtunningreal IS NOT NULL AND initialtunningreal <> ''1899-12-30'' THEN 1 END) AS initialtunningreal, ');
       SQL.Add('COUNT(CASE WHEN DTPlan             IS NOT NULL AND DTPlan             <> ''1899-12-30'' THEN 1 END) AS DTPlan, ');
-      SQL.Add('COUNT(CASE WHEN DTReal             IS NOT NULL AND DTReal             <> ''1899-12-30'' THEN 1 END) AS DTReal ');
-      SQL.Add('FROM ');
-      SQL.Add('  rolloutvivo where deletado = 0 ');
+      SQL.Add('COUNT(CASE WHEN DTReal             IS NOT NULL AND DTReal             <> ''1899-12-30'' THEN 1 END) AS DTReal, ');
+
+      // Itens em andamento (no prazo)
+      SQL.Add('COUNT(CASE WHEN vistoriaplan <> ''1899-12-30'' AND (vistoriareal = ''1899-12-30'' OR vistoriareal IS NULL) AND vistoriaplan >= CURDATE() THEN 1 END) AS vistoria_andamento, ');
+      SQL.Add('COUNT(CASE WHEN EntregaPlan <> ''1899-12-30'' AND (EntregaReal = ''1899-12-30'' OR EntregaReal IS NULL) AND EntregaPlan >= CURDATE() THEN 1 END) AS entrega_andamento, ');
+      SQL.Add('COUNT(CASE WHEN FimInstalacaoPlan <> ''1899-12-30'' AND (FimInstalacaoReal = ''1899-12-30'' OR FimInstalacaoReal IS NULL) AND FimInstalacaoPlan >= CURDATE() THEN 1 END) AS instalacao_andamento, ');
+      SQL.Add('COUNT(CASE WHEN IntegracaoPlan <> ''1899-12-30'' AND (IntegracaoReal = ''1899-12-30'' OR IntegracaoReal IS NULL) AND IntegracaoPlan >= CURDATE() THEN 1 END) AS integracao_andamento, ');
+      SQL.Add('COUNT(CASE WHEN initialtunningplan <> ''1899-12-30'' AND (initialtunningreal = ''1899-12-30'' OR initialtunningreal IS NULL) AND initialtunningplan >= CURDATE() THEN 1 END) AS initialtunning_andamento, ');
+      SQL.Add('COUNT(CASE WHEN DTPlan <> ''1899-12-30'' AND (DTReal = ''1899-12-30'' OR DTReal IS NULL) AND DTPlan >= CURDATE() THEN 1 END) AS dt_andamento ');
+
+      SQL.Add('FROM rolloutvivo WHERE deletado = 0 ');
+
       if ((regional <> 'Todos') and (regional <> '')) then
-        SQL.Add(' and pmoregional in (' + QuotedCSV(regional) + ')');
+        SQL.Add(' AND pmoregional IN (' + QuotedCSV(regional) + ')');
       if ((idpmts <> 'Todos') and (idpmts <> '')) then
-        SQL.Add(' and UIDIDPMTS in (' + QuotedCSV(idpmts) + ')');
+        SQL.Add(' AND UIDIDPMTS IN (' + QuotedCSV(idpmts) + ')');
+
       Active := true;
     end;
     erro := '';
@@ -2405,11 +2562,10 @@ begin
   except
     on ex: exception do
     begin
-      erro := 'Erro ao consultar : ' + ex.Message;
+      erro := 'Erro ao consultar: ' + ex.Message;
       Result := nil;
     end;
   end;
-
 end;
 
 function TProjetotelefonica.marcadorestelefonicaatrasado(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
@@ -2484,6 +2640,122 @@ begin
   end;
 end;
 
+function TProjetotelefonica.dashboardtelefonicaposicionamentofinanceiro(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+  regional, idpmts: string;
+begin
+  Result := nil;
+  erro := '';
+
+  // Obter par√¢metros com verifica√ß√£o de exist√™ncia
+  regional := '';
+  idpmts := '';
+  if AQuery.ContainsKey('regional') then
+    regional := AQuery.Items['regional'];
+  if AQuery.ContainsKey('idpmts') then
+    idpmts := AQuery.Items['idpmts'];
+
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConn;
+
+    with qry do
+    begin
+      SQL.BeginUpdate;
+      try
+        SQL.Clear;
+        SQL.Add('SELECT');
+        SQL.Add('  (SELECT COUNT(UIDIDPMTS) FROM rolloutvivo WHERE deletado = 0');
+        if (idpmts <> '') and (idpmts <> 'Todos') then
+        begin
+          SQL.Add('AND rolloutvivo.UIDIDPMTS IN (' + QuotedCSV(idpmts) + ')');
+        end;
+        if (regional <> '') and (regional <> 'Todos') then
+        begin
+          var partes := regional.Split([',']);
+          SQL.Add('AND (');
+          for var i := 0 to High(partes) do
+          begin
+            if i > 0 then SQL.Add('OR ');
+            SQL.Add('PMOREGIONAL LIKE ''%' + Trim(partes[i]) + '%''');
+          end;
+          SQL.Add(')');
+        end;
+        SQL.Add('  ) AS totalPMTS,');
+        SQL.Add('');
+        SQL.Add('  CASE');
+        SQL.Add('    WHEN LOWER(T2DESCRICAOCOD) LIKE ''%installation%'' THEN ''Instala√ß√£o''');
+        SQL.Add('    WHEN LOWER(T2DESCRICAOCOD) LIKE ''%survey%'' THEN ''Vistoria''');
+        SQL.Add('    WHEN LOWER(T2DESCRICAOCOD) LIKE ''%drive test%'' THEN ''DT''');
+        SQL.Add('    WHEN LOWER(T2DESCRICAOCOD) LIKE ''%infra%'' THEN ''Infra''');
+        SQL.Add('    ELSE ''Outros''');
+        SQL.Add('  END AS TipoAtividade,');
+        SQL.Add('  COUNT(DISTINCT CASE WHEN PO IS NOT NULL AND TRIM(PO) <> '''' THEN ID END) AS PO_Preenchido,');
+        SQL.Add('  COUNT(DISTINCT CASE WHEN T4CODEQMATSWSERV IS NOT NULL AND TRIM(T4CODEQMATSWSERV) <> '''' THEN ID END) AS TIV_Emitidas,');
+        SQL.Add('  COUNT(DISTINCT CASE WHEN ITEMT2 IS NOT NULL AND TRIM(ITEMT4) <> '''' THEN ID END) AS TII_Emitidas,');
+        SQL.Add('  COUNT(DISTINCT CASE WHEN cartataf IS NOT NULL AND TRIM(cartataf) <> '''' THEN ID END) AS Carta_TAF_Emitida,');
+        SQL.Add('  COUNT(DISTINCT ID) AS TotalItens');
+        SQL.Add('FROM gpo2desenvolvimento.telefonicacontrolet2');
+        SQL.Add('WHERE 1 = 1');
+
+        if (regional <> '') and (regional <> 'Todos') then
+        begin
+          var partes := regional.Split([',']);
+          SQL.Add('AND (');
+          for var i := 0 to High(partes) do
+          begin
+            if i > 0 then SQL.Add('OR ');
+            SQL.Add('T2CODMATSERVSW LIKE ''%' + Trim(partes[i]) + '%''');
+          end;
+          SQL.Add(')');
+        end;
+
+        SQL.Add('GROUP BY');
+        SQL.Add('  CASE');
+        SQL.Add('    WHEN LOWER(T2DESCRICAOCOD) LIKE ''%installation%'' THEN ''Instala√ß√£o''');
+        SQL.Add('    WHEN LOWER(T2DESCRICAOCOD) LIKE ''%survey%'' THEN ''Vistoria''');
+        SQL.Add('    WHEN LOWER(T2DESCRICAOCOD) LIKE ''%drive test%'' THEN ''DT''');
+        SQL.Add('    WHEN LOWER(T2DESCRICAOCOD) LIKE ''%infra%'' THEN ''Infra''');
+        SQL.Add('    ELSE ''Outros''');
+        SQL.Add('  END');
+        SQL.Add('ORDER BY TipoAtividade');
+      finally
+        SQL.EndUpdate;
+      end;
+
+      try
+        Open; // Usar Open em vez de Active := True
+
+        // Verifica se retornou dados
+        if not (BOF and EOF) then
+        begin
+          First; // Garante que estamos no in√≠cio do dataset
+          Result := qry;
+        end
+        else
+        begin
+          erro := 'Nenhum dado encontrado';
+          FreeAndNil(qry);
+        end;
+      except
+        on E: Exception do
+        begin
+          erro := 'Erro ao executar consulta: ' + E.Message;
+          FreeAndNil(qry);
+        end;
+      end;
+    end;
+
+  except
+    on E: Exception do
+    begin
+      erro := 'Erro ao preparar consulta: ' + E.Message;
+      FreeAndNil(qry);
+    end;
+  end;
+end;
+
 function TProjetotelefonica.graficosituacoes(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
@@ -2513,15 +2785,15 @@ begin
       SQL.Add('    WHEN 12 THEN ''Dez'' ');
       SQL.Add('  END ');
       SQL.Add(') AS Mes,');
-      SQL.Add('SUM(CASE WHEN tipo = ''InstalaÁ„o'' THEN 1 ELSE 0 END) AS instalacao, ');
-      SQL.Add('SUM(CASE WHEN tipo = ''IntegraÁ„o'' THEN 1 ELSE 0 END) AS integracao, ');
+      SQL.Add('SUM(CASE WHEN tipo = ''Instala√ß√£o'' THEN 1 ELSE 0 END) AS instalacao, ');
+      SQL.Add('SUM(CASE WHEN tipo = ''Integra√ß√£o'' THEN 1 ELSE 0 END) AS integracao, ');
       SQL.Add('SUM(CASE WHEN tipo = ''Entrega'' THEN 1 ELSE 0 END) AS mos ');
       SQL.Add('FROM (  ');
-      SQL.Add('  SELECT FimInstalacaoReal AS data_real, ''InstalaÁ„o'' AS tipo  ');
+      SQL.Add('  SELECT FimInstalacaoReal AS data_real, ''Instala√ß√£o'' AS tipo  ');
       SQL.Add('  FROM rolloutvivo ');
       SQL.Add('  WHERE FimInstalacaoReal IS NOT NULL AND FimInstalacaoReal <> ''1899-12-30'' AND YEAR(FimInstalacaoReal) = 2025 ');
       SQL.Add('  UNION ALL ');
-      SQL.Add('  SELECT IntegracaoReal AS data_real, ''IntegraÁ„o'' AS tipo ');
+      SQL.Add('  SELECT IntegracaoReal AS data_real, ''Integra√ß√£o'' AS tipo ');
       SQL.Add('  FROM rolloutvivo  ');
       SQL.Add('  WHERE IntegracaoReal IS NOT NULL AND IntegracaoReal <> ''1899-12-30'' AND YEAR(IntegracaoReal) = 2025 ');
       SQL.Add('  UNION ALL  ');
@@ -2568,7 +2840,7 @@ begin
       SQL.Add('From ');
       SQL.Add('consolidadotelefonica Inner Join ');
       SQL.Add('pmtsvivo On pmtsvivo.UID_IDCPOMRF = consolidadotelefonica.IDObra ');
-      SQL.Add('where pmtsvivo.MASTEROBRA_STATUS_ROLLOUT = ''Disparado ImplantaÁ„o'' and ');
+      SQL.Add('where pmtsvivo.MASTEROBRA_STATUS_ROLLOUT = ''Disparado Implanta√ß√£o'' and ');
       SQL.Add('consolidadotelefonica.StatusFinan is null  ');
       Active := true;
     end;
@@ -2832,6 +3104,7 @@ begin
       SQL.Add('rolloutvivo.LATITUDE as SCIENCELATITUDE, ');
       SQL.Add('rolloutvivo.LONGITUDE as SCIENCELONGITUDE, ');
       SQL.Add('rolloutvivo.acessoobs, ');
+      SQL.Add('rolloutvivo.initialtunnigstatus, ');
       SQL.Add('rolloutvivo.acessosolicitacao, ');
       SQL.Add('rolloutvivo.acessodatasolicitacao, ');
       SQL.Add('rolloutvivo.acessodatainicial, ');
@@ -2851,6 +3124,7 @@ begin
       SQL.Add('DATE_FORMAT(rolloutvivo.docplan, ''%Y-%m-%d'') as docplan, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.docvitoriareal, ''%Y-%m-%d'') as docvitoriareal, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.req, ''%Y-%m-%d'') as req, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.initialtunningreal, ''%Y-%m-%d'') as initialtunningreal, ');
       SQL.Add('rolloutvivo.resumodafase, ');
       SQL.Add('rolloutvivo.Rollout, ');
       SQL.Add('rolloutvivo.infravivo, ');
@@ -3034,7 +3308,7 @@ begin
       SQL.Add('gesempresas On gesempresas.idempresa = acionamentovivo.idcolaborador left Join ');
       SQL.Add('rolloutvivo On rolloutvivo.UIDIDPMTS = acionamentovivo.idpmts ');
       SQL.Add('Where ');
-      SQL.Add('acionamentovivo.deletado = 0 ');
+      SQL.Add('acionamentovivo.deletado = 0  and rolloutvivo.deletado = 0 ');
       Active := true;
     end;
     erro := '';
@@ -3055,7 +3329,7 @@ begin
   try
     if not AQuery.ContainsKey('idempresalocal') then
     begin
-      erro := 'Par‚metro idempresalocal n„o informado.';
+      erro := 'Par√¢metro idempresalocal n√£o informado.';
       Exit(nil);
     end;
 
@@ -3103,7 +3377,7 @@ begin
       Add('LEFT JOIN lpuvivo ON lpuvivo.ID = acionamentovivo.idpacote ');
       Add('LEFT JOIN gesempresas ON gesempresas.idempresa = acionamentovivo.idcolaborador ');
       Add('LEFT JOIN rolloutvivo ON rolloutvivo.UIDIDPMTS = acionamentovivo.idpmts ');
-      Add('WHERE acionamentovivo.deletado = 0 ');
+      Add('WHERE acionamentovivo.deletado = 0 and rolloutvivo.deletado = 0 ');
       Add('AND  acionamentovivo.idcolaborador = :idcolaborador AND acionamentovivo.porcentagem < 1 Group By acionamentovivo.id  ');
       if AQuery.ContainsKey('mespagamento') and (Trim(AQuery['mespagamento']) <> '') then
       begin
@@ -3142,7 +3416,7 @@ begin
   try
     if not AQuery.ContainsKey('idempresalocal') then
     begin
-      erro := 'Par‚metro idempresalocal n„o informado.';
+      erro := 'Par√¢metro idempresalocal n√£o informado.';
       Exit(nil);
     end;
 
@@ -3211,7 +3485,141 @@ begin
   end;
 end;
 
-function TProjetotelefonica.Listaacionamentoclt(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+function TProjetotelefonica.Listaacionamentoshistoricopagamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+begin
+  try
+
+    qry := TFDQuery.Create(nil);
+    qry.Connection := FConn;
+
+    with qry.SQL do
+    begin
+      Clear;
+      Add('select   ');
+      Add('telefonicapagamento.idgeral as id,  ');
+      Add('gesempresas.nome, ');
+      Add('acionamentovivo.idpmts,  ');
+      Add('rolloutvivo.pmoregional,  ');
+      Add('acionamentovivo.po,  ');
+      Add('rolloutvivo.pmosigla,  ');
+      Add('rolloutvivo.ufsigla,  ');
+      Add('telefonicacontrolet2.t2descricaocod as atividade,  ');
+      Add('acionamentovivo.quantidade,  ');
+      Add('lpuvivo.codigolpuvivo,  ');
+      Add('lpuvivo.brevedescricao,  ');
+      Add('acionamentovivo.valor,  ');
+      Add('acionamentovivo.dataacionamento,  ');
+      Add('acionamentovivo.dataenvioemail,  ');
+      Add('rolloutvivo.entregareal,  ');
+      Add('rolloutvivo.fiminstalacaoreal,  ');
+      Add('rolloutvivo.integracaoreal,  ');
+      Add('rolloutvivo.ativacao,  ');
+      Add('rolloutvivo.documentacao,  ');
+      Add('rolloutvivo.dtreal,  ');
+      Add('rolloutvivo.initialtunningreal, ');
+      Add('rolloutvivo.vistoriareal, ');
+      Add('rolloutvivo.statusobra,  ');
+      Add('telefonicapagamento.mespagamento,  ');
+      Add('telefonicapagamento.porcentagem,  ');
+      Add('telefonicapagamento.valorpagamento,  ');
+      Add('telefonicapagamento.datapagamento,  ');
+      Add('telefonicapagamento.tipopagamento  ');
+      Add('from  ');
+      Add('telefonicapagamento left join  ');
+      Add('acionamentovivo on acionamentovivo.id = telefonicapagamento.idacionamentovivo left join  ');
+      Add('rolloutvivo on rolloutvivo.id = acionamentovivo.idrollout left join  ');
+      Add('telefonicacontrolet2 on telefonicacontrolet2.id = acionamentovivo.idatividade left join  ');
+      Add('lpuvivo on acionamentovivo.idpacote = lpuvivo.id left Join  ');
+      Add('gesempresas On gesempresas.idempresa = acionamentovivo.idcolaborador ');
+      Add('WHERE acionamentovivo.deletado = 0 ');
+      Add(' order by telefonicapagamento.mespagamento,rolloutvivo.pmosigla,telefonicapagamento.datapagamento  ');
+    end;
+    qry.Active := True;
+    erro := '';
+    Result := qry;
+
+  except
+    on ex: Exception do
+    begin
+      erro := 'Erro ao consultar: ' + ex.Message;
+      Result := nil;
+      qry.Free;
+    end;
+  end;
+end;
+
+  function TProjetotelefonica.Listaacionamentoclt(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+  idpmts: string;
+begin
+  Result := nil;
+  erro := '';
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConn;
+    qry.CachedUpdates := False;
+
+    with qry do
+    begin
+      SQL.Clear;
+      SQL.Add('SELECT ');
+      SQL.Add('  acionamentovivoclt.po, ');
+      SQL.Add('  acionamentovivoclt.id, ');
+      SQL.Add('  consolidadotelefonica.T2CODMATSERVSW, ');
+      SQL.Add('  gespessoa.nome, ');
+      SQL.Add('  acionamentovivoclt.dataacionamento, ');
+      SQL.Add('  acionamentovivoclt.atividade, ');
+      SQL.Add('  acionamentovivoclt.dataincio, ');
+      SQL.Add('  acionamentovivoclt.datafinal ');
+      SQL.Add('FROM ');
+      SQL.Add('  acionamentovivoclt ');
+      SQL.Add('LEFT JOIN consolidadotelefonica ON consolidadotelefonica.id = acionamentovivoclt.idatividade ');
+      SQL.Add('LEFT JOIN gespessoa ON gespessoa.idpessoa = acionamentovivoclt.idcolaborador ');
+      SQL.Add('WHERE ');
+      SQL.Add('  acionamentovivoclt.deletado = 0 ');
+
+      // Verifica se o par√¢metro idrollout existe e √© v√°lido
+      if AQuery.ContainsKey('osouobra') then
+      begin
+        idpmts := AQuery.Items['osouobra'];
+        SQL.Add('AND acionamentovivoclt.idpmts = :idpmts');
+        ParamByName('idpmts').AsString := idpmts;
+      end
+      else
+      begin
+        erro := 'Par√¢metro osouobra n√£o informado';
+        FreeAndNil(qry);
+        Exit;
+      end;
+
+
+      FetchOptions.AutoClose := False;
+
+      try
+        Open;
+        Result := qry;
+      except
+        on E: Exception do
+        begin
+          erro := 'Erro ao executar consulta: ' + E.Message;
+          FreeAndNil(qry);
+        end;
+      end;
+    end;
+  except
+    on Ex: Exception do
+    begin
+      erro := 'Erro ao preparar consulta: ' + Ex.Message;
+      if Assigned(qry) then
+        FreeAndNil(qry);
+    end;
+  end;
+end;
+
+function TProjetotelefonica.ListPrevisaoFechamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
   a: string;
@@ -3224,19 +3632,51 @@ begin
       Active := false;
       SQL.Clear;
       SQL.Add('Select ');
-      SQL.Add('acionamentovivoclt.po,     acionamentovivoclt.id, ');
-      SQL.Add('consolidadotelefonica.T2CODMATSERVSW, ');
-      SQL.Add('gespessoa.nome, ');
-      SQL.Add('acionamentovivoclt.dataacionamento, ');
-      SQL.Add('acionamentovivoclt.atividade, ');
-      SQL.Add('acionamentovivoclt.dataincio, ');
-      SQL.Add('acionamentovivoclt.datafinal ');
+      SQL.Add('acionamentovivo.id, ');
+      SQL.Add('acionamentovivo.idpmts, ');
+      SQL.Add('lpuvivo.UF As regional, ');
+      SQL.Add('acionamentovivo.po, ');
+      SQL.Add('telefonicacontrolet2.T2DESCRICAOCOD As atividade, ');
+      SQL.Add('acionamentovivo.quantidade, ');
+      SQL.Add('lpuvivo.BREVEDESCRICAO As tarefas, ');
+      SQL.Add('acionamentovivo.valor, ');
+      SQL.Add('acionamentovivo.dataacionamento, ');
+      SQL.Add('acionamentovivo.dataenvioemail, ');
+      SQL.Add('gesempresas.nome, ');
+      SQL.Add('rolloutvivo.pmosigla, ');
+      SQL.Add('rolloutvivo.ufsigla, ');
+      SQL.Add('rolloutvivo.EntregaRequest, ');
+      SQL.Add('rolloutvivo.EntregaPlan, ');
+      SQL.Add('rolloutvivo.EntregaReal, ');
+      SQL.Add('rolloutvivo.FimInstalacaoPlan, ');
+      SQL.Add('rolloutvivo.FimInstalacaoReal, ');
+      SQL.Add('rolloutvivo.IntegracaoPlan, ');
+      SQL.Add('rolloutvivo.IntegracaoReal, ');
+      SQL.Add('rolloutvivo.Ativacao, ');
+      SQL.Add('rolloutvivo.Documentacao, ');
+      SQL.Add('rolloutvivo.DTPlan, ');
+      SQL.Add('rolloutvivo.DTReal, ');
+      SQL.Add('rolloutvivo.VistoriaPlan, ');
+      SQL.Add('rolloutvivo.VistoriaReal, ');
+      SQL.Add('rolloutvivo.InitialTunningPlan, ');
+      SQL.Add('rolloutvivo.InitialTunningReal, ');
+      SQL.Add('rolloutvivo.StatusObra, ');
+      SQL.Add('lpuvivo.codigolpuvivo, ');
+      SQL.Add('acionamentovivo.fechamento, ');
+      SQL.Add('acionamentovivo.porcentagem  ');
       SQL.Add('From ');
-      SQL.Add('acionamentovivoclt left Join ');
-      SQL.Add('consolidadotelefonica On consolidadotelefonica.id = acionamentovivoclt.idatividade left Join ');
-      SQL.Add('gespessoa On gespessoa.idpessoa = acionamentovivoclt.idcolaborador where acionamentovivoclt.deletado = 0 and acionamentovivoclt.idrollout =:idr  ');
-      ParamByName('idr').asstring := AQuery.Items['idrollout'];
-      a := AQuery.Items['idrollout'];
+      SQL.Add('acionamentovivo left Join ');
+      SQL.Add('telefonicacontrolet2 On telefonicacontrolet2.ID = acionamentovivo.idatividade left Join ');
+      SQL.Add('lpuvivo On lpuvivo.ID = acionamentovivo.idpacote left Join ');
+      SQL.Add('gesempresas On gesempresas.idempresa = acionamentovivo.idcolaborador left Join ');
+      SQL.Add('rolloutvivo On rolloutvivo.UIDIDPMTS = acionamentovivo.idpmts ');
+      SQL.Add('Where ');
+      SQL.Add('acionamentovivo.deletado = 0 and rolloutvivo.deletado = 0 and (');
+      SQL.Add('(rolloutvivo.FimInstalacaoReal is not null and rolloutvivo.FimInstalacaoReal <> "1899-12-30") or');
+      SQL.Add('(rolloutvivo.EntregaReal is not null and rolloutvivo.EntregaReal <> "1899-12-30") or');
+      SQL.Add('(rolloutvivo.DTReal is not null and rolloutvivo.DTReal <> "1899-12-30") or');
+      SQL.Add('(rolloutvivo.VistoriaReal is not null and rolloutvivo.VistoriaReal <> "1899-12-30")');
+      SQL.Add(') and acionamentovivo.porcentagem < 1');
       Active := true;
     end;
     erro := '';

@@ -24,7 +24,7 @@ const fetchS3Credentials = async () => {
   try {
     const response = await api.get('v1/credenciaiss3');
     if (response.status === 200) {
-      const { acesskeyid, secretkey, region, bucketname } = response.data[0];
+      const { acesskeyid, secretkey, region, bucketname } = response?.data[0];
       s3Service = new S3Service({
         region,
         accessKeyId: acesskeyid,
@@ -32,10 +32,10 @@ const fetchS3Credentials = async () => {
         bucketName: bucketname,
       });
     } else {
-      console.error('Falha ao carregar credenciais do S3');
+      console.error('Credenciais do S3 não encontradas ou resposta malformada:', response.data);
     }
   } catch (error) {
-    console.error(error);
+    console.error('Erro ao buscar credenciais do S3:', error);
   }
 };
 
@@ -72,7 +72,11 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
   const [empresalista, setempresalista] = useState([]);
   const [veiculoslista, setveiculoslista] = useState([]);
   const [iddespesas, setiddespesas] = useState();
-  const [datalancamento, setdatalancamento] = useState();
+  const [datalancamento, setdatalancamento] = useState(() => {
+    const ontem = new Date();
+    ontem.setDate(ontem.getDate());
+    return ontem.toISOString().split('T')[0];
+  });
   const [valordespesa, setvalordespesa] = useState();
   const [descricao, setdescricao] = useState();
   const [comprovante, setcomprovante] = useState();
@@ -81,11 +85,17 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
   const [idveiculo, setidveiculo] = useState();
   const [selectedoptionempresa, setselectedoptionempresa] = useState(null);
   const [selectedoptionveiculo, setselectedoptionveiculo] = useState(null);
-  const [funcionariolista, setfuncionariolista] = useState('');
+  const [funcionariolista, setfuncionariolista] = useState([]);
   const [selectedoptionfuncionario, setselectedoptionfuncionario] = useState(null);
   const [idpessoa, setidpessoa] = useState('');
   const [file, setFile] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [periodicidade, setPeriodicidade] = useState('');
+  const [categoriaDespesa, setCategoriaDespesa] = useState('');
+  const [parceladoEm, setParceladoEm] = useState('');
+  const [valordaparcela, setvalordaparcela] = useState('');
+  const [dataInicio, setDataInicio] = useState('');
+  //const [periodo, setPeriodo] = useState('');
 
   const params = {
     idcliente: 1,
@@ -98,22 +108,116 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
   const togglecadastro = () => {
     setshow(false);
   };
+  const validarCampos = () => {
+    if (!datalancamento) {
+      const ontem = new Date();
+      ontem.setDate(ontem.getDate());
+      setdatalancamento(ontem.toISOString().split('T')[0]);
+    }
+
+    if (!valordespesa) {
+      setmensagem("O campo 'Valor da Despesa' é obrigatório.");
+      return false;
+    }
+
+    if (!idveiculo) {
+      setmensagem("O campo 'Veículo' é obrigatório.");
+      return false;
+    }
+
+    if (!categoriaDespesa) {
+      setmensagem("O campo 'Categoria da Despesa' é obrigatório.");
+      return false;
+    }
+
+    if (!periodicidade) {
+      setmensagem("O campo 'Periodicidade' é obrigatório.");
+      return false;
+    }
+
+    if (periodicidade !== 'Unica') {
+      if (!parceladoEm) {
+        setmensagem("O campo 'Parcelado em' é obrigatório.");
+        return false;
+      }
+      if (!valordaparcela) {
+        setmensagem("O campo 'Valor da Parcela' é obrigatório para despesas parceladas.");
+        return false;
+      }
+
+      if (parceladoEm < 2) {
+        setmensagem('O número de parcelas deve ser 2 ou mais.');
+        return false;
+      }
+    }
+
+    return true;
+  };
+  function moedaParaNumero(valorFormatado) {
+    if (!valorFormatado) return 0;
+
+    // Remove o "R$", pontos (milhar) e espaços
+    let valorLimpo = valorFormatado.replace(/[R$\s\\.]/g, '');
+
+    // Troca vírgula decimal por ponto decimal
+    valorLimpo = valorLimpo.replace(',', '.');
+
+    // Converte para número float
+    const valorNumerico = parseFloat(valorLimpo);
+
+    return Number.isNaN(valorNumerico) ? 0 : valorNumerico;
+  }
+  const listafuncionario = async (id) => {
+    try {
+      setloading(true);
+      await api.get(`v1/pessoa/selectfuncionario/${id}`).then((response) => {
+        //console.log("get de funcionarios: ", response.data);
+        setfuncionariolista(response.data);
+        setmensagem('');
+      });
+    } catch (err) {
+      setmensagem(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
 
   function ProcessaCadastro(e) {
     e.preventDefault();
+    const ontem = new Date();
+    ontem.setDate(ontem.getDate());
+    const dataNow = ontem.toISOString().split('T')[0];
+
+    if (!validarCampos()) return;
+    const valorTotalColadaPeloUsuario =
+      Math.round(parceladoEm * Number(valordaparcela.replace(',', '.')) * 100) / 100;
+    const valorTotalNumerico = Math.round(Number(valordespesa.replace(',', '.')) * 100) / 100;
+
+    if (valorTotalNumerico !== valorTotalColadaPeloUsuario) {
+      setmensagem(
+        'Valor da parcela multiplicado pelo número de parcelas não é igual ao valor total.',
+      );
+    }
     setmensagem('');
     setmensagemsucesso('');
     api
       .post('v1/despesas', {
         iddespesas: ididentificador,
-        datalancamento,
+        datalancamento: datalancamento ?? dataNow,
         valordespesa,
         descricao,
         comprovante,
         observacao,
         idveiculo,
+        //periodo,
+        dataInicio,
+        valordaparcela: moedaParaNumero(valordaparcela),
+        parceladoEm,
+        categoria: categoriaDespesa,
+        periodicidade,
         idempresa,
         idpessoa,
+        despesacadastradapor: localStorage.getItem('sessionNome'),
         idcliente: 1,
         idusuario: 1,
         idloja: 1,
@@ -122,9 +226,12 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
         if (response.status === 201) {
           setmensagem('');
           setmensagemsucesso('Registro Salvo');
-          setshow(!show);
+          setTimeout(() => {
+            setshow(!show);
+            atualiza();
+          }, 1000);
+
           togglecadastro.bind(null);
-          atualiza();
         } else {
           setmensagem(response.status);
           setmensagemsucesso('');
@@ -170,7 +277,15 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
         setselectedoptionempresa({ value: response.data.idempresa, label: response.data.empresa });
         setselectedoptionveiculo({ value: response.data.idveiculo, label: response.data.veiculo });
         setidempresa(response.data.idempresa);
+        if (response.data.idempresa) listafuncionario(response.data.idempresa);
         setidveiculo(response.data.idveiculo);
+        setvalordaparcela(response.data.valorparcela);
+        //setPeriodo(response.data.periodo);
+        setParceladoEm(response.data.parceladoem);
+        setPeriodicidade(response.data.periodicidade);
+        setDataInicio(response.data.datainicio);
+        setCategoriaDespesa(response.data.categoria);
+        setidpessoa(response.data.idpessoa);
         setmensagem('');
         listFilesFromS3();
       });
@@ -234,6 +349,10 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
       await fetchS3Credentials();
       iniciatabelas();
     };
+    const ontem = new Date();
+    ontem.setDate(ontem.getDate());
+    const data = ontem.toISOString().split('T')[0];
+    setdatalancamento(data);
     initializeS3Service();
   }, []);
 
@@ -266,21 +385,6 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
     } else {
       setidpessoa(0);
       setselectedoptionfuncionario({ value: null, label: null });
-    }
-  };
-
-  const listafuncionario = async (id) => {
-    try {
-      setloading(true);
-      await api.get(`v1/pessoa/selectfuncionario/${id}`).then((response) => {
-        //console.log("get de funcionarios: ", response.data);
-        setfuncionariolista(response.data);
-        setmensagem('');
-      });
-    } catch (err) {
-      setmensagem(err.message);
-    } finally {
-      setloading(false);
     }
   };
 
@@ -409,23 +513,187 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
                     value={iddespesas}
                     placeholder=""
                   />
-                  Data Lançamento
+                  Data do Lançamento
                   <Input
                     type="date"
                     onChange={(e) => setdatalancamento(e.target.value)}
                     value={datalancamento}
                     placeholder=""
+                    min="2022-12-01"
+                    defaultValue={(() => {
+                      const ontem = new Date();
+                      ontem.setDate(ontem.getDate() - 1);
+                      const data = ontem.toISOString().split('T')[0];
+                      return data;
+                    })()}
+                  />
+                </FormGroup>
+              </Col>
+              <div className="col-sm-3">
+                Veiculo
+                <Select
+                  isClearable
+                  isSearchable
+                  name="veiculo"
+                  options={veiculoslista}
+                  placeholder="Selecione"
+                  isLoading={loading}
+                  onChange={handleveiculo}
+                  value={selectedoptionveiculo}
+                />
+              </div>
+              <div className="col-sm-3">
+                Empresa
+                <Select
+                  isClearable
+                  isSearchable
+                  name="empresa"
+                  options={empresalista}
+                  placeholder="Selecione"
+                  isLoading={loading}
+                  onChange={handleempresa}
+                  value={selectedoptionempresa}
+                />
+              </div>
+              <div className="col-sm-3">
+                Funcionário
+                <Select
+                  isClearable
+                  isSearchable
+                  name="funcionario"
+                  options={funcionariolista}
+                  placeholder="Selecione"
+                  isLoading={loading}
+                  onChange={handlefuncionario}
+                  value={selectedoptionfuncionario}
+                />
+              </div>
+              <Col md="3">
+                <FormGroup>
+                  Categoria
+                  <Input
+                    type="select"
+                    onChange={(e) => setCategoriaDespesa(e.target.value)}
+                    value={categoriaDespesa}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="Combustível">COMBUSTÍVEL</option>
+                    <option value="Locação">LOCAÇÃO</option>
+                    <option value="Manutenção">MANUTENÇÃO</option>
+                    <option value="Pedágio">PEDÁGIO</option>
+                    <option value="Outros">OUTROS</option>
+                  </Input>
+                </FormGroup>
+              </Col>
+              {/* <Col md="3">
+                <FormGroup>
+                  Período
+                  <Input
+                    type="text"
+                    onChange={(e) => setPeriodo(e.target.value)}
+                    value={periodo}
+                    placeholder="Ex: 01/2025"
+                  />
+                </FormGroup>
+              </Col> */}
+              <Col md="3">
+                <FormGroup>
+                  Periodicidade
+                  <Input
+                    type="select"
+                    onChange={(e) => {
+                      if (e.target.value === 'Unica') {
+                        setParceladoEm('1');
+                        setvalordaparcela(valordespesa);
+                      } else {
+                        setParceladoEm('2');
+                        setvalordaparcela('');
+                      }
+                      setPeriodicidade(e.target.value);
+                    }}
+                    value={periodicidade}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="Unica">Unica</option>
+                    <option value="Mensal">MENSAL</option>
+                    <option value="Bimestral">BIMESTRAL</option>
+                    <option value="Trimestral">TRIMESTRAL</option>
+                    <option value="Anual">ANUAL</option>
+                  </Input>
+                </FormGroup>
+              </Col>
+              <Col md="3">
+                <FormGroup>
+                  Parcelado em
+                  <Input
+                    type="number"
+                    min={1}
+                    disabled={periodicidade === 'Unica'}
+                    onChange={(e) => {
+                      if (valordaparcela) {
+                        const value = e.target.value * valordaparcela;
+                        setvalordespesa(value.toFixed(2));
+                      }
+                      setParceladoEm(e.target.value);
+                    }}
+                    value={parceladoEm}
+                  ></Input>
+                </FormGroup>
+              </Col>
+              <Col md="3">
+                <FormGroup>
+                  Valor da parcela
+                  <Input
+                    type="text"
+                    onChange={(e) => {
+                      const input = e.target.value;
+                      //disabled={periodicidade === 'Unica'}
+                      //const numeros = input.replace(/\D/g, '');
+                      //const valor = numeros ? parseFloat(numeros) / 100 : 0;
+                      const value = e.target.value.replace(',', '.') * parceladoEm;
+                      setvalordespesa(value.toFixed(2));
+                      setvalordaparcela(input);
+                      // setvalordaparcela(
+                      //   valor.toLocaleString('pt-BR', {
+                      //     style: 'currency',
+                      //     currency: 'BRL',
+                      //   }),
+                      // );
+                    }}
+                    value={valordaparcela}
+                    placeholder="Ex: 100,10"
                   />
                 </FormGroup>
               </Col>
               <Col md="3">
                 <FormGroup>
-                  Valor Despesa
+                  Data do inicio do pagamento
                   <Input
-                    type="number"
-                    onChange={(e) => setvalordespesa(e.target.value)}
+                    type="date"
+                    onChange={(e) => setDataInicio(e.target.value)}
+                    value={dataInicio}
+                  ></Input>
+                </FormGroup>
+              </Col>
+              <Col md="3">
+                <FormGroup>
+                  Valor Total
+                  <Input
+                    type="text"
+                    disabled
+                    // onChange={(e) => {
+                    //   console.log(e);
+                    //   //const input = e.target.value;
+                    //   // //const numeros = input.replace(/\D/g, '');
+                    //   // if (periodicidade === 'Unica') {
+                    //   //   setParceladoEm('1');
+                    //   //   setvalordaparcela(e.target.value);
+                    //   // }
+                    //   // //const valor = numeros ? parseFloat(numeros) / 100 : 0;
+                    //   // setvalordespesa(input);
+                    // }}
                     value={valordespesa}
-                    placeholder=""
+                    placeholder="R$ 0,00"
                   />
                 </FormGroup>
               </Col>
@@ -451,45 +719,6 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
                   />
                 </FormGroup>
               </Col>
-              <div className="col-sm-4">
-                Veiculo
-                <Select
-                  isClearable
-                  isSearchable
-                  name="veiculo"
-                  options={veiculoslista}
-                  placeholder="Selecione"
-                  isLoading={loading}
-                  onChange={handleveiculo}
-                  value={selectedoptionveiculo}
-                />
-              </div>
-              <div className="col-sm-4">
-                Empresa
-                <Select
-                  isClearable
-                  isSearchable
-                  name="empresa"
-                  options={empresalista}
-                  placeholder="Selecione"
-                  isLoading={loading}
-                  onChange={handleempresa}
-                  value={selectedoptionempresa}
-                />
-              </div>
-              <div className="col-sm-4">
-                Funcionário
-                <Select
-                  isClearable
-                  isSearchable
-                  name="funcionario"
-                  options={funcionariolista}
-                  placeholder="Selecione"
-                  isLoading={loading}
-                  onChange={handlefuncionario}
-                  value={selectedoptionfuncionario}
-                />
-              </div>
             </div>
             <div className="row g-3">
               <FormGroup>
@@ -517,7 +746,7 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
               </Col>
             </div>
             <div style={{ backgroundColor: 'white' }}>
-              <div className="col-sm-6">
+              <div className="col-sm-12">
                 <div className="d-flex flex-row-reverse custom-file">
                   <table className="table table-white-bg">
                     <thead>

@@ -32,15 +32,36 @@ const Solicitardiaria = ({
   idlocal,
   sigla,
 }) => {
-  const formatarDataBrasil = (data) => {
-    return data.toLocaleDateString('pt-BR'); // Formato DD/MM/YYYY
-  };
+  function dataHojeISO() {
+    return new Date().toISOString().split('T')[0];
+  }
+  function formatarDataBrasilComVerificacao(data) {
+    if (!data) return '';
+
+    // Já está no formato dd/MM/yyyy?
+    const regexDataBR = /^\d{2}\/\d{2}\/\d{4}$/;
+    if (typeof data === 'string' && regexDataBR.test(data.trim())) {
+      return data.trim();
+    }
+
+    // Tenta converter para Date
+    const dataObj = new Date(data);
+    if (Number.isNaN(dataObj.getTime())) {
+      return '';
+    }
+
+    return dataObj.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  }
 
   const [mensagemmostrar, setmensagemmostrar] = useState('');
   const [loading, setloading] = useState(false);
   const [idsolicitante, setidsolicitante] = useState('');
   const [solicitante, setsolicitante] = useState('');
-  const [datasol, setdatasol] = useState(formatarDataBrasil(new Date()));
+  const [datasol, setdatasol] = useState(dataHojeISO());
   const [idcolaboradorclt, setidcolaboradorclt] = useState('');
   const [colaboradorcltlista, setcolaboradorcltlista] = useState([]);
   const [selectedoptioncolaboradorclt, setselectedoptioncolaboradorclt] = useState(null);
@@ -75,7 +96,7 @@ const Solicitardiaria = ({
       const [idtransportadora, setidtransportadora] = useState('');
       const [idtipofrete, setidtipofrete] = useState('');
        */
- //const [observacao, setobservacao] = useState('');
+  //const [observacao, setobservacao] = useState('');
 
   //const [numero, setnumero] = useState('');
 
@@ -108,12 +129,15 @@ const Solicitardiaria = ({
   };
 
   function ProcessaCadastro() {
+    const datasolicitacao = formatarDataBrasilComVerificacao(datasol);
+    const colaborador = colaboradorcltlista.find((item) => item.value === idcolaboradorclt);
     api
       .post('v1/solicitacao/editardiaria', {
         idsolicitacao,
         solicitante,
-        datasol,
+        datasol: datasolicitacao,
         idcolaboradorclt,
+        nomecolaborador: colaborador.label,
         projeto,
         siteid,
         id,
@@ -166,8 +190,6 @@ const Solicitardiaria = ({
       setselectedoptioncolaboradorclt({ value: null, label: null });
     }
   };
-
-
 
   function confirmacao(resposta) {
     //  setmensagemmostrar(true);
@@ -264,12 +286,7 @@ const Solicitardiaria = ({
 
               <div className="col-sm-2">
                 Dt Solicitação
-                <Input
-                  type="date"
-                  onChange={(e) => setdatasol(e.target.value)}
-                  value={datasol}
-
-                />
+                <Input type="date" onChange={(e) => setdatasol(e.target.value)} value={datasol} />
               </div>
               <div className="col-sm-4">
                 Colaborador
@@ -425,7 +442,6 @@ const Solicitardiaria = ({
                 </Button>
               </div>
             </div>
-
           </FormGroup>
         )}
       </ModalBody>

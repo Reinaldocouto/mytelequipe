@@ -9,9 +9,24 @@ import {
   useGridSelector,
   GridOverlay,
 } from '@mui/x-data-grid';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Card, CardBody, CardTitle, Button, Input, InputGroup } from 'reactstrap';
+import {
+  Card,
+  CardBody,
+  CardTitle,
+  Button,
+  Input,
+  InputGroup,
+  Modal,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Form,
+  FormGroup,
+  Label,
+} from 'reactstrap';
 import Pagination from '@mui/material/Pagination';
 import LinearProgress from '@mui/material/LinearProgress';
 import SearchIcon from '@mui/icons-material/Search';
@@ -30,6 +45,9 @@ export default function Solicitacao() {
   const [loading, setLoading] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [permission, setpermission] = useState(0);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [observation, setObservation] = useState('');
 
   // Parâmetros
   const params = {
@@ -62,7 +80,6 @@ export default function Solicitacao() {
       </GridOverlay>
     );
   }
-
   const listasolicitacao = async () => {
     try {
       setLoading(true);
@@ -77,6 +94,37 @@ export default function Solicitacao() {
       setLoading(false);
     }
   };
+
+  const handleApproval = async () => {
+    try {
+      const response = await api.post('v1/solicitacao/requisicao/aprovacao', {
+        idsolicitacao: selectedRequest.id,
+        idcliente: localStorage.getItem('sessionCodidcliente'),
+        idusuario: localStorage.getItem('sessionId'),
+        idloja: localStorage.getItem('sessionloja'),
+        observacao: observation,
+        data_aprovacao: new Date().toISOString(),
+        ...selectedRequest,
+      });
+
+      if (response.status === 201) {
+        setmensagemsucesso('Requisição aprovada com sucesso!');
+        setShowApprovalModal(false);
+        setObservation('');
+        listasolicitacao();
+      }
+    } catch (err) {
+      setmensagem(err.response?.data?.erro || 'Erro ao aprovar requisição');
+    }
+  };
+
+  const openApprovalModal = (paramsopen) => {
+    paramsopen.row = { ...paramsopen.row, ...params };
+    paramsopen.row.aprovadopor = localStorage.getItem('sessionNome');
+    setSelectedRequest(paramsopen.row);
+    setShowApprovalModal(true);
+  };
+
   const cancelaratendimento = async (stat, qty, produto) => {
     try {
       await api
@@ -124,16 +172,37 @@ export default function Solicitacao() {
       type: 'actions',
       width: 80,
       align: 'center',
-      getActions: (parametros) => [
-        <GridActionsCellItem
-          icon={<CancelIcon />}
-          label="Cancelar Atendimento"
-          title="Cancelar Atendimento"
-          onClick={() =>
-            cancelaratendimento(parametros.id, parametros.row.quantidade, parametros.row.idproduto)
-          }
-        />,
-      ],
+      getActions: (parametros) => {
+        const actions = [];
+
+        if (parametros.row.statusaprovacao !== 'APROVADO') {
+          actions.push(
+            <GridActionsCellItem
+              icon={<CheckCircleIcon />}
+              label="Aprovar"
+              title="Aprovar Requisição"
+              onClick={() => openApprovalModal(parametros)}
+            />,
+          );
+        }
+
+        actions.push(
+          <GridActionsCellItem
+            icon={<CancelIcon />}
+            label="Cancelar Atendimento"
+            title="Cancelar Atendimento"
+            onClick={() =>
+              cancelaratendimento(
+                parametros.id,
+                parametros.row.quantidade,
+                parametros.row.idproduto,
+              )
+            }
+          />,
+        );
+
+        return actions;
+      },
     },
     { field: 'idsolicitacao', headerName: 'Solicitação', width: 90, align: 'center' },
     {
@@ -179,13 +248,43 @@ export default function Solicitacao() {
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
-      field: 'projeto',
-      headerName: 'Projeto',
+      field: 'nomeaprovador',
+      headerName: 'Aprovado por',
       type: 'string',
-      width: 100,
+      width: 200,
       align: 'left',
       editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
+
+    {
+      field: 'statusaprovacao',
+      headerName: 'Status da Aprovação',
+      type: 'string',
+      width: 200,
+      align: 'left',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'dataaprovada',
+      headerName: 'Data Aprovada',
+      type: 'string',
+      width: 200,
+      align: 'left',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'observacao',
+      headerName: 'Observação',
+      type: 'string',
+      width: 200,
+      align: 'left',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+
     {
       field: 'obra',
       headerName: 'Obra/OS',
@@ -246,13 +345,60 @@ export default function Solicitacao() {
   };
 
   useEffect(() => {
-    // listasolicitacao(); // Caso deseje executar a listagem automaticamente
     userpermission();
   }, []);
   return (
     <div>
       {permission && (
         <div>
+          <div>
+            <Modal
+              isOpen={showApprovalModal}
+              toggle={() => setShowApprovalModal(false)}
+              className="modal-dialog modal-dialog-centered"
+            >
+              <ModalHeader toggle={() => setShowApprovalModal(false)}>
+                Aprovar Requisição
+              </ModalHeader>
+              <ModalBody>
+                <Form>
+                  <FormGroup>
+                    <Label>Aprovado por:</Label>
+                    <Input type="text" value={selectedRequest?.aprovadopor || ''} disabled />
+                  </FormGroup>
+                  <FormGroup>
+                    <Label>Solicitante</Label>
+                    <Input type="text" value={selectedRequest?.nome || ''} disabled />
+                  </FormGroup>
+                  <FormGroup>
+                    <Label>Projeto</Label>
+                    <Input type="text" value={selectedRequest?.projeto || ''} disabled />
+                  </FormGroup>
+                  <FormGroup>
+                    <Label>Descrição do Produto</Label>
+                    <Input type="text" value={selectedRequest?.descricao || ''} disabled />
+                  </FormGroup>
+                  <FormGroup>
+                    <Label>Observação</Label>
+                    <Input
+                      type="textarea"
+                      value={observation}
+                      onChange={(e) => setObservation(e.target.value)}
+                      rows="4"
+                    />
+                  </FormGroup>
+                </Form>
+              </ModalBody>
+              <ModalFooter>
+                <Button color="primary" onClick={handleApproval}>
+                  Aprovar
+                </Button>
+                <Button color="secondary" onClick={() => setShowApprovalModal(false)}>
+                  Cancelar
+                </Button>
+              </ModalFooter>
+            </Modal>
+          </div>
           <Card>
             <CardBody className="bg-light">
               <CardTitle tag="h4" className="mb-0">

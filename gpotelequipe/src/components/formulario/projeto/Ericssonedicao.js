@@ -120,8 +120,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
   const [datadacriacaodademandadia, setdatadacriacaodademandadia] = useState('');
   const [dataaceitedemandadia, setdataaceitedemandadia] = useState('');
   const [datainicioentregamosplanejadodia, setdatainicioentregamosplanejadodia] = useState('');
-  const [datarecebimentodositemosreportadodia, setdatarecebimentodositemosreportadodia] =
-    useState('');
+  const [datarecebimentodositemosreportadodia, setdatarecebimentodositemosreportadodia] = useState('');
   const [datafiminstalacaoplanejadodia, setdatafiminstalacaoplanejadodia] = useState('');
   const [dataconclusaoreportadodia, setdataconclusaoreportadodia] = useState('');
   const [datavalidacaoinstalacaodia, setdatavalidacaoinstalacaodia] = useState('');
@@ -1200,9 +1199,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
         dataintegracaoplanejadodia,
         datavalidacaoeriboxedia,
 
-        //idcliente: localStorage.getItem('sessionCodidcliente'),
-        //idusuario: localStorage.getItem('sessionId'),
-        //idloja: localStorage.getItem('sessionloja'),
+       
       })
       .then((response) => {
         if (response.status === 201) {
@@ -1615,13 +1612,15 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                   value={rfp}
                   placeholder="rfp"
                 />
-                Número
-                <Input
-                  type="text"
-                  onChange={(e) => setnumero(e.target.value)}
-                  value={numero}
-                  placeholder="Numero"
-                />
+                <div>
+                  Número
+                  <Input
+                    type="text"
+                    onChange={(e) => setnumero(e.target.value)}
+                    value={numero}
+                    placeholder="Numero"
+                  />
+                </div>
               </div>
               <div className="col-sm-3">
                 Cliente
@@ -2232,8 +2231,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                   LoadingOverlay: LinearProgress,
                                   NoRowsOverlay: CustomNoRowsOverlay,
                                 }}
-                              //opções traduzidas da tabela
-                              // localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                                //opções traduzidas da tabela
+                                // localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                               />
                             </Box>
                             <br></br>
@@ -2354,8 +2353,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                   LoadingOverlay: LinearProgress,
                                   NoRowsOverlay: CustomNoRowsOverlay,
                                 }}
-                              //opções traduzidas da tabela
-                              //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                                //opções traduzidas da tabela
+                                //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                               />
                             </Box>
                           </div>
@@ -2415,8 +2414,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                   LoadingOverlay: LinearProgress,
                                   NoRowsOverlay: CustomNoRowsOverlay,
                                 }}
-                              //opções traduzidas da tabela
-                              //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                                //opções traduzidas da tabela
+                                //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                               />
                             </Box>
                           </div>
@@ -2666,8 +2665,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                   LoadingOverlay: LinearProgress,
                                   NoRowsOverlay: CustomNoRowsOverlay,
                                 }}
-                              //opções traduzidas da tabela
-                              // localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                                //opções traduzidas da tabela
+                                // localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                               />
                             </Box>
                             <br></br>
@@ -2786,8 +2785,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                   LoadingOverlay: LinearProgress,
                                   NoRowsOverlay: CustomNoRowsOverlay,
                                 }}
-                              //opções traduzidas da tabela
-                              //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                                //opções traduzidas da tabela
+                                //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                               />
                             </Box>
                           </div>
@@ -2847,8 +2846,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                   LoadingOverlay: LinearProgress,
                                   NoRowsOverlay: CustomNoRowsOverlay,
                                 }}
-                              //opções traduzidas da tabela
-                              //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                                //opções traduzidas da tabela
+                                //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                               />
                             </Box>
                           </div>

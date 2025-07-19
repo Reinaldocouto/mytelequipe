@@ -148,8 +148,56 @@ export default function Despesas() {
       editable: false,
     },
     {
+      field: 'datainicio',
+      headerName: 'Data Inicio do pagamento',
+      type: 'string',
+      width: 140,
+      align: 'center',
+      editable: false,
+    },
+    {
+      field: 'despesacadastradapor',
+      headerName: 'Cadastrado por',
+      type: 'string',
+      width: 140,
+      align: 'center',
+      editable: false,
+    },
+    {
+      field: 'datadocadastro',
+      headerName: 'Data Cadastro',
+      type: 'string',
+      width: 140,
+      align: 'center',
+      editable: false,
+    },
+    {
+      field: 'periodicidade',
+      headerName: 'Periodicidade',
+      type: 'string',
+      width: 100,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'parceladoem',
+      headerName: 'Parcelado em',
+      type: 'string',
+      width: 140,
+      align: 'center',
+      editable: false,
+    },
+    {
+      field: 'valorparcela',
+      headerName: 'Valor da parcela',
+      type: 'string',
+      width: 140,
+      align: 'center',
+      editable: false,
+    },
+    {
       field: 'valordespesa',
-      headerName: 'Valor Despesa',
+      headerName: 'Valor total',
       width: 120,
       align: 'center',
       editable: false,
@@ -216,13 +264,13 @@ export default function Despesas() {
     };
     try {
       setloading(true);
-      const response = await api.post('v1/uploadobraericson', formData, header);
+      const response = await api.post('v1/uploaddespesas', formData, header);
       if (response && response.data) {
-        console.log(response);
         if (response.status === 200) {
           setmensagemsucesso(
             'Upload concluido, aguarde a atualização que dura em torno de 20 minutos',
           );
+          listadespesas();
           setmensagem('');
         } else {
           setmensagemsucesso('');
@@ -274,11 +322,21 @@ export default function Despesas() {
     const excelData = despesas.map((item) => {
       return {
         'Data Lançamento': item.datalancamento,
+        'Data Cadastro': item.datadocadastro,
         'Valor Despesa': item.valordespesa,
+        'Data Início': item.datainicio,
+        Periodicidade: item.periodicidade,
         Descrição: item.descricao,
         Comprovante: item.comprovante,
         Empresa: item.empresa,
-        Veículos: item.veiculo,
+        Veículo: item.veiculo,
+        Placa: item.placa,
+        Funcionário: item.funcionario,
+        Categoria: item.categoria,
+        'Parcelado em': item.parceladoem,
+        'Valor da Parcela': item.valorparcela,
+        Observação: item.observacao,
+        'Despesa Cadastrada Por': item.despesacadastradapor,
       };
     });
     exportExcel({ excelData, fileName: 'despesas' });

@@ -91,7 +91,7 @@ const Treinamentos = () => {
             const { data } = response;
             const now = new Date();
             const nowTimestamp = now.getTime();
-            const in30DaysTimestamp = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).getTime();
+            const in30DaysTimestamp = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000).getTime();
             setTotalTreinamentos(data.length);
             const parseDate = (dateString) => {
                 if (!dateString) return null; // Handle null or undefined date strings

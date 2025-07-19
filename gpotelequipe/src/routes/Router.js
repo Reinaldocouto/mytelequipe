@@ -41,6 +41,7 @@ const Planoconta = Loadable(lazy(() => import('../pages/cadastro/Planoconta')));
 const Despesas = Loadable(lazy(() => import('../pages/cadastro/Despesas')));
 const Multas = Loadable(lazy(() => import('../pages/cadastro/Multas')));
 const Fornecedor = Loadable(lazy(() => import('../pages/cadastro/Fornecedor')));
+const Monitoramento = Loadable(lazy(() => import('../pages/cadastro/Monitoramento')));
 const Rh = Loadable(lazy(() => import('../pages/cadastro/Rh')));
 
 //Suprimentos
@@ -49,8 +50,6 @@ const Compras = Loadable(lazy(() => import('../pages/suprimento/Compras')));
 const Solicitacao = Loadable(lazy(() => import('../pages/suprimento/Solicitacao')));
 const SolicitacaoAvulso = Loadable(lazy(() => import('../pages/suprimento/Solicitacao-Avulso')));
 const Requisicao = Loadable(lazy(() => import('../pages/suprimento/Requisicao')));
-
-
 
 //clientes
 const Clienteericsson = Loadable(lazy(() => import('../pages/projeto/Clienteericsson')));
@@ -74,6 +73,9 @@ const Despesageral = Loadable(lazy(() => import('../pages/despesa/Despesageral')
 
 //Configurações
 const Controleacesso = Loadable(lazy(() => import('../pages/configuracao/Controleacesso')));
+const ConfiguracaoDeAvisoEmail = Loadable(
+  lazy(() => import('../pages/configuracao/ConfiguracaoDeAvisosEmail')),
+);
 
 /* ************************************************************************************************************** */
 const LoginFormik = Loadable(lazy(() => import('../views/auth/LoginFormik')));
@@ -149,7 +151,7 @@ const ThemeRoutes = [
         name: 'RH',
         exact: true,
         element: (
-        <Private>
+          <Private>
             <Rh />
           </Private>
         ),
@@ -211,6 +213,16 @@ const ThemeRoutes = [
         element: (
           <Private>
             <Multas />
+          </Private>
+        ),
+      },
+      {
+        path: '/cadastro/monitoramento',
+        name: 'Monitoramento',
+        exact: true,
+        element: (
+          <Private>
+            <Monitoramento />
           </Private>
         ),
       },
@@ -323,7 +335,6 @@ const ThemeRoutes = [
           </Private>
         ),
       },
- 
 
       //fechaemntos
       // { path: '/projeto', name: 'Projeto', exact: true, element: <Projeto /> },
@@ -391,6 +402,16 @@ const ThemeRoutes = [
         element: (
           <Private>
             <Controleacesso />
+          </Private>
+        ),
+      },
+      {
+        path: '/configuracao/avisos',
+        name: 'Avisos',
+        exact: true,
+        element: (
+          <Private>
+            <ConfiguracaoDeAvisoEmail />
           </Private>
         ),
       },

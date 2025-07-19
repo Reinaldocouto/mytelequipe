@@ -67,6 +67,7 @@ const Solicitacaoedicao = ({
   const [currentDate, setcurrentDate] = useState('');
   const [observacao, setobservacao] = useState('');
   const [os, setos] = useState('');
+  const [emailmaterial, setemailmaterial] = useState('');
 
   //const [numero, setnumero] = useState('');
 
@@ -86,6 +87,15 @@ const Solicitacaoedicao = ({
     obra: numero,
     deletado: 0,
   };
+
+
+  async function loadingTable() {
+    const response = await api.get('v1/emails/aviso');
+    setemailmaterial(response.data.emailmaterial);
+  }
+
+
+
 
   //Funções
   const listasolicatacaoitens = async () => {
@@ -152,6 +162,13 @@ const Solicitacaoedicao = ({
         if (response.status === 201) {
           setmensagem('');
           setmensagemsucesso('Registro Salvo');
+          api
+            .post('v1/email/ordemservico', {
+              dest: emailmaterial,
+              assunto: `Aviso de Solicitação de Material - PROJETO ${projetousual || ''}`,
+              osId: numero,
+            })
+
           setshow(!show);
           togglecadastro.bind(null);
           atualiza();
@@ -315,7 +332,7 @@ const Solicitacaoedicao = ({
     limpacampos();
     setidsolicitacao(ididentificador);
     setos(numero);
-
+    loadingTable();
     if (novo === '0') {
       listaordemcompra();
       listasolicatacaoitens();
