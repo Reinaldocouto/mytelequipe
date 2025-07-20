@@ -16,21 +16,25 @@ import {
    
 } from 'reactstrap';
 import Box from '@mui/material/Box';
-import { 
-  DataGrid, 
-  useGridApiContext, 
-  useGridSelector, 
+import {
+  DataGrid,
+  GridActionsCellItem,
+  useGridApiContext,
+  useGridSelector,
   gridPageSelector,
   gridPageCountSelector,
   GridOverlay,
 } from '@mui/x-data-grid';
 import * as Icon from 'react-feather';
 import { LinearProgress } from '@mui/material';
-import { toast } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import DeleteIcon from '@mui/icons-material/Delete';
 import Pagination from '@mui/material/Pagination';
 
 import Tarefaedicao from '../projeto/Tarefaedicao';
+import Excluirregistro from '../../Excluirregistro';
+import Solicitardiaria from '../projeto/Solicitardiaria';
 
 //import { CustomPagination, CustomNoRowsOverlay } from '../../../components/CustomDataGrid';
 
@@ -70,6 +74,49 @@ const Rolloutericssonedicao = ({
   const [listamigo, setlistamigo] = useState([]);
   const [titulotarefa] = useState('');
   const [pageSize, setPageSize] = useState(10);
+  const [paginationModeldiarias, setPaginationModeldiarias] = useState({
+    pageSize: 5,
+    page: 0,
+  });
+  const [identificadorsolicitacaodiaria, setidentificadorsolicitacaodiaria] = useState('');
+  const [telacadastrosolicitacaodiaria, settelacadastrosolicitacaodiaria] = useState(false);
+  const [titulodiaria, settitulodiaria] = useState('');
+  const [solicitacaodiaria, setsolicitacaodiaria] = useState([]);
+  const [iddiaria, setiddiaria] = useState(0);
+  const [telaexclusaodiaria, settelaexclusaodiaria] = useState(false);
+  const [telaexclusaopj, settelaexclusaopj] = useState(false);
+  const [telaexclusaoclt, settelaexclusaoclt] = useState(false);
+  const [idacionamentopj, setidacionamentopj] = useState(0);
+  const [idacionamentoclt, setidacionamentoclt] = useState(0);
+
+  // estados para acionamentos (CLT e PJ)
+  const [pacotes, setpacotes] = useState([]);
+  const [pacotesacionadospj, setpacotesacionadospj] = useState([]);
+  const [pacotesacionadosclt, setpacotesacionadosclt] = useState([]);
+  const [colaboradorlistapj, setcolaboradorlistapj] = useState([]);
+  const [colaboradorlistaclt, setcolaboradorlistaclt] = useState([]);
+  const [rowSelectionModel, setRowSelectionModel] = useState([]);
+  const [rowSelectionModelpacotepj, setRowSelectionModelpacotepj] = useState([]);
+  const [idcolaboradorpj, setidcolaboradorpj] = useState('');
+  const [selectedoptioncolaboradorpj, setselectedoptioncolaboradorpj] = useState(null);
+  const [regiao, setregiao] = useState('');
+  const [lpulista, setlpulista] = useState([]);
+  const [lpuhistorico, setlpuhistorico] = useState('');
+  const [selectedoptionlpu, setselectedoptionlpu] = useState(null);
+  const [valornegociado, setvalornegociado] = useState(0);
+  const [observacaopj, setobservacaopj] = useState('');
+  const [colaboradoremail, setcolaboradoremail] = useState('');
+  const [emailadcional, setemailadcional] = useState('');
+  const [arquivoanexo, setarquivoanexo] = useState('');
+  const [idcolaboradorclt, setidcolaboradorclt] = useState('');
+  const [selectedoptioncolaboradorclt, setselectedoptioncolaboradorclt] = useState(null);
+  const [datainicioclt, setdatainicioclt] = useState('');
+  const [datafinalclt, setdatafinalclt] = useState('');
+  const [horanormalclt, sethoranormalclt] = useState('');
+  const [hora50clt, sethora50clt] = useState('');
+  const [hora100clt, sethora100clt] = useState('');
+  const [totalhorasclt, settotalhorasclt] = useState('');
+  const [observacaoclt, setobservacaoclt] = useState('');
 
 
 
@@ -222,11 +269,457 @@ const Rolloutericssonedicao = ({
     },
   ];
 
+  const colunasdiarias = [
+    {
+      field: 'actions',
+      headerName: 'Ação',
+      type: 'actions',
+      width: 80,
+      align: 'center',
+      getActions: (parametros) => [
+        <GridActionsCellItem
+          icon={<DeleteIcon />}
+          label="Delete"
+          title="Delete"
+          onClick={() => deletediaria(parametros.id)}
+        />,
+      ],
+    },
+    {
+      field: 'datasolicitacao',
+      headerName: 'Data',
+      width: 140,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'nome',
+      headerName: 'Nome Colaborador',
+      type: 'string',
+      width: 300,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'descricao',
+      headerName: 'Descrição',
+      type: 'string',
+      width: 300,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'valoroutrassolicitacoes',
+      headerName: 'Outras Solicitações',
+      type: 'number',
+      width: 150,
+      align: 'right',
+      valueFormatter: (parametros) => {
+        if (parametros.value == null) return '';
+        return parametros.value.toLocaleString('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        });
+      },
+      editable: false,
+    },
+    {
+      field: 'valortotal',
+      headerName: 'Valor Total',
+      type: 'number',
+      width: 150,
+      align: 'right',
+      valueFormatter: (parametros) => {
+        if (parametros.value == null) return '';
+        return parametros.value.toLocaleString('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        });
+      },
+      editable: false,
+    },
+    {
+      field: 'solicitante',
+      headerName: 'Solicitante',
+      type: 'string',
+      width: 250,
+      align: 'left',
+      editable: false,
+    },
+  ];
+
+  // colunas para pacotes e acionamentos
+  const colunaspacotes = [
+    { field: 'ts', headerName: 'TS', width: 150, align: 'left', editable: false },
+    {
+      field: 'brevedescricaoingles',
+      headerName: 'BREVE DESCRIÇÃO EM INGLÊS',
+      width: 300,
+      align: 'left',
+      editable: false,
+      renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>,
+    },
+    {
+      field: 'brevedescricao',
+      headerName: 'BREVE DESCRICAO',
+      width: 400,
+      align: 'left',
+      editable: false,
+      renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>,
+    },
+    { field: 'codigolpuvivo', headerName: 'CODIGO LPU VIVO', width: 150, align: 'left', editable: false },
+  ];
+
+  const colunaspacotesacionados = [
+    {
+      field: 'actions',
+      headerName: 'Ação',
+      type: 'actions',
+      width: 80,
+      align: 'center',
+      getActions: (params) => [
+        <GridActionsCellItem icon={<DeleteIcon />} label="Delete" onClick={() => deleteUser(params.id)} />,
+      ],
+    },
+    { field: 'nome', headerName: 'COLABORADOR', width: 250, align: 'left', editable: false },
+    { field: 'po', headerName: 'PO', width: 120, align: 'left', editable: false },
+    { field: 'atividade', headerName: 'ATIVIDADE', width: 110, align: 'left', editable: false },
+    { field: 'qtd', headerName: 'QTD', width: 60, align: 'left', editable: false },
+    { field: 'ts', headerName: 'TS', width: 120, align: 'left', editable: false },
+    {
+      field: 'brevedescricao',
+      headerName: 'BREVE DESCRICAO',
+      width: 290,
+      align: 'left',
+      editable: false,
+      renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>,
+    },
+    { field: 'codigolpuvivo', headerName: 'CODIGO LPU VIVO', width: 140, align: 'left', editable: false },
+    {
+      field: 'dataacionamento',
+      headerName: 'DATA ACIONAMENTO',
+      width: 150,
+      align: 'left',
+      type: 'date',
+      valueGetter: (p) => (p.value ? new Date(p.value) : null),
+      valueFormatter: (p) => (p.value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(p.value) : ''),
+    },
+    {
+      field: 'dataenvioemail',
+      headerName: 'DATA ENVIO EMAIL',
+      width: 150,
+      align: 'left',
+      type: 'date',
+      valueGetter: (p) => (p.value ? new Date(p.value) : null),
+      valueFormatter: (p) => (p.value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(p.value) : ''),
+    },
+  ];
+
+  const colunaspacotesacionadosclt = [
+    {
+      field: 'actions',
+      headerName: 'Ação',
+      type: 'actions',
+      width: 80,
+      align: 'center',
+      getActions: (params) => [
+        <GridActionsCellItem icon={<DeleteIcon />} label="Delete" onClick={() => deleteuserclt(params.id)} />,
+      ],
+    },
+    { field: 'nome', headerName: 'COLABORADOR', width: 250, align: 'left', editable: false },
+    { field: 'po', headerName: 'PO', width: 120, align: 'left', editable: false },
+    { field: 'atividade', headerName: 'ATIVIDADE', width: 110, align: 'left', editable: false },
+    {
+      field: 't2codmatservsw',
+      headerName: 'DESCRICAO',
+      width: 290,
+      align: 'left',
+      editable: false,
+      renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>,
+    },
+    {
+      field: 'dataincio',
+      headerName: 'DATA INICIO',
+      width: 140,
+      align: 'left',
+      type: 'date',
+      valueGetter: (p) => (p.value ? new Date(p.value) : null),
+      valueFormatter: (p) => (p.value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(p.value) : ''),
+    },
+    {
+      field: 'datafinal',
+      headerName: 'DATA FIM',
+      width: 140,
+      align: 'left',
+      type: 'date',
+      valueGetter: (p) => (p.value ? new Date(p.value) : null),
+      valueFormatter: (p) => (p.value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(p.value) : ''),
+    },
+    {
+      field: 'dataacionamento',
+      headerName: 'DATA ACIONAMENTO',
+      width: 150,
+      align: 'left',
+      type: 'date',
+      valueGetter: (p) => (p.value ? new Date(p.value) : null),
+      valueFormatter: (p) => (p.value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(p.value) : ''),
+    },
+    {
+      field: 'dataenvioemail',
+      headerName: 'DATA ENVIO EMAIL',
+      width: 150,
+      align: 'left',
+      type: 'date',
+      valueGetter: (p) => (p.value ? new Date(p.value) : null),
+      valueFormatter: (p) => (p.value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(p.value) : ''),
+    },
+  ];
+
+  const novocadastrodiaria = () => {
+    api
+      .post('v1/solicitacao/novocadastrodiaria', {
+        idcliente: localStorage.getItem('sessionCodidcliente'),
+        idusuario: localStorage.getItem('sessionId'),
+        idloja: localStorage.getItem('sessionloja'),
+      })
+      .then((response) => {
+        if (response.status === 201) {
+          setidentificadorsolicitacaodiaria(response.data.retorno);
+          settitulodiaria('Cadastrar Solicitação de Diaria');
+          settelacadastrosolicitacaodiaria(true);
+        } else {
+          toast.error(response.status);
+        }
+      })
+      .catch((err) => {
+        if (err.response) {
+          toast.error(err.response.data.erro);
+        } else {
+          toast.error('Ocorreu um erro na requisição.');
+        }
+      });
+  };
+
+  const listasolicitacaodiaria = async () => {
+    try {
+      setloading(true);
+      await api.get('v1/projetoericsson/diaria', { params }).then((response) => {
+        setsolicitacaodiaria(response.data);
+      });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const listacolaboradorpj = async () => {
+    try {
+      setloading(true);
+      await api.get('v1/empresas/selectpj', { params }).then((response) => {
+        setcolaboradorlistapj(response.data);
+      });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const listacolaboradorclt = async () => {
+    try {
+      setloading(true);
+      await api.get('v1/pessoa/selectclt', { params }).then((response) => {
+        setcolaboradorlistaclt(response.data);
+      });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const listapacotes = async (historico) => {
+    try {
+      setloading(true);
+      await api.get(`v1/projetoericsson/pacotes/${historico}`, { params }).then((response) => {
+        setpacotes(response.data);
+      });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const listapacotesacionados = async () => {
+    try {
+      setloading(true);
+      await api.get('v1/projetoericsson/listaacionamentopj', { params }).then((response) => {
+        setpacotesacionadospj(response.data);
+      });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const listapacotesacionadosclt = async () => {
+    try {
+      setloading(true);
+      await api.get('v1/projetoericsson/listaacionamentoclt', { params }).then((response) => {
+        setpacotesacionadosclt(response.data);
+      });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const uploadanexo = async (e) => {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append('files', arquivoanexo);
+    try {
+      setloading(true);
+      const response = await api.post('v1/uploadanexo', formData);
+      if (response.status === 201) {
+        toast.success('Arquivo Anexado');
+      } else {
+        toast.error('Erro ao Anexar arquivo!');
+      }
+    } catch (err) {
+      toast.error('Erro: Tente novamente mais tarde!');
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const salvarpj = async (pacoteid, atividadeid) => {
+    try {
+      const response = await api.post('v1/projetoericsson/acionamentopj', {
+        idrollout: ididentificador,
+        idatividade: atividadeid,
+        idpacote: pacoteid,
+        idcolaborador: idcolaboradorpj,
+        regiao,
+        lpuhistorico,
+        valornegociado,
+        observacao: observacaopj,
+        idfuncionario: localStorage.getItem('sessionId'),
+      });
+      return response.status === 201;
+    } catch (err) {
+      toast.error(err.message);
+      return false;
+    }
+  };
+
+  const salvarclt = async (atividadeid) => {
+    try {
+      const response = await api.post('v1/projetoericsson/acionamentoclt', {
+        idrollout: ididentificador,
+        idatividade: atividadeid,
+        idcolaborador: idcolaboradorclt,
+        datainicio: datainicioclt,
+        datafinal: datafinalclt,
+        horanormal: horanormalclt,
+        hora50: hora50clt,
+        hora100: hora100clt,
+        totalhoras: totalhorasclt,
+        observacao: observacaoclt,
+        idfuncionario: localStorage.getItem('sessionId'),
+      });
+      return response.status === 201;
+    } catch (err) {
+      toast.error(err.message);
+      return false;
+    }
+  };
+
+  const execacionamentopj = async () => {
+    if (!rowSelectionModel || rowSelectionModel.length !== 1) {
+      toast.error('Selecione uma atividade');
+      return;
+    }
+    if (!rowSelectionModelpacotepj || rowSelectionModelpacotepj.length === 0) {
+      toast.error('Selecione um ou mais pacotes');
+      return;
+    }
+    const resultados = await Promise.all(
+      rowSelectionModelpacotepj.map((p) => salvarpj(p, rowSelectionModel[0])),
+    );
+    if (resultados.some((r) => r)) {
+      toast.success('Acionamento salvo');
+      listapacotesacionados();
+    }
+  };
+
+  const execacionamentoclt = async () => {
+    if (!rowSelectionModel || rowSelectionModel.length !== 1) {
+      toast.error('Selecione uma atividade');
+      return;
+    }
+    const ok = await salvarclt(rowSelectionModel[0]);
+    if (ok) {
+      toast.success('Acionamento salvo');
+      listapacotesacionadosclt();
+    }
+  };
+
+  const enviaremail = () => {
+    if (!colaboradoremail) {
+      toast.error('Falta preencher o E-mail!');
+      return;
+    }
+    api
+      .post('v1/email/acionamentopj', {
+        destinatario: emailadcional,
+        destinatario1: colaboradoremail,
+        idcolaborador: idcolaboradorpj,
+        idrollout: ididentificador,
+        idusuario: localStorage.getItem('sessionId'),
+      })
+      .then((response) => {
+        if (response.status === 200) {
+          toast.success('Email Enviado');
+          listapacotesacionados();
+        } else {
+          toast.error('Erro ao enviar a mensagem!');
+        }
+      })
+      .catch((err) => {
+        toast.error(err.message);
+      });
+  };
+
+  function deletediaria(stat) {
+    setiddiaria(stat);
+    settelaexclusaodiaria(true);
+  }
+
+  function deleteUser(stat) {
+    setidacionamentopj(stat);
+    settelaexclusaopj(true);
+  }
+
+  function deleteuserclt(stat) {
+    setidacionamentoclt(stat);
+    settelaexclusaoclt(true);
+  }
+
   // 3) dispara quando abrir ou mudar row
   useEffect(() => {
     if (!show) return;
 
-    // se vier row selecionada, já pré‑popula
     if (ericssonSelecionado) {
       setNumero(ericssonSelecionado.numero || '');
       setCliente(ericssonSelecionado.cliente || '');
@@ -234,11 +727,22 @@ const Rolloutericssonedicao = ({
       setSite(ericssonSelecionado.site || '');
     }
 
-    // depois, garante refresh via fetch
     if (ididentificador) {
       fetchIdentificacao();
+      listasolicitacaodiaria();
+      listacolaboradorpj();
+      listacolaboradorclt();
+      listapacotes('NEGOCIADO');
+      listapacotesacionados();
+      listapacotesacionadosclt();
     }
   }, [show, ididentificador, ericssonSelecionado]);
+
+  useEffect(() => {
+    if (show) {
+      listasolicitacaodiaria();
+    }
+  }, [telacadastrosolicitacaodiaria, telaexclusaodiaria]);
 
   return (
     <Modal
@@ -645,6 +1149,265 @@ const Rolloutericssonedicao = ({
                     }}
                   />
                 </Box>
+
+                <div>
+                  <br />
+                  <b>Diárias</b>
+                  <hr style={{ marginTop: '0px', width: '100%' }} />
+                  <div className="row g-3">
+                    <CardBody className="px-4 , pb-2">
+                      <div className="row g-3">
+                        <div className="col-sm-6"></div>
+                        <div className=" col-sm-6 d-flex flex-row-reverse">
+                          <div className=" col-sm-6 d-flex flex-row-reverse">
+                            <Button color="primary" onClick={() => novocadastrodiaria()}>
+                              Solicitar Diária <Icon.Plus />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      <br></br>
+                      <div className="row g-3">
+                        <Box sx={{ height: 400, width: '100%' }}>
+                          <DataGrid
+                            rows={solicitacaodiaria}
+                            columns={colunasdiarias}
+                            loading={loading}
+                            disableSelectionOnClick
+                            experimentalFeatures={{ newEditingApi: true }}
+                            components={{
+                              Pagination: CustomPagination,
+                              LoadingOverlay: LinearProgress,
+                              NoRowsOverlay: CustomNoRowsOverlay,
+                            }}
+                            paginationModel={paginationModeldiarias}
+                            onPaginationModelChange={setPaginationModeldiarias}
+                          />
+                        </Box>
+                      </div>
+                    </CardBody>
+                  </div>
+                </div>
+
+                {telaexclusaodiaria ? (
+                  <>
+                    {' '}
+                    <Excluirregistro
+                      show={telaexclusaodiaria}
+                      setshow={settelaexclusaodiaria}
+                      ididentificador={iddiaria}
+                      quemchamou="DIARIA"
+                      atualiza={listasolicitacaodiaria}
+                    />{' '}
+                  </>
+                ) : null}
+
+                {telacadastrosolicitacaodiaria ? (
+                  <Solicitardiaria
+                    show={telacadastrosolicitacaodiaria}
+                    setshow={settelacadastrosolicitacaodiaria}
+                    ididentificador={identificadorsolicitacaodiaria}
+                    atualiza={listasolicitacaodiaria}
+                    titulotopo={titulodiaria}
+                    numero={numero}
+                    idlocal={numero}
+                    sigla={regiona}
+                    clientelocal="ERICSSON"
+                    projetousual="ERICSSON"
+                    novo="0"
+                  />
+                ) : null}
+
+                <ToastContainer
+                  style={{ zIndex: 9999999 }}
+                  position="top-right"
+                  autoClose={2000}
+                  hideProgressBar={false}
+                  newestOnTop
+                  closeOnClick
+                  rtl={false}
+                  pauseOnFocusLoss
+                  draggable
+                  pauseOnHover
+                />
+
+                <div>
+                  <br />
+                  <b>Acionamentos</b>
+                  <hr style={{ marginTop: '0px', width: '100%' }} />
+                  <CardBody className="px-4 , pb-2">
+                    <div className="row g-3">
+                      <div className="col-sm-8">
+                        Colaborador CLT
+                        <Select
+                          isClearable
+                          isSearchable
+                          name="colaboradorclt"
+                          options={colaboradorlistaclt}
+                          placeholder="Selecione"
+                          isLoading={loading}
+                          onChange={(e) =>
+                            e ? (setselectedoptioncolaboradorclt(e), setidcolaboradorclt(e.value)) : setselectedoptioncolaboradorclt(null)
+                          }
+                          value={selectedoptioncolaboradorclt}
+                        />
+                      </div>
+                      <div className="col-sm-2">
+                        Data Início
+                        <Input type="date" onChange={(e) => setdatainicioclt(e.target.value)} value={datainicioclt} />
+                      </div>
+                      <div className="col-sm-2">
+                        Data Final
+                        <Input type="date" onChange={(e) => setdatafinalclt(e.target.value)} value={datafinalclt} />
+                      </div>
+                      <div className="col-sm-3">
+                        Horas Normais
+                        <Input type="number" onChange={(e) => sethoranormalclt(e.target.value)} value={horanormalclt} />
+                      </div>
+                      <div className="col-sm-3">
+                        Horas 50%
+                        <Input type="number" onChange={(e) => sethora50clt(e.target.value)} value={hora50clt} />
+                      </div>
+                      <div className="col-sm-3">
+                        Horas 100%
+                        <Input type="number" onChange={(e) => sethora100clt(e.target.value)} value={hora100clt} />
+                      </div>
+                      <div className="col-sm-3">
+                        Total de Horas
+                        <Input type="number" onChange={(e) => settotalhorasclt(e.target.value)} value={totalhorasclt} />
+                      </div>
+                      <div className="col-sm-12">
+                        Observação
+                        <Input type="textarea" onChange={(e) => setobservacaoclt(e.target.value)} value={observacaoclt} />
+                      </div>
+                    </div>
+                    <br />
+                    <div className=" col-sm-12 d-flex flex-row-reverse">
+                      <Button color="primary" onClick={execacionamentoclt} disabled={modoVisualizador()}>
+                        Adicionar Acionamento CLT <Icon.Plus />
+                      </Button>
+                    </div>
+                    <br />
+                    <Box sx={{ height: 300, width: '100%' }}>
+                      <DataGrid
+                        rows={pacotesacionadosclt}
+                        columns={colunaspacotesacionadosclt}
+                        loading={loading}
+                        disableSelectionOnClick
+                        components={{ Pagination: CustomPagination, LoadingOverlay: LinearProgress, NoRowsOverlay: CustomNoRowsOverlay }}
+                      />
+                    </Box>
+                    <hr />
+                    <div className="row g-3">
+                      <div className="col-sm-4">
+                        Empresa
+                        <Select
+                          isClearable
+                          isSearchable
+                          name="colaboradorpj"
+                          options={colaboradorlistapj}
+                          placeholder="Selecione"
+                          isLoading={loading}
+                          onChange={(e) =>
+                            e ? (setselectedoptioncolaboradorpj(e), setidcolaboradorpj(e.value)) : setselectedoptioncolaboradorpj(null)
+                          }
+                          value={selectedoptioncolaboradorpj}
+                        />
+                      </div>
+                      <div className="col-sm-2">
+                        Região
+                        <Input type="select" name="regiao" onChange={(e) => setregiao(e.target.value)} value={regiao}>
+                          <option value="">Selecione</option>
+                          <option value="CAPITAL">CAPITAL</option>
+                          <option value="INTERIOR">INTERIOR</option>
+                        </Input>
+                      </div>
+                      <div className="col-sm-4">
+                        LPUs
+                        <Select
+                          isClearable
+                          isSearchable
+                          name="lpuhistorico"
+                          options={lpulista}
+                          placeholder="Selecione"
+                          isLoading={loading}
+                          onChange={(e) => {
+                            if (e) {
+                              setlpuhistorico(e.label);
+                              setselectedoptionlpu(e);
+                              listapacotes(e.label);
+                            } else {
+                              setlpuhistorico('');
+                              setselectedoptionlpu(null);
+                            }
+                          }}
+                          value={selectedoptionlpu}
+                        />
+                      </div>
+                      <div className="col-sm-12">
+                        Observação
+                        <Input type="textarea" onChange={(e) => setobservacaopj(e.target.value)} value={observacaopj} />
+                      </div>
+                    </div>
+                    <br />
+                    <div className="row g-3">
+                      <Box sx={{ height: 300, width: '100%' }}>
+                        <DataGrid
+                          rows={pacotes}
+                          columns={colunaspacotes}
+                          loading={loading}
+                          checkboxSelection
+                          onRowSelectionModelChange={(m) => setRowSelectionModelpacotepj(m)}
+                          rowSelectionModel={rowSelectionModelpacotepj}
+                          disableSelectionOnClick
+                          components={{ Pagination: CustomPagination, LoadingOverlay: LinearProgress, NoRowsOverlay: CustomNoRowsOverlay }}
+                        />
+                      </Box>
+                    </div>
+                    <br />
+                    <div className=" col-sm-12 d-flex flex-row-reverse">
+                      <Button color="primary" onClick={execacionamentopj} disabled={modoVisualizador()}>
+                        Adicionar Acionamento PJ <Icon.Plus />
+                      </Button>
+                    </div>
+                    <br />
+                    <Box sx={{ height: 300, width: '100%' }}>
+                      <DataGrid
+                        rows={pacotesacionadospj}
+                        columns={colunaspacotesacionados}
+                        loading={loading}
+                        disableSelectionOnClick
+                        components={{ Pagination: CustomPagination, LoadingOverlay: LinearProgress, NoRowsOverlay: CustomNoRowsOverlay }}
+                      />
+                    </Box>
+                    <div className="row g-3 mt-2">
+                      <div className="col-sm-12">
+                        E-mail PJ
+                        <Input type="text" onChange={(e) => setcolaboradoremail(e.target.value)} value={colaboradoremail} />
+                      </div>
+                      <div className="col-sm-12">
+                        E-mails adicionais
+                        <Input type="text" onChange={(e) => setemailadcional(e.target.value)} value={emailadcional} />
+                      </div>
+                      <div className="col-sm-12">
+                        Anexo
+                        <div className="d-flex flex-row-reverse custom-file">
+                          <InputGroup>
+                            <Input type="file" onChange={(e) => setarquivoanexo(e.target.files[0])} className="custom-file-input" id="customFile3" />
+                            <Button color="primary" onClick={uploadanexo} disabled={modoVisualizador()}>
+                              Anexar{' '}
+                            </Button>
+                          </InputGroup>
+                        </div>
+                      </div>
+                      <div className=" col-sm-12 d-flex flex-row-reverse mt-2">
+                        <Button color="secondary" onClick={enviaremail} disabled={modoVisualizador()}>
+                          Enviar E-mail de Acionamento <Icon.Mail />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardBody>
+                </div>
              
             </CardBody>
           </div>
