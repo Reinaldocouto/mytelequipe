@@ -51,7 +51,6 @@ type
     function Listalancamentotipo(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Editar(out erro: string): Boolean;
     function NovoCadastro(out erro: string): integer;
-    function RelatorioCustoSolicitacao(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
   end;
 
 implementation
@@ -130,64 +129,6 @@ begin
     regradenogocio.free;
   end;
 
-end;
-
-function Tcontroleestoque.RelatorioCustoSolicitacao(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
-var
-  qry: TFDQuery;
-  a : string;
-begin
-  try
-    qry := TFDQuery.Create(nil);
-    qry.connection := FConn;
-    with qry do
-    begin
-      Active := false;
-      SQL.Clear;
-      SQL.Add('SELECT ');
-      SQL.Add('  gessolicitacao.obra,');
-      SQL.Add('  gessolicitacao.projeto,');
-      SQL.Add('  SUM(gescontroleestoque.entrada) AS entrada,');
-      SQL.Add('  SUM(gescontroleestoque.saida) AS saida,');
-      SQL.Add('CONCAT(''R$ '', REPLACE(FORMAT(SUM(gescontroleestoque.valor), 2), ''.'', '','')) AS valor_total,');
-      SQL.Add('  SUM(gescontroleestoque.valor) AS valor_total');
-      SQL.Add('FROM ');
-      SQL.Add('  gpo2desenvolvimento.gescontroleestoque');
-      SQL.Add('JOIN ');
-      SQL.Add('  gpo2desenvolvimento.gessolicitacaoitens');
-      SQL.Add('  ON gessolicitacaoitens.idproduto = gescontroleestoque.idproduto');
-      SQL.Add('JOIN ');
-      SQL.Add('  gpo2desenvolvimento.gessolicitacao');
-      SQL.Add('  ON gessolicitacao.idsolicitacao = gessolicitacaoitens.idsolicitacao');
-      SQL.Add('WHERE ');
-      SQL.Add('  gescontroleestoque.deletado = 0');
-      SQL.Add('  AND gessolicitacaoitens.deletado = 0');
-      SQL.Add('  AND gessolicitacao.deletado = 0');
-
-      // filtros adicionais opcionais
-      if AQuery.ContainsKey('obra') then
-      begin
-        if Length(AQuery.Items['obra']) > 0 then
-        begin
-          SQL.Add('  AND gessolicitacao.obra LIKE :obra');
-          ParamByName('obra').Value := '%' + AQuery.Items['obra'] + '%';
-        end;
-      end;
-
-      SQL.Add('GROUP BY ');
-      SQL.Add('  gessolicitacao.obra, gessolicitacao.projeto');
-
-      Active := true;
-    end;
-    erro := '';
-    Result := qry;
-  except
-    on ex: exception do
-    begin
-      erro := 'Erro ao consultar: ' + ex.Message;
-      Result := nil;
-    end;
-  end;
 end;
 
 function Tcontroleestoque.Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;

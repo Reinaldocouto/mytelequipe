@@ -78,8 +78,6 @@ procedure Editardesconto(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure criarsite(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
-procedure rolloutericsson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 
 implementation
 
@@ -125,8 +123,6 @@ begin
 
   THorse.post('v1/projetoericsson/salvadesconto', Editardesconto);
   THorse.post('v1/projetoericsson/criarsite', criarsite);
-  THorse.get('v1/rolloutericsson', rolloutericsson);
-
 
 end;
 
@@ -1427,35 +1423,6 @@ begin
     end;
   finally
     qry.Free;
-    servico.Free;
-  end;
-end;
-
-
-procedure rolloutericsson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TProjetoericsson;
-  qry: TFDQuery;
-  erro: string;
-begin
-  servico := TProjetoericsson.Create;
-  try
-    qry := servico.rolloutericsson(Req.Query.Dictionary, erro);
-    try
-      if Assigned(qry) then
-      begin
-        if (erro = '') or (erro = 'Nenhum registro ativo encontrado') then
-          Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
-        else
-          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-      end
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', 'Falha ao executar consulta')).Status(THTTPStatus.InternalServerError);
-    finally
-      if Assigned(qry) then
-        qry.Free;
-    end;
-  finally
     servico.Free;
   end;
 end;

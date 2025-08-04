@@ -1,4 +1,4 @@
-ï»¿unit Controller.Projetotelefonica;
+unit Controller.Projetotelefonica;
 
 interface
 
@@ -104,15 +104,6 @@ procedure editartarefa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure salvadesconto(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
-procedure ListPrevisaoFechamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
-procedure dashboardtelefonicaposicionamentofinanceiro(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
-procedure historicopagamentogeral(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
-
-procedure ListaDespesas(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 implementation
 
 procedure Registry;
@@ -165,14 +156,6 @@ begin
   THorse.get('v1/projetotelefonica/listaacionamentoshistorico', historicopagamento);
   THorse.post('v1/projetotelefonica/editartarefa', editartarefa);
   THorse.post('v1/projetotelefonica/salvadesconto', salvadesconto);
-
-  THorse.get('v1/projetotelefonica/previsaofechamento', ListPrevisaoFechamento);
-
-  THorse.get('v1/projetotelefonica/dashboardtelefinicatiporatividades', dashboardtelefonicaposicionamentofinanceiro);
-  THorse.get('v1/projetotelefonica/historicofechamento', historicopagamentogeral);
-
-
-  THorse.get('v1/projetotelefonica/ListaDespesas', Listadespesas);
 end;
 
 
@@ -275,88 +258,6 @@ begin
   end;
 end;
 
-     procedure dashboardtelefonicaposicionamentofinanceiro(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TProjetotelefonica;
-  qry: TFDQuery;
-  erro: string;
-  jsonArray: TJSONArray;
-  jsonObj: TJSONObject;
-begin
-  try
-    servico := TProjetotelefonica.Create;
-  except
-    on E: Exception do
-    begin
-      Res.Send<TJSONObject>(TJSONObject.Create(TJSONPair.Create('erro', 'Erro ao conectar com o banco: ' + E.Message)))
-        .Status(THTTPStatus.InternalServerError);
-      Exit;
-    end;
-  end;
-
-  qry := servico.dashboardtelefonicaposicionamentofinanceiro(Req.Query.Dictionary, erro);
-  try
-    if Assigned(qry) then
-    begin
-      try
-        jsonArray := TJSONArray.Create;
-
-        if not qry.IsEmpty then
-        begin
-          qry.First;
-          while not qry.Eof do
-          begin
-            jsonObj := TJSONObject.Create;
-
-            // Adiciona todos os campos ao objeto JSON
-            jsonObj.AddPair('TipoAtividade', qry.FieldByName('TipoAtividade').AsString);
-            jsonObj.AddPair('PO_Preenchido', TJSONNumber.Create(qry.FieldByName('PO_Preenchido').AsInteger));
-            jsonObj.AddPair('TIV_Emitidas', TJSONNumber.Create(qry.FieldByName('TIV_Emitidas').AsInteger));
-            jsonObj.AddPair('TII_Emitidas', TJSONNumber.Create(qry.FieldByName('TII_Emitidas').AsInteger));
-            jsonObj.AddPair('Carta_TAF_Emitida', TJSONNumber.Create(qry.FieldByName('Carta_TAF_Emitida').AsInteger));
-            jsonObj.AddPair('TotalItens', TJSONNumber.Create(qry.FieldByName('TotalItens').AsInteger));
-            jsonObj.AddPair('totalPMTS', TJSONNumber.Create(qry.FieldByName('totalPMTS').AsInteger));
-
-            jsonArray.AddElement(jsonObj);
-            qry.Next;
-          end;
-        end;
-
-        if erro = '' then
-        begin
-          if jsonArray.Count > 0 then
-            Res.Send<TJSONArray>(jsonArray).Status(THTTPStatus.OK)
-          else
-            Res.Send<TJSONObject>(TJSONObject.Create(TJSONPair.Create('aviso', 'Nenhum dado encontrado')))
-              .Status(THTTPStatus.OK);
-        end
-        else
-        begin
-          jsonArray.Free;
-          Res.Send<TJSONObject>(TJSONObject.Create(TJSONPair.Create('erro', erro)))
-            .Status(THTTPStatus.InternalServerError);
-        end;
-      except
-        on E: Exception do
-        begin
-          if Assigned(jsonArray) then
-            jsonArray.Free;
-          Res.Send<TJSONObject>(TJSONObject.Create(TJSONPair.Create('erro', 'Erro ao processar dados: ' + E.Message)))
-            .Status(THTTPStatus.InternalServerError);
-        end;
-      end;
-    end
-    else
-    begin
-      Res.Send<TJSONObject>(TJSONObject.Create(TJSONPair.Create('erro', erro)))
-        .Status(THTTPStatus.InternalServerError);
-    end;
-  finally
-    if Assigned(qry) then
-      qry.Free;
-    servico.Free;
-  end;
-end;
 
 procedure extratodesconto(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -469,10 +370,10 @@ begin
   try
     erro := '';
     try
-      // LÃª o body como JSON
+      // Lê o body como JSON
       JSONBody := Req.Body<TJSONObject>;
 
-      // Chama o mÃ©todo com os dados do body (nÃ£o da query string!)
+      // Chama o método com os dados do body (não da query string!)
       if servico.apagarpagamento(JSONBody, erro) then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.numero)).Status(THTTPStatus.Created)
       else
@@ -851,40 +752,6 @@ begin
   end;
 end;
 
-
-procedure historicopagamentogeral(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TProjetotelefonica;
-  qry: TFDQuery;
-  erro: string;
-  arraydados: TJSONArray;
-  body: TJSONValue;
-begin
-  try
-    servico := TProjetotelefonica.Create;
-  except
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
-  end;
-  qry := servico.Listaacionamentoshistoricopagamento(Req.Query.Dictionary, erro);
-  try
-
-    try
-      arraydados := qry.ToJSONArray();
-      if erro = '' then
-        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-    except
-      on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
-    end;
-  finally
-    qry.Free;
-    servico.Free;
-  end;
-end;
-
 procedure ListaFechamentoporempresa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TProjetotelefonica;
@@ -1080,7 +947,7 @@ begin
               Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
           end
           else
-            Res.Send<TJSONObject>(CreateJsonObj('erro', 'JÃ¡ existe pagamento nesse periodo')).Status(THTTPStatus.BadRequest);
+            Res.Send<TJSONObject>(CreateJsonObj('erro', 'Já existe pagamento nesse periodo')).Status(THTTPStatus.BadRequest);
 
         end;
       end
@@ -1574,14 +1441,14 @@ begin
     erro := '';
     retorno := '';
     try
-      // LÃª o corpo da requisiÃ§Ã£o como TJSONObject
+      // Lê o corpo da requisição como TJSONObject
       body := Req.Body<TJSONObject>;
       servico.sitename := body.GetValue<string>('sitename', '');
       servico.sitenamefrom := body.GetValue<string>('sitenamefrom', '');
       servico.estado := body.GetValue<string>('estado', '');
       servico.siteid := body.GetValue<string>('siteid', '');
 
-      // LÃª o array de objetos (se existir)
+      // Lê o array de objetos (se existir)
       if body.TryGetValue<TJSONArray>('tarefas', JSONArray) then
       begin
         for i := 0 to JSONArray.Count - 1 do
@@ -1599,18 +1466,18 @@ begin
           // Validar e salvar cada item
             if not servico.salvartarefa(erro) then
             begin
-              erro := Format('Erro ao salvar tarefa com nÃºmero "%s": %s', [servico.numero, erro]);
+              erro := Format('Erro ao salvar tarefa com número "%s": %s', [servico.numero, erro]);
               Break;
             end;
 
-          // Adicionar o ID do serviÃ§o salvo Ã  resposta de sucesso
+          // Adicionar o ID do serviço salvo à resposta de sucesso
             if retorno <> '' then
               retorno := retorno + ', ';
             retorno := retorno + servico.id;
           except
             on ex: Exception do
             begin
-              erro := Format('Erro ao processar tarefa com nÃºmero "%s": %s', [servico.numero, ex.Message]);
+              erro := Format('Erro ao processar tarefa com número "%s": %s', [servico.numero, ex.Message]);
               Break;
             end;
           end;
@@ -1618,7 +1485,7 @@ begin
 
           // Processa cada objeto do array
           // Exemplo: JSONObj.GetValue<string>('campo') ou armazena em outra estrutura
-          // Aqui vocÃª pode adicionar lÃ³gica para armazenar ou processar os dados
+          // Aqui você pode adicionar lógica para armazenar ou processar os dados
         end;
       end;
 
@@ -1653,7 +1520,7 @@ begin
     erro := '';
     retorno := '';
     try
-      // LÃª o corpo da requisiÃ§Ã£o como TJSONObject
+      // Lê o corpo da requisição como TJSONObject
       body := Req.body<tjsonobject>;
       servico.infra := body.getvalue<string>('infra', '');
       servico.infravivo := body.getvalue<string>('infraviv', '');
@@ -1695,9 +1562,6 @@ begin
       servico.req := body.getvalue<string>('req', '');
       servico.acompanhamentofisicoobservacao := body.getvalue<string>('acompanhamentofisicoobservacao', '');
       servico.equipe := body.getvalue<string>('equipe', '');
-      servico.initialtunningstatus := body.getvalue<string>('initialtunningstatus', '');
-      servico.initialtunningreal := body.getvalue<string>('initialtunningreal', '');
-
       if Length(erro) = 0 then
       begin
         if servico.Editar(erro) then
@@ -1731,7 +1595,7 @@ begin
     erro := '';
     retorno := '';
     try
-      // LÃª o corpo da requisiÃ§Ã£o como TJSONObject
+      // Lê o corpo da requisição como TJSONObject
       body := Req.Body<TJSONObject>;
       servico.idrollout := body.GetValue<integer>('idrollout', 0);
       servico.idatividade := body.GetValue<integer>('idatividade', 0);
@@ -1768,94 +1632,55 @@ end;
 procedure salvaacionamentoclt(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TProjetotelefonica;
-  body: TJSONObject;
-  jsonValue: TJSONValue;
-  erro: string;
-  tempInt: Integer;
-  tempStr: string;
-  tempDouble: Double;
+  body: TJSONValue;
+  JSONArray: TJSONArray;
+  JSONObj: TJSONObject;
+  JSONItem: TJSONValue;
+  erro, retorno: string;
+  i: integer;
+  xData: string;
 begin
   servico := TProjetotelefonica.Create;
   try
+    erro := '';
+    retorno := '';
     try
+      // Lê o corpo da requisição como TJSONObject
       body := Req.Body<TJSONObject>;
-      erro := '';
+      servico.idrollout := body.GetValue<integer>('idrollout', 0);
+      servico.idatividade := body.GetValue<integer>('idatividade', 0);
+      servico.idcolaborador := body.GetValue<integer>('idcolaborador', 0);
+      servico.idpmts := body.GetValue<string>('idpmts', '');
+      servico.idfuncionario := body.GetValue<integer>('idfuncionario', 0);
+      servico.atividade := body.GetValue<string>('atividade', '');
+      servico.datainicioclt := body.GetValue<string>('datainicioclt', '');
+      servico.datafinalclt := body.GetValue<string>('datafinalclt', '');
 
-      if body.TryGetValue<string>('idpmts', tempStr) then
-        servico.idpmts := tempStr
+      servico.totalhorasclt := body.GetValue<double>('totalhorasclt', 0);
+      servico.observacaoclt := body.GetValue<string>('observacaoclt', '');
+      servico.horanormalclt := body.GetValue<double>('horanormalclt', 0);
+      servico.hora50clt := body.GetValue<double>('hora50clt', 0);
+      servico.hora100clt := body.GetValue<double>('hora100clt', 0);
+
+      if Length(erro) = 0 then
+      begin
+        if servico.salvaacionamentoclt(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idgeral)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
       else
-        servico.idpmts := '';
-
-
-      if body.TryGetValue<integer>('idfuncionario', tempInt) then
-        servico.idfuncionario := tempInt
-      else
-        servico.idfuncionario := 0;
-
-      if body.TryGetValue<integer>('idcolaborador', tempInt) then
-        servico.idcolaborador := tempInt
-      else
-        servico.idcolaborador := 0;
-
-      if body.TryGetValue<string>('atividade', tempStr) then
-        servico.atividade := tempStr
-      else
-        servico.atividade := '';
-
-
-      jsonValue := body.GetValue('datainicioclt');
-      if (jsonValue <> nil) and not (jsonValue is TJSONNull) then
-        servico.datainicioclt := jsonValue.Value
-      else
-        servico.datainicioclt := '';
-
-      jsonValue := body.GetValue('datafinalclt');
-      if (jsonValue <> nil) and not (jsonValue is TJSONNull) then
-        servico.datafinalclt := jsonValue.Value
-      else
-        servico.datafinalclt := '';
-
-      if body.TryGetValue<integer>('totalhorasclt', tempInt) then
-        servico.totalhorasclt := tempInt
-      else
-        servico.totalhorasclt := 0;
-
-      if body.TryGetValue<string>('observacaoclt', tempStr) then
-        servico.observacaoclt := tempStr
-      else
-        servico.observacaoclt := '';
-
-      if body.TryGetValue<double>('horanormalclt', tempDouble) then
-        servico.horanormalclt := tempDouble
-      else
-        servico.horanormalclt := 0;
-
-      jsonValue := body.GetValue('hora50clt');
-      if (jsonValue <> nil) and not (jsonValue is TJSONNull) and (jsonValue.Value <> '') then
-        servico.hora50clt := jsonValue.AsType<double>
-      else
-        servico.hora50clt := 0;
-
-      jsonValue := body.GetValue('hora100clt');
-      if (jsonValue <> nil) and not (jsonValue is TJSONNull) and (jsonValue.Value <> '') then
-        servico.hora100clt := jsonValue.AsType<double>
-      else
-        servico.hora100clt := 0;
-
-
-      if servico.salvaacionamentoclt(erro) then
-        Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idgeral)).Status(THTTPStatus.Created)
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
 
     except
       on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro no processamento: ' + ex.Message)).Status(THTTPStatus.InternalServerError);
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
     servico.Free;
   end;
 end;
+
 procedure Salvar(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TProjetotelefonica;
@@ -2148,83 +1973,6 @@ begin
       arraydados := qry.ToJSONObject;
       if erro = '' then
         Res.Send<TJSONObject>(arraydados).Status(THTTPStatus.OK)
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-    except
-      on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
-    end;
-  finally
-    qry.Free;
-    servico.Free;
-  end;
-end;
-
-procedure ListPrevisaoFechamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TProjetotelefonica;
-  ds: TFDQuery;
-  arr: TJSONArray;
-  msgErro: string;
-begin
-  servico := TProjetotelefonica.Create;
-  try
-    ds := servico.ListPrevisaoFechamento(Req.Query.Dictionary, msgErro);
-    try
-
-      if ds.IsEmpty then
-      begin
-        Res.Send<TJSONObject>(
-          TJSONObject.Create.AddPair('aviso', 'Nenhum registro encontrado')
-        ).Status(THTTPStatus.NoContent); // 204 Ã© mais adequado para resposta vazia
-        Exit;
-      end;
-
-      arr := nil;
-      try
-        arr := ds.ToJSONArray;
-        Res.Send<TJSONArray>(arr).Status(THTTPStatus.OK);
-        arr := nil; // Impede que seja liberado pelo finally
-      except
-        on E: Exception do
-        begin
-          FreeAndNil(arr);
-          Res.Send<TJSONObject>(
-            TJSONObject.Create
-              .AddPair('erro', 'Falha ao gerar resposta JSON')
-              .AddPair('detalhes', E.Message)
-          ).Status(THTTPStatus.InternalServerError);
-        end;
-      end;
-    finally
-      FreeAndNil(ds);
-    end;
-  finally
-    FreeAndNil(servico);
-  end;
-end;
-
-procedure ListaDespesas(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TProjetotelefonica;
-  qry: TFDQuery;
-  erro: string;
-  arraydados: TJSONArray;
-  body: TJSONValue;
-begin
-  try
-    servico := TProjetotelefonica.Create;
-  except
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
-  end;
-  qry := servico.ListaDespesas(Req.Query.Dictionary, erro);
-  try
-
-    try
-      arraydados := qry.ToJSONArray();
-      if erro = '' then
-        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
       else
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
     except

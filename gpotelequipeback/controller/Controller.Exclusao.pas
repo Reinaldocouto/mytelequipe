@@ -36,7 +36,7 @@ begin
 
       if Length(servico.id) > 0 then
       begin
-        case AnsiIndexStr(UpperCase(body.getvalue<string>('quem', '')), ['PESSOAS', 'PRODUTOS', 'COMPRAS', 'EMBALAGEM', 'CONTASPAGAR', 'CONTASRECEBER', 'PEDIDOVENDA', 'MARCA', 'CATEGORIA', 'PLANOCONTA', 'CONTATO', 'CONFIGURACOESUSUARIO', 'SUBCATEGORIA', 'UNIDADE', 'PESSOARELACIONAMENTO', 'ATIVIDADECLT', 'VEICULOS', 'ATIVIDADEPJ', 'EMPRESAS', 'ATIVIDADEPJENGENHARIA', 'TREINAMENTOPESSOAS', 'MULTAS', 'DESPESAS', 'LPU', 'COMPRASITENS','SOLICITACAO','SOLICITACAOITENS', 'ATIVIDADEPJZTE','ATIVIDADEPJTELEFONICA','CRIACAOT2', 'ATIVIDADECLTTELEFONICA']) of
+        case AnsiIndexStr(UpperCase(body.getvalue<string>('quem', '')), ['PESSOAS', 'PRODUTOS', 'COMPRAS', 'EMBALAGEM', 'CONTASPAGAR', 'CONTASRECEBER', 'PEDIDOVENDA', 'MARCA', 'CATEGORIA', 'PLANOCONTA', 'CONTATO', 'CONFIGURACOESUSUARIO', 'SUBCATEGORIA', 'UNIDADE', 'PESSOARELACIONAMENTO', 'ATIVIDADECLT', 'VEICULOS', 'ATIVIDADEPJ', 'EMPRESAS', 'ATIVIDADEPJENGENHARIA', 'TREINAMENTOPESSOAS', 'MULTAS', 'DESPESAS', 'LPU', 'COMPRASITENS','SOLICITACAO','SOLICITACAOITENS', 'ATIVIDADEPJZTE','ATIVIDADEPJTELEFONICA','CRIACAOT2']) of
           0:
             begin
               if servico.excluirpessoas(erro) then
@@ -243,13 +243,6 @@ begin
           29:
             begin
               if servico.excluit2(erro) then
-                Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.ID)).Status(THTTPStatus.Created)
-              else
-                Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-            end;
-          30:
-            begin
-              if servico.excluiracionamentoclttelefonica(erro) then
                 Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.ID)).Status(THTTPStatus.Created)
               else
                 Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);

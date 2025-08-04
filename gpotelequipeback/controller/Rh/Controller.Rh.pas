@@ -57,37 +57,6 @@ begin
   end;
 end;
 }
-procedure Listaconvenio(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: Trh;
-  qry: TFDQuery;
-  erro: string;
-  arraydados: TJSONArray;
-  body: TJSONValue;
-begin
-  try
-    servico :=  Trh.Create;
-  except
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
-  end;
-  qry := servico.ListaConvenio(Req.Query.Dictionary, erro);
-  try
-    try
-      arraydados := qry.ToJSONArray();
-      if erro = '' then
-        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-    except
-      on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
-    end;
-  finally
-    qry.Free;
-    servico.Free;
-  end;
-end;
 procedure Listafolhapagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: Trh;
@@ -182,7 +151,37 @@ begin
     servico.Free;
   end;
 end;
-
+procedure Listaconvenio(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: Trh;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico :=  Trh.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.Listaconvenio(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
 procedure Listaticket(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: Trh;
@@ -214,7 +213,6 @@ begin
     servico.Free;
   end;
 end;
-
 {
 procedure Listaid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
