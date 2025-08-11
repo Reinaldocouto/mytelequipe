@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, Modal, ModalBody, ModalHeader, ModalFooter } from 'reactstrap';
 import { Box } from '@mui/material';
 import {
@@ -18,12 +18,15 @@ import PropTypes from 'prop-types';
 import Typography from '@mui/material/Typography';
 import Pagination from '@mui/material/Pagination';
 import LinearProgress from '@mui/material/LinearProgress';
+import { ToastContainer } from 'react-toastify';
 import Loader from '../../layouts/loader/Loader';
 import api from '../../services/api';
 import exportExcel from '../../data/exportexcel/Excelexport';
 import Rollouttelefonicaedicao from '../../components/formulario/rollout/Rollouttelefonicaedicao';
+import FiltroRolloutTelefonica from '../../components/modals/FiltroRolloutTelefonica';
 import Excluirregistro from '../../components/Excluirregistro';
 import Telat2editar from '../../components/formulario/projeto/Telat2editar';
+import ConfirmaModal from '../../components/modals/ConfirmacaoModal';
 
 const Rollouttelefonica = ({ setshow, show }) => {
   const [pageSize, setPageSize] = useState(10);
@@ -41,12 +44,22 @@ const Rollouttelefonica = ({ setshow, show }) => {
   const [idpmtslocal, setidpmtslocal] = useState('');
   const [show1, setshow1] = useState(false);
   const [idobra, setidobra] = useState('');
+  const [idpmtdeletado, setidpmtdeletado] = useState('');
+  const [paginationModel, setPaginationModel] = useState({
+    pageSize: 10,
+    page: 0,
+  });
+  const [rowSelectionModel, setRowSelectionModel] = useState([]);
+  const [filter, setFilter] = useState({});
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [rowToUpdate, setRowToUpdate] = useState(null);
 
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
     idusuario: localStorage.getItem('sessionId'),
     idloja: localStorage.getItem('sessionloja'),
     deletado: 0,
+    ...filter,
   };
 
   const listarollouttelefonica = async () => {
@@ -62,19 +75,33 @@ const Rollouttelefonica = ({ setshow, show }) => {
     }
   };
 
+  const listaFilterrollouttelefonica = async (items) => {
+    try {
+      setLoading(true);
+      const response = await api.get('v1/rollouttelefonica', { params, ...items });
+      settotalacionamento(response.data);
+      setmensagem('');
+    } catch (err) {
+      setmensagem(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   /* function deleteUser(stat) {
      setididentificador(stat);
      settelaexclusao(true);
      listarollouttelefonica();
    } */
 
-  function alterarUser(stat, pmuflocal, idrlocal, ipmts) {
+  function alterarUser(stat, pmuflocal, idrlocal, ipmts, delet) {
     settitulo('Editar Rollout Telefonica');
     setididentificador(stat);
     setpmuf(pmuflocal);
     setidr(idrlocal);
     settelacadastroedicao(true);
     setidpmtslocal(ipmts);
+    setidpmtdeletado(delet);
     console.log(ipmts);
   }
 
@@ -88,6 +115,10 @@ const Rollouttelefonica = ({ setshow, show }) => {
     setidobra(stat);
   }
 
+  const handleProcessRowUpdateError = (error) => {
+    console.error('Erro ao salvar:', error);
+    setmensagem('Erro ao salvar a edição!');
+  };
   const columns = [
     {
       field: 'actions',
@@ -107,6 +138,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
               parametros.row.pmoregional,
               parametros.row.id,
               parametros.row.uididpmts,
+              parametros.row.deletado,
             )
           }
         />,
@@ -389,12 +421,128 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'string',
-      editable: false,
+      editable: true,
     },
 
     {
+      field: 'vistoriaplan',
+      headerName: 'Vistoria Plan',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
       field: 'vistoriareal',
       headerName: 'Vistoria Real',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'docplan',
+      headerName: 'Documentação Vistoria Plan',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      editable: false,
+      valueFormatter: (parametros) => {
+        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
+
+        const date = new Date(parametros.value);
+        // Verifica se a data é 30/12/1899
+        if (
+          date.getDate() === 30 &&
+          date.getMonth() === 11 && // Dezembro (0-based)
+          date.getFullYear() === 1899
+        ) {
+          return '';
+        }
+        if (
+          date.getDate() === 29 &&
+          date.getMonth() === 11 && // Dezembro (0-based)
+          date.getFullYear() === 1899
+        ) {
+          return '';
+        }
+
+        return date.toLocaleDateString('pt-BR');
+      },
+    },
+    {
+      field: 'docvitoriareal',
+      headerName: 'Documentação Vistoria Real',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      editable: false,
+      valueFormatter: (parametros) => {
+        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
+
+        const date = new Date(parametros.value);
+        // Verifica se a data é 30/12/1899
+        if (
+          date.getDate() === 30 &&
+          date.getMonth() === 11 && // Dezembro (0-based)
+          date.getFullYear() === 1899
+        ) {
+          return '';
+        }
+        if (
+          date.getDate() === 29 &&
+          date.getMonth() === 11 && // Dezembro (0-based)
+          date.getFullYear() === 1899
+        ) {
+          return '';
+        }
+
+        return date.toLocaleDateString('pt-BR');
+      },
+    },
+    {
+      field: 'req',
+      headerName: 'REQ',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      editable: false,
+      valueFormatter: (parametros) => {
+        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
+
+        const date = new Date(parametros.value);
+        // Verifica se a data é 30/12/1899
+        if (
+          date.getDate() === 30 &&
+          date.getMonth() === 11 && // Dezembro (0-based)
+          date.getFullYear() === 1899
+        ) {
+          return '';
+        }
+        if (
+          date.getDate() === 29 &&
+          date.getMonth() === 11 && // Dezembro (0-based)
+          date.getFullYear() === 1899
+        ) {
+          return '';
+        }
+
+        return date.toLocaleDateString('pt-BR');
+      },
+    },
+    {
+      field: 'entregaplan',
+      headerName: 'Entrega Plan',
       width: 200,
       align: 'left',
       type: 'date',
@@ -419,8 +567,34 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: false,
     },
     {
+      field: 'fiminstalacaoplan',
+      headerName: 'Fim Instalação Plan',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
       field: 'fiminstalacaoreal',
       headerName: 'Fim Instalação Real',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'integracaoplan',
+      headerName: 'Integração Plan',
       width: 200,
       align: 'left',
       type: 'date',
@@ -444,6 +618,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
           : '',
       editable: false,
     },
+
     {
       field: 'ativacao',
       headerName: 'Ativação Real',
@@ -488,102 +663,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: false,
     },
     {
-      field: 'dtreal',
-      headerName: 'DT Real',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'docplan',
-      headerName: 'Documentação Vistoria Plan',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      editable: false,
-      valueFormatter: (parametros) => {
-        console.log(parametros.value);
-        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
-
-        const date = new Date(parametros.value);
-        // Verifica se a data é 30/12/1899
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 && // Dezembro (0-based)
-          date.getFullYear() === 1899
-        ) {
-          return '';
-        }
-        if (
-          date.getDate() === 29 &&
-          date.getMonth() === 11 && // Dezembro (0-based)
-          date.getFullYear() === 1899
-        ) {
-          return '';
-        }
-
-        return date.toLocaleDateString('pt-BR');
-      },
-    },
-    {
-      field: 'entregarequest',
-      headerName: 'Entrega Request',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'entregaplan',
-      headerName: 'Entrega Plan',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'fiminstalacaoplan',
-      headerName: 'Fim Instalação Plan',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'integracaoplan',
-      headerName: 'Integração Plan',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
       field: 'initialtunnigstatus',
       headerName: 'Initial Tunning Status',
       width: 200,
@@ -605,12 +684,40 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: false,
     },
     {
+      field: 'dtreal',
+      headerName: 'DT Real',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+
+    /*    {
+      field: 'entregarequest',
+      headerName: 'Entrega Request',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },*/
+
+    {
       field: 'acompanhamentofisicoobservacao',
       headerName: 'Acompanhamento Físico\nObservação',
       width: 400,
       align: 'left',
       type: 'string',
-      editable: false,
+      editable: true,
       renderCell: (cellParams) => <div style={{ whiteSpace: 'pre-wrap' }}>{cellParams.value}</div>,
     },
     {
@@ -778,13 +885,41 @@ const Rollouttelefonica = ({ setshow, show }) => {
     },
     {
       field: 'pedidovistoria',
-      headerName: 'PEDIDO VISTORIA',
+      headerName: 'PEDIDO',
       width: 200,
       align: 'left',
       type: 'string',
       editable: false,
     },
   ];
+
+  const handleConfirmSave = () => {
+    try {
+      const atividadeSelecionada = totalacionamento
+        .filter((item) => rowSelectionModel.includes(item.id))
+        .map((item) => item.uididpmts)
+        .join(',');
+      api
+        .post('v1/projetotelefonica/editaremmassa', {
+          ...params,
+          uuidps: atividadeSelecionada,
+          [rowToUpdate.changedFields[0]]: rowToUpdate.newRow[rowToUpdate.changedFields[0]],
+        })
+        .then(() => {
+          setConfirmOpen(false);
+          listarollouttelefonica();
+        });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelSave = () => {
+    console.log('Cancelado pelo usuário.');
+    setConfirmOpen(false);
+  };
 
   function CustomNoRowsOverlay() {
     return (
@@ -932,24 +1067,23 @@ const Rollouttelefonica = ({ setshow, show }) => {
         PMO_FREQ_EQUIP: item.pmofreqequip,
         UID_IDCPOMRF: item.uididcpomrf,
         STATUS_OBRA: item.statusobra,
+        VISTORIA_PLAN: item.vistoriaplan,
         VISTORIA_REAL: item.vistoriareal,
+        DOCUMENTACAO_VISTORIA_PLAN: item.docplan,
+        DOCUMENTACAO_VISTORIA_REAL: item.docvitoriareal,
+        REQ: item.req,
+        ENTREGA_PLAN: item.entregaplan,
         ENTREGA_REAL: item.entregareal,
+        FIM_INSTALACAO_PLAN: item.fiminstalacaoplan,
         FIM_INSTALACAO_REAL: item.fiminstalacaoreal,
+        INTEGRACAO_PLAN: item.integracaoplan,
         INTEGRACAO_REAL: item.integracaoreal,
         ATIVACAO_REAL: item.ativacao,
         DOCUMENTACAO: item.documentacao,
         INITIAL_TUNNING_REAL: item.initialtunningreal,
-        DT_REAL: item.dtreal,
-        //VISTORIA_PLAN: item.vistoriaplan,
-        //DOCUMENTACAO_VISTORIA_REAL: item.documentacaovistoriareal,
-        //REQ: item.req,
-        DOCUMENTACAO_VISTORIA_PLAN: item.docplan,
-        ENTREGA_REQUEST: item.entregarequest,
-        ENTREGA_PLAN: item.entregaplan,
-        FIM_INSTALACAO_PLAN: item.fiminstalacaoplan,
-        INTEGRACAO_PLAN: item.integracaoplan,
         INITIAL_TUNNING_STATUS: item.initialtunningstatus,
         DT_PLAN: item.dtplan,
+        DT_REAL: item.dtreal,
         OBSERVACAO: item.acompanhamentofisicoobservacao,
         ROLLOUT: item.rollout,
         ACIONAMENTO: item.acionamento,
@@ -972,953 +1106,65 @@ const Rollouttelefonica = ({ setshow, show }) => {
         NUMERO_DA_REQ_VISTORIA: item.numerodareqvistoria,
         NUMERO_T2_VISTORIA: item.numerot2vistoria,
         PEDIDO_VISTORIA: item.pedidovistoria,
+        DELETADO: item.deletado === 1 ? 'SIM' : 'NÃO',
       }))
       .map(formatDatesBR) // 1. converte datas / zera 1899-12-xx
       .map(upperStrings); // 2. caixa-alta
 
     exportExcel({ excelData, fileName: 'ROLLOUT TELEFONICA' });
   };
+  const [changedField, setChangedField] = useState();
+
+  const handleProcessRowUpdate = async (newRow, oldRow) => {
+    if (rowSelectionModel.length === 0) {
+      setmensagem('Selecione pelo menos um item');
+      return oldRow;
+    }
+
+    // Find all changed fields (more robust than just finding the first one)
+    const changedFields = Object.keys(newRow).filter(
+      (key) => newRow[key] !== oldRow[key] && key !== 'id', // Exclude ID field from changes if needed
+    );
+
+    if (changedFields.length === 0) {
+      return oldRow; // No actual changes detected
+    }
+
+    React.startTransition(() => {
+      setChangedField(changedFields[0]);
+      setRowToUpdate({
+        newRow,
+        oldRow,
+        changedFields,
+      });
+      setConfirmOpen(true);
+    });
+
+    return newRow;
+  };
+
+  useEffect(() => {
+    if (rowToUpdate) {
+      setConfirmOpen(true);
+    }
+  }, [rowToUpdate]);
 
   return (
     <>
-      <Modal
-        isOpen={show1}
-        toggle={toggle1}
-        className="modal-dialog modal-lg modal-dialog-scrollable"
-        backdrop="static"
-        keyboard={false}
-      >
-        <ModalHeader toggle={toggle}>Filtro</ModalHeader>
-        <ModalBody>
-          <div>
-            <div className="col-9 d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPmoref" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">PMO - REF</span>
-              <select
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PMO - REF"
-                defaultValue=""
-              >
-                <option value="" disabled>
-                  Selecione PMO-REF
-                </option>
-                <option value="Rollout_2025">Rollout_2025</option>
-                <option value="Rollout_2026">Rollout_2026</option>
-              </select>
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPmoref" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">PMO - CATEGORIA</span>
-              <select
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PMO - CATEGORIA"
-                defaultValue=""
-              >
-                <option value="" disabled>
-                  Selecione PMO-CATEGORIA
-                </option>
-                <option value="Existente">Existente</option>
-                <option value="Novo">Novo</option>
-              </select>
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPmoref" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">UID - IDPMTS</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite o UID - IDPMTS"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro UID - IDPMTS"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPmoref" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">UF/SIGLA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite o UF/SIGLA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro UF/SIGLA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPmoref" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">PMO - SIGLA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite o PMO - SIGLA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PMO - SIGLA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPmoref" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">PMO - UF</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite o PMO - UF"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PMO - UF"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkPmoregional"
-                style={{ width: '20px', height: '20px' }}
-              />
-
-              <span className="mb-0">PMO - REGIONAL</span>
-
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite o PMO - REGIONAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PMO - REGIONAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkCidade" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">CIDADE</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite a CIDADE"
-                style={{ width: '400px', height: '40px', alignItems: 'center' }}
-                aria-label="Filtro CIDADE"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkEAPAutomatica"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">EAP - AUTOMATICA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite EAP - AUTOMATICA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro EAP - AUTOMATICA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRegionalEAPInfra"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">REGIONAL - EAP - INFRA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite REGIONAL - EAP - INFRA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro REGIONAL - EAP - INFRA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkStatusMensalTx"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">STATUS-MENSAL-TX</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite STATUS-MENSAL-TX"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro STATUS-MENSAL-TX"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkMASTEROBRStatusRollout"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">MASTEROBR-STATUS-ROLLOUT</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite MASTEROBR-STATUS-ROLLOUT"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro MASTEROBR-STATUS-ROLLOUT"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRegionalLibSiteP"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">REGIONAL-LIB-SITE-P</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite REGIONAL-LIB-SITE-P"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro REGIONAL-LIB-SITE-P"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRegionalLibSiteR"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">REGIONAL-LIB-SITE-R</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite REGIONAL-LIB-SITE-R"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro REGIONAL-LIB-SITE-R"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkEquipamentoEntregaP"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">EQUIPAMENTO-ENTREGA-P</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite EQUIPAMENTO-ENTREGA-P"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro EQUIPAMENTO-ENTREGA-P"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRegionalCarimbo"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">REGIONAL-CARIMBO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite REGIONAL-CARIMBO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro REGIONAL-CARIMBO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkRSORsaSci" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">RSO-RSA-SCI</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite RSO-RSA-SCI"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro RSO-RSA-SCI"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRSORsaSciStatus"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">RSO-RSA-SCI-STATUS</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite RSO-RSA-SCI-STATUS"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro RSO-RSA-SCI-STATUS"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRegionalOfensorDetalhe"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">REGIONAL-OFENSOR-DETALHE</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite REGIONAL-OFENSOR-DETALHE"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro REGIONAL-OFENSOR-DETALHE"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkVendorVistoria"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">VENDOR-VISTORIA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite VENDOR-VISTORIA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro VENDOR-VISTORIA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkVendorProjeto"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">VENDOR-PROJETO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite VENDOR-PROJETO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro VENDOR-PROJETO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkVendorInstalador"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">VENDOR-INSTALADOR</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite VENDOR-INSTALADOR"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro VENDOR-INSTALADOR"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkVendorIntegrador"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">VENDOR-INTEGRADOR</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite VENDOR-INTEGRADOR"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro VENDOR-INTEGRADOR"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkPMOTecnEquip"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">PMO-TECN-EQUIP</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite PMO-TECN-EQUIP"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PMO-TECN-EQUIP"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkPMOFreqEquip"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">PMO-FREQ-EQUIP</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite PMO-FREQ-EQUIP"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PMO-FREQ-EQUIP"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkUIDIDCPOMRF"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">UID-IDCPOMRF</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite UID-IDCPOMRF"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro UID-IDCPOMRF"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkStatusObra" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">STATUS OBRA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite STATUS OBRA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro STATUS OBRA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="date" id="chkDocPlan" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">DOC PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite DOC PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro DOC PLAN"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkEntregaRequest"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">ENTREGA-REQUEST</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ENTREGA-REQUEST"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ENTREGA-REQUEST"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkEntregaPlan"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">ENTREGA-PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ENTREGA-PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ENTREGA-PLAN"
-              />
-            </div>
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkvistoriareal"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">VISTORIA-REAL</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite VISTORIA-REAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro VISTORIA-REAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkEntregaReal"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">ENTREGA-REAL</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ENTREGA-REAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ENTREGA-REAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkFimInstalacaoReal"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">FIM INSTALAÇÃO REAL</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite FIM INSTALAÇÃO REAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro FIM INSTALAÇÃO REAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkIntegracaoReal"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">INTEGRAÇÃO REAL</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite INTEGRAÇÃO REAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro INTEGRAÇÃO REAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkAtivacao" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">ATIVAÇÃO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ATIVAÇÃO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ATIVAÇÃO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkDocumentacao"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">DOCUMENTAÇÃO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite DOCUMENTAÇÃO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro DOCUMENTAÇÃO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkInitialTunningReal"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">INITIAL TUNNING REAL</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite INITIAL TUNNING REAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro INITIAL TUNNING REAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkDtReal" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">DT REAL</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite DT REAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro DT REAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkFimInstalacaoPlan"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">FIM INSTALAÇÃO PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite FIM INSTALAÇÃO PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro FIM INSTALAÇÃO PLAN"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkIntegracaoPlan"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">INTEGRAÇÃO PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite INTEGRAÇÃO PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro INTEGRAÇÃO PLAN"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkInitialTunningStatus"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">INITIAL TUNNING STATUS</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite INITIAL TUNNING STATUS"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro INITIAL TUNNING STATUS"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkDtPlan" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">DT PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite DT PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro DT PLAN"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkRollout" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">ROLLOUT</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ROLLOUT"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ROLLOUT"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkAcionamento"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">ACIONAMENTO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ACIONAMENTO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ACIONAMENTO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkNomeDoSite" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">NOME DO SITE</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite NOME DO SITE"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro NOME DO SITE"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkEndereco" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">ENDEREÇO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ENDEREÇO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ENDEREÇO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRSORSADetentora"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">RSO-RSA-DETENTORA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite RSO-RSA-DETENTORA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro RSO-RSA-DETENTORA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRSORSAIDDentetora"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">RSO-RSA-ID-DENTETORA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite RSO-RSA-ID-DENTETORA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro RSO-RSA-DETENTORA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkResumoDaFase"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">RESUMO DA FASE</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite RESUMO DA FASE"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro RESUMO DA FASE"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkInfraVivo" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">INFRA VIVO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite INFRA VIVO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro INFRA VIVO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkEquipe" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">EQUIPE</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite EQUIPE"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro EQUIPE"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkDocaPlan" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">DOCA PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite DOCA PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro DOCA PLAN"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkDeliveryPlan"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">DELIVERY PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite DELIVERY PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro DELIVERY PLAN"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkOV" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">OV</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite OV"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro OV"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkAcesso" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">ACESSO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ACESSO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ACESSO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkT2Instalacao"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">T2 INSTALAÇÃO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite T2 INSTALAÇÃO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro T2 INSTALAÇÃO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkNumeroDaReq"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">NÚMERO DA REQ - INST</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite NÚMERO DA REQ - INST"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro NÚMERO DA REQ - INST"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkNumeroT2" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">NÚMERO T2 - INST</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite NÚMERO T2 - INST"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro NÚMERO T2 - INST"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPedido" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">PEDIDO - INST</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite PEDIDO - INST"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PEDIDO - INST"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkT2Vistoria" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">T2 VISTORIA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite T2 VISTORIA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro T2 VISTORIA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkNumeroDaReqVist"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">NÚMERO DA REQ - VIST</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite NÚMERO DA REQ - VIST"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro NÚMERO DA REQ - VIST"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkNumeroT2Vist"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">NÚMERO T2 - VIST</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite NÚMERO T2 - VIST"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro NÚMERO T2 - VIST"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPedidoVist" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">PEDIDO - VIST</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite PEDIDO - VIST"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PEDIDO - VIST"
-              />
-            </div>
-          </div>
-        </ModalBody>
-        <ModalFooter>
-          <Button color="primary" onClick={toggle1}>
-            Aplicar Filtro
-          </Button>{' '}
-          <Button color="secondary" onClick={toggle1}>
-            Cancel
-          </Button>
-        </ModalFooter>
-      </Modal>
-
+      {show1 && (
+        <FiltroRolloutTelefonica
+          filter={filter}
+          setFilter={setFilter}
+          toggle={toggle1}
+          atualiza={listaFilterrollouttelefonica}
+        />
+      )}
+      <ConfirmaModal
+        open={confirmOpen}
+        onConfirm={handleConfirmSave}
+        onCancel={handleCancelSave}
+        campo={changedField}
+      />
       <Modal
         isOpen={show}
         toggle={toggle}
@@ -1949,10 +1195,10 @@ const Rollouttelefonica = ({ setshow, show }) => {
                     titulotopo={titulo}
                     idr={idr}
                     idpmtslocal={idpmtslocal}
+                    deletadoidpmts={idpmtdeletado}
                   />{' '}
                 </>
               ) : null}
-
               {telacadastrot2edicao ? (
                 <>
                   {' '}
@@ -1969,7 +1215,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
                   />{' '}
                 </>
               ) : null}
-
               {telaexclusao ? (
                 <>
                   <Excluirregistro
@@ -1980,8 +1225,19 @@ const Rollouttelefonica = ({ setshow, show }) => {
                     atualiza={listarollouttelefonica}
                   />{' '}
                 </>
-              ) : null}
-
+              ) : null}{' '}
+              <ToastContainer
+                position="top-right"
+                autoClose={5000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+              />{' '}
+              <ToastContainer />
               <div className="row g-3">
                 <div className="col-sm-3">
                   <Button color="link" onClick={gerarexcel}>
@@ -2005,12 +1261,27 @@ const Rollouttelefonica = ({ setshow, show }) => {
                   pageSize={pageSize}
                   onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
                   disableSelectionOnClick
+                  checkboxSelection
+                  processRowUpdate={handleProcessRowUpdate}
+                  onProcessRowUpdateError={handleProcessRowUpdateError}
+                  rowSelectionModel={rowSelectionModel}
+                  onRowSelectionModelChange={setRowSelectionModel}
                   components={{
                     Pagination: CustomPagination,
                     LoadingOverlay: LinearProgress,
                     NoRowsOverlay: CustomNoRowsOverlay,
                   }}
+                  getRowClassName={(parametros) =>
+                    parametros.row.deletado === 1 ? 'linha-diferente' : ''
+                  }
                   sx={{
+                    '& .MuiDataGrid-row.linha-diferente .MuiDataGrid-cell': {
+                      backgroundColor: '#ffe0b2 !important',
+                    },
+                    '& .MuiDataGrid-row.linha-diferente .MuiDataGrid-cell:hover': {
+                      backgroundColor: '#ffcc80 !important',
+                    },
+
                     '& .MuiDataGrid-menuIconButton': {
                       color: 'white',
                     },
@@ -2225,7 +1496,14 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
                     },
-
+                    "& .MuiDataGrid-columnHeader[data-field='docvitoriareal']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='req']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
                     "& .MuiDataGrid-columnHeader[data-field='entregarequest']": {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
@@ -2235,6 +1513,10 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       color: 'white',
                     },
                     "& .MuiDataGrid-columnHeader[data-field='vistoriareal']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='vistoriaplan']": {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
                     },
@@ -2270,7 +1552,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
                     },
-                    "& .MuiDataGrid-columnHeader[data-field='initialtunningstatus']": {
+                    "& .MuiDataGrid-columnHeader[data-field='initialtunnigstatus']": {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
                     },
@@ -2332,6 +1614,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
                     },
                   }}
                   localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                  paginationModel={paginationModel}
+                  onPaginationModelChange={setPaginationModel}
                 />
               </Box>
             </>

@@ -29,6 +29,10 @@ const Relatoriofechamento = ({ setshow, show }) => {
   const [loading, setLoading] = useState(false);
   const [totalacionamento, settotalacionamento] = useState([]);
   const [mensagem, setmensagem] = useState('');
+  const [paginationModel, setPaginationModel] = useState({
+    pageSize: 10,
+    page: 0,
+  });
 
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
@@ -491,6 +495,7 @@ const Relatoriofechamento = ({ setshow, show }) => {
         'DT REAL': formatarData(item.dtreal),
         'STATUS OBRA': item.statusobra,
         '%': item.porcentagem ? `${(item.porcentagem * 100).toFixed(2)}%` : '0%',
+        'DELETADO PMTS': item.deletado === 1 ? 'SIM' : 'NÃO',
       };
     });
 
@@ -535,6 +540,19 @@ const Relatoriofechamento = ({ setshow, show }) => {
                     NoRowsOverlay: CustomNoRowsOverlay,
                   }}
                   localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                  paginationModel={paginationModel}
+                  onPaginationModelChange={setPaginationModel}
+                  getRowClassName={(parametros) =>
+                    parametros.row.deletado === 1 ? 'linha-diferente' : '' // troque a lógica conforme necessário
+                  }
+                  sx={{
+                    '& .MuiDataGrid-row.linha-diferente .MuiDataGrid-cell': {
+                      backgroundColor: '#ffe0b2 !important',
+                    },
+                    '& .MuiDataGrid-row.linha-diferente .MuiDataGrid-cell:hover': {
+                      backgroundColor: '#ffcc80 !important',
+                    },
+                  }}
                 />
               </Box>
             </>

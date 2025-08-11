@@ -3,24 +3,22 @@ import { Card, CardBody, CardTitle, Button, Input, Spinner } from 'reactstrap';
 import { toast, ToastContainer } from 'react-toastify';
 import api from '../../services/api';
 
-
 const ConfiguracaoDeAvisosEmail = () => {
   const [emailsSolicitacaoDiariaAviso, setEmailsSolicitacaoDiariaAviso] = useState('');
   const [emailmaterial, setemailmaterial] = useState('');
+  const [emailfaturamento, setemailfaturamento] = useState('');
 
   const [loading, setLoading] = useState(false);
 
-
-
-  function ProcessaCadastro() {
+  async function ProcessaCadastro() {
     setLoading(true);
     try {
-      const response = api.post('v1/emails/aviso', {
+      await api.post('v1/emails/aviso', {
         emailsSolicitacaoDiariaAviso,
         emailmaterial,
+        emailfaturamento,
       });
 
-      console.log(response);
       toast.success('Salvo com sucesso');
     } catch (e) {
       if (e.response) {
@@ -33,11 +31,11 @@ const ConfiguracaoDeAvisosEmail = () => {
     }
   }
 
-
   async function loadingTable() {
     const response = await api.get('v1/emails/aviso');
     setEmailsSolicitacaoDiariaAviso(response.data.emaildiaria);
     setemailmaterial(response.data.emailmaterial);
+    setemailfaturamento(response.data.emailfaturamento);
   }
   useEffect(() => {
     loadingTable();
@@ -66,7 +64,6 @@ const ConfiguracaoDeAvisosEmail = () => {
         <CardBody>
           <div className="row g-3">
             <div className="col-sm-12">
-
               <div className="col-sm-12">
                 E-mails de Solicitação de diária
                 <Input
@@ -94,21 +91,29 @@ const ConfiguracaoDeAvisosEmail = () => {
                   value={emailmaterial}
                 />
               </div>
+              <div className="col-sm-12">
+                E-mails de Faturamento
+                <Input
+                  id="email"
+                  type="text"
+                  placeholder="Digite os e-mails separados por vírgula"
+                  onChange={(e) => {
+                    setemailfaturamento(e.target.value);
+                  }}
+                  value={emailfaturamento}
+                />
+              </div>
 
               <br />
               <br />
               {/*  handleSalvar(EmailTipoConst.Diaria, emailsSolicitacaoDiariaAviso)} */}
-              <Button
-                color="primary"
-                onClick={ProcessaCadastro}
-                disabled={loading}
-              >
+              <Button color="primary" onClick={ProcessaCadastro} disabled={loading}>
                 {loading ? <Spinner size="sm" /> : 'Salvar'}
               </Button>
             </div>
           </div>
         </CardBody>
-      </Card >
+      </Card>
     </>
   );
 };

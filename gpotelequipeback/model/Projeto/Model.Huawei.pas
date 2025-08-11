@@ -73,6 +73,7 @@ type
     function Editaratividadepj(out erro: string): Boolean;
     function Listaacionamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function CriarTarefa(out erro: string): Boolean;
+    function Rollouthuawei(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 
   end;
 
@@ -149,79 +150,32 @@ var
 begin
   try
     qry := TFDQuery.Create(nil);
-    qry.connection := FConn;
+    qry.Connection := FConn;
     try
-     { with qry do
+      with qry do
       begin
-        Active := false;
-        sql.Clear;
-        SQL.Add('update obrazte set  ');
-        SQL.Add('projeto=:projeto,  ');
-        SQL.Add('supervisor=:supervisor,  ');
-        SQL.Add('concentrador=:concentrador,  ');
-        SQL.Add('tiposite=:tiposite,  ');
-        SQL.Add('installplan=:installplan,  ');
-        SQL.Add('installreal=:installreal,  ');
-        SQL.Add('statusprojeto=:statusprojeto,  ');
-        SQL.Add('gerenciaplan=:gerenciaplan,  ');
-        SQL.Add('gerenciareal=:gerenciareal,  ');
-        SQL.Add('mos=:mos,  ');
-        SQL.Add('mosresp=:mosresp,  ');
-        SQL.Add('compliance=:compliance,  ');
-        SQL.Add('complianceresp=:complianceresp,  ');
-        SQL.Add('ehs=:ehs,  ');
-        SQL.Add('ehsresp=:ehsresp,  ');
-        SQL.Add('qualidade=:qualidade,  ');
-        SQL.Add('qualidaderesp=:qualidaderesp,  ');
-        SQL.Add('pdi=:pdi,  ');
-        SQL.Add('pdiresp=:pdiresp,  ');
-        SQL.Add('statusdoc=:statusdoc,  ');
-        SQL.Add('observacaodoc=:observacaodoc,  ');
-        SQL.Add('observacao=:observacao,  ');
-        SQL.Add('sitenamefrom=:sitenamefrom,  ');
-        SQL.Add('po=:po, docresp=:docresp  ');
-        SQL.Add('where os=:os ');
-        ParamByName('os').asstring := os;
-        ParamByName('projeto').asstring := projeto;
-        ParamByName('supervisor').asstring := supervisor;
-        ParamByName('concentrador').asstring := concentrador;
-        ParamByName('tiposite').asstring := tiposite;
-        ParamByName('installplan').AsDateTime := installplan;
-        ParamByName('installreal').AsDateTime := installreal;
-        ParamByName('statusprojeto').asstring := statusprojeto;
-        ParamByName('gerenciaplan').AsDateTime := gerenciaplan;
-        ParamByName('gerenciareal').AsDateTime := gerenciareal;
-        ParamByName('mos').asstring := mos;
-        ParamByName('mosresp').asstring := mosresp;
-        ParamByName('compliance').asstring := compliance;
-        ParamByName('complianceresp').asstring := complianceresp;
-        ParamByName('ehs').asstring := ehs;
-        ParamByName('ehsresp').asstring := ehsresp;
-        ParamByName('qualidade').asstring := qualidade;
-        ParamByName('qualidaderesp').asstring := qualidaderesp;
-        ParamByName('pdi').asstring := pdi;
-        ParamByName('pdiresp').asstring := pdiresp;
-        ParamByName('docresp').asstring := docresp;
-        ParamByName('statusdoc').asstring := statusdoc;
-        ParamByName('observacaodoc').asstring := observacaodoc;
-        ParamByName('observacao').asstring := observacao;
-        ParamByName('sitenamefrom').asstring := sitenamefrom;
-        ParamByName('po').asstring := po;
+        Active := False;
+        SQL.Clear;
+        SQL.Add('UPDATE projetohuawei SET observacaogeral = :observacao ');
+        SQL.Add('WHERE id = :id');
+
+        ParamByName('id').AsString := id;
+        ParamByName('observacao').AsString := observacaopj;
+
         ExecSQL;
       end;
 
       erro := '';
-      FConn.Commit;  }
-      result := true;
+      FConn.Commit;
+      Result := True;
     except
-      on ex: exception do
+      on ex: Exception do
       begin
         FConn.Rollback;
-        erro := 'Erro ao salvar projeto Huawei: ' + ex.Message;
-        Result := false;
+        erro := 'Erro ao atualizar observação: ' + ex.Message;
+        Result := False;
       end;
     end;
-
   finally
     qry.Free;
   end;
@@ -1778,6 +1732,38 @@ begin
     end;
   finally
     FDQuery.Free;
+  end;
+end;
+
+function Thuawei.Rollouthuawei(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+begin
+  qry := nil;
+  try
+    if not Assigned(FConn) then
+      raise Exception.Create('Conexão não inicializada');
+
+    qry := TFDQuery.Create(nil);
+    qry.Connection := FConn;
+
+    with qry do
+    begin
+      SQL.Text := 'SELECT * FROM obraericsson';
+      Open;
+
+      if RecordCount = 0 then
+        erro := 'Nenhum registro ativo encontrado';
+    end;
+
+    Result := qry;
+  except
+    on ex: Exception do
+    begin
+      erro := 'Erro na consulta: ' + ex.Message;
+      FreeAndNil(qry);
+      Result := nil;
+    end;
   end;
 end;
 

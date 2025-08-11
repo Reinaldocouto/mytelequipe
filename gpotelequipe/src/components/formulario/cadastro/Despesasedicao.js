@@ -65,10 +65,10 @@ TabPanel.propTypes = {
   value: PropTypes.number.isRequired,
 };
 
-const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
+const Despesasedicao = ({ setshow, show, ididentificador, atualiza, selectedLancarDespesas }) => {
   const [mensagem, setmensagem] = useState('');
   const [mensagemsucesso, setmensagemsucesso] = useState('');
-  const [loading, setloading] = useState(false);
+  const [loading, setloading] = useState(true);
   const [empresalista, setempresalista] = useState([]);
   const [veiculoslista, setveiculoslista] = useState([]);
   const [iddespesas, setiddespesas] = useState();
@@ -105,6 +105,150 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
     deletado: 0,
   };
 
+  const listFilesFromS3 = async (id) => {
+    try {
+      const prefix = `despesas/${id}/`;
+      const files = await s3Service.listFiles(prefix);
+      const fileUrls = await Promise.all(
+        files.map(async (filee) => {
+          const url = await s3Service.getFileUrl(filee.Key);
+          return { name: filee.Key.split('/').pop(), url, key: filee.Key };
+        }),
+      );
+      setUploadedFiles(fileUrls);
+    } catch (error) {
+      console.error('Failed to list files', error);
+    }
+  };
+  const listafuncionario = async (id) => {
+    try {
+      setloading(true);
+      await api.get(`v1/pessoa/selectfuncionario/${id}`).then((response) => {
+        //console.log("get de funcionarios: ", response.data);
+        setfuncionariolista(response.data);
+        setmensagem('');
+      });
+    } catch (err) {
+      setmensagem(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const listadespesas = async () => {
+    try {
+      setloading(true);
+      console.log(ididentificador);
+      const response = await api.get('v1/despesasid', { params });
+      const { data } = response;
+
+      if (!data?.iddespesas) {
+        return;
+      }
+      const id = data.iddespesas || ididentificador;
+      await listFilesFromS3(id);
+      ididentificador = data.iddespesas;
+      const veiculoSelecionado = veiculoslista.find(
+        (item) => Number(item?.value) === Number(data.idveiculo),
+      );
+      setselectedoptionveiculo({
+        value: veiculoSelecionado?.value || '',
+        label: veiculoSelecionado?.label || '',
+      });
+
+      // Preencher campos simples
+      setiddespesas(data.iddespesas);
+      setdatalancamento(data.datalancamento);
+      setvalordespesa(data.valordespesa);
+      setdescricao(data.descricao);
+      setcomprovante(data.comprovante);
+      setobservacao(data.observacao);
+      setidempresa(data.idempresa);
+      setidveiculo(data.idveiculo);
+      setvalordaparcela(data.valorparcela);
+      setParceladoEm(data.parceladoem);
+      setPeriodicidade(data.periodicidade);
+      setDataInicio(data.datainicio);
+      setCategoriaDespesa(data.categoria);
+      setidpessoa(data.idpessoa);
+      setmensagem('');
+
+      // Empresa selecionada
+      if (data.idempresa) {
+        listafuncionario(data.idempresa);
+        setselectedoptionempresa({
+          value: data.idempresa,
+          label: data.empresa,
+        });
+      }
+
+      // Veículo selecionado
+    } catch (err) {
+      console.error('Erro ao listar despesas:', err);
+      setmensagem(err.message || 'Erro inesperado ao buscar despesas.');
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const listaempresa = async () => {
+    try {
+      setloading(true);
+      await api.get('v1/empresas/selectpj', { params }).then((response) => {
+        //console.log("get de empresas: ", response.data);
+        setempresalista(response.data ?? null);
+        setmensagem('');
+      });
+    } catch (err) {
+      setmensagem(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const listaveiculos = async () => {
+    try {
+      setloading(true);
+      const response = await api.get('v1/veiculos', { params });
+      //console.log("get de veiculos: ", response.data);
+      const lista = response.data.map((item) => {
+        return {
+          value: item.id,
+          label: item.placa,
+          empresaId: item.idempresa,
+          pessoaId: item.idpessoa,
+        };
+      });
+      setveiculoslista(lista);
+    } catch (err) {
+      setmensagem(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+  const iniciatabelas = async () => {
+    try {
+      setloading(true);
+      await Promise.all([await listaempresa(), await listaveiculos()]);
+    } catch (err) {
+      console.error('Erro ao iniciar as tabelas:', err);
+      setmensagem('Erro ao carregar os dados iniciais.');
+    } finally {
+      setloading(false); // para loading geral, se usar
+    }
+  };
+
+  function initialPage() {
+    const initializeS3Service = async () => {
+      await fetchS3Credentials();
+      iniciatabelas();
+    };
+    const ontem = new Date();
+    ontem.setDate(ontem.getDate());
+    const data = ontem.toISOString().split('T')[0];
+    setdatalancamento(data);
+    initializeS3Service();
+  }
   const togglecadastro = () => {
     setshow(false);
   };
@@ -167,21 +311,31 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
 
     return Number.isNaN(valorNumerico) ? 0 : valorNumerico;
   }
-  const listafuncionario = async (id) => {
-    try {
-      setloading(true);
-      await api.get(`v1/pessoa/selectfuncionario/${id}`).then((response) => {
-        //console.log("get de funcionarios: ", response.data);
-        setfuncionariolista(response.data);
-        setmensagem('');
+  async function carregarDadosLancamento() {
+    const veiculoSelecionado = veiculoslista.find(
+      (item) => Number(item?.value) === Number(selectedLancarDespesas.id),
+    );
+    setselectedoptionveiculo({
+      value: veiculoSelecionado?.value || '',
+      label: veiculoSelecionado?.label || '',
+    });
+    if (selectedLancarDespesas.idempresa) {
+      listafuncionario(selectedLancarDespesas.idempresa);
+      const empresa = empresalista.find(
+        (item) => Number(item?.value) === Number(selectedLancarDespesas.idempresa),
+      );
+      setselectedoptionempresa({
+        value: empresa?.value || '',
+        label: empresa?.label || '',
       });
-    } catch (err) {
-      setmensagem(err.message);
-    } finally {
-      setloading(false);
     }
-  };
-
+  }
+  useEffect(() => {
+    listadespesas();
+    if (selectedLancarDespesas) {
+      carregarDadosLancamento();
+    }
+  }, [veiculoslista, empresalista]);
   function ProcessaCadastro(e) {
     e.preventDefault();
     const ontem = new Date();
@@ -227,8 +381,8 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
           setmensagem('');
           setmensagemsucesso('Registro Salvo');
           setTimeout(() => {
-            setshow(!show);
             atualiza();
+            initialPage();
           }, 1000);
 
           togglecadastro.bind(null);
@@ -247,113 +401,15 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
       });
   }
 
-  const listFilesFromS3 = async () => {
-    try {
-      const prefix = `despesas/${iddespesas}/`;
-      const files = await s3Service.listFiles(prefix);
-      const fileUrls = await Promise.all(
-        files.map(async (filee) => {
-          const url = await s3Service.getFileUrl(filee.Key);
-          return { name: filee.Key.split('/').pop(), url, key: filee.Key };
-        }),
-      );
-      setUploadedFiles(fileUrls);
-    } catch (error) {
-      console.error('Failed to list files', error);
-    }
-  };
-
-  const listadespesas = async () => {
-    try {
-      setloading(true);
-      await api.get('v1/despesasid', { params }).then((response) => {
-        //console.log("get de despesas por id: ", response.data);
-        setiddespesas(response.data.iddespesas);
-        setdatalancamento(response.data.datalancamento);
-        setvalordespesa(response.data.valordespesa);
-        setdescricao(response.data.descricao);
-        setcomprovante(response.data.comprovante);
-        setobservacao(response.data.observacao);
-        setselectedoptionempresa({ value: response.data.idempresa, label: response.data.empresa });
-        setselectedoptionveiculo({ value: response.data.idveiculo, label: response.data.veiculo });
-        setidempresa(response.data.idempresa);
-        if (response.data.idempresa) listafuncionario(response.data.idempresa);
-        setidveiculo(response.data.idveiculo);
-        setvalordaparcela(response.data.valorparcela);
-        //setPeriodo(response.data.periodo);
-        setParceladoEm(response.data.parceladoem);
-        setPeriodicidade(response.data.periodicidade);
-        setDataInicio(response.data.datainicio);
-        setCategoriaDespesa(response.data.categoria);
-        setidpessoa(response.data.idpessoa);
-        setmensagem('');
-        listFilesFromS3();
-      });
-    } catch (err) {
-      setmensagem(err.message);
-    } finally {
-      setloading(false);
-    }
-  };
-
-  const listaempresa = async () => {
-    try {
-      setloading(true);
-      await api.get('v1/empresas/selectpj', { params }).then((response) => {
-        //console.log("get de empresas: ", response.data);
-        setempresalista(response.data ?? null);
-        setmensagem('');
-      });
-    } catch (err) {
-      setmensagem(err.message);
-    } finally {
-      setloading(false);
-    }
-  };
-
-  const listaveiculos = async () => {
-    try {
-      setloading(true);
-      const response = await api.get('v1/veiculos', { params });
-      //console.log("get de veiculos: ", response.data);
-      const lista = response.data.map((item) => {
-        return {
-          value: item.id,
-          label: item.placa,
-          empresaId: item.idempresa,
-          pessoaId: item.idpessoa,
-        };
-      });
-      setveiculoslista(lista);
-    } catch (err) {
-      setmensagem(err.message);
-    } finally {
-      setloading(false);
-    }
-  };
-
-  const iniciatabelas = () => {
-    listaempresa();
-    listaveiculos();
-    listadespesas();
-  };
-
   useEffect(() => {
     if (iddespesas) {
-      listFilesFromS3();
+      const id = iddespesas || ididentificador;
+      listFilesFromS3(id);
     }
   }, [iddespesas]);
 
   useEffect(() => {
-    const initializeS3Service = async () => {
-      await fetchS3Credentials();
-      iniciatabelas();
-    };
-    const ontem = new Date();
-    ontem.setDate(ontem.getDate());
-    const data = ontem.toISOString().split('T')[0];
-    setdatalancamento(data);
-    initializeS3Service();
+    initialPage();
   }, []);
 
   useEffect(() => {
@@ -438,6 +494,9 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
         await s3Service.uploadFile(file, key);
         const url = await s3Service.getFileUrl(key);
         setUploadedFiles([...uploadedFiles, { name: file.name, url }]);
+        const id = ididentificador;
+
+        listFilesFromS3(id);
       } catch (error) {
         console.error('File upload failed', error);
       }
@@ -738,10 +797,20 @@ const Despesasedicao = ({ setshow, show, ididentificador, atualiza }) => {
                 <FormGroup>
                   <div className="d-flex align-items-center">
                     <Input type="file" onChange={(e) => setFile(e.target.files[0])} />
-                    <Button color="primary" onClick={handleFileUpload} className="ms-0">
+                    <Button
+                      color="primary"
+                      onClick={handleFileUpload}
+                      className="ms-0"
+                      disabled={!ididentificador}
+                    >
                       Upload
                     </Button>
                   </div>
+                  {!ididentificador && (
+                    <div className="mt-2 mt-md-0 ms-md-2 small text-muted">
+                      Salve a despesa para adicionar os novos arquivos.
+                    </div>
+                  )}
                 </FormGroup>
               </Col>
             </div>
@@ -803,6 +872,7 @@ Despesasedicao.propTypes = {
   setshow: PropTypes.func.isRequired,
   ididentificador: PropTypes.number,
   atualiza: PropTypes.func,
+  selectedLancarDespesas: PropTypes.object,
 };
 
 export default Despesasedicao;

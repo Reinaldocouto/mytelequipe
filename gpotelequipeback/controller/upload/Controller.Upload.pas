@@ -11,6 +11,8 @@ procedure Registry;
 
 procedure UploadObraEricson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
+procedure UploadMonitoramento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
 procedure UploadObraZTE(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure Uploadlpu(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -29,6 +31,14 @@ procedure UploadPMTSTelefonica(Req: THorseRequest; Res: THorseResponse; Next: TP
 
 procedure UploadFolhaDePagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
+procedure UploadDeDespesas(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure UploadTicket(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+procedure UploadTransporte(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+procedure UploadConvenio(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+procedure UploadT2(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+procedure UploadT4(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
 
 implementation
 
@@ -44,6 +54,13 @@ begin
   THorse.Post('v1/uploadpessoa', uploadpessoa);
   THorse.Post('v1/uploadPMTSTelefonica', uploadPMTSTelefonica);
   THorse.Post('v1/uploadfolhadepagamento', UploadFolhaDePagamento);
+  THorse.Post('v1/uploaddespesas', UploadDeDespesas);
+  THorse.Post('v1/upload/ticket', UploadTicket);
+  THorse.Post('v1/upload/ticketransporte', UploadTransporte);
+  THorse.Post('v1/uploadconvenio', UploadConvenio);
+  THorse.Post('v1/uploadmonitoramento', UploadMonitoramento);
+  THorse.Post('v1/uploadt2', UploadT2);
+  THorse.Post('v1/uploadt4', UploadT4);
 end;
 
 procedure GetCredenciaisS3(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -160,8 +177,6 @@ begin
                   if FileExists(vXLSFile) then
                     DeleteFile(vXLSFile);
 
-
-
                 end;
 
                 if (LowerCase(Copy(ExtractFileName(vZipFile.FileNames[i]), 1, 14)) = PADRAO_LISTA_SITES) and (LowerCase(ExtractFileExt(vZipFile.FileNames[i])) = '.xlsx') then
@@ -274,6 +289,137 @@ begin
       Res.Send<TJSONObject>(CreateJsonObj('erro', E.Message)).Status(THTTPStatus.InternalServerError);
   end;
   servico.Free;
+end;
+
+procedure UploadMonitoramento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  LUploadConfig: TUploadConfig;
+  vDiretorio, vExtensao, vXLSFile: string;
+  jsonData: TJSONArray;
+  resultado: Integer;
+  servico: TUpload;
+  erro: string;
+const
+  DIRETORIO_BASE = 'C:\servidorgpo\monitoramento\';
+begin
+  servico := TUpload.Create;
+  LUploadConfig := TUploadConfig.Create(DIRETORIO_BASE);
+  LUploadConfig.ForceDir := True;
+  LUploadConfig.OverrideFiles := True;
+  resultado := 1;
+  erro := '';
+
+  try
+    LUploadConfig.UploadFileCallBack :=
+      procedure(Sender: TObject; AFile: TUploadFileInfo)
+      var
+        vZipFile: TZipFile;
+        i: Integer;
+      begin
+        try
+          Writeln('Upload file: ' + AFile.FileName + ' (' + IntToStr(AFile.Size) + ' bytes)');
+          vDiretorio := DIRETORIO_BASE + AFile.FileName;
+          vExtensao := LowerCase(ExtractFileExt(AFile.FileName));
+
+          if vExtensao = '.zip' then
+          begin
+            Writeln('Arquivo ZIP detectado. Iniciando descompactação...');
+            vZipFile := TZipFile.Create;
+            try
+              vZipFile.Open(vDiretorio, zmRead);
+              for i := 0 to vZipFile.FileCount - 1 do
+              begin
+                Writeln(TimeToStr(Now) + ' - Processando arquivo: ' + vZipFile.FileNames[i]);
+                vXLSFile := IncludeTrailingPathDelimiter(DIRETORIO_BASE) + ExtractFileName(vZipFile.FileNames[i]);
+                vZipFile.Extract(vZipFile.FileNames[i], ExtractFilePath(vXLSFile));
+
+                if FileExists(vXLSFile) then
+                begin
+                  Writeln(TimeToStr(Now) + ' - Lendo dados do arquivo: ' + vXLSFile);
+                  jsonData := LerExcelParaJSONMonitoramento(vXLSFile);
+                  try
+                    Writeln(TimeToStr(Now) + ' - Inserindo dados no banco: ' + vXLSFile);
+                    erro := '';
+                    resultado := servico.InserirMonitoramento(jsonData, erro);
+                    if erro <> '' then
+                      Writeln('Erro: ' + erro)
+                    else
+                      Writeln('Dados inseridos com sucesso!');
+                  finally
+                    jsonData.Free;
+                  end;
+                  if not DeleteFile(vXLSFile) then
+                    Writeln('Aviso: Não foi possível excluir o arquivo ' + vXLSFile);
+                end
+                else
+                  Writeln('Arquivo extraído não encontrado: ' + vXLSFile);
+              end;
+            finally
+              vZipFile.Free;
+            end;
+          end
+          else if (vExtensao = '.xls') or (vExtensao = '. ') then
+          begin
+            Writeln('Arquivo Excel detectado. Processando diretamente...');
+            if FileExists(vDiretorio) then
+            begin
+              jsonData := LerExcelParaJSONMonitoramento(vDiretorio);
+              try
+                Writeln(TimeToStr(Now) + ' - Inserindo dados no banco: ' + vDiretorio);
+                erro := '';
+                resultado := servico.InserirMonitoramento(jsonData, erro);
+                if erro <> '' then
+                  Writeln('Erro: ' + erro)
+                else
+                  Writeln('Dados inseridos com sucesso!');
+              finally
+                jsonData.Free;
+              end;
+              if not DeleteFile(vDiretorio) then
+                Writeln('Aviso: Não foi possível excluir o arquivo ' + vDiretorio);
+            end
+            else
+              Writeln('Arquivo Excel não encontrado: ' + vDiretorio);
+          end
+          else
+          begin
+            Writeln('Extensão não suportada: ' + vExtensao + ' - Ignorando: ' + AFile.FileName);
+            erro := 'Extensão não suportada: ' + vExtensao;
+          end;
+        except
+          on E: Exception do
+          begin
+            erro := 'Erro no processamento do arquivo: ' + AFile.FileName + ' - ' + E.Message;
+            Writeln(erro);
+            Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+          end;
+        end;
+      end;
+
+    LUploadConfig.UploadsFishCallBack :=
+      procedure(Sender: TObject; AFiles: TUploadFiles)
+      begin
+        try
+          Writeln('Processamento concluído. Total de arquivos: ' + IntToStr(AFiles.Count));
+          if erro = '' then
+            Res.Send<TJSONObject>(CreateJsonObj('sucesso', 'Arquivo(s) processado(s) com sucesso')).Status(THTTPStatus.OK)
+          else
+            Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+        finally
+          LUploadConfig.Free;
+          servico.Free;
+        end;
+      end;
+
+     Res.Send<TUploadConfig>(LUploadConfig);
+  except
+    on E: Exception do
+    begin
+      Res.Send<TJSONObject>(CreateJsonObj('erro', E.Message)).Status(THTTPStatus.InternalServerError);
+      LUploadConfig.Free;
+      servico.Free;
+    end;
+  end;
 end;
 
 procedure UploadObraZTE(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -612,9 +758,256 @@ begin
   end;
 end;
 
+procedure UploadTransporte(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+const
+  DIRETORIO_UPLOAD = 'C:\servidorgpo\transporte\';
+var
+  servico: TUpload;
+  LUploadConfig: TUploadConfig;
+  Inseridos: Integer;
+  erro: string;
+
+begin
+  LUploadConfig := TUploadConfig.Create(DIRETORIO_UPLOAD);
+  LUploadConfig.ForceDir := True;
+  LUploadConfig.OverrideFiles := True;
+
+      //Optional: Callback for each file received
+  LUploadConfig.UploadFileCallBack :=
+    procedure(Sender: TObject; AFile: TUploadFileInfo)
+    var   jsonData: TJSONArray; vXLSFile: String; periodo: String;
+      i: Integer;
+      jsonObject: TJSONObject;
+      jsonPair: TJSONPair;
+    begin
+      Writeln('');
+      Writeln('Upload file: ' + AFile.filename + ' ' + AFile.size.ToString);
+      vXLSFile := DIRETORIO_UPLOAD + AFile.FileName;
+      jsonData := LerExcelParaJSONValeTransporte(vXLSFile);
+      if (jsonData.Count > 0) and (jsonData.Items[0] is TJSONObject) then
+      begin
+        jsonObject := jsonData.Items[0] as TJSONObject;
+        periodo := (jsonObject.GetValue('Competência') as TJSONString).Value;
+        Inseridos := Servico.InserirTicketValeTransporte(jsonData, periodo, Erro);
+      end;
+
+
+    end;
+
+      //Optional: Callback on end of all files
+  LUploadConfig.UploadsFishCallBack :=
+    procedure(Sender: TObject; AFiles: TUploadFiles)
+    begin
+      Writeln('');
+      Writeln('Finish ' + AFiles.Count.ToString + ' files.');
+    end;
+
+  Res.Send<TUploadConfig>(LUploadConfig);
+
+end;
+procedure UploadTicket(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+const
+  DIRETORIO_UPLOAD = 'C:\servidorgpo\ticket\';
+var
+  servico: TUpload;
+  LUploadConfig: TUploadConfig;
+  Inseridos: Integer;
+  erro: string;
+  competenciaVal: TJSONValue;
+begin
+  // Verifica e cria o diretório se necessário
+  
+  if not DirectoryExists(DIRETORIO_UPLOAD) then
+  begin
+    if not ForceDirectories(DIRETORIO_UPLOAD) then
+    begin
+      Res.Send('Erro: Não foi possível criar o diretório de upload').Status(500);
+      Exit;
+    end;
+  end;
+
+  try
+    LUploadConfig := TUploadConfig.Create(DIRETORIO_UPLOAD);
+    try
+      LUploadConfig.ForceDir := True;
+      LUploadConfig.OverrideFiles := True;
+
+      // Callback para cada arquivo recebido
+      LUploadConfig.UploadFileCallBack :=
+        procedure(Sender: TObject; AFile: TUploadFileInfo)
+        var
+          jsonData: TJSONArray;
+          vXLSFile: String;
+          periodo: String;
+          jsonObject: TJSONObject;
+        begin
+          try
+            Writeln('');
+            Writeln('Upload file: ' + AFile.filename + ' ' + AFile.size.ToString);
+
+            vXLSFile := IncludeTrailingPathDelimiter(DIRETORIO_UPLOAD) + AFile.FileName;
+            jsonData := LerExcelParaJSONGETICKET(vXLSFile);
+
+            if (jsonData <> nil) and (jsonData.Count > 0) then
+            begin
+              if (jsonData.Items[0] is TJSONObject) then
+              begin
+                jsonObject := jsonData.Items[0] as TJSONObject;
+
+                // Correção para obter o valor "Competência"
+                competenciaVal := jsonObject.GetValue('Competência');
+                if (competenciaVal <> nil) and (competenciaVal is TJSONString) then
+                begin
+                  periodo := TJSONString(competenciaVal).Value;
+                  Inseridos := Servico.InserirTicket(jsonData, periodo, Erro);
+                  if Erro <> '' then
+                    Writeln('Erro ao inserir tickets: ' + Erro);
+                end
+                else
+                begin
+                  Writeln('Aviso: Campo "Competência" não encontrado ou não é uma string');
+                end;
+              end;
+            end
+            else
+            begin
+              Writeln('Aviso: Nenhum dado válido encontrado no arquivo Excel');
+            end;
+          except
+            on E: Exception do
+              Writeln('Erro no processamento do arquivo: ' + E.Message);
+          end;
+        end;
+
+      // Callback no final de todos os arquivos
+      LUploadConfig.UploadsFishCallBack :=
+        procedure(Sender: TObject; AFiles: TUploadFiles)
+        begin
+          Writeln('');
+          Writeln('Processamento concluído. Total de arquivos: ' + AFiles.Count.ToString);
+        end;
+
+      Res.Send<TUploadConfig>(LUploadConfig);
+    except
+      on E: Exception do
+      begin
+        Res.Send('Erro na configuração do upload: ' + E.Message).Status(500);
+      end;
+    end;
+  except
+    on E: Exception do
+    begin
+      Res.Send('Erro ao criar configuração de upload: ' + E.Message).Status(500);
+    end;
+  end;
+end;
+
 procedure UploadFolhaDePagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 const
   DIRETORIO_UPLOAD = 'C:\servidorgpo\folhadepagamento\';
+var
+  servico: TUpload;
+  LUploadConfig: TUploadConfig;
+  Inseridos: Integer;
+  erro: string;
+  competenciaVal: TJSONValue;
+begin
+  // Verifica e cria o diretório se necessário
+  if not DirectoryExists(DIRETORIO_UPLOAD) then
+  begin
+    if not ForceDirectories(DIRETORIO_UPLOAD) then
+    begin
+      Res.Send('Erro: Não foi possível criar o diretório de upload').Status(500);
+      Exit;
+    end;
+  end;
+
+  try
+    LUploadConfig := TUploadConfig.Create(DIRETORIO_UPLOAD);
+    try
+      LUploadConfig.ForceDir := True;
+      LUploadConfig.OverrideFiles := True;
+
+      // Callback para cada arquivo recebido
+      LUploadConfig.UploadFileCallBack :=
+        procedure(Sender: TObject; AFile: TUploadFileInfo)
+        var
+          jsonData: TJSONArray;
+          vXLSFile: String;
+          periodo: String;
+          jsonObject: TJSONObject;
+        begin
+          try
+            Writeln('');
+            Writeln('Processando arquivo: ' + AFile.filename + ' (' + AFile.size.ToString + ' bytes)');
+            
+            // Garante o caminho completo correto
+            vXLSFile := IncludeTrailingPathDelimiter(DIRETORIO_UPLOAD) + AFile.FileName;
+            
+            // Converte o Excel para JSON
+            jsonData := LerExcelParaJSONGEFolhaDePagamento(vXLSFile);
+            
+            if (jsonData <> nil) and (jsonData.Count > 0) then
+            begin
+              if (jsonData.Items[0] is TJSONObject) then
+              begin
+                jsonObject := jsonData.Items[0] as TJSONObject;
+                
+                // Obtém o valor "Competência" com verificação segura
+                competenciaVal := jsonObject.GetValue('Competência');
+                if (competenciaVal <> nil) and (competenciaVal is TJSONString) then
+                begin
+                  periodo := TJSONString(competenciaVal).Value;
+                  Writeln('Processando folha de pagamento para competência: ' + periodo);
+                  
+                  Inseridos := Servico.InserirGeFolhaDePagamento(jsonData, periodo, Erro);
+                  if Erro <> '' then
+                    Writeln('Erro ao inserir folha de pagamento: ' + Erro)
+                  else
+                    Writeln('Registros inseridos/atualizados: ' + Inseridos.ToString);
+                end
+                else
+                begin
+                  Writeln('Aviso: Campo "Competência" não encontrado ou inválido no arquivo');
+                end;
+              end;
+            end
+            else
+            begin
+              Writeln('Aviso: Nenhum dado válido encontrado no arquivo Excel');
+            end;
+          except
+            on E: Exception do
+              Writeln('Erro crítico ao processar arquivo: ' + E.Message);
+          end;
+        end;
+
+      // Callback no final de todos os arquivos
+      LUploadConfig.UploadsFishCallBack :=
+        procedure(Sender: TObject; AFiles: TUploadFiles)
+        begin
+          Writeln('');
+          Writeln('Processamento concluído. Total de arquivos processados: ' + AFiles.Count.ToString);
+        end;
+
+      Res.Send<TUploadConfig>(LUploadConfig);
+    except
+      on E: Exception do
+      begin
+        Res.Send('Erro na configuração do upload: ' + E.Message).Status(500);
+      end;
+    end;
+  except
+    on E: Exception do
+    begin
+      Res.Send('Erro ao iniciar o processo de upload: ' + E.Message).Status(500);
+    end;
+  end;
+end;
+
+procedure UploadDeDespesas(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+const
+  DIRETORIO_UPLOAD = 'C:\servidorgpo\despesas\';
 var
   servico: TUpload;
   LUploadConfig: TUploadConfig;
@@ -638,12 +1031,10 @@ begin
       Writeln('');
       Writeln('Upload file: ' + AFile.filename + ' ' + AFile.size.ToString);
       vXLSFile := DIRETORIO_UPLOAD + AFile.FileName;
-      jsonData := LerExcelParaJSONGEFolhaDePagamento(vXLSFile);
+      jsonData := LerExcelParaJSON(vXLSFile);
       if (jsonData.Count > 0) and (jsonData.Items[0] is TJSONObject) then
       begin
-        jsonObject := jsonData.Items[0] as TJSONObject;
-        periodo := (jsonObject.GetValue('Competência') as TJSONString).Value;
-        Inseridos := Servico.InserirGeFolhaDePagamento(jsonData, periodo, Erro);
+        Inseridos := Servico.InserirDespesas(jsonData, periodo, Erro);
       end;
 
 
@@ -660,6 +1051,337 @@ begin
   Res.Send<TUploadConfig>(LUploadConfig);
 
 end;
+procedure UploadConvenio(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+const
+  DIRETORIO_UPLOAD = 'C:\servidorgpo\convenio\';
+var
+  servico: TUpload;
+  LUploadConfig: TUploadConfig;
+  Inseridos: Integer;
+  erro: string;
+begin
+  // Verifica e cria o diretório se necessário
+  if not DirectoryExists(DIRETORIO_UPLOAD) then
+  begin
+    if not ForceDirectories(DIRETORIO_UPLOAD) then
+    begin
+      Res.Send('Erro ao criar diretório de upload').Status(500);
+      Exit;
+    end;
+  end;
+
+  try
+    LUploadConfig := TUploadConfig.Create(DIRETORIO_UPLOAD);
+    LUploadConfig.ForceDir := True;
+    LUploadConfig.OverrideFiles := True;
+
+    LUploadConfig.UploadFileCallBack :=
+      procedure(Sender: TObject; AFile: TUploadFileInfo)
+      var
+        jsonData: TJSONArray;
+        vXLSFile: String;
+        periodo: String;
+        i: Integer;
+        jsonObject: TJSONObject;
+        jsonPair: TJSONPair;
+      begin
+        try
+          Writeln('');
+          Writeln('Upload file: ' + AFile.filename + ' ' + AFile.size.ToString);
+          vXLSFile := IncludeTrailingPathDelimiter(DIRETORIO_UPLOAD) + AFile.FileName;
+
+          // Verifica se o arquivo foi salvo com sucesso
+          if not FileExists(vXLSFile) then
+          begin
+            Writeln('Erro: Arquivo não foi salvo corretamente: ' + vXLSFile);
+            Exit;
+          end;
+
+          jsonData := LerExcelParaJSONSemTotal(vXLSFile);
+          Writeln(jsonData.ToString);
+
+          if (jsonData.Count > 0) and (jsonData.Items[0] is TJSONObject) then
+          begin
+            jsonObject := jsonData.Items[0] as TJSONObject;
+            periodo := '';
+            Inseridos := Servico.InserirConvenio(jsonData, periodo, Erro);
+          end;
+        except
+          on E: Exception do
+            Writeln('Erro no callback de upload: ' + E.Message);
+        end;
+      end;
+
+    // Callback no final de todos os arquivos
+    LUploadConfig.UploadsFishCallBack :=
+      procedure(Sender: TObject; AFiles: TUploadFiles)
+      begin
+        Writeln('');
+        Writeln('Finish ' + AFiles.Count.ToString + ' files.');
+      end;
+
+    Res.Send<TUploadConfig>(LUploadConfig);
+  except
+    on E: Exception do
+    begin
+      Res.Send('Erro ao configurar upload: ' + E.Message).Status(500);
+    end;
+  end;
+end;
+procedure UploadT2(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+const
+  DIRETORIO_UPLOAD = 'C:\servidorgpo\t2\';
+var
+  servico: TUpload;
+  LUploadConfig: TUploadConfig;
+  resultados: TJSONArray;
+begin
+  resultados := nil;
+  servico := nil;
+  LUploadConfig := nil;
+
+  try
+    // Verifica/Cria diretório de upload
+    if not DirectoryExists(DIRETORIO_UPLOAD) and not ForceDirectories(DIRETORIO_UPLOAD) then
+    begin
+      Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', 'Erro ao criar diretório de upload'))
+        .Status(THTTPStatus.InternalServerError);
+      Exit;
+    end;
+
+    resultados := TJSONArray.Create;
+    servico := TUpload.Create;
+
+    LUploadConfig := TUploadConfig.Create(DIRETORIO_UPLOAD);
+    LUploadConfig.ForceDir := True;
+    LUploadConfig.OverrideFiles := True;
+
+    LUploadConfig.UploadFileCallBack :=
+      procedure(Sender: TObject; AFile: TUploadFileInfo)
+      var
+        vXLSFile, periodo, erroLinha: String;
+        jsonData, linhasJSON: TJSONArray;
+        i: Integer;
+        linhaJSON, resultadoLinha: TJSONObject;
+      begin
+        vXLSFile := IncludeTrailingPathDelimiter(DIRETORIO_UPLOAD) + AFile.FileName;
+        resultadoLinha := TJSONObject.Create;
+        linhasJSON := TJSONArray.Create;
+
+        try
+          resultadoLinha.AddPair('arquivo', AFile.FileName);
+          resultadoLinha.AddPair('linhas', linhasJSON);
+
+          if not FileExists(vXLSFile) then
+            raise Exception.Create('Arquivo não foi salvo corretamente');
+
+          jsonData := LerExcelParaJSON(vXLSFile);
+
+          try
+            for i := 0 to jsonData.Count - 1 do
+            begin
+              linhaJSON := jsonData.Items[i] as TJSONObject;
+              System.Writeln(linhaJSON.ToString);
+              try
+                if servico.EditarT2(linhaJSON, periodo, erroLinha) > 0 then
+                begin
+                  linhasJSON.Add(TJSONObject.Create
+                    .AddPair('linha', i+1)
+                    .AddPair('status', 'sucesso')
+                    .AddPair('id', linhaJSON.GetValue('id').Value));
+                end
+                else
+                begin
+                  linhasJSON.Add(TJSONObject.Create
+                    .AddPair('linha', i+1)
+                    .AddPair('status', 'erro')
+                    .AddPair('mensagem', erroLinha)
+                    .AddPair('dados', linhaJSON.Clone as TJSONObject));
+                end;
+              except
+                on E: Exception do
+                begin
+                  linhasJSON.Add(TJSONObject.Create
+                    .AddPair('linha', i+1)
+                    .AddPair('status', 'erro')
+                    .AddPair('mensagem', 'Erro ao processar linha: ' + E.Message)
+                    .AddPair('dados', linhaJSON.Clone as TJSONObject));
+                end;
+              end;
+            end;
+
+            resultadoLinha.AddPair('status_geral', 'processado');
+            resultadoLinha.AddPair('total_linhas', jsonData.Count.ToString);
+          finally
+            jsonData.Free;
+          end;
+        except
+          on E: Exception do
+          begin
+            resultadoLinha.AddPair('status_geral', 'erro');
+            resultadoLinha.AddPair('mensagem', E.Message);
+          end;
+        end;
+
+        resultados.Add(resultadoLinha);
+      end;
+
+    LUploadConfig.UploadsFishCallBack :=
+      procedure(Sender: TObject; AFiles: TUploadFiles)
+      var
+        resposta: TJSONObject;
+      begin
+        resposta := TJSONObject.Create;
+        try
+          resposta.AddPair('sucesso', True);
+          resposta.AddPair('resultados', resultados);
+          Res.Send<TJSONObject>(resposta).Status(THTTPStatus.OK);
+        except
+          resposta.Free;
+          raise;
+        end;
+      end;
+
+    Res.Send<TUploadConfig>(LUploadConfig);
+  except
+    on E: Exception do
+    begin
+      if Assigned(resultados) then
+        resultados.Free;
+
+      Res.Send<TJSONObject>(TJSONObject.Create
+        .AddPair('erro', 'Erro no upload')
+        .AddPair('detalhes', E.Message))
+        .Status(THTTPStatus.InternalServerError);
+    end;
+  end;
+end;
+
+procedure UploadT4(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+const
+  DIRETORIO_UPLOAD = 'C:\servidorgpo\t2\';
+var
+  servico: TUpload;
+  LUploadConfig: TUploadConfig;
+  resultados: TJSONArray;
+begin
+  resultados := nil;
+  servico := nil;
+  LUploadConfig := nil;
+
+  try
+    // Verifica/Cria diretório de upload
+    if not DirectoryExists(DIRETORIO_UPLOAD) and not ForceDirectories(DIRETORIO_UPLOAD) then
+    begin
+      Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', 'Erro ao criar diretório de upload'))
+        .Status(THTTPStatus.InternalServerError);
+      Exit;
+    end;
+
+    resultados := TJSONArray.Create;
+    servico := TUpload.Create;
+
+    LUploadConfig := TUploadConfig.Create(DIRETORIO_UPLOAD);
+    LUploadConfig.ForceDir := True;
+    LUploadConfig.OverrideFiles := True;
+
+    LUploadConfig.UploadFileCallBack :=
+      procedure(Sender: TObject; AFile: TUploadFileInfo)
+      var
+        vXLSFile, periodo, erroLinha: String;
+        jsonData, linhasJSON: TJSONArray;
+        i: Integer;
+        linhaJSON, resultadoLinha: TJSONObject;
+      begin
+        vXLSFile := IncludeTrailingPathDelimiter(DIRETORIO_UPLOAD) + AFile.FileName;
+        resultadoLinha := TJSONObject.Create;
+        linhasJSON := TJSONArray.Create;
+
+        try
+          resultadoLinha.AddPair('arquivo', AFile.FileName);
+          resultadoLinha.AddPair('linhas', linhasJSON);
+
+          if not FileExists(vXLSFile) then
+            raise Exception.Create('Arquivo não foi salvo corretamente');
+
+          jsonData := LerExcelParaJSON(vXLSFile);
+          try
+            for i := 0 to jsonData.Count - 1 do
+            begin
+              linhaJSON := jsonData.Items[i] as TJSONObject;
+              try
+                if servico.EditarT4(linhaJSON, periodo, erroLinha) then
+                begin
+                  linhasJSON.Add(TJSONObject.Create
+                    .AddPair('linha', i+1)
+                    .AddPair('status', 'sucesso')
+                    .AddPair('id', linhaJSON.GetValue('id').Value));
+                end
+                else
+                begin
+                  linhasJSON.Add(TJSONObject.Create
+                    .AddPair('linha', i+1)
+                    .AddPair('status', 'erro')
+                    .AddPair('mensagem', erroLinha)
+                    .AddPair('dados', linhaJSON.Clone as TJSONObject));
+                end;
+              except
+                on E: Exception do
+                begin
+                  linhasJSON.Add(TJSONObject.Create
+                    .AddPair('linha', i+1)
+                    .AddPair('status', 'erro')
+                    .AddPair('mensagem', 'Erro ao processar linha: ' + E.Message)
+                    .AddPair('dados', linhaJSON.Clone as TJSONObject));
+                end;
+              end;
+            end;
+
+            resultadoLinha.AddPair('status_geral', 'processado');
+            resultadoLinha.AddPair('total_linhas', jsonData.Count.ToString);
+          finally
+            jsonData.Free;
+          end;
+        except
+          on E: Exception do
+          begin
+            resultadoLinha.AddPair('status_geral', 'erro');
+            resultadoLinha.AddPair('mensagem', E.Message);
+          end;
+        end;
+
+        resultados.Add(resultadoLinha);
+      end;
+
+    LUploadConfig.UploadsFishCallBack :=
+      procedure(Sender: TObject; AFiles: TUploadFiles)
+      var
+        resposta: TJSONObject;
+      begin
+        resposta := TJSONObject.Create;
+        try
+          resposta.AddPair('sucesso', True);
+          resposta.AddPair('resultados', resultados);
+          Res.Send<TJSONObject>(resposta).Status(THTTPStatus.OK);
+        except
+          resposta.Free;
+          raise;
+        end;
+      end;
+
+    Res.Send<TUploadConfig>(LUploadConfig);
+  except
+    on E: Exception do
+    begin
+      if Assigned(resultados) then
+        resultados.Free;
+
+      Res.Send<TJSONObject>(TJSONObject.Create
+        .AddPair('erro', 'Erro no upload')
+        .AddPair('detalhes', E.Message))
+        .Status(THTTPStatus.InternalServerError);
+    end;
+  end;
+end;
 
 end.
-

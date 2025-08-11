@@ -67,13 +67,16 @@ const Convenio = ({ setshow, show }) => {
       return;
     }
 
+    const nomeSemAcento = 'convenio.xls';
+    const arquivoModificado = new File([arquivo], nomeSemAcento, { type: arquivo.type });
+
     const header = {
       headers: {
         'Custom-Header': 'value',
       },
     };
     const formData = new FormData();
-    formData.append('files', arquivo);
+    formData.append('files', arquivoModificado);
 
     try {
       setLoading(true);
@@ -81,7 +84,7 @@ const Convenio = ({ setshow, show }) => {
       if (response && response.data) {
         if (response.status === 200) {
           listaconvenio();
-          toast.success('Upload concluido, aguarde a atualização que dura em torno de 20 minutos');
+          toast.success('Upload concluído, aguarde a atualização que dura em torno de 20 minutos');
           //setarquivofolhadepagamento('');
         } else {
           toast.info('Erro ao fazer upload!');

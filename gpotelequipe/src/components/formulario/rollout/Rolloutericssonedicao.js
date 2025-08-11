@@ -1,44 +1,74 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
   Modal,
   ModalHeader,
   ModalBody,
   ModalFooter,
-  // Form,
-  // FormGroup,
-  Label,
-  // Col,
   Input,
+  InputGroup,
   Button,
   CardBody,
-
-   
 } from 'reactstrap';
+import PaidIcon from '@mui/icons-material/Paid';
+import { grey, yellow, green } from '@mui/material/colors';
+import Typography from '@mui/material/Typography';
+import Select from 'react-select';
 import Box from '@mui/material/Box';
 import {
   DataGrid,
   GridActionsCellItem,
+  gridPageCountSelector,
+  gridPageSelector,
   useGridApiContext,
   useGridSelector,
-  gridPageSelector,
-  gridPageCountSelector,
   GridOverlay,
+  ptBR,
 } from '@mui/x-data-grid';
 import * as Icon from 'react-feather';
 import { LinearProgress } from '@mui/material';
+
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { NumericFormat } from 'react-number-format';
 import Pagination from '@mui/material/Pagination';
-
 import Tarefaedicao from '../projeto/Tarefaedicao';
 import Excluirregistro from '../../Excluirregistro';
 import Solicitardiaria from '../projeto/Solicitardiaria';
+import Solicitacaoedicao from '../suprimento/Solicitacaoedicao'; 
+import api from '../../../services/api';
+import modeloDiaria from '../../../assets/Solicitação Adiantamento.xlsx';
+
+
+function TabPanel(props) {
+  const { children, value, value1, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`simple-tabpanel-${index}`}
+      aria-labelledby={`simple-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ p: 3 }}>
+          <Typography>{children}</Typography>
+        </Box>
+      )}
+    </div>
+  );
+}
+
+TabPanel.propTypes = {
+  children: PropTypes.node,
+  index: PropTypes.number.isRequired,
+  value: PropTypes.number.isRequired,
+  value1: PropTypes.number.isRequired,
+};
 
 //import { CustomPagination, CustomNoRowsOverlay } from '../../../components/CustomDataGrid';
-
-import api from '../../../services/api';
 
 const Rolloutericssonedicao = ({
   show,
@@ -46,21 +76,20 @@ const Rolloutericssonedicao = ({
   ididentificador,
   titulotopo,
   atualiza,
-  ericssonSelecionado,
-  
+  // ericssonSelecionado,
 }) => {
-  // 1) estados de identificação
   const [numero, setNumero] = useState('');
   const [cliente, setCliente] = useState('');
   const [regiona, setRegiona] = useState('');
   const [site, setSite] = useState('');
-  //const GRID_VIEWPORT_HEIGHT = 60;
+
   const [situacaoimplantacao, setsituacaoimplantacao] = useState('');
   const [situacaodaintegracao, setsituacaodaintegracao] = useState('');
   const [datadacriacaodademandadia, setdatadacriacaodademandadia] = useState('');
   const [dataaceitedemandadia, setdataaceitedemandadia] = useState('');
   const [datainicioentregamosplanejadodia, setdatainicioentregamosplanejadodia] = useState('');
-  const [datarecebimentodositemosreportadodia, setdatarecebimentodositemosreportadodia] = useState('');
+  const [datarecebimentodositemosreportadodia, setdatarecebimentodositemosreportadodia] =
+    useState('');
   const [datafiminstalacaoplanejadodia, setdatafiminstalacaoplanejadodia] = useState('');
   const [dataconclusaoreportadodia, setdataconclusaoreportadodia] = useState('');
   const [datavalidacaoinstalacaodia, setdatavalidacaoinstalacaodia] = useState('');
@@ -74,11 +103,48 @@ const Rolloutericssonedicao = ({
   const [listamigo, setlistamigo] = useState([]);
   const [titulotarefa] = useState('');
   const [pageSize, setPageSize] = useState(10);
+  const [valorhora, setvalorhora] = useState('');
   const [paginationModeldiarias, setPaginationModeldiarias] = useState({
     pageSize: 5,
     page: 0,
   });
-  const [identificadorsolicitacaodiaria, setidentificadorsolicitacaodiaria] = useState('');
+  const [paginationModeldespesas, setPaginationModeldespesas] = useState({
+    pageSize: 5,
+    page: 0,
+  });
+  const [paginationModelacionamentopj, setPaginationModelacionamentopj] = useState({
+    pageSize: 5,
+    page: 0,
+  });
+  const [paginationModelvalorpo, setPaginationModelvalorpo] = useState({
+    pageSize: 5,
+    page: 0,
+  });
+  const [paginationModelmaterial, setPaginationModelmaterial] = useState({
+    pageSize: 5,
+    page: 0,
+  });
+  const [paginationModelatividadepj, setPaginationModelatividadepj] = useState({
+    pageSize: 5,
+    page: 0,
+  });
+  const [paginationModeltarefa, setPaginationModeltarefa] = useState({
+    pageSize: 5,
+    page: 0,
+  });
+  const [paginationModelacionamentoclt, setPaginationModelacionamentoclt] = useState({
+    pageSize: 5,
+    page: 0,
+  });
+  const [paginationModelobrafinal, setPaginationModelobrafinal] = useState({
+    pageSize: 5,
+    page: 0,
+  });
+  const [paginationModelcivilwork, setPaginationModelcivilwork] = useState({
+    pageSize: 5,
+    page: 0,
+  });
+  const [numeroacio, setnumeroacio] = useState('');
   const [telacadastrosolicitacaodiaria, settelacadastrosolicitacaodiaria] = useState(false);
   const [titulodiaria, settitulodiaria] = useState('');
   const [solicitacaodiaria, setsolicitacaodiaria] = useState([]);
@@ -90,16 +156,12 @@ const Rolloutericssonedicao = ({
   const [idacionamentoclt, setidacionamentoclt] = useState(0);
 
   // estados para acionamentos (CLT e PJ)
-  const [pacotes, setpacotes] = useState([]);
-  const [pacotesacionadospj, setpacotesacionadospj] = useState([]);
   const [pacotesacionadosclt, setpacotesacionadosclt] = useState([]);
   const [colaboradorlistapj, setcolaboradorlistapj] = useState([]);
   const [colaboradorlistaclt, setcolaboradorlistaclt] = useState([]);
   const [rowSelectionModel, setRowSelectionModel] = useState([]);
-  const [rowSelectionModelpacotepj, setRowSelectionModelpacotepj] = useState([]);
   const [idcolaboradorpj, setidcolaboradorpj] = useState('');
   const [selectedoptioncolaboradorpj, setselectedoptioncolaboradorpj] = useState(null);
-  const [regiao, setregiao] = useState('');
   const [lpulista, setlpulista] = useState([]);
   const [lpuhistorico, setlpuhistorico] = useState('');
   const [selectedoptionlpu, setselectedoptionlpu] = useState(null);
@@ -117,26 +179,51 @@ const Rolloutericssonedicao = ({
   const [hora100clt, sethora100clt] = useState('');
   const [totalhorasclt, settotalhorasclt] = useState('');
   const [observacaoclt, setobservacaoclt] = useState('');
+  const [identificadorsolicitacao, setidentificadorsolicitacao] = useState('');
+  const [titulo, settitulo] = useState('');
+  const [telacadastrosolicitacao, settelacadastrosolicitacao] = useState('');
+  const [poservicolista, setposervicolista] = useState([]);
+  const [materialeservico, setmaterialeservico] = useState([]);
+  const [telacadastroedicaosolicitacao, settelacadastroedicaosolicitacao] = useState('');
+  const [telaexclusaosolicitacao, settelaexclusaosolicitacao] = useState('');
+  const [nomecolaboradorpj, setnomecolaboradorpj] = useState('');
+  // const [atividadecltlista, setatividadecltlista] = useState([]);
+  const [atividadepjlista, setatividadepjlista] = useState([]);
+  const [retanexo, setretanexo] = useState('');
+  const [loadingpj, setloadingpj] = useState(false);
 
+  const [usuario, setusuario] = useState('');
+  const [documentacaoobrafinal, setdocumentacaoobrafinal] = useState([]);
+  const [documentacaocivilwork, setdocumentacaocivilwork] = useState([]);
+  const [ericFechamento, setEricFechamento] = useState(0); // Armazena apenas o valor de ericfechamento
 
+  const [enderecoSite, setEnderecoSite] = useState('');
+  const [municipio, setMunicipio] = useState('');
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+  const [totalfinanceiro, setTotalFinanceiro] = useState();
+  const [loadingFinanceiro, setloadingFinanceiro] = useState(false);
+  const [relatorioDespesas, setRelatorioDespesas] = useState([]);
+  const [identificadorsolicitacaodiaria, setidentificadorsolicitacaodiaria] = useState('');
 
   //Parametros
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
     idusuario: localStorage.getItem('sessionId'),
     idloja: localStorage.getItem('sessionloja'),
-    //idlocal: idsite,
+    idlocal: ididentificador,
     idprojetoericsson: ididentificador,
     idcontroleacessobusca: localStorage.getItem('sessionId'),
     //idempresas: idcolaboradorpj,
     deletado: 0,
-    osouobra: numero,
+    osouobra: ididentificador,
     obra: numero,
+    projeto: 'ERICSSON',
     //identificador pra mandar pro solicitação edição:
     //identificadorsolicitacao: ididentificador2,
+
   };
 
-  
   function CustomNoRowsOverlay() {
     return (
       <GridOverlay>
@@ -145,45 +232,197 @@ const Rolloutericssonedicao = ({
     );
   }
 
-  // 1) function 
+  const modoVisualizador = () => {
+    // TODO: coloque aqui sua lógica real de "só leitura"
+    return false;
+  };
+
   function CustomPagination() {
-      const apiRef = useGridApiContext();
-      const page = useGridSelector(apiRef, gridPageSelector);
-      const pageCount = useGridSelector(apiRef, gridPageCountSelector);
-  
-      return (
+    const apiRef = useGridApiContext();
+    const page = useGridSelector(apiRef, gridPageSelector);
+    const pageCount = useGridSelector(apiRef, gridPageCountSelector);
+    const rowCount = apiRef.current.getRowsCount(); // Obtém total de itens
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          padding: '10px',
+        }}
+      >
+        <Typography variant="body2">Total de itens: {rowCount}</Typography>
+
         <Pagination
           color="primary"
           count={pageCount}
           page={page + 1}
-        //onChange={(event, value) => apiRef.current.setPage(value - 1)}
+          onChange={(event, value2) => apiRef.current.setPage(value2 - 1)}
         />
-      );
-    }
+      </Box>
+    );
+  }
 
-  // 2) fetch de identificação
-  const fetchIdentificacao = async () => {
+
+
+  function CustomPaginationclt() {
+    const apiRef = useGridApiContext();
+    const page = useGridSelector(apiRef, gridPageSelector);
+    const pageCount = useGridSelector(apiRef, gridPageCountSelector);
+    const rowCount = apiRef.current.getRowsCount(); // Obtém total de itens
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          padding: '10px',
+        }}
+      >
+        <Typography variant="body2">Total de itens: {rowCount}</Typography>
+
+        <Pagination
+          color="primary"
+          count={pageCount}
+          page={page + 1}
+          onChange={(event, value2) => apiRef.current.setPage(value2 - 1)}
+        />
+      </Box>
+    );
+  }
+
+  const despesasrelaotrioericsson = async () => {
     try {
-      const response = await api.get(`v1/projetoericssonid/${ididentificador}`, {
+      setloadingFinanceiro(true);
+      const response = await api.get('v1/projetoericsson/relatoriodespesas', {
         params: {
-          idcliente: localStorage.getItem('sessionCodidcliente'),
-          idusuario: localStorage.getItem('sessionId'),
-          idloja: localStorage.getItem('sessionloja'),
+          site: ididentificador,
+          ...params,
         },
       });
-      const {
-        numero: num = '',
-        cliente: cli = '',
-        regiona: rg = '',
-        site: st = '',
-      } = response.data || {};
 
-      setNumero(num);
-      setCliente(cli);
-      setRegiona(rg);
-      setSite(st);
+
+
+
+      // Verifica se a resposta tem dados e formata corretamente
+      const dadosFormatados = response.data?.map((item) => ({
+        ...item,
+        id: item.id || Math.random().toString(36).substr(2, 9), // Garante um ID único
+        valor: item.valor ? parseFloat(item.valor) : null,
+        dataacionamento: item.dataacionamento ? new Date(item.dataacionamento) : null,
+      }));
+      const somaDosValores = dadosFormatados?.reduce((total, item) => total + (item.valor || 0), 0);
+      setTotalFinanceiro(somaDosValores || 0);
+      setRelatorioDespesas(dadosFormatados || []);
     } catch (err) {
-      console.error('Erro ao carregar identificação', err);
+      toast.error(err.response?.data?.message || err.message);
+      setRelatorioDespesas([]);
+    } finally {
+      setloadingFinanceiro(false);
+    }
+  };
+
+  const listaid = async () => {
+    try {
+      setloading(true);
+      console.log(ididentificador);
+      await api.get('v1/projetoericssonid', { params }).then((response) => {
+        setNumero(ididentificador);
+        setCliente(response.data.cliente);
+        setRegiona(response.data.regiona);
+        setSite(response.data.site);
+        setsituacaoimplantacao(response.data.situacaoimplantacao);
+        setsituacaodaintegracao(response.data.situacaodaintegracao);
+        setdatadacriacaodademandadia(response.data.datadacriacaodademandadia);
+        //setdatalimiteaceitedia(response.data.datalimiteaceitedia)
+        setdataaceitedemandadia(response.data.dataaceitedemandadia);
+        //setdatainicioprevistasolicitantebaselinemosdia(response.data.datainicioprevistasolicitantebaselinemosdia)
+        setdatainicioentregamosplanejadodia(response.data.datainicioentregamosplanejadodia);
+        setdatarecebimentodositemosreportadodia(response.data.datarecebimentodositemosreportadodia);
+        //setdatafimprevistabaselinefiminstalacaodia(response.data.datafimprevistabaselinefiminstalacaodia)
+        setdatafiminstalacaoplanejadodia(response.data.datafiminstalacaoplanejadodia);
+        setdataconclusaoreportadodia(response.data.dataconclusaoreportadodia);
+        setdatavalidacaoinstalacaodia(response.data.datavalidacaoinstalacaodia);
+        //setdataintegracaobaselinedia(response.data.dataintegracaobaselinedia)
+        setdataintegracaoplanejadodia(response.data.dataintegracaoplanejadodia);
+        setdatavalidacaoeriboxedia(response.data.datavalidacaoeriboxedia);
+        setemailadcional(response.data.emailacionamento);
+        //setlistadepos(response.data.listadepos)
+        //setgestordeimplantacaonome(response.data.gestordeimplantacaonome)
+        //setstatusrsa(response.data.statusrsa)
+        //setrsarsa(response.data.rsarsa)
+        //etstatusaceitacao(response.data.statusaceitacao)
+        //setdatadefimdaaceitacaosydledia(response.data.datadefimdaaceitacaosydledia)
+        //setordemdevenda(response.data.ordemdevenda)
+        //setcoordenadoaspnome(response.data.coordenadoaspnome)
+        //setrsavalidacaorsanrotrackerdatafimdia(response.data.rsavalidacaorsanrotrackerdatafimdia)
+        //setfimdeobraplandia(response.data.fimdeobraplandia)
+        //setfimdeobrarealdia(response.data.fimdeobrarealdia)
+        //settipoatualizacaofam(response.data.tipoatualizacaofam)
+        //setsinergia(response.data.sinergia)
+        //setsinergia5g(response.data.sinergia5g)
+        //setescoponome(response.data.escoponome)
+        //setslapadraoescopodias(response.data.slapadraoescopodias)
+        //settempoparalisacaoinstalacaodias(response.data.tempoparalisacaoinstalacaodias)
+        //setlocalizacaositeendereco(response.data.localizacaositeendereco)
+        //setlocalizacaositecidade(response.data.localizacaositecidade)
+        //setdocumentacaosituacao(response.data.documentacaosituacao)
+        //setsitepossuirisco(response.data.sitepossuirisco)
+        setaceitacao(response.data.aceitacaofical);
+        setpendencia(response.data.pendenciasobra);
+        setEnderecoSite(response.data.localizacaositeendereco || '');
+        setMunicipio(response.data.localizacaositecidade || '');
+        setLatitude(response.data.latitude || '');
+        setLongitude(response.data.longitude || '');
+
+        // setSelectedOptionfornecedor({ value: response.data.idfornecedor, label: response.data.nomefornecedor }); // Criar  logica de olhar na configuração se vai usar nome razão social ou nome fantasia
+      });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const listalpu = async (idc, icr) => {
+    try {
+      //  setloading(true);
+      await api.get(`v1/projetoericsson/listalpu/${idc}/${icr}`, { params }).then((response) => {
+        setlpulista(response.data);
+      });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      console.log('');
+    }
+  };
+
+  const handleChangecolaboradorclt = (stat) => {
+    if (stat !== null) {
+      setidcolaboradorclt(stat.value);
+      setvalorhora(stat.valorhora);
+      setselectedoptioncolaboradorclt({ value: stat.value, label: stat.label });
+    } else {
+      setidcolaboradorclt(0);
+      setselectedoptioncolaboradorclt({ value: null, label: null });
+    }
+  };
+
+  const handleChangecolaboradorpj = (stat) => {
+    if (stat !== null) {
+      setidcolaboradorpj(stat.value);
+      setselectedoptioncolaboradorpj({ value: stat.value, label: stat.label });
+      setcolaboradoremail(stat.email);
+      setnomecolaboradorpj(stat.label);
+      //setemailadcional(stat.adicional)
+      listalpu(stat.value);
+    } else {
+      setidcolaboradorpj(0);
+      setcolaboradoremail('');
+      setnomecolaboradorpj('');
+      setselectedoptioncolaboradorpj({ value: null, label: null });
     }
   };
 
@@ -196,15 +435,33 @@ const Rolloutericssonedicao = ({
       })
       .then((response) => {
         if (response.status === 201) {
-          
-          
           settelacadastrotarefa(true);
-        } 
-      })
-      
+        }
+      });
   };
 
-   const listapormigo = async () => {
+  const handleChangelpu = (stat) => {
+    if (stat !== null) {
+      if (stat.label === 'NEGOCIADO') {
+        if (usuario !== '33' && usuario !== '35' && usuario !== '78') {
+          setlpuhistorico('');
+          setselectedoptionlpu({ value: null, label: null });
+          toast.warning('Você não tem permissão para acionar PJ com valor negociado.');
+        } else {
+          setlpuhistorico(stat.label);
+          setselectedoptionlpu({ value: stat.value, label: stat.label });
+        }
+      } else {
+        setlpuhistorico(stat.label);
+        setselectedoptionlpu({ value: stat.value, label: stat.label });
+      }
+    } else {
+      setlpuhistorico('');
+      setselectedoptionlpu({ value: null, label: null });
+    }
+  };
+
+  const listapormigo = async () => {
     try {
       setloading(true);
       await api.get('v1/projetoericsson/listamigo', { params }).then((response) => {
@@ -259,6 +516,7 @@ const Rolloutericssonedicao = ({
       width: 300,
       align: 'left',
       editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
       field: 'qtyordered',
@@ -268,6 +526,150 @@ const Rolloutericssonedicao = ({
       editable: false,
     },
   ];
+
+  const valorpo = [
+    {
+      field: 'po',
+      headerName: 'PO',
+      width: 160,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'poritem',
+      headerName: 'PO+Item',
+      width: 160,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'datacriacaopo',
+      headerName: 'Data Criação PO',
+      width: 150,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'codigoservico',
+      headerName: 'Código Serviço',
+      width: 180,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'descricaoservico',
+      headerName: 'Descrição Serviço',
+      width: 320,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'qtyordered',
+      headerName: 'Quantidade',
+      width: 100,
+      align: 'center',
+      editable: false,
+    },
+    {
+      field: 'medidafiltrounitario',
+      headerName: 'Valor Unitário R$',
+      width: 140,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'medidafiltro',
+      headerName: 'Total R$',
+      width: 100,
+      align: 'left',
+      editable: false,
+    },
+  ];
+
+  const columnsescopo = [
+    {
+      field: 'label',
+      headerName: 'Descrição Serviço',
+      width: 450,
+      align: 'left',
+      type: 'string',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'po',
+      headerName: 'PO',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'siteid',
+      headerName: 'SIGLA',
+      width: 100,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+  ];
+
+  const columnsFinanceiro = [
+    {
+      field: 'idpmts',
+      headerName: 'OBRA',
+      width: 100,
+      align: 'left',
+      type: 'string',
+    },
+    {
+      field: 'nome',
+      headerName: 'NOME',
+      width: 370,
+      align: 'left',
+      type: 'string',
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'tipo',
+      headerName: 'TIPO',
+      width: 160,
+      align: 'left',
+      type: 'string',
+    },
+    {
+      field: 'descricao',
+      headerName: 'DESCRIÇÃO',
+      width: 400,
+      align: 'left',
+      type: 'string',
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'dataacionamento',
+      headerName: 'DATA ACIONAMENTO',
+      width: 150,
+      align: 'center',
+      valueFormatter: (item) =>
+        item.value ? new Date(item.value).toLocaleDateString('pt-BR') : '',
+    },
+    {
+      field: 'valor',
+      headerName: 'VALOR',
+      width: 150,
+      align: 'right',
+      valueFormatter: (item) =>
+        item.value
+          ? item.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+          : '',
+    },
+  ];
+
+
+  function deletediaria(stat) {
+    setiddiaria(stat);
+    settelaexclusaodiaria(true);
+  }
 
   const colunasdiarias = [
     {
@@ -284,14 +686,15 @@ const Rolloutericssonedicao = ({
           onClick={() => deletediaria(parametros.id)}
         />,
       ],
-    },
+    }, // { field: 'id', headerName: 'ID', width: 60, align: 'center' },
     {
       field: 'datasolicitacao',
       headerName: 'Data',
-      width: 140,
+      width: 130,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) =>
+        parametros.value ? new Date(`${parametros.value}T00:00:00`) : null,
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -302,7 +705,7 @@ const Rolloutericssonedicao = ({
       field: 'nome',
       headerName: 'Nome Colaborador',
       type: 'string',
-      width: 300,
+      width: 290,
       align: 'left',
       editable: false,
     },
@@ -310,7 +713,7 @@ const Rolloutericssonedicao = ({
       field: 'descricao',
       headerName: 'Descrição',
       type: 'string',
-      width: 300,
+      width: 290,
       align: 'left',
       editable: false,
     },
@@ -354,27 +757,13 @@ const Rolloutericssonedicao = ({
     },
   ];
 
-  // colunas para pacotes e acionamentos
-  const colunaspacotes = [
-    { field: 'ts', headerName: 'TS', width: 150, align: 'left', editable: false },
-    {
-      field: 'brevedescricaoingles',
-      headerName: 'BREVE DESCRIÇÃO EM INGLÊS',
-      width: 300,
-      align: 'left',
-      editable: false,
-      renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>,
-    },
-    {
-      field: 'brevedescricao',
-      headerName: 'BREVE DESCRICAO',
-      width: 400,
-      align: 'left',
-      editable: false,
-      renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>,
-    },
-    { field: 'codigolpuvivo', headerName: 'CODIGO LPU VIVO', width: 150, align: 'left', editable: false },
-  ];
+
+
+  function deleteUser(stat) {
+    setidacionamentopj(stat);
+    settelaexclusaopj(true);
+  }
+
 
   const colunaspacotesacionados = [
     {
@@ -383,133 +772,242 @@ const Rolloutericssonedicao = ({
       type: 'actions',
       width: 80,
       align: 'center',
-      getActions: (params) => [
-        <GridActionsCellItem icon={<DeleteIcon />} label="Delete" onClick={() => deleteUser(params.id)} />,
-      ],
+      getActions: (parametros) => {
+        const { porcentagem } = parametros.row;
+        if (porcentagem > 0) {
+          return [
+            <GridActionsCellItem
+              icon={<DeleteIcon style={{ color: grey[500] }} />}
+              label="Já houve pagamento"
+              title="Já houve pagamento"
+              onClick={(event) => {
+                event.stopPropagation();
+                toast.error('Já houve pagamento');
+              }}
+            />,
+          ];
+        }
+        return [
+          <GridActionsCellItem
+            icon={<DeleteIcon />}
+            label="Delete"
+            title="Delete"
+            onClick={() => deleteUser(parametros.id)}
+          />,
+        ];
+      },
     },
-    { field: 'nome', headerName: 'COLABORADOR', width: 250, align: 'left', editable: false },
-    { field: 'po', headerName: 'PO', width: 120, align: 'left', editable: false },
-    { field: 'atividade', headerName: 'ATIVIDADE', width: 110, align: 'left', editable: false },
-    { field: 'qtd', headerName: 'QTD', width: 60, align: 'left', editable: false },
-    { field: 'ts', headerName: 'TS', width: 120, align: 'left', editable: false },
     {
-      field: 'brevedescricao',
-      headerName: 'BREVE DESCRICAO',
-      width: 290,
+      field: 'fantasia',
+      headerName: 'Empresa',
+      width: 250,
       align: 'left',
+      type: 'string',
       editable: false,
-      renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>,
     },
-    { field: 'codigolpuvivo', headerName: 'CODIGO LPU VIVO', width: 140, align: 'left', editable: false },
     {
-      field: 'dataacionamento',
-      headerName: 'DATA ACIONAMENTO',
-      width: 150,
+      field: 'po',
+      headerName: 'PO',
+      width: 130,
       align: 'left',
-      type: 'date',
-      valueGetter: (p) => (p.value ? new Date(p.value) : null),
-      valueFormatter: (p) => (p.value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(p.value) : ''),
-    },
-    {
-      field: 'dataenvioemail',
-      headerName: 'DATA ENVIO EMAIL',
-      width: 150,
-      align: 'left',
-      type: 'date',
-      valueGetter: (p) => (p.value ? new Date(p.value) : null),
-      valueFormatter: (p) => (p.value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(p.value) : ''),
-    },
-  ];
-
-  const colunaspacotesacionadosclt = [
-    {
-      field: 'actions',
-      headerName: 'Ação',
-      type: 'actions',
-      width: 80,
-      align: 'center',
-      getActions: (params) => [
-        <GridActionsCellItem icon={<DeleteIcon />} label="Delete" onClick={() => deleteuserclt(params.id)} />,
-      ],
-    },
-    { field: 'nome', headerName: 'COLABORADOR', width: 250, align: 'left', editable: false },
-    { field: 'po', headerName: 'PO', width: 120, align: 'left', editable: false },
-    { field: 'atividade', headerName: 'ATIVIDADE', width: 110, align: 'left', editable: false },
-    {
-      field: 't2codmatservsw',
-      headerName: 'DESCRICAO',
-      width: 290,
-      align: 'left',
+      type: 'string',
       editable: false,
-      renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>,
     },
     {
-      field: 'dataincio',
-      headerName: 'DATA INICIO',
-      width: 140,
+      field: 'poitem',
+      headerName: 'PO+ITEM',
+      width: 130,
       align: 'left',
-      type: 'date',
-      valueGetter: (p) => (p.value ? new Date(p.value) : null),
-      valueFormatter: (p) => (p.value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(p.value) : ''),
+      type: 'string',
+      editable: false,
     },
     {
-      field: 'datafinal',
-      headerName: 'DATA FIM',
-      width: 140,
+      field: 'descricaoservico',
+      headerName: 'Descrição Serviço',
+      width: 350,
       align: 'left',
-      type: 'date',
-      valueGetter: (p) => (p.value ? new Date(p.value) : null),
-      valueFormatter: (p) => (p.value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(p.value) : ''),
+      type: 'string',
+      editable: false,
+      renderCell: (parametros) => (
+        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
+      ),
     },
     {
       field: 'dataacionamento',
-      headerName: 'DATA ACIONAMENTO',
-      width: 150,
+      headerName: 'Data Acionamento',
+      width: 200,
       align: 'left',
-      type: 'date',
-      valueGetter: (p) => (p.value ? new Date(p.value) : null),
-      valueFormatter: (p) => (p.value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(p.value) : ''),
+      type: 'string',
+      editable: false,
     },
     {
-      field: 'dataenvioemail',
-      headerName: 'DATA ENVIO EMAIL',
-      width: 150,
+      field: 'datadeenviodoemail',
+      headerName: 'Data de Envio do E-mail',
+      width: 200,
       align: 'left',
-      type: 'date',
-      valueGetter: (p) => (p.value ? new Date(p.value) : null),
-      valueFormatter: (p) => (p.value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(p.value) : ''),
+      type: 'string',
+      editable: false,
     },
   ];
 
-  const novocadastrodiaria = () => {
-    api
-      .post('v1/solicitacao/novocadastrodiaria', {
-        idcliente: localStorage.getItem('sessionCodidcliente'),
-        idusuario: localStorage.getItem('sessionId'),
-        idloja: localStorage.getItem('sessionloja'),
-      })
-      .then((response) => {
-        if (response.status === 201) {
-          setidentificadorsolicitacaodiaria(response.data.retorno);
-          settitulodiaria('Cadastrar Solicitação de Diaria');
-          settelacadastrosolicitacaodiaria(true);
-        } else {
-          toast.error(response.status);
-        }
-      })
-      .catch((err) => {
-        if (err.response) {
-          toast.error(err.response.data.erro);
-        } else {
-          toast.error('Ocorreu um erro na requisição.');
-        }
+  const novocadastrodiaria = async () => {
+  try {
+
+    const response = await api.post('v1/solicitacao/novocadastrodiaria', {
+      idcliente: localStorage.getItem('sessionCodidcliente'),
+      idusuario: localStorage.getItem('sessionId'),
+      idloja: localStorage.getItem('sessionloja'),
+    });
+
+    if (response.status !== 201) {
+      toast.error(`Erro: status ${response.status}`);
+      return; // só interrompe a execução, sem devolver valor
+    }
+
+    const novoId = response.data.retorno;
+    setidentificadorsolicitacaodiaria(novoId);
+    settitulodiaria('Cadastrar Solicitação de Diaria');
+    settelacadastrosolicitacaodiaria(true);
+
+
+    const formData = new FormData();
+    formData.append('idsolicitacaodiaria', novoId);
+    formData.append('anexo', modeloDiaria, 'Solicitação Adiantamento.xlsx');
+
+
+    await api.post('v1/solicitardiaria', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  } catch (err) {
+    if (err.response?.data?.erro) {
+      toast.error(err.response.data.erro);
+    } else {
+      toast.error('Ocorreu um erro na requisição.');
+    }
+    console.error('Erro ao enviar e-mail de diária:', err);
+  }
+};
+
+
+  const obrafinal = [
+    {
+      field: 'numero',
+      headerName: 'Numero',
+      width: 100,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'site',
+      headerName: 'SIGLA',
+      width: 180,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'documentacaonome',
+      headerName: 'Tipo Documento',
+      width: 350,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'documentacaosituacao',
+      headerName: 'Situação',
+      width: 250,
+      align: 'left',
+      editable: false,
+    },
+  ];
+
+  const civilwork = [
+    {
+      field: 'numero',
+      headerName: 'Número',
+      width: 100,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'site',
+      headerName: 'SIGLA',
+      width: 180,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'documentacaonome',
+      headerName: 'Tipo do documento',
+      width: 350,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'documentacaosituacao',
+      headerName: 'Situação',
+      width: 350,
+      align: 'left',
+      editable: false,
+    },
+  ];
+
+  const listapos = async () => {
+    try {
+      setloading(true);
+      await api.get('v1/projetoericsson/selectprojeto', { params }).then((response) => {
+        setposervicolista(response.data);
       });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setloading(false);
+    }
   };
+
+  const listadocumentacaoobrafinalcivilwork = async () => {
+    try {
+      setloading(true);
+      await api
+        .get('v1/projetoericsson/documentacaofinalcivilwork', { params })
+        .then((response) => {
+          setdocumentacaocivilwork(response.data);
+        });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const listadocumentacaoobrafinal = async () => {
+    try {
+      setloading(true);
+      await api.get('v1/projetoericsson/documentacaofinal', { params }).then((response) => {
+        setdocumentacaoobrafinal(response.data);
+      });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const acessoFinanceiro = async () => {
+    try {
+      const response = await api.get('v1/cadusuariosistemaid', { params });
+      setEricFechamento(response.data.ericfechamento);
+      console.log('Eric Fechamento:', response.data.ericfechamento);
+
+    } catch (err) {
+      console.error(err.message);
+    }
+  };
+
 
   const listasolicitacaodiaria = async () => {
     try {
       setloading(true);
-      await api.get('v1/projetoericsson/diaria', { params }).then((response) => {
+      await api.get('v1/projetotelefonica/diaria', { params }).then((response) => {
         setsolicitacaodiaria(response.data);
       });
     } catch (err) {
@@ -532,6 +1030,8 @@ const Rolloutericssonedicao = ({
     }
   };
 
+
+
   const listacolaboradorclt = async () => {
     try {
       setloading(true);
@@ -545,206 +1045,626 @@ const Rolloutericssonedicao = ({
     }
   };
 
-  const listapacotes = async (historico) => {
+
+  const listaatividadepj = async () => {
     try {
-      setloading(true);
-      await api.get(`v1/projetoericsson/pacotes/${historico}`, { params }).then((response) => {
-        setpacotes(response.data);
+      setloadingpj(true);
+      await api.get('v1/projetoericsson/listaatividadepj', { params }).then((response) => {
+        setatividadepjlista(response.data);
+        //setselectedoptioncolaboradorpj({ value: response.data.idcolaboradorpj, label: response.data.colaboradorpj });
       });
     } catch (err) {
       toast.error(err.message);
     } finally {
-      setloading(false);
+      setloadingpj(false);
     }
   };
 
-  const listapacotesacionados = async () => {
-    try {
-      setloading(true);
-      await api.get('v1/projetoericsson/listaacionamentopj', { params }).then((response) => {
-        setpacotesacionadospj(response.data);
-      });
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setloading(false);
-    }
-  };
 
-  const listapacotesacionadosclt = async () => {
-    try {
-      setloading(true);
-      await api.get('v1/projetoericsson/listaacionamentoclt', { params }).then((response) => {
-        setpacotesacionadosclt(response.data);
-      });
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setloading(false);
-    }
-  };
-
-  const uploadanexo = async (e) => {
-    e.preventDefault();
-    const formData = new FormData();
-    formData.append('files', arquivoanexo);
-    try {
-      setloading(true);
-      const response = await api.post('v1/uploadanexo', formData);
-      if (response.status === 201) {
-        toast.success('Arquivo Anexado');
-      } else {
-        toast.error('Erro ao Anexar arquivo!');
-      }
-    } catch (err) {
-      toast.error('Erro: Tente novamente mais tarde!');
-    } finally {
-      setloading(false);
-    }
-  };
-
-  const salvarpj = async (pacoteid, atividadeid) => {
-    try {
-      const response = await api.post('v1/projetoericsson/acionamentopj', {
-        idrollout: ididentificador,
-        idatividade: atividadeid,
-        idpacote: pacoteid,
-        idcolaborador: idcolaboradorpj,
-        regiao,
-        lpuhistorico,
-        valornegociado,
-        observacao: observacaopj,
-        idfuncionario: localStorage.getItem('sessionId'),
-      });
-      return response.status === 201;
-    } catch (err) {
-      toast.error(err.message);
-      return false;
-    }
-  };
-
-  const salvarclt = async (atividadeid) => {
-    try {
-      const response = await api.post('v1/projetoericsson/acionamentoclt', {
-        idrollout: ididentificador,
-        idatividade: atividadeid,
-        idcolaborador: idcolaboradorclt,
-        datainicio: datainicioclt,
-        datafinal: datafinalclt,
-        horanormal: horanormalclt,
-        hora50: hora50clt,
-        hora100: hora100clt,
-        totalhoras: totalhorasclt,
-        observacao: observacaoclt,
-        idfuncionario: localStorage.getItem('sessionId'),
-      });
-      return response.status === 201;
-    } catch (err) {
-      toast.error(err.message);
-      return false;
-    }
-  };
-
-  const execacionamentopj = async () => {
-    if (!rowSelectionModel || rowSelectionModel.length !== 1) {
-      toast.error('Selecione uma atividade');
-      return;
-    }
-    if (!rowSelectionModelpacotepj || rowSelectionModelpacotepj.length === 0) {
-      toast.error('Selecione um ou mais pacotes');
-      return;
-    }
-    const resultados = await Promise.all(
-      rowSelectionModelpacotepj.map((p) => salvarpj(p, rowSelectionModel[0])),
-    );
-    if (resultados.some((r) => r)) {
-      toast.success('Acionamento salvo');
-      listapacotesacionados();
-    }
-  };
-
-  const execacionamentoclt = async () => {
-    if (!rowSelectionModel || rowSelectionModel.length !== 1) {
-      toast.error('Selecione uma atividade');
-      return;
-    }
-    const ok = await salvarclt(rowSelectionModel[0]);
-    if (ok) {
-      toast.success('Acionamento salvo');
-      listapacotesacionadosclt();
-    }
-  };
-
-  const enviaremail = () => {
-    if (!colaboradoremail) {
-      toast.error('Falta preencher o E-mail!');
-      return;
-    }
+  const salvarpj = async (poit) => {
     api
-      .post('v1/email/acionamentopj', {
-        destinatario: emailadcional,
-        destinatario1: colaboradoremail,
-        idcolaborador: idcolaboradorpj,
-        idrollout: ididentificador,
-        idusuario: localStorage.getItem('sessionId'),
+      .post('v1/projetoericsson/listaatividadepj/salva', {
+        numero: ididentificador,
+        // idposervico, //descrição serviços
+        // po,
+        selecao: poit,
+        // escopo,
+        idcolaboradorpj, //colaborador
+        observacaopj,
+        //descricaoservico,
+        lpuhistorico,
+        valornegociadonum: valornegociado.toString().replace('.', ','),
       })
       .then((response) => {
-        if (response.status === 200) {
-          toast.success('Email Enviado');
-          listapacotesacionados();
+        if (response.status === 201) {
+          toast.success('Registro Salvo');
+          listaatividadepj();
         } else {
-          toast.error('Erro ao enviar a mensagem!');
+          toast.error(response.status);
         }
       })
       .catch((err) => {
-        toast.error(err.message);
+        if (err.response) {
+          toast.error(err.response.data.erro);
+        } else {
+          toast.error('Ocorreu um erro na requisição.');
+        }
       });
   };
 
-  function deletediaria(stat) {
-    setiddiaria(stat);
-    settelaexclusaodiaria(true);
-  }
 
-  function deleteUser(stat) {
-    setidacionamentopj(stat);
-    settelaexclusaopj(true);
-  }
+  const svlista = async () => {
+    // const camposExistentes = [];
+
+    rowSelectionModel.forEach((idSelecionado) => {
+      const itemSelecionado = poservicolista.find(item => item.id === idSelecionado);
+      if (!itemSelecionado) return;
+
+      const { value } = itemSelecionado;
+
+      /*  const existe = atividadepjlista.some(
+          (item) => item.poitem?.toString() === value?.toString()
+        );*/
+
+
+      salvarpj(value)
+      /*  if (!existe) {
+          salvarpj(value); // agora passa o value ao invés do id
+        } else {
+          camposExistentes.push(value);
+        } */
+    });
+
+    listaatividadepj();
+
+    /*  if (camposExistentes.length > 0) {
+        toast.error(
+          `Existem campos já inseridos, remova para adicionar os novos. (${camposExistentes.join(', ')})`
+        );
+      } */
+  };
+
+
+  const listaatividadeclt = async () => {
+    try {
+      setloading(true);
+      await api.get('v1/projetoericsson/listaatividadeclt', { params }).then((response) => {
+        setpacotesacionadosclt(response.data);
+        setselectedoptioncolaboradorclt({
+          value: response.data.idcolaboradorclt,
+          label: response.data.colaboradorclt,
+        });
+      });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+
 
   function deleteuserclt(stat) {
     setidacionamentoclt(stat);
     settelaexclusaoclt(true);
+    listaatividadeclt();
   }
 
+
+  const colunaspacotesacionadosclt = [
+    {
+      field: 'actions',
+      headerName: 'Ação',
+      type: 'actions',
+      width: 80,
+      align: 'center',
+      getActions: (parametros) => [
+        <GridActionsCellItem
+          icon={<DeleteIcon />}
+          label="Delete"
+          title="Delete"
+          onClick={() => deleteuserclt(parametros.id)}
+        />,
+      ],
+    },
+    {
+      field: 'datainicio',
+      headerName: 'Data Início',
+      width: 100,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'datafin',
+      headerName: 'Data Final',
+      width: 100,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'colaboradorclt',
+      headerName: 'Colaborador',
+      width: 300,
+      align: 'left',
+      type: 'string',
+      editable: false,
+      renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>,
+    },
+    {
+      field: 'po',
+      headerName: 'PO',
+      width: 150,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'descricaoservico',
+      headerName: 'Descrição Serviço',
+      width: 300,
+      align: 'left',
+      type: 'string',
+      editable: false,
+      renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>,
+    },
+    {
+      field: 'totalhorasclt',
+      headerName: 'Total de Horas',
+      width: 120,
+      align: 'center',
+      type: 'number',
+      editable: false,
+    },
+  ];
+
+
+  const execacionamentoclt = async () => {
+    if (!rowSelectionModel || rowSelectionModel.length === 0) {
+      toast.error('Selecione ao menos uma atividade');
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      rowSelectionModel.map(async (idSelecionado) => {
+        const poservico = poservicolista.find((item) => item.id === idSelecionado);
+
+        if (!poservico) {
+          return { id: idSelecionado, status: 'rejected' };
+        }
+
+        try {
+          const response = await api.post('v1/projetoericsson/listaatividadeclt/salva', {
+            numero: ididentificador,
+            po: poservico.value,
+            descricaoservico: poservico.label,
+            idcolaboradorclt,
+            datainicioclt,
+            datafinalclt,
+            observacaoclt,
+            totalhorasclt,
+            valorhora,
+            horanormalclt,
+            hora50clt,
+            hora100clt,
+          });
+
+          if (response.status === 201) {
+            return { id: idSelecionado, status: 'fulfilled' };
+          }
+          return { id: idSelecionado, status: 'rejected' };
+        } catch (err) {
+          return { id: idSelecionado, status: 'rejected' };
+        }
+      })
+    );
+
+    const camposSalvos = results.filter(r => r.status === 'fulfilled').map(r => r.id);
+    const camposComErro = results.filter(r => r.status === 'rejected').map(r => r.id);
+
+    listaatividadeclt(); // Atualiza a lista após execuções
+
+    if (camposSalvos.length > 0 && camposComErro.length === 0) {
+      toast.success('Todas as atividades foram salvas com sucesso.');
+    } else if (camposSalvos.length > 0 && camposComErro.length > 0) {
+      toast.success(`Algumas atividades foram salvas, mas ${camposComErro.length} falharam.`);
+    } else {
+      toast.error('Nenhuma atividade foi salva. Todas falharam.');
+    }
+  };
+
+
+  const enviaremail = () => {
+    if (colaboradoremail == null || colaboradoremail === '' || colaboradoremail === undefined) {
+      toast.error('Falta preencher o E-mail!');
+      return;
+    }
+
+    if (idcolaboradorpj.length === 0) {
+      toast.error('Falta Selecionar o Colaborador!');
+    } else {
+      api
+        .post('v1/email/acionamentopj', {
+          destinatario: emailadcional,
+          destinatario1: colaboradoremail,
+          assunto: 'ACIONAMENTO ERICSSON',
+          cliente,
+          numero,
+          regiona,
+          site,
+          nomecolaboradorpj,
+          retanexo,
+          idpessoa: idcolaboradorpj,
+          idusuario: localStorage.getItem('sessionId'),
+        })
+        .then((response) => {
+          if (response.status === 200) {
+            toast.success('Email Enviando com Sucesso!');
+            listaatividadepj();
+          } else {
+            toast.error('Erro ao enviar a mensagem!');
+          }
+        })
+        .catch((err) => {
+          if (err.response) {
+            toast.error(err.response);
+          } else {
+            toast.error('Ocorreu um erro na requisição.');
+          }
+        });
+    }
+  };
+
+
+  //abre tela de solicitação de material
+  const novocadastro = () => {
+    api
+      .post('v1/solicitacao/novocadastro', {
+        idcliente: localStorage.getItem('sessionCodidcliente'),
+        idusuario: localStorage.getItem('sessionId'),
+        idloja: localStorage.getItem('sessionloja'),
+      })
+      .then((response) => {
+        if (response.status === 201) {
+          setidentificadorsolicitacao(response.data.retorno);
+          console.log(response.data.retorno);
+          settitulo('Cadastrar Solicitação de Produto');
+          settelacadastrosolicitacao(true);
+        } else {
+          toast.error(response.status);
+        }
+      })
+      .catch((err) => {
+        if (err.response) {
+          toast.error(err.response.data.erro);
+        } else {
+          toast.error('Ocorreu um erro na requisição.');
+        }
+      });
+  };
+
+  function deletepj(stat) {
+    console.log('apagar o acionamento');
+    console.log(stat);
+    settelaexclusaopj(true);
+    setnumeroacio(stat);
+    listaatividadepj();
+  }
+
+  const valorpopj = [
+    {
+      field: 'actions',
+      headerName: 'Ação',
+      type: 'actions',
+      width: 80,
+      getActions: (parametros) => {
+        const { porcentagem } = parametros.row;
+        if (porcentagem > 0) {
+          return [
+            <GridActionsCellItem
+              icon={<DeleteIcon style={{ color: grey[500] }} />}
+              label="Já houve pagamento"
+              title="Já houve pagamento"
+              onClick={(event) => {
+                event.stopPropagation();
+                toast.error('Já houve pagamento');
+              }}
+            />,
+          ];
+        }
+        return [
+          <GridActionsCellItem
+            icon={<DeleteIcon />}
+            label="Delete"
+            title="Delete"
+            onClick={() => deletepj(parametros.id)}
+          />,
+        ];
+      },
+    },
+    {
+      field: 'fantasia',
+      headerName: 'Colaborador',
+      width: 300,
+      align: 'left',
+      type: 'string',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'poitem',
+      headerName: 'PO ITEM',
+      width: 120,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'codigoservico',
+      headerName: 'Código Serviço',
+      width: 150,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'descricaoservico',
+      headerName: 'Descrição Serviço',
+      width: 280,
+      align: 'left',
+      type: 'string',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'valorservico',
+      headerName: 'Valor Serviço',
+      width: 100,
+      align: 'left',
+      type: 'number',
+      editable: false,
+    },
+    {
+      field: 'dataacionamento',
+      headerName: 'Data de Acionamento',
+      width: 150,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'datadeenviodoemail',
+      headerName: 'Data de Envio do E-mail',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+
+    {
+      field: 'pagamentoStatus',
+      headerName: 'Pagamento status',
+      width: 200,
+      align: 'center',
+      headerAlign: 'center', // Adicione esta linha
+      type: 'string',
+      editable: false,
+      renderCell: ({ row: { porcentagem } }) => {
+        const color =
+          porcentagem === null || porcentagem === 0
+            ? grey[350]
+            : porcentagem > 0 && porcentagem < 1
+              ? yellow[500]
+              : porcentagem >= 1
+                ? green[500]
+                : undefined;
+
+        return <PaidIcon style={{ color }} />;
+      },
+    },
+  ];
+
+  const handleSolicitarMaterial = () => {
+    novocadastro();
+  };
+
+  const uploadanexo = async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData();
+    formData.append('files', arquivoanexo);
+
+    const header = {
+      headers: {
+        'Custom-Header': 'value',
+      },
+    };
+    try {
+      setloading(true);
+      const response = await api.post('v1/uploadanexo', formData, header);
+      if (response && response.data) {
+        if (response.status === 201) {
+          setretanexo(response.data.files[0].filename);
+          //setmostra(true);
+          //setmotivo(1);
+          toast.success('Arquivo Anexado');
+        } else {
+          setretanexo('');
+          //setmostra(true);
+          //setmotivo(2);
+          toast.error('Erro ao Anexar arquivo!');
+        }
+      } else {
+        throw new Error('Resposta inválida do servidor');
+      }
+    } catch (err) {
+      if (err.response) {
+        toast.error(err.message);
+      } else {
+        toast.error('Erro: Tente novamente mais tarde!');
+      }
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const listasolicitacao = async () => {
+    try {
+      setloading(true);
+      await api.get('v1/solicitacao/listaporempresa', { params }).then((response) => {
+        setmaterialeservico(response.data);
+      });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+
+  function deletedespesa(stat) {
+    settelaexclusaosolicitacao(true);
+    setidentificadorsolicitacao(stat);
+  }
+
+  const columnsdespesa = [
+    {
+      field: 'actions',
+      headerName: 'Ação',
+      type: 'actions',
+      width: 80,
+      align: 'center',
+      getActions: (parametros) => [
+        <GridActionsCellItem
+          icon={<DeleteIcon />}
+          label="Delete"
+          title="Delete"
+          onClick={() => deletedespesa(parametros.id)}
+        />,
+      ],
+    },
+    { field: 'idsolicitacao', headerName: 'Solicitação', width: 90, align: 'center' },
+    {
+      field: 'data',
+      headerName: 'Data',
+      type: 'string',
+      width: 120,
+      align: 'left',
+      valueGetter: (parametros) => parametros.value ? new Date(`${parametros.value}T00:00:00`) : null,
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      type: 'string',
+      width: 130,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'nome',
+      headerName: 'Solicitante',
+      type: 'string',
+      width: 200,
+      align: 'left',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'projeto',
+      headerName: 'Projeto',
+      type: 'string',
+      width: 100,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'obra',
+      headerName: 'Obra/OS',
+      type: 'string',
+      width: 120,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'descricao',
+      headerName: 'Descrição',
+      type: 'string',
+      width: 300,
+      align: 'left',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'unidade',
+      headerName: 'Unidade',
+      type: 'string',
+      width: 120,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'quantidade',
+      headerName: 'Quant. Solicitada',
+      type: 'string',
+      width: 150,
+      align: 'center',
+      editable: false,
+    },
+    {
+      field: 'estoque',
+      headerName: 'Quant. Estoque',
+      type: 'string',
+      width: 150,
+      align: 'center',
+      editable: false,
+    },
+    {
+      field: 'observacao',
+      headerName: 'Observação',
+      type: 'string',
+      width: 400,
+      align: 'left',
+      editable: false,
+      renderCell: (parametros) => (
+        <div
+          style={{
+            whiteSpace: 'pre-wrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+          }}
+        >
+          {parametros.value}
+        </div>
+      ),
+    },
+  ];
   // 3) dispara quando abrir ou mudar row
   useEffect(() => {
-    if (!show) return;
-
-    if (ericssonSelecionado) {
-      setNumero(ericssonSelecionado.numero || '');
-      setCliente(ericssonSelecionado.cliente || '');
-      setRegiona(ericssonSelecionado.regiona || '');
-      setSite(ericssonSelecionado.site || '');
-    }
-
-    if (ididentificador) {
-      fetchIdentificacao();
-      listasolicitacaodiaria();
-      listacolaboradorpj();
-      listacolaboradorclt();
-      listapacotes('NEGOCIADO');
-      listapacotesacionados();
-      listapacotesacionadosclt();
-    }
-  }, [show, ididentificador, ericssonSelecionado]);
-
-  useEffect(() => {
-    if (show) {
-      listasolicitacaodiaria();
-    }
-  }, [telacadastrosolicitacaodiaria, telaexclusaodiaria]);
+    listaid();
+    acessoFinanceiro();
+    listapormigo();
+    listapos();
+    listacolaboradorpj();
+    listacolaboradorclt();
+    listadocumentacaoobrafinalcivilwork();
+    listadocumentacaoobrafinal();
+    listaatividadepj();
+    listaatividadeclt()
+    despesasrelaotrioericsson()
+    listasolicitacaodiaria();
+    listasolicitacao();
+    setusuario(localStorage.getItem('sessionId'));
+  }, []);
 
   return (
+
     <Modal
       isOpen={show}
       toggle={() => setshow(false)}
@@ -756,667 +1676,948 @@ const Rolloutericssonedicao = ({
         {titulotopo}
       </ModalHeader>
 
+      <ToastContainer
+        style={{ zIndex: 9999999 }}
+        position="top-right"
+        autoClose={2000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
+
+      {telaexclusaodiaria ? (
+        <>
+          {' '}
+          <Excluirregistro
+            show={telaexclusaodiaria}
+            setshow={settelaexclusaodiaria}
+            ididentificador={iddiaria}
+            quemchamou="DIARIA"
+            atualiza={listasolicitacaodiaria}
+          />{' '}
+        </>
+      ) : null}
+      {telacadastrosolicitacaodiaria ? (
+        <Solicitardiaria
+          show={telacadastrosolicitacaodiaria}
+          setshow={settelacadastrosolicitacaodiaria}
+          ididentificador={identificadorsolicitacaodiaria}
+          atualiza={listasolicitacaodiaria}
+          titulotopo={titulodiaria}
+          numero={numero}
+          idlocal={numero}
+          sigla={regiona}
+          clientelocal="ERICSSON"
+          projetousual="ERICSSON"
+          novo="0"
+        />
+      ) : null}
+      {telaexclusaoclt ? (
+        <>
+          <Excluirregistro
+            show={telaexclusaoclt}
+            setshow={settelaexclusaoclt}
+            ididentificador={numeroacio}
+            quemchamou="ATIVIDADECLT"
+            atualiza={listaatividadeclt}
+          />{' '}
+        </>
+      ) : null}
+      {telaexclusaopj ? (
+        <>
+          <Excluirregistro
+            show={telaexclusaopj}
+            setshow={settelaexclusaopj}
+            ididentificador={numeroacio}
+            quemchamou="ATIVIDADEPJ"
+            atualiza={listaatividadepj}
+          />{' '}
+        </>
+      ) : null}
+      {telacadastrosolicitacaodiaria ? (
+        <Solicitardiaria
+          show={telacadastrosolicitacaodiaria}
+          setshow={settelacadastrosolicitacaodiaria}
+          ididentificador={identificadorsolicitacaodiaria}
+          atualiza={listasolicitacaodiaria}
+          titulotopo={titulodiaria}
+          //ver o que é isso aqui:
+          novo="0"
+          projetousual="ERICSSON"
+          numero={numero}
+          idlocal={numero}
+          sigla={site}
+          clientelocal={cliente}
+        />
+      ) : null}
+      {telacadastrosolicitacao ? (
+        <Solicitacaoedicao
+          show={telacadastrosolicitacao}
+          setshow={settelacadastrosolicitacao}
+          ididentificador={identificadorsolicitacao}
+          atualiza={listasolicitacao}
+          titulotopo={titulo}
+          //ver o que é isso aqui:
+          novo="1"
+          projetousual="ERICSSON"
+          numero={numero}
+        />
+      ) : null}
+      {telacadastroedicaosolicitacao ? (
+        <>
+          {' '}
+          <Rolloutericssonedicao
+            show={telacadastroedicaosolicitacao}
+            setshow={settelacadastroedicaosolicitacao}
+            ididentificador={identificadorsolicitacao}
+            atualiza={listasolicitacao}
+            titulotopo={titulo}
+            novo="0"
+            numero={numero}
+          />{' '}
+        </>
+      ) : null}
+      {telaexclusaosolicitacao ? (
+        <>
+          <Excluirregistro
+            show={telaexclusaosolicitacao}
+            setshow={settelaexclusaosolicitacao}
+            ididentificador={identificadorsolicitacao}
+            quemchamou="SOLICITACAO"
+            atualiza={listasolicitacao}
+            idlojaatual={localStorage.getItem('sessionloja')}
+          />{' '}
+        </>
+      ) : null}
+      {telaexclusaopj && (
+        <Excluirregistro
+          show={telaexclusaopj}
+          setshow={settelaexclusaopj}
+          ididentificador={idacionamentopj}
+          quemchamou="ATIVIDADEPJ"
+          atualiza={listaatividadepj}
+        />
+      )}
+      {telaexclusaoclt && (
+        <Excluirregistro
+          show={telaexclusaoclt}
+          setshow={settelaexclusaoclt}
+          ididentificador={idacionamentoclt}
+          quemchamou="ATIVIDADECLT"
+          atualiza={listaatividadeclt}
+        />
+      )}
+
       <ModalBody className="bg-white">
         {/* === IDENTIFICAÇÃO === */}
-        <CardBody className="bg-white pb-0">
-          <h5 className="mb-2 fw-bold">Identificação</h5>
-          <hr className="mt-0 mb-3" />
+        <b>Identificação</b>
+        <hr style={{ marginTop: '0px', width: '100%' }} />
+        <CardBody className="px-4 , pb-2">
+          <div className="row g-3">
+            <div className="col-sm-3">
+              Número
+              <Input id="campoNumero" type="text" value={numero} disabled />
+            </div>
 
-          <div className="bg-light p-3 rounded">
-            <div className="row g-3">
-              <div className="col-sm-3">
-                <Label for="campoNumero" className="form-label">
-                  Número
-                </Label>
-                <Input id="campoNumero" type="text" value={numero} disabled />
-              </div>
+            <div className="col-sm-3">
+              Cliente
+              <Input id="campoCliente" type="text" value={cliente} disabled />
+            </div>
 
-              <div className="col-sm-3">
-                <Label for="campoCliente" className="form-label">
-                  Cliente
-                </Label>
-                <Input id="campoCliente" type="text" value={cliente} disabled />
-              </div>
+            <div className="col-sm-3">
+              Regional
+              <Input id="campoRegiona" type="text" value={regiona} disabled />
+            </div>
 
-              <div className="col-sm-3">
-                <Label for="campoRegiona" className="form-label">
-                  Nome
-                </Label>
-                <Input id="campoRegiona" type="text" value={regiona} disabled />
-              </div>
-
-              <div className="col-sm-3">
-                <Label for="campoSite" className="form-label">
-                  Site
-                </Label>
-                <Input id="campoSite" type="text" value={site} disabled />
-              </div>
+            <div className="col-sm-3">
+              Site
+              <Input id="campoSite" type="text" value={site} disabled />
             </div>
           </div>
 
-          {/*ACESSO*/}
-          <div>
-            <b>Acesso</b>
-            <hr style={{ marginTop: '0px', width: '100%' }} />
-            <CardBody className="px-4 , pb-2">
-              <div className="row g-3">
-                <div className="col-sm-2">
-                  ID_VIVO
-                  <Input type="text" value={null} disabled />
-                </div>
-                <div className="col-sm-2">
-                  INFRA
-                  <Input type="select" name="infra" onChange={(e) => e.target.value} value={null}>
-                    <option value="">Selecione</option>
-                    <option value="CAMUFLADO">CAMUFLADO</option>
-                    <option value="GREENFIELD">GREENFIELD</option>
-                    <option value="INDOOR">INDOOR</option>
-                    <option value="MASTRO">MASTRO</option>
-                    <option value="POSTE METÁLICO">POSTE METÁLICO</option>
-                    <option value="ROOFTOP">ROOFTOP</option>
-                    <option value="TORRE METALICA">TORRE METALICA</option>
-                    <option value="SLS">SLS</option>
-                  </Input>
-                </div>
-                <div className="col-sm-2">
-                  DETENTORA
-                  <Input type="text" value={null} disabled />
-                </div>
-                <div className="col-sm-2">
-                  ID DETENTORA
-                  <Input type="text" value={null} disabled />
-                </div>
-                <div className="col-sm-2">
-                  FCU
-                  <Input type="text" value={null} disabled />
-                </div>
-                <div className="col-sm-2">
-                  RSO_RSA_SCI_STATUS
-                  <Input type="text" value={null} disabled />
-                </div>
-                <div className="col-sm-6">
-                  ATIVIDADE
-                  <Input type="textarea" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-6">
-                  COMENTÁRIOS
-                  <Input type="textarea" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-2">
-                  OUTROS
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-4">
-                  FORMA DE ACESSO
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-1">
-                  DDD
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-2">
-                  MUNICÍPIO
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-3">
-                  NOME VIVO
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
-                </div>
+        </CardBody>
+        {/*ACESSO*/}
+        <b>Acesso</b>
+        <hr style={{ marginTop: '0px', width: '100%' }} />
+        <CardBody className="px-4 , pb-2">
+          <div className="row g-3">
+            <div className="col-sm-2">
+              OUTROS
+              <Input type="text" onChange={(e) => e.target.value} value={null} />
+            </div>
+            <div className="col-sm-4">
+              FORMA DE ACESSO
+              <Input type="text" onChange={(e) => e.target.value} value={null} />
+            </div>
+            <div className="col-sm-1">
+              DDD
+              <Input type="text" onChange={(e) => e.target.value} value={null} />
+            </div>
+            <div className="col-sm-2">
+              MUNICÍPIO
+              <Input type="text" onChange={(e) => e.target.value} value={municipio} />
+            </div>
+            <div className="col-sm-3">
+              NOME ERICSSON
+              <Input type="text" onChange={(e) => e.target.value} value={null} />
+            </div>
 
-                <div className="col-sm-6">
-                  ENDEREÇO
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-2">
-                  LATITUDE
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-2">
-                  LONGITUDE
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-2">
-                  OBS
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
-                </div>
+            <div className="col-sm-6">
+              ENDEREÇO
+              <Input type="text" onChange={(e) => e.target.value} value={enderecoSite} />
+            </div>
+            <div className="col-sm-2">
+              LATITUDE
+              <Input type="text" onChange={(e) => e.target.value} value={latitude} />
+            </div>
+            <div className="col-sm-2">
+              LONGITUDE
+              <Input type="text" onChange={(e) => e.target.value} value={longitude} />
+            </div>
+            <div className="col-sm-2">
+              OBS
+              <Input type="text" onChange={(e) => e.target.value} value={null} />
+            </div>
 
-                <div className="col-sm-4">
-                  SOLICITAÇÃO
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-2">
-                  DATA-SOLICITAÇÃO
-                  <Input type="date" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-2">
-                  DATA-INICIAL
-                  <Input type="date" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-2">
-                  DATA-FINAL
-                  <Input type="date" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-2">
-                  STATUS
-                  <Input
-                    type="select"
-                    name="statusacesso"
-                    onChange={(e) => e.target.value}
-                    value={null}
-                  >
-                    <option value="">Selecione</option>
-                    <option value="AGUARDANDO">AGUARDANDO</option>
-                    <option value="CANCELADO">CANCELADO</option>
-                    <option value="CONCLUIDO">CONCLUIDO</option>
-                    <option value="LIBERADO">LIBERADO</option>
-                    <option value="PEDIR">PEDIR</option>
-                    <option value="REJEITADO">REJEITADO</option>
-                  </Input>
-                </div>
-              </div>
-            </CardBody>
-          </div>
-
-          {/* === Acompanhamento Financeiro === */}
-          <div>
-            <b>Acompanhamento Financeiro</b>
-            <hr style={{ marginTop: '0px', width: '100%' }} />
-            <CardBody className="px-4 , pb-2">
-              <div className="row g-3">
-                <Box>
-                  <br />
-                </Box>
-              </div>
-            </CardBody>
-          </div>
-
-          {/* === Acompanhamento Físico === */}
-          <div>
-            <CardBody className="pb-0 bg-white">
-              <h5 className="mb-2 fw-bold">Acompanhamento Físico</h5>
-                <div className="row g-3">
-                  <div className="col-sm-4">
-                    Situação Implantação
-                    <Input
-                      type="select"
-                      onChange={(e) => setsituacaoimplantacao(e.target.value)}
-                      value={situacaoimplantacao}
-                      name="Tipo Pessoa"
-                    >
-                      <option>Selecione</option>
-                      <option>Aguardando aceite do ASP</option>
-                      <option>Aguardando agendamento Bluebee</option>
-                      <option>Aguardando definição de Equipe</option>
-                      <option>Cancelado</option>
-                      <option>Concluída</option>
-                      <option>Em Aceitação</option>
-                      <option>Fim do Período de Garantia</option>
-                      <option>Iniciando cancelamento da Obra</option>
-                      <option>Obra em Andamento</option>
-                      <option>Paralisada por HSE</option>
-                      <option>Período de Garantia</option>
-                      <option>Retomada planejada</option>
-                      <option>Revisar Finalização da Obra</option>
-                    </Input>
-                  </div>
-                  <div className="col-sm-4">
-                    Situação Integração
-                    <Input
-                      type="select"
-                      onChange={(e) => setsituacaodaintegracao(e.target.value)}
-                      value={situacaodaintegracao}
-                      name="Tipo Pessoa"
-                    >
-                      <option>Selecione</option>
-                      <option>Completa</option>
-                      <option>Em Andamento</option>
-                      <option>Não Iniciou</option>
-                    </Input>
-                  </div>
-                </div>
-
-                <hr />
-                <div className="row g-3">
-                  <div className="row g-3">
-                    <div className="col-sm-3">
-                      Data da Criação Demanda (Dia)
-                      <Input
-                        type="date"
-                        onChange={(e) => setdatadacriacaodademandadia(e.target.value)}
-                        value={datadacriacaodademandadia}
-                        placeholder="Descrição completa"
-                        disabled
-                      />
-                    </div>
-
-                    <div className="col-sm-3">
-                      Data de Aceite da Demanda (Dia)
-                      <Input
-                        type="date"
-                        onChange={(e) => setdataaceitedemandadia(e.target.value)}
-                        value={dataaceitedemandadia}
-                        placeholder="Descrição completa"
-                        disabled
-                      />
-                    </div>
-                  </div>
-
-                  <div className="row g-3">
-                    <div className="col-sm-3">
-                      Data de Início / Entrega (MOS - Planejado) (Dia)
-                      <Input
-                        type="date"
-                        onChange={(e) => setdatainicioentregamosplanejadodia(e.target.value)}
-                        value={datainicioentregamosplanejadodia}
-                        placeholder="Descrição completa"
-                      />
-                    </div>
-
-                    <div className="col-sm-3">
-                      Data de Recebimento do Site (MOS - Reportado) (Dia)
-                      <Input
-                        type="date"
-                        onChange={(e) => setdatarecebimentodositemosreportadodia(e.target.value)}
-                        value={datarecebimentodositemosreportadodia}
-                        placeholder="Código SKU ou referência"
-                        disabled
-                      />
-                    </div>
-                  </div>
-
-                  <div className="row g-3">
-                    <div className="col-sm-3">
-                      Data de Fim de Instalação (Planejado) (Dia)
-                      <Input
-                        type="date"
-                        onChange={(e) => setdatafiminstalacaoplanejadodia(e.target.value)}
-                        value={datafiminstalacaoplanejadodia}
-                        placeholder="Descrição completa"
-                      />
-                    </div>
-
-                    <div className="col-sm-3">
-                      Data de Conclusão (Reportado) (Dia)
-                      <Input
-                        type="date"
-                        onChange={(e) => setdataconclusaoreportadodia(e.target.value)}
-                        value={dataconclusaoreportadodia}
-                        placeholder="Descrição completa"
-                        disabled
-                      />
-                    </div>
-
-                    <div className="col-sm-3">
-                      Data de Validação da Instalação (Dia)
-                      <Input
-                        type="date"
-                        onChange={(e) => setdatavalidacaoinstalacaodia(e.target.value)}
-                        value={datavalidacaoinstalacaodia}
-                        placeholder="Código SKU ou referência"
-                        disabled
-                      />
-                    </div>
-                  </div>
-
-                  <div className="row g-3">
-                    <div className="col-sm-3">
-                      Data de Integração (Planejado) (Dia)
-                      <Input
-                        type="date"
-                        onChange={(e) => setdataintegracaoplanejadodia(e.target.value)}
-                        value={dataintegracaoplanejadodia}
-                        placeholder="Descrição completa"
-                      />
-                    </div>
-
-                    <div className="col-sm-3">
-                      Data de Validação ERIBOX
-                      <br />
-                      (Dia)
-                      <Input
-                        type="date"
-                        onChange={(e) => setdatavalidacaoeriboxedia(e.target.value)}
-                        value={datavalidacaoeriboxedia}
-                        placeholder="Descrição completa"
-                        disabled
-                      />
-                    </div>
-
-                    <div className="col-sm-3">
-                      Aceitação Final
-                      <br />
-                      (Dia)
-                      <Input
-                        type="date"
-                        onChange={(e) => setaceitacao(e.target.value)}
-                        value={aceitacao}
-                        placeholder="Descrição completa"
-                        disabled
-                      />
-                    </div>
-                  </div>
-                </div>
-                <br />
-                <div className="row g-3">
-                  <div className="col-sm-6">
-                    Pendências Obras
-                    <Input
-                      type="text"
-                      onChange={(e) => setpendencia(e.target.value)}
-                      value={pendencia}
-                      placeholder="Pendências Obras"
-                      disabled
-                    />
-                  </div>
-                </div>
-
-                <br />
-                <div className="row g-3">
-                  <div className=" col-sm-12 d-flex flex-row-reverse">
-                    <Button color="primary" onClick={() => novocadastrotarefa()}>
-                      Cadastrar Tarefa <Icon.Plus />
-                    </Button>
-                    {telacadastrotarefa ? (
-                      <>
-                        {' '}
-                        <Tarefaedicao
-                          show={telacadastrotarefa}
-                          setshow={settelacadastrotarefa}
-                          ididentificador={ididentificadortarefa}
-                          atualiza={listapormigo}
-                          titulotopo={titulotarefa}
-                          siteid={site}
-                          obra={numero}
-                        />{' '}
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-                <br />
-                <Box sx={{ height: '100%', width: '100%' }}>
-                  <DataGrid
-                    rows={listamigo}
-                    columns={columnsmigo}
-                    loading={loading}
-                    pageSize={pageSize}
-                    onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
-                    disableSelectionOnClick
-                    experimentalFeatures={{ newEditingApi: true }}
-                    components={{
-                      Pagination: CustomPagination,
-                      LoadingOverlay: LinearProgress,
-                      NoRowsOverlay: CustomNoRowsOverlay,
-                    }}
-                  />
-                </Box>
-
-                <div>
-                  <br />
-                  <b>Diárias</b>
-                  <hr style={{ marginTop: '0px', width: '100%' }} />
-                  <div className="row g-3">
-                    <CardBody className="px-4 , pb-2">
-                      <div className="row g-3">
-                        <div className="col-sm-6"></div>
-                        <div className=" col-sm-6 d-flex flex-row-reverse">
-                          <div className=" col-sm-6 d-flex flex-row-reverse">
-                            <Button color="primary" onClick={() => novocadastrodiaria()}>
-                              Solicitar Diária <Icon.Plus />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                      <br></br>
-                      <div className="row g-3">
-                        <Box sx={{ height: 400, width: '100%' }}>
-                          <DataGrid
-                            rows={solicitacaodiaria}
-                            columns={colunasdiarias}
-                            loading={loading}
-                            disableSelectionOnClick
-                            experimentalFeatures={{ newEditingApi: true }}
-                            components={{
-                              Pagination: CustomPagination,
-                              LoadingOverlay: LinearProgress,
-                              NoRowsOverlay: CustomNoRowsOverlay,
-                            }}
-                            paginationModel={paginationModeldiarias}
-                            onPaginationModelChange={setPaginationModeldiarias}
-                          />
-                        </Box>
-                      </div>
-                    </CardBody>
-                  </div>
-                </div>
-
-                {telaexclusaodiaria ? (
-                  <>
-                    {' '}
-                    <Excluirregistro
-                      show={telaexclusaodiaria}
-                      setshow={settelaexclusaodiaria}
-                      ididentificador={iddiaria}
-                      quemchamou="DIARIA"
-                      atualiza={listasolicitacaodiaria}
-                    />{' '}
-                  </>
-                ) : null}
-
-                {telacadastrosolicitacaodiaria ? (
-                  <Solicitardiaria
-                    show={telacadastrosolicitacaodiaria}
-                    setshow={settelacadastrosolicitacaodiaria}
-                    ididentificador={identificadorsolicitacaodiaria}
-                    atualiza={listasolicitacaodiaria}
-                    titulotopo={titulodiaria}
-                    numero={numero}
-                    idlocal={numero}
-                    sigla={regiona}
-                    clientelocal="ERICSSON"
-                    projetousual="ERICSSON"
-                    novo="0"
-                  />
-                ) : null}
-
-                <ToastContainer
-                  style={{ zIndex: 9999999 }}
-                  position="top-right"
-                  autoClose={2000}
-                  hideProgressBar={false}
-                  newestOnTop
-                  closeOnClick
-                  rtl={false}
-                  pauseOnFocusLoss
-                  draggable
-                  pauseOnHover
-                />
-
-                <div>
-                  <br />
-                  <b>Acionamentos</b>
-                  <hr style={{ marginTop: '0px', width: '100%' }} />
-                  <CardBody className="px-4 , pb-2">
-                    <div className="row g-3">
-                      <div className="col-sm-8">
-                        Colaborador CLT
-                        <Select
-                          isClearable
-                          isSearchable
-                          name="colaboradorclt"
-                          options={colaboradorlistaclt}
-                          placeholder="Selecione"
-                          isLoading={loading}
-                          onChange={(e) =>
-                            e ? (setselectedoptioncolaboradorclt(e), setidcolaboradorclt(e.value)) : setselectedoptioncolaboradorclt(null)
-                          }
-                          value={selectedoptioncolaboradorclt}
-                        />
-                      </div>
-                      <div className="col-sm-2">
-                        Data Início
-                        <Input type="date" onChange={(e) => setdatainicioclt(e.target.value)} value={datainicioclt} />
-                      </div>
-                      <div className="col-sm-2">
-                        Data Final
-                        <Input type="date" onChange={(e) => setdatafinalclt(e.target.value)} value={datafinalclt} />
-                      </div>
-                      <div className="col-sm-3">
-                        Horas Normais
-                        <Input type="number" onChange={(e) => sethoranormalclt(e.target.value)} value={horanormalclt} />
-                      </div>
-                      <div className="col-sm-3">
-                        Horas 50%
-                        <Input type="number" onChange={(e) => sethora50clt(e.target.value)} value={hora50clt} />
-                      </div>
-                      <div className="col-sm-3">
-                        Horas 100%
-                        <Input type="number" onChange={(e) => sethora100clt(e.target.value)} value={hora100clt} />
-                      </div>
-                      <div className="col-sm-3">
-                        Total de Horas
-                        <Input type="number" onChange={(e) => settotalhorasclt(e.target.value)} value={totalhorasclt} />
-                      </div>
-                      <div className="col-sm-12">
-                        Observação
-                        <Input type="textarea" onChange={(e) => setobservacaoclt(e.target.value)} value={observacaoclt} />
-                      </div>
-                    </div>
-                    <br />
-                    <div className=" col-sm-12 d-flex flex-row-reverse">
-                      <Button color="primary" onClick={execacionamentoclt} disabled={modoVisualizador()}>
-                        Adicionar Acionamento CLT <Icon.Plus />
-                      </Button>
-                    </div>
-                    <br />
-                    <Box sx={{ height: 300, width: '100%' }}>
-                      <DataGrid
-                        rows={pacotesacionadosclt}
-                        columns={colunaspacotesacionadosclt}
-                        loading={loading}
-                        disableSelectionOnClick
-                        components={{ Pagination: CustomPagination, LoadingOverlay: LinearProgress, NoRowsOverlay: CustomNoRowsOverlay }}
-                      />
-                    </Box>
-                    <hr />
-                    <div className="row g-3">
-                      <div className="col-sm-4">
-                        Empresa
-                        <Select
-                          isClearable
-                          isSearchable
-                          name="colaboradorpj"
-                          options={colaboradorlistapj}
-                          placeholder="Selecione"
-                          isLoading={loading}
-                          onChange={(e) =>
-                            e ? (setselectedoptioncolaboradorpj(e), setidcolaboradorpj(e.value)) : setselectedoptioncolaboradorpj(null)
-                          }
-                          value={selectedoptioncolaboradorpj}
-                        />
-                      </div>
-                      <div className="col-sm-2">
-                        Região
-                        <Input type="select" name="regiao" onChange={(e) => setregiao(e.target.value)} value={regiao}>
-                          <option value="">Selecione</option>
-                          <option value="CAPITAL">CAPITAL</option>
-                          <option value="INTERIOR">INTERIOR</option>
-                        </Input>
-                      </div>
-                      <div className="col-sm-4">
-                        LPUs
-                        <Select
-                          isClearable
-                          isSearchable
-                          name="lpuhistorico"
-                          options={lpulista}
-                          placeholder="Selecione"
-                          isLoading={loading}
-                          onChange={(e) => {
-                            if (e) {
-                              setlpuhistorico(e.label);
-                              setselectedoptionlpu(e);
-                              listapacotes(e.label);
-                            } else {
-                              setlpuhistorico('');
-                              setselectedoptionlpu(null);
-                            }
-                          }}
-                          value={selectedoptionlpu}
-                        />
-                      </div>
-                      <div className="col-sm-12">
-                        Observação
-                        <Input type="textarea" onChange={(e) => setobservacaopj(e.target.value)} value={observacaopj} />
-                      </div>
-                    </div>
-                    <br />
-                    <div className="row g-3">
-                      <Box sx={{ height: 300, width: '100%' }}>
-                        <DataGrid
-                          rows={pacotes}
-                          columns={colunaspacotes}
-                          loading={loading}
-                          checkboxSelection
-                          onRowSelectionModelChange={(m) => setRowSelectionModelpacotepj(m)}
-                          rowSelectionModel={rowSelectionModelpacotepj}
-                          disableSelectionOnClick
-                          components={{ Pagination: CustomPagination, LoadingOverlay: LinearProgress, NoRowsOverlay: CustomNoRowsOverlay }}
-                        />
-                      </Box>
-                    </div>
-                    <br />
-                    <div className=" col-sm-12 d-flex flex-row-reverse">
-                      <Button color="primary" onClick={execacionamentopj} disabled={modoVisualizador()}>
-                        Adicionar Acionamento PJ <Icon.Plus />
-                      </Button>
-                    </div>
-                    <br />
-                    <Box sx={{ height: 300, width: '100%' }}>
-                      <DataGrid
-                        rows={pacotesacionadospj}
-                        columns={colunaspacotesacionados}
-                        loading={loading}
-                        disableSelectionOnClick
-                        components={{ Pagination: CustomPagination, LoadingOverlay: LinearProgress, NoRowsOverlay: CustomNoRowsOverlay }}
-                      />
-                    </Box>
-                    <div className="row g-3 mt-2">
-                      <div className="col-sm-12">
-                        E-mail PJ
-                        <Input type="text" onChange={(e) => setcolaboradoremail(e.target.value)} value={colaboradoremail} />
-                      </div>
-                      <div className="col-sm-12">
-                        E-mails adicionais
-                        <Input type="text" onChange={(e) => setemailadcional(e.target.value)} value={emailadcional} />
-                      </div>
-                      <div className="col-sm-12">
-                        Anexo
-                        <div className="d-flex flex-row-reverse custom-file">
-                          <InputGroup>
-                            <Input type="file" onChange={(e) => setarquivoanexo(e.target.files[0])} className="custom-file-input" id="customFile3" />
-                            <Button color="primary" onClick={uploadanexo} disabled={modoVisualizador()}>
-                              Anexar{' '}
-                            </Button>
-                          </InputGroup>
-                        </div>
-                      </div>
-                      <div className=" col-sm-12 d-flex flex-row-reverse mt-2">
-                        <Button color="secondary" onClick={enviaremail} disabled={modoVisualizador()}>
-                          Enviar E-mail de Acionamento <Icon.Mail />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardBody>
-                </div>
-             
-            </CardBody>
+            <div className="col-sm-4">
+              SOLICITAÇÃO
+              <Input type="text" onChange={(e) => e.target.value} value={null} />
+            </div>
+            <div className="col-sm-2">
+              DATA-SOLICITAÇÃO
+              <Input type="date" onChange={(e) => e.target.value} value={null} />
+            </div>
+            <div className="col-sm-2">
+              DATA-INICIAL
+              <Input type="date" onChange={(e) => e.target.value} value={null} />
+            </div>
+            <div className="col-sm-2">
+              DATA-FINAL
+              <Input type="date" onChange={(e) => e.target.value} value={null} />
+            </div>
+            <div className="col-sm-2">
+              STATUS
+              <Input
+                type="select"
+                name="statusacesso"
+                onChange={(e) => e.target.value}
+                value={null}
+              >
+                <option value="">Selecione</option>
+                <option value="AGUARDANDO">AGUARDANDO</option>
+                <option value="CANCELADO">CANCELADO</option>
+                <option value="CONCLUIDO">CONCLUIDO</option>
+                <option value="LIBERADO">LIBERADO</option>
+                <option value="PEDIR">PEDIR</option>
+                <option value="REJEITADO">REJEITADO</option>
+              </Input>
+            </div>
           </div>
         </CardBody>
+        {/* === Acompanhamento Físico === */}
+        <br />
+        <b>Acompanhamento Físico</b>
+        <hr style={{ marginTop: '0px', width: '100%' }} />
+        <CardBody className="px-4 , pb-2">
+          <div className="row g-3">
+            <div className="col-sm-4">
+              Situação Implantação
+              <Input
+                type="select"
+                onChange={(e) => setsituacaoimplantacao(e.target.value)}
+                value={situacaoimplantacao}
+                name="Tipo Pessoa"
+              >
+                <option>Selecione</option>
+                <option>Aguardando aceite do ASP</option>
+                <option>Aguardando agendamento Bluebee</option>
+                <option>Aguardando definição de Equipe</option>
+                <option>Cancelado</option>
+                <option>Concluída</option>
+                <option>Em Aceitação</option>
+                <option>Fim do Período de Garantia</option>
+                <option>Iniciando cancelamento da Obra</option>
+                <option>Obra em Andamento</option>
+                <option>Paralisada por HSE</option>
+                <option>Período de Garantia</option>
+                <option>Retomada planejada</option>
+                <option>Revisar Finalização da Obra</option>
+              </Input>
+            </div>
+            <div className="col-sm-4">
+              Situação Integração
+              <Input
+                type="select"
+                onChange={(e) => setsituacaodaintegracao(e.target.value)}
+                value={situacaodaintegracao}
+                name="Tipo Pessoa"
+              >
+                <option>Selecione</option>
+                <option>Completa</option>
+                <option>Em Andamento</option>
+                <option>Não Iniciou</option>
+              </Input>
+            </div>
+          </div>
 
-        {/* === aqui continua o restante do formulário (Acesso, Financeiro, etc.) === */}
+          <div className="row g-3">
+            <div className="row g-3">
+              <div className="col-sm-4">
+                Data da Criação Demanda (Dia)
+                <Input
+                  type="date"
+                  onChange={(e) => setdatadacriacaodademandadia(e.target.value)}
+                  value={datadacriacaodademandadia}
+                  placeholder="Descrição completa"
+                  disabled
+                />
+              </div>
+
+              <div className="col-sm-4">
+                Data de Aceite da Demanda (Dia)
+                <Input
+                  type="date"
+                  onChange={(e) => setdataaceitedemandadia(e.target.value)}
+                  value={dataaceitedemandadia}
+                  placeholder="Descrição completa"
+                  disabled
+                />
+              </div>
+            </div>
+
+            <div className="row g-3">
+              <div className="col-sm-4">
+                Data de Início / Entrega (MOS - Planejado) (Dia)
+                <Input
+                  type="date"
+                  onChange={(e) => setdatainicioentregamosplanejadodia(e.target.value)}
+                  value={datainicioentregamosplanejadodia}
+                  placeholder="Descrição completa"
+                />
+              </div>
+
+              <div className="col-sm-4">
+                Data de Recebimento do Site (MOS - Reportado) (Dia)
+                <Input
+                  type="date"
+                  onChange={(e) => setdatarecebimentodositemosreportadodia(e.target.value)}
+                  value={datarecebimentodositemosreportadodia}
+                  placeholder="Código SKU ou referência"
+                  disabled
+                />
+              </div>
+            </div>
+
+            <div className="row g-3">
+              <div className="col-sm-4">
+                Data de Fim de Instalação (Planejado) (Dia)
+                <Input
+                  type="date"
+                  onChange={(e) => setdatafiminstalacaoplanejadodia(e.target.value)}
+                  value={datafiminstalacaoplanejadodia}
+                  placeholder="Descrição completa"
+                />
+              </div>
+
+              <div className="col-sm-4">
+                Data de Conclusão (Reportado) (Dia)
+                <Input
+                  type="date"
+                  onChange={(e) => setdataconclusaoreportadodia(e.target.value)}
+                  value={dataconclusaoreportadodia}
+                  placeholder="Descrição completa"
+                  disabled
+                />
+              </div>
+
+              <div className="col-sm-4">
+                Data de Validação da Instalação (Dia)
+                <Input
+                  type="date"
+                  onChange={(e) => setdatavalidacaoinstalacaodia(e.target.value)}
+                  value={datavalidacaoinstalacaodia}
+                  placeholder="Código SKU ou referência"
+                  disabled
+                />
+              </div>
+            </div>
+
+            <div className="row g-3">
+              <div className="col-sm-4">
+                Data de Integração (Planejado) (Dia)
+                <Input
+                  type="date"
+                  onChange={(e) => setdataintegracaoplanejadodia(e.target.value)}
+                  value={dataintegracaoplanejadodia}
+                  placeholder="Descrição completa"
+                />
+              </div>
+
+              <div className="col-sm-4">
+                Data de Validação ERIBOX (Dia)
+                <Input
+                  type="date"
+                  onChange={(e) => setdatavalidacaoeriboxedia(e.target.value)}
+                  value={datavalidacaoeriboxedia}
+                  placeholder="Descrição completa"
+                  disabled
+                />
+              </div>
+
+              <div className="col-sm-4">
+                Aceitação Final (Dia)
+                <Input
+                  type="date"
+                  onChange={(e) => setaceitacao(e.target.value)}
+                  value={aceitacao}
+                  placeholder="Descrição completa"
+                  disabled
+                />
+              </div>
+            </div>
+          </div>
+          <br />
+          <div className="row g-3">
+            <div className="col-sm-12">
+              Pendências Obras
+              <Input
+                type="text"
+                onChange={(e) => setpendencia(e.target.value)}
+                value={pendencia}
+                placeholder="Pendências Obras"
+                disabled
+              />
+            </div>
+          </div>
+        </CardBody>
+        <br />
+        <b>Tarefas</b>
+        <hr style={{ marginTop: '0px', width: '100%' }} />
+        <CardBody className="px-4 , pb-2">
+          <div className="row g-3">
+            <div className=" col-sm-12 d-flex flex-row-reverse">
+              <Button color="primary" onClick={() => novocadastrotarefa()}>
+                Cadastrar Tarefa <Icon.Plus />
+              </Button>
+              {telacadastrotarefa ? (
+                <>
+                  {' '}
+                  <Tarefaedicao
+                    show={telacadastrotarefa}
+                    setshow={settelacadastrotarefa}
+                    ididentificador={ididentificadortarefa}
+                    atualiza={listapormigo}
+                    titulotopo={titulotarefa}
+                    siteid={site}
+                    obra={numero}
+                  />{' '}
+                </>
+              ) : null}
+            </div>
+          </div>
+          <br />
+          <Box sx={{ height: '400%', width: '100%', minHeight: '20vh' }}>
+            <DataGrid
+              rows={listamigo}
+              columns={columnsmigo}
+              loading={loading}
+              pageSize={pageSize}
+              onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+              disableSelectionOnClick
+              experimentalFeatures={{ newEditingApi: true }}
+              components={{
+                Pagination: CustomPagination,
+                LoadingOverlay: LinearProgress,
+                NoRowsOverlay: CustomNoRowsOverlay,
+              }}
+              localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+              paginationModel={paginationModeltarefa}
+              onPaginationModelChange={setPaginationModeltarefa}
+            />
+
+          </Box>
+        </CardBody>
+        <br />
+        <b>Documentação</b>
+        <hr style={{ marginTop: '0px', width: '100%' }} />
+        <CardBody className="px-4 , pb-2">
+
+          INSTALAÇÃO (ARQUIVO DOCUMENTAÇÃO DA OBRA FINAL)
+          <Box sx={{ height: 400, width: '100%' }}>
+            <DataGrid
+              rows={documentacaoobrafinal}
+              columns={obrafinal}
+              loading={loading}
+              pageSize={pageSize}
+              onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+              disableSelectionOnClick
+              experimentalFeatures={{ newEditingApi: true }}
+              components={{
+                Pagination: CustomPagination,
+                LoadingOverlay: LinearProgress,
+                NoRowsOverlay: CustomNoRowsOverlay,
+              }}
+              localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+              paginationModel={paginationModelobrafinal}
+              onPaginationModelChange={setPaginationModelobrafinal}
+            />
+          </Box>
+          <br></br>
+          INSTALAÇÃO (ARQUIVO DOCUMENTAÇÃO CIVIL WORK)
+          <Box sx={{ height: 400, width: '100%' }}>
+            <DataGrid
+              rows={documentacaocivilwork}
+              columns={civilwork}
+              loading={loading}
+              pageSize={pageSize}
+              onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+              disableSelectionOnClick
+              experimentalFeatures={{ newEditingApi: true }}
+              components={{
+                Pagination: CustomPagination,
+                LoadingOverlay: LinearProgress,
+                NoRowsOverlay: CustomNoRowsOverlay,
+              }}
+              localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+              paginationModel={paginationModelcivilwork}
+              onPaginationModelChange={setPaginationModelcivilwork}
+            />
+          </Box>
+
+
+        </CardBody>
+        <br />
+        <b>Acionamentos</b>
+        <hr style={{ marginTop: '0px', width: '100%' }} />
+        <CardBody className="px-4 , pb-2">
+          <div className="row g-3">
+            <br />
+            Atividades
+            <hr style={{ marginTop: '0px', width: '100%' }} />
+            <Box sx={{ height: 400, width: '100%' }}>
+              <DataGrid
+                rows={poservicolista}
+                columns={columnsescopo}
+                loading={loading}
+                pageSize={pageSize}
+                onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+                disableSelectionOnClick
+                checkboxSelection
+                onRowSelectionModelChange={(newRowSelectionModel) => {
+                  setRowSelectionModel(newRowSelectionModel);
+                }}
+                rowSelectionModel={rowSelectionModel}
+                experimentalFeatures={{ newEditingApi: true }}
+                components={{
+                  Pagination: CustomPaginationclt,
+                  LoadingOverlay: LinearProgress,
+                  NoRowsOverlay: CustomNoRowsOverlay,
+                }}
+                //opções traduzidas da tabela
+                localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                paginationModel={paginationModeltarefa}
+                onPaginationModelChange={setPaginationModeltarefa}
+              />
+            </Box>
+          </div>
+          <br></br>
+          Dados do Colaborador CLT
+          <hr style={{ marginTop: '0px', width: '100%' }} />
+          <div className="row g-3">
+            <div className="col-sm-8">
+              Funcionário
+              <Select
+                isClearable
+                isSearchable
+                name="colaboradorclt"
+                options={colaboradorlistaclt}
+                placeholder="Selecione"
+                isLoading={loading}
+                onChange={handleChangecolaboradorclt}
+                value={selectedoptioncolaboradorclt}
+              />
+            </div>
+            <div className="col-sm-2">
+              Data Início
+              <Input
+                type="date"
+                onChange={(e) => setdatainicioclt(e.target.value)}
+                value={datainicioclt}
+              />
+            </div>
+            <div className="col-sm-2">
+              Data Final
+              <Input
+                type="date"
+                onChange={(e) => setdatafinalclt(e.target.value)}
+                value={datafinalclt}
+              />
+            </div>
+            <div className="col-sm-3">
+              Horas Normais
+              <Input
+                type="number"
+                onChange={(e) => sethoranormalclt(e.target.value)}
+                value={horanormalclt}
+              />
+            </div>
+            <div className="col-sm-3">
+              Horas 50%
+              <Input
+                type="number"
+                onChange={(e) => sethora50clt(e.target.value)}
+                value={hora50clt}
+              />
+            </div>
+            <div className="col-sm-3">
+              Horas 100%
+              <Input
+                type="number"
+                onChange={(e) => sethora100clt(e.target.value)}
+                value={hora100clt}
+              />
+            </div>
+            <div className="col-sm-3">
+              Total de Horas
+              <Input
+                type="number"
+                onChange={(e) => settotalhorasclt(e.target.value)}
+                value={totalhorasclt}
+              />
+            </div>
+            <div className="col-sm-12">
+              Observação
+              <Input
+                type="textarea"
+                onChange={(e) => setobservacaoclt(e.target.value)}
+                value={observacaoclt}
+              />
+            </div>
+          </div>
+          <br />
+          <div className=" col-sm-12 d-flex flex-row-reverse">
+            <Button
+              color="primary"
+              onClick={execacionamentoclt}
+              disabled={modoVisualizador()}
+            >
+              Adicionar Acionamento CLT <Icon.Plus />
+            </Button>
+          </div>
+          <br />
+          <Box sx={{ height: 400, width: '100%' }}>
+            <DataGrid
+              rows={pacotesacionadosclt}
+              columns={colunaspacotesacionadosclt}
+              loading={loading}
+              disableSelectionOnClick
+              components={{
+                Pagination: CustomPagination,
+                LoadingOverlay: LinearProgress,
+                NoRowsOverlay: CustomNoRowsOverlay,
+              }}
+              localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+              paginationModel={paginationModelacionamentoclt}
+              onPaginationModelChange={setPaginationModelacionamentoclt}
+            />
+          </Box>
+          <br />
+          Dados do Colaborador PJ
+          <hr style={{ marginTop: '0px', width: '100%' }} />
+          <div className="row g-3">
+            <div className="col-sm-4">
+              Empresa
+              <Select
+                isClearable
+                isSearchable
+                name="colaboradorpj"
+                options={colaboradorlistapj}
+                placeholder="Selecione"
+                isLoading={loading}
+                onChange={handleChangecolaboradorpj}
+                value={selectedoptioncolaboradorpj}
+              />
+            </div>
+            <div className="col-sm-4">
+              LPUs
+              <Select
+                isClearable
+                isSearchable
+                name="lpuhistorico"
+                options={lpulista}
+                placeholder="Selecione"
+                isLoading={loading}
+                onChange={handleChangelpu}
+                value={selectedoptionlpu}
+              />
+            </div>
+
+            {lpuhistorico === 'NEGOCIADO' && // mostra só quando NEGOCIADO
+              (usuario === '33' || usuario === '35' || usuario === '78') && ( // opcional: filtra por usuário
+                <div className="col-sm-2">
+                  Valor Negociado
+                  <NumericFormat
+                    className="form-control"
+                    value={valornegociado}
+                    thousandSeparator="."
+                    decimalSeparator=","
+                    prefix="R$ "
+                    allowNegative={false}
+                    decimalScale={2}
+                    fixedDecimalScale
+                    onValueChange={({ floatValue }) => setvalornegociado(floatValue || 0)}
+                  />
+                </div>
+              )}
+
+            <div className="col-sm-12">
+              Observação
+              <Input
+                type="textarea"
+                onChange={(e) => setobservacaopj(e.target.value)}
+                value={observacaopj}
+              />
+            </div>
+          </div>
+
+          <br />
+          <div className=" col-sm-12 d-flex flex-row-reverse">
+            <Button
+              color="primary"
+              onClick={svlista}
+              disabled={modoVisualizador()}
+            >
+              Adicionar Acionamento PJ <Icon.Plus />
+            </Button>
+          </div>
+          <br />
+          <Box sx={{ height: 400, width: '100%' }}>
+            <DataGrid
+              rows={atividadepjlista}
+              columns={colunaspacotesacionados}
+              loading={loading}
+              disableSelectionOnClick
+              components={{
+                Pagination: CustomPagination,
+                LoadingOverlay: LinearProgress,
+                NoRowsOverlay: CustomNoRowsOverlay,
+              }}
+              localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+              paginationModel={paginationModelatividadepj}
+              onPaginationModelChange={setPaginationModelatividadepj}
+            />
+          </Box>
+          <div className="row g-3 mt-2">
+            <div className="col-sm-12">
+              E-mail PJ
+              <Input
+                type="text"
+                onChange={(e) => setcolaboradoremail(e.target.value)}
+                value={colaboradoremail}
+              />
+            </div>
+            <div className="col-sm-12">
+              E-mails adicionais
+              <Input
+                type="text"
+                onChange={(e) => setemailadcional(e.target.value)}
+                value={emailadcional}
+              />
+            </div>
+            <div className="col-sm-12">
+              Anexo
+              <div className="d-flex flex-row-reverse custom-file">
+                <InputGroup>
+                  <Input
+                    type="file"
+                    onChange={(e) => setarquivoanexo(e.target.files[0])}
+                    className="custom-file-input"
+                    id="customFile3"
+                  />
+                  <Button
+                    color="primary"
+                    onClick={uploadanexo}
+                    disabled={modoVisualizador()}
+                  >
+                    Anexar{' '}
+                  </Button>
+                </InputGroup>
+              </div>
+            </div>
+            <div className=" col-sm-12 d-flex flex-row-reverse mt-2">
+              <Button color="secondary" onClick={enviaremail} disabled={modoVisualizador()}>
+                Enviar E-mail de Acionamento <Icon.Mail />
+              </Button>
+            </div>
+          </div>
+        </CardBody>
+        <br />
+        <b>Material e Serviço</b>
+        <hr style={{ marginTop: '0px', width: '100%' }} />
+        <CardBody className="px-4 , pb-2">
+          {/**MATERIAL */}
+          <div className="row g-3">
+            <div className=" col-sm-12 d-flex flex-row-reverse">
+              <Button
+                color="primary"
+                onClick={() => handleSolicitarMaterial()}
+                disabled={modoVisualizador()}
+              >
+                Solicitar Material/Serviço <Icon.Plus />
+              </Button>
+            </div>
+          </div>
+          <br></br>
+          <div className="row g-3">
+            <Box sx={{ height: 400, width: '100%' }}>
+              <DataGrid
+                rows={materialeservico}
+                columns={columnsdespesa}
+                loading={loadingFinanceiro}
+                pageSize={pageSize}
+                onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+                disableSelectionOnClick
+                experimentalFeatures={{ newEditingApi: true }}
+                components={{
+                  Pagination: CustomPagination,
+                  LoadingOverlay: LinearProgress,
+                  NoRowsOverlay: CustomNoRowsOverlay,
+                }}
+                localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                paginationModel={paginationModelmaterial}
+                onPaginationModelChange={setPaginationModelmaterial}
+              />
+            </Box>
+          </div>
+        </CardBody>
+        <br />
+        <b>Diárias</b>
+        <hr style={{ marginTop: '0px', width: '100%' }} />
+        <div className="row g-3">
+          <CardBody className="px-4 , pb-2">
+            <div className="row g-3">
+              <div className="col-sm-6"></div>
+              <div className=" col-sm-6 d-flex flex-row-reverse">
+                <div className=" col-sm-6 d-flex flex-row-reverse">
+                  <Button color="primary" onClick={() => novocadastrodiaria()}>
+                    Solicitar Diária <Icon.Plus />
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <br></br>
+            <div className="row g-3">
+              <Box sx={{ height: 400, width: '100%' }}>
+                <DataGrid
+                  rows={solicitacaodiaria}
+                  columns={colunasdiarias}
+                  loading={loading}
+                  disableSelectionOnClick
+                  experimentalFeatures={{ newEditingApi: true }}
+                  components={{
+                    Pagination: CustomPagination,
+                    LoadingOverlay: LinearProgress,
+                    NoRowsOverlay: CustomNoRowsOverlay,
+                  }}
+                  paginationModel={paginationModeldiarias}
+                  onPaginationModelChange={setPaginationModeldiarias}
+                />
+              </Box>
+            </div>
+          </CardBody>
+        </div>
+        <br />
+        {ericFechamento === 1 ? (<>
+          {/**Financeiro*/}
+          <b>Financeiro</b>
+          <hr style={{ marginTop: '0px', width: '100%' }} />
+          <CardBody className="px-4 , pb-2">
+            <>
+              ACIONAMENTO ERICSSON (VALOR PO)
+              <Box sx={{ height: 400, width: '100%' }}>
+                <DataGrid
+                  rows={listamigo}
+                  columns={valorpo}
+                  loading={loading}
+                  pageSize={pageSize}
+                  onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+                  disableSelectionOnClick
+                  experimentalFeatures={{ newEditingApi: true }}
+                  components={{
+                    Pagination: CustomPagination,
+                    LoadingOverlay: LinearProgress,
+                    NoRowsOverlay: CustomNoRowsOverlay,
+                  }}
+                  localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                  paginationModel={paginationModelvalorpo}
+                  onPaginationModelChange={setPaginationModelvalorpo}
+                />
+              </Box>
+              <br></br>
+              ACIONAMENTO PJ
+              <Box sx={{ height: 400, width: '100%' }}>
+                <DataGrid
+                  rows={atividadepjlista}
+                  columns={valorpopj}
+                  loading={loadingpj}
+                  pageSize={pageSize}
+                  onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+                  disableSelectionOnClick
+                  experimentalFeatures={{ newEditingApi: true }}
+                  components={{
+                    Pagination: CustomPagination,
+                    LoadingOverlay: LinearProgress,
+                    NoRowsOverlay: CustomNoRowsOverlay,
+                  }}
+                  localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                  paginationModel={paginationModelacionamentopj}
+                  onPaginationModelChange={setPaginationModelacionamentopj}
+                />
+              </Box>
+              <br></br>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                HISTORICO DE DESPESAS
+                <Typography variant="subtitle1" color="text.secondary">
+                  Valor total: <b>{totalfinanceiro?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} </b>
+                </Typography>
+              </div>
+
+              <Box sx={{ height: 400, width: '100%' }}>
+                <DataGrid
+                  rows={relatorioDespesas}
+                  columns={columnsFinanceiro}
+                  loading={loadingFinanceiro}
+                  pageSize={pageSize}
+                  onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+                  disableSelectionOnClick
+                  experimentalFeatures={{ newEditingApi: true }}
+                  components={{
+                    Pagination: CustomPagination,
+                    LoadingOverlay: LinearProgress,
+                    NoRowsOverlay: CustomNoRowsOverlay,
+                  }}
+                  localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                  paginationModel={paginationModeldespesas}
+                  onPaginationModelChange={setPaginationModeldespesas}
+                />
+              </Box>
+            </>
+          </CardBody>
+        </>) : null}
+
       </ModalBody>
 
-      <ModalFooter>
+      <ModalFooter className="bg-white">
         <Button
           color="success"
           onClick={() => {
@@ -1440,7 +2641,7 @@ Rolloutericssonedicao.propTypes = {
   ididentificador: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   titulotopo: PropTypes.string.isRequired,
   atualiza: PropTypes.func.isRequired,
-  ericssonSelecionado: PropTypes.object,
+  //  ericssonSelecionado: PropTypes.object,
 };
 
 export default Rolloutericssonedicao;

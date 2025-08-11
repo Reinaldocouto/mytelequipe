@@ -405,6 +405,7 @@ end;
 function TUsuario.Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
+  a : string;
 begin
   try
     qry := TFDQuery.Create(nil);
@@ -416,33 +417,9 @@ begin
       SQL.Add('Select ');
       SQL.Add(' * ');
       SQL.Add('From ');
-      SQL.Add('gesusuario WHERE gesusuario.idusuario is not null and gesusuario.idusuario =:id ');
+      SQL.Add('gesusuario WHERE gesusuario.idusuario is not null and gesusuario.idusuario =:id and deletado = 0 ');
       ParamByName('id').AsInteger := AQuery.Items['idcontroleacessobusca'].ToInteger;
-
-      if AQuery.ContainsKey('deletado') then
-      begin
-        if Length(AQuery.Items['deletado']) > 0 then
-        begin
-          SQL.Add('AND gesusuario.deletado = :deletado');
-          ParamByName('deletado').Value := AQuery.Items['deletado'].ToInteger;
-        end;
-      end;
-      if AQuery.ContainsKey('idcliente') then
-      begin
-        if Length(AQuery.Items['idcliente']) > 0 then
-        begin
-          SQL.Add('AND gesusuario.idcliente = :idcliente');
-          ParamByName('idcliente').Value := AQuery.Items['idcliente'].ToInteger;
-        end;
-      end;
-      if AQuery.ContainsKey('idloja') then
-      begin
-        if Length(AQuery.Items['idloja']) > 0 then
-        begin
-          SQL.Add('AND gesusuario.idloja = :idloja');
-          ParamByName('idloja').Value := AQuery.Items['idloja'].ToInteger;
-        end;
-      end;
+      a :=  AQuery.Items['idcontroleacessobusca'];
       Active := true;
     end;
     erro := '';

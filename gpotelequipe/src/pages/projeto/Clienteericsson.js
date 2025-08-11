@@ -48,9 +48,12 @@ export default function Clienteericsson() {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => currentYear - i); // últimos 10 anos
 
-function rolloutericsson() {
+
+  function rolloutericsson() {
     settelarolloutericsson(true);
-    }
+  }
+  console.log(rolloutericsson);
+
   function acionamentoericsson() {
     settelaacionamento(true);
   }
@@ -82,7 +85,7 @@ function rolloutericsson() {
     settelarelatoriofechamento(true);
   }
 
-  function limparFiltros() {}
+  function limparFiltros() { }
   const handleFilteroptionsregionalselectedChange = (event) => {
     const {
       target: { value },
@@ -107,7 +110,7 @@ function rolloutericsson() {
 
   const loadingoptionsregional = async () => {
     try {
-      const response = await api.get('v1/projetotelefonica/regionaltelefonica');
+      const response = await api.get('v1/projetoericsson/regionalericsson');
       setoptionsregional(response.data);
     } catch (err) {
       console.error(err.message);
@@ -203,7 +206,7 @@ function rolloutericsson() {
         </>
       ) : null}
 
-      
+
       <BreadCrumbs />
 
       <Card>

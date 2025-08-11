@@ -55,6 +55,7 @@ type
     function excluiracionamentopjzte(out erro: string): Boolean;
     function excluiracionamentopjtelefonica(out erro: string): Boolean;
     function excluit2(out erro: string): Boolean;
+    function excluiracionamentoclttelefonica(out erro: string): Boolean;
   end;
 
 implementation
@@ -797,6 +798,38 @@ begin
         Active := false;
         sql.Clear;
         SQL.Add('update acionamentovivo set deletado = 1 where id=:id ');
+        ParamByName('id').AsInteger := StrToInt(id);
+        ExecSQL;
+      end;
+      erro := '';
+      FConn.Commit;
+      result := true;
+    except
+      on ex: exception do
+      begin
+        erro := 'Erro ao excluir registro: ' + ex.Message;
+        Result := false;
+      end;
+    end;
+  finally
+    qry.Free;
+  end;
+end;
+
+function TExclusao.excluiracionamentoclttelefonica(out erro: string): Boolean;
+var
+  qry: TFDQuery;
+begin
+  try
+    qry := TFDQuery.Create(nil);
+    qry.connection := FConn;
+    try
+      FConn.StartTransaction;
+      with qry do
+      begin
+        Active := false;
+        sql.Clear;
+        SQL.Add('update acionamentovivoclt set deletado = 1 where id=:id ');
         ParamByName('id').AsInteger := StrToInt(id);
         ExecSQL;
       end;

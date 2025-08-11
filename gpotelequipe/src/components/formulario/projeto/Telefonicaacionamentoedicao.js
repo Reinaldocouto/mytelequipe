@@ -1093,18 +1093,20 @@ const Telefonicaacionamentoedicao = ({
     e.preventDefault();
     setmensagem('');
     setmensagemsucesso('');
+    const poservico = poservicolista.find((item) => item.id === rowSelectionModel[0]);
+
     api
       .post('v1/projetoericsson/listaatividadeclt/salva', {
         numero: ididentificador,
         //idposervico, //descrição serviços
-        //po,
+        po: poservico ? poservico.value : '',
         //escopo,
         idcolaboradorclt, //colaborador
         datainicioclt,
         datafinalclt,
         observacaoclt,
         totalhorasclt,
-        //descricaoservico,
+        descricaoservico: poservico.label,
         valorhora,
         horanormalclt,
         hora50clt,

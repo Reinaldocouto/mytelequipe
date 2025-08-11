@@ -207,7 +207,7 @@ begin
       SQL.Add('From ');
       SQL.Add('obraericssonmigo ');
       SQL.Add('Where ');
-      SQL.Add('obraericssonmigo.id Is Null ');
+      SQL.Add('(obraericssonmigo.id Is Null or obraericssonmigo.id = '''') ');
      //pesquisar
       if AQuery.ContainsKey('busca') then
       begin
