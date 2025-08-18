@@ -9,7 +9,6 @@
     <File Path="controller\cadastro\Controller.Empresas.pas"/>
     <File Path="controller\cadastro\Controller.Fornecedor.pas"/>
     <File Path="controller\cadastro\Controller.Marca.pas"/>
-    <File Path="controller\cadastro\Controller.Monitoramento.pas"/>
     <File Path="controller\cadastro\Controller.Multas.pas"/>
     <File Path="controller\cadastro\Controller.Pessoa.pas"/>
     <File Path="controller\cadastro\Controller.Produto.pas"/>
@@ -20,7 +19,6 @@
     <File Path="controller\configuracoes"/>
     <File Path="controller\configuracoes\Controller.Configempresafilial.pas"/>
     <File Path="controller\configuracoes\Controller.ConfigOrdemCompra.pas"/>
-    <File Path="controller\configuracoes\Controller.configuracaoemail.pas"/>
     <File Path="controller\configuracoes\Controller.configuracoesusuario.pas"/>
     <File Path="controller\configuracoes\Controller.Empresa.pas"/>
     <File Path="controller\configuracoes\Controller.Naturezaoperacao.pas"/>
@@ -65,10 +63,6 @@
     <File Path="cron"/>
     <File Path="cron\Cron.Huawei.pas"/>
     <File Path="cron\Cron.VerificaData.pas"/>
-    <File Path="documents"/>
-    <File Path="documents\cartataf.xlsm"/>
-    <File Path="documents\cartatafcsv.csv"/>
-    <File Path="documents\~$cartataf.xlsm"/>
     <File Path="funcoes"/>
     <File Path="funcoes\UtFuncao.pas"/>
     <File Path="funcoes\UtXMLcompraSAURUSpTABELA.pas"/>
@@ -81,7 +75,6 @@
     <File Path="model\cadastro\Model.Fornecedor.pas"/>
     <File Path="model\cadastro\Model.HistoricoVeiculo.pas"/>
     <File Path="model\cadastro\Model.Marca.pas"/>
-    <File Path="model\cadastro\Model.Monitoramento.pas"/>
     <File Path="model\cadastro\Model.Multas.pas"/>
     <File Path="model\cadastro\Model.Pessoa.pas"/>
     <File Path="model\cadastro\Model.Produto.pas"/>
@@ -92,7 +85,6 @@
     <File Path="model\configuracoes"/>
     <File Path="model\configuracoes\Model.Configempresafilial.pas"/>
     <File Path="model\configuracoes\Model.ConfigOrdemCompra.pas"/>
-    <File Path="model\configuracoes\Model.ConfiguracaoEmail.pas"/>
     <File Path="model\configuracoes\model.configuracoesusuario.pas"/>
     <File Path="model\configuracoes\Model.Empresa.pas"/>
     <File Path="model\configuracoes\Model.Naturezaoperacao.pas"/>
@@ -140,12 +132,4 @@
     <File Path="model\Model.RegrasdeNegocio.pas"/>
     <File Path="Controller.HistoricoVeiculo.pas"/>
   </ProjectSortOrder>
-	<Transactions>
-    <Transaction>2025/06/17 01:16:12.000.490,=C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\Unit1.pas</Transaction>
-    <Transaction>2025/06/17 01:17:44.000.922,C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\controller\cadastro\Controller.Monitoramento.pas=C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\Unit1.pas</Transaction>
-    <Transaction>2025/06/17 01:18:36.000.489,=C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\Unit1.pas</Transaction>
-    <Transaction>2025/06/17 01:21:22.000.225,C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\model\cadastro\Model.Monitoramento.pas=C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\Unit1.pas</Transaction>
-    <Transaction>2025/06/29 20:36:16.000.126,=C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\controller\cadastro\Controller.Monitoramento.pas</Transaction>
-    <Transaction>2025/06/29 20:37:45.000.153,=C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\model\cadastro\Model.Monitoramento.pas</Transaction>
-  </Transactions>
 </BorlandProject>

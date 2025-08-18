@@ -1,4 +1,4 @@
-﻿unit Controller.Multas;
+unit Controller.Multas;
 
 interface
 
@@ -12,7 +12,6 @@ procedure Listaid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure Salva(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure Novocadastro(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure BuscaMultaPorPlacaData(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-procedure DebitarMulta(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 implementation
 
@@ -22,7 +21,6 @@ begin
   THorse.get('v1/multasid', Listaid);
   THorse.get('v1/multas/placadata', BuscaMultaPorPlacaData);
   THorse.post('v1/multas', Salva);
-  THorse.post('v1/multas/debitados', DebitarMulta);
   THorse.post('v1/multas/novocadastro', Novocadastro);
 end;
 
@@ -184,32 +182,6 @@ begin
     end;
   finally
     qry.Free;
-    servico.Free;
-  end;
-end;
-
-procedure DebitarMulta(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TMultas;
-  body: TJSONValue;
-  erro: string;
-begin
-  servico := TMultas.Create;
-  try
-    try
-      body := Req.Body<TJSONObject>;
-      servico.idsMultas := body.GetValue<string>('ids', '');
-
-
-      if servico.TransformaDebitado(erro) then
-        Res.Send<TJSONObject>(CreateJsonObj('retorno', 'Salvo com sucesso')).Status(THTTPStatus.Created)
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-    except
-      on ex: Exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
-    end;
-  finally
     servico.Free;
   end;
 end;

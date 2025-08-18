@@ -34,8 +34,6 @@ procedure Salvaatividadepj(Req: THorseRequest; Res: THorseResponse; Next: TProc)
 
 procedure criartarefa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
-procedure rollouthuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 implementation
 
 procedure Registry;
@@ -50,7 +48,6 @@ begin
   THorse.get('v1/projetohuawei/listaacionamento', listaacionamento);
   THorse.post('v1/projetohuawei/listaatividadepj/salva', Salvaatividadepj);
   THorse.Post('v1/projetohuawei/criartarefa', criartarefa);
-  THorse.Get('v1/rollouthuawei', rollouthuawei);
 end;
 
 
@@ -126,8 +123,6 @@ begin
       body := Req.body<TJSONObject>;
 
       servico.os := body.getvalue<string>('os', '');
-      servico.observacaopj := body.getvalue<string>('observacao', '');
-      servico.id := body.getvalue<string>('id', '');
 {      servico.projeto := body.getvalue<string>('projeto', '');
       servico.supervisor := body.getvalue<string>('supervisor', '');
       servico.concentrador := body.getvalue<string>('concentrador', '');
@@ -586,34 +581,6 @@ begin
       Res.Send('Erro ao deletar o registro').Status(THTTPStatus.InternalServerError);
   finally
     huaweiModel.Free;
-  end;
-end;
-
-procedure rollouthuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: Thuawei;
-  qry: TFDQuery;
-  erro: string;
-begin
-  servico := Thuawei.Create;
-  try
-    qry := servico.rollouthuawei(Req.Query.Dictionary, erro);
-    try
-      if Assigned(qry) then
-      begin
-        if (erro = '') or (erro = 'Nenhum registro ativo encontrado') then
-          Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
-        else
-          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-      end
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', 'Falha ao executar consulta')).Status(THTTPStatus.InternalServerError);
-    finally
-      if Assigned(qry) then
-        qry.Free;
-    end;
-  finally
-    servico.Free;
   end;
 end;
 

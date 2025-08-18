@@ -42,7 +42,6 @@ export default function Veiculos() {
   const [statusveiculo, setstatusveiculo] = useState('');
   const [ididentificador, setididentificador] = useState(0);
   const [ididentificadordespesas, setididentificadordespesas] = useState(0);
-  const [selectedLancarDespesas, setSelectedLancarDespesas] = useState(0);
   const [permission, setpermission] = useState(0);
   const [showGraphs, setShowGraphs] = useState(false);
   const [telalancamentodespesas, setTelalancamentodespesas] = useState(false);
@@ -183,7 +182,6 @@ export default function Veiculos() {
                 if (response.status === 201) {
                   setididentificadordespesas(response.data.retorno);
                   setTelalancamentodespesas(true);
-                  setSelectedLancarDespesas(parametros.row);
                 } else {
                   setmensagem(response.status);
                 }
@@ -306,7 +304,6 @@ export default function Veiculos() {
         show={telalancamentodespesas}
         setshow={setTelalancamentodespesas}
         atualiza={() => {}}
-        selectedLancarDespesas={selectedLancarDespesas}
         titulotopo="Cadastro da despesa"
         ididentificador={ididentificadordespesas}
       />

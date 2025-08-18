@@ -17,20 +17,20 @@ import {
   //  TextField
 } from '@mui/material';
 import BreadCrumbs from '../../layouts/breadcrumbs/BreadCrumbs';
-import Rolloutericsson from '../rollout/Rolloutericsson';
+//import Rolloutericsson from '../rollout/Rolloutericsson';
 import Ericssonacionamento from '../../components/formulario/projeto/Ericssonacionamento';
 import Ericssonadicional from '../../components/formulario/projeto/Ericssonadicional';
 import Ericssoncontrolelpu from '../../components/formulario/projeto/Ericssoncontrolelpu';
 import Ericssonfechamento from '../../components/formulario/projeto/Ericssonfechamento';
+import RelatoriofechamentohistoricoEricsson from '../../components/formulario/relatorio/Relatoriofechamentohistoricoericsson';
 import Relatoriopoxfaturado from '../../components/formulario/relatorio/Relatoriopoxfaturado';
 import Relatoriototalacionamento from '../../components/formulario/relatorio/Relatoriototalacionamento';
-import Relatoriofechamento from '../../components/formulario/relatorio/Relatoriofechamento';
 import Relatoriodespesa from '../../components/formulario/relatorio/Relatoriodespesa';
 import Demonstrativoview from '../../components/formulario/demonstrativo/Demonstrativoview';
 import api from '../../services/api';
 
 export default function Clienteericsson() {
-  const [telarolloutericsson, settelarolloutericsson] = useState(false);
+//  const [telarolloutericsson, settelarolloutericsson] = useState(false);
   const [telaacionamento, settelaacionamento] = useState('');
   const [telaadicional, settelaadicional] = useState('');
   const [telalpu, settelalpu] = useState('');
@@ -48,9 +48,8 @@ export default function Clienteericsson() {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => currentYear - i); // últimos 10 anos
 
-
   function rolloutericsson() {
-    settelarolloutericsson(true);
+   // settelarolloutericsson(true);
   }
   console.log(rolloutericsson);
 
@@ -85,7 +84,7 @@ export default function Clienteericsson() {
     settelarelatoriofechamento(true);
   }
 
-  function limparFiltros() { }
+  function limparFiltros() {}
   const handleFilteroptionsregionalselectedChange = (event) => {
     const {
       target: { value },
@@ -150,9 +149,9 @@ export default function Clienteericsson() {
 
   return (
     <div className="col-sm-12">
-      {telarolloutericsson && (
+    {/*  {telarolloutericsson && (
         <Rolloutericsson show={telarolloutericsson} setshow={settelarolloutericsson} />
-      )}
+      )}  */}
 
       {telaacionamento ? (
         <>
@@ -194,7 +193,7 @@ export default function Clienteericsson() {
       ) : null}
       {telarelatoriofechamento ? (
         <>
-          <Relatoriofechamento
+          <RelatoriofechamentohistoricoEricsson
             show={telarelatoriofechamento}
             setshow={settelarelatoriofechamento}
           />
@@ -206,8 +205,8 @@ export default function Clienteericsson() {
         </>
       ) : null}
 
-
       <BreadCrumbs />
+
 
       <Card>
         <CardContent style={{ backgroundColor: 'white' }}>
@@ -480,10 +479,10 @@ export default function Clienteericsson() {
         <Box p={2}>
           <Typography variant="h6">Opções</Typography>
           <CardBody style={{ backgroundColor: 'white' }}>
-            <Button color="link" onClick={() => rolloutericsson()}>
+          {/*  <Button color="link" onClick={() => rolloutericsson()}>
               Rollout
             </Button>
-            <br></br>
+            <br></br> */}
             <Button color="link" onClick={() => acionamentoericsson()}>
               Acionamento
             </Button>

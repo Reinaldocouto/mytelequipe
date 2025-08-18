@@ -26,10 +26,6 @@ type
     Fcategoria: string;
     Fperiodicidade: string;
     Fperiodo: string;
-    Fparceladoem: string;
-    Fvalordaparcela: string;
-    Fdespesacadastradapor: string;
-    FdataInicio: string;
 
   public
     constructor Create;
@@ -46,16 +42,11 @@ type
     property valordespesa: string read Fvalordespesa write Fvalordespesa;
     property descricao: string read Fdescricao write Fdescricao;
     property periodo: string read Fperiodo write Fperiodo;
-    property valordaparcela: string read Fvalordaparcela write Fvalordaparcela;
     property comprovante: string read Fcomprovante write Fcomprovante;
     property observacao: string read Fobservacao write Fobservacao;
     property idempresa: integer read Fidempresa write Fidempresa;
     property idpessoa: integer read Fidpessoa write Fidpessoa;
     property idveiculo: integer read Fidveiculo write Fidveiculo;
-    property dataInicio: string read FdataInicio write FdataInicio;
-    property parceladoEm: string read FparceladoEm write FparceladoEm;
-    property despesacadastradapor: string read Fdespesacadastradapor write Fdespesacadastradapor;
-
 
     function Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
@@ -146,46 +137,26 @@ begin
         begin
           Active := false;
           sql.Clear;
-          SQL.Add('INSERT INTO gesdespesas(iddespesas, datalancamento, parceladoem, datainicio, valorparcela, despesacadastradapor, ');
+          SQL.Add('INSERT INTO gesdespesas(iddespesas, datalancamento, ');
           SQL.Add('valordespesa, descricao, comprovante, observacao, ');
-          SQL.Add('idempresa, idpessoa, idveiculo, deletado, idcliente, idloja, ');
-          SQL.Add('periodo, periodicidade, categoria, datadocadastro) ');
-          SQL.Add('VALUES(:iddespesas, :datalancamento, :parceladoem, :datainicio, :valorparcela, :despesacadastradapor, ');
-          SQL.Add(':valordespesa, :descricao, :comprovante, :observacao, ');
-          SQL.Add(':idempresa, :idpessoa, :idveiculo, :deletado, :idcliente, :idloja, ');
-          SQL.Add(':periodo, :periodicidade, :categoria, :datadocadastro)');
-          Params.ParamByName('datadocadastro').AsDateTime := Now;
-
+          SQL.Add('idempresa, idpessoa, idveiculo, deletado, idcliente, idloja)');
+          SQL.Add('    VALUES(:iddespesas, :datalancamento, :valordespesa, ');
+          SQL.Add(':descricao, :comprovante, :observacao, ');
+          SQL.Add(':idempresa, :idpessoa, :idveiculo,:deletado, :idcliente, :idloja, ');
+          SQL.Add('periodo =:periodo, :periodicidade, :categoria)');
         end
         else
         begin
         Active := false;
         sql.Clear;
-        SQL.Add('UPDATE gesdespesas SET ');
-        SQL.Add('DELETADO = :DELETADO, ');
-        SQL.Add('parceladoem = :parceladoem, ');
-        SQL.Add('datainicio = :datainicio, ');
-        SQL.Add('valorparcela = :valorparcela, ');
-        SQL.Add('despesacadastradapor = :despesacadastradapor, ');
-        SQL.Add('datalancamento = :datalancamento, ');
-        SQL.Add('valordespesa = :valordespesa, ');
-        SQL.Add('descricao = :descricao, ');
-        SQL.Add('comprovante = :comprovante, ');
-        SQL.Add('categoria = :categoria, ');
-        SQL.Add('periodicidade = :periodicidade, ');
-        SQL.Add('periodo = :periodo, ');
-        SQL.Add('observacao = :observacao, ');
-        SQL.Add('idempresa = :idempresa, ');
-        SQL.Add('idpessoa = :idpessoa, ');
-        SQL.Add('idveiculo = :idveiculo ');
+        SQL.Add('UPDATE gesdespesas SET DELETADO = :DELETADO, ');
+        SQL.Add('datalancamento = :datalancamento, valordespesa = :valordespesa, ');
+        SQL.Add('descricao = :descricao, comprovante = :comprovante, categoria = :categoria, ');
+        SQL.Add('periodicidade = :periodicidade, periodo =:periodo, observacao = :observacao, ');
+        SQL.Add('idempresa = :idempresa, idpessoa = :idpessoa, idveiculo = :idveiculo ');
         SQL.Add('WHERE idcliente = :idcliente AND idloja = :idloja AND iddespesas = :iddespesas');
 
-
         end;
-        ParamByName('parceladoem').Value := parceladoem;
-        ParamByName('datainicio').Value := datainicio;
-        ParamByName('valorparcela').Value := valordaparcela;
-        ParamByName('despesacadastradapor').Value := despesacadastradapor;
         ParamByName('iddespesas').AsInteger := iddespesas;
         ParamByName('datalancamento').Value := datalancamento;
         ParamByName('valordespesa').Value := valordespesa;
@@ -225,38 +196,17 @@ begin
               qInsert.SQL.Text := 'INSERT INTO historicoveiculo (' +
                 'iniciolocacaohistorico, fimlocacaohistorico, valordespesa, descricao,placa, empresa, funcionario, categoria, periodicidade) ' +
                 'VALUES (:iniciolocacaohistorico, :fimlocacaohistorico, :valordespesa, :descricao, :placa, :empresa, :funcionario, :categoria, :periodicidade)';
-              qInsert.ParamByName('iniciolocacaohistorico').DataType := ftDate;
               qInsert.ParamByName('iniciolocacaohistorico').Value := qHist.FieldByName('iniciolocacao').Value;
-              qInsert.ParamByName('fimlocacaohistorico').DataType := ftDate;
-
               qInsert.ParamByName('fimlocacaohistorico').Value := qHist.FieldByName('fimlocacao').Value;
               qInsert.ParamByName('valordespesa').Value := valordespesa;
-              qInsert.ParamByName('descricao').DataType := ftString;
-              if Trim(descricao) <> '' then
-              begin
-                qInsert.ParamByName('descricao').Value := descricao;
-              end;
-
-              qInsert.ParamByName('placa').Value := qHist.FieldByName('placa').AsString;
-              qInsert.ParamByName('empresa').Value := qHist.FieldByName('empresa').AsString;
+              qInsert.ParamByName('descricao').Value := descricao;
+              qInsert.ParamByName('placa').Value := qHist.FieldByName('placa').Value;
+              qInsert.ParamByName('empresa').Value := qHist.FieldByName('empresa').Value;
               // Caso não tenhamos info de funcionario, deixa nulo ou string vazia
-              qInsert.ParamByName('funcionario').DataType := ftString;
-
-              if qHist.FieldDefs.IndexOf('funcionario') <> -1 then
-              begin
-                if not qHist.FieldByName('funcionario').IsNull then
-                begin
-                  qInsert.ParamByName('funcionario').Value := qHist.FieldByName('funcionario').AsString
-                end
-                else
-                  qInsert.ParamByName('funcionario').Clear;
-              end
-              else
-                qInsert.ParamByName('funcionario').Clear; // ou .Value := ''; depende da sua lógica
-
+              qInsert.ParamByName('funcionario').Value := funcionario;   //ta errado
               // categoria no histórico = classificacao em gesveiculos
-              qInsert.ParamByName('categoria').Value := qHist.FieldByName('categoria').AsString;
-              qInsert.ParamByName('periodicidade').Value := qHist.FieldByName('periodicidade').AsString;
+              qInsert.ParamByName('categoria').Value := qHist.FieldByName('categoria').Value;
+              qInsert.ParamByName('periodicidade').Value := qHist.FieldByName('periodicidade').Value;
               qInsert.ExecSQL;
             finally
               qInsert.Free;
@@ -296,19 +246,12 @@ begin
       SQL.Add('Select ');
       SQL.Add('gesdespesas.iddespesas as id, ');
       SQL.Add('DATE_FORMAT(gesdespesas.datalancamento,''%d/%m/%Y'') as datalancamento, ');
-      SQL.Add('DATE_FORMAT(gesdespesas.datadocadastro,''%d/%m/%Y'') as datadocadastro, ');
-      SQL.Add('DATE_FORMAT(gesdespesas.datainicio,''%d/%m/%Y'') as datainicio, ');
       SQL.Add('gesdespesas.valordespesa, ');
-      SQL.Add('gesdespesas.valorparcela, ');
       SQL.Add('gesdespesas.descricao, ');
       SQL.Add('gesdespesas.comprovante, ');
       SQL.Add('gesdespesas.observacao, ');
       SQL.Add('gesdespesas.idcliente, ');
       SQL.Add('gesdespesas.idloja, ');
-      SQL.Add('gesdespesas.despesacadastradapor, ');
-      SQL.Add('gesdespesas.parceladoem, ');
-      SQL.Add('gesdespesas.categoria, ');
-      SQL.Add('gesdespesas.periodicidade, ');
       SQL.Add('gesempresas.nome as empresa, ');
       SQL.Add('gespessoa.nome as funcionario, ');
       SQL.Add('gesveiculos.modelo as veiculo, '); //ver aqui depois

@@ -61,7 +61,6 @@ const Clientetelefonica = Loadable(lazy(() => import('../pages/projeto/Clientete
 //Projetos
 const Fechamentoericsson = Loadable(lazy(() => import('../pages/fechamento/Fechamentoericsson')));
 const Fechamentocosmx = Loadable(lazy(() => import('../pages/fechamento/Fechamentocosmx')));
-const Rollouthuawei = Loadable(lazy(() => import('../pages/rollout/Rollouthuawei')));
 
 //comercial
 const Comercial = Loadable(lazy(() => import('../pages/comercial/Comercial')));
@@ -356,16 +355,6 @@ const ThemeRoutes = [
         element: (
           <Private>
             <Fechamentocosmx />
-          </Private>
-        ),
-      },
-      {
-        path: '/rollout/huawei',
-        name: 'Rollouthuawei',
-        exact: true,
-        element: (
-          <Private>
-            <Rollouthuawei />
           </Private>
         ),
       },

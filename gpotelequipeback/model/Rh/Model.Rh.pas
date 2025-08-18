@@ -21,11 +21,11 @@ type
     constructor Create;
     destructor Destroy; override;
 
-    function ListaConvenio(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listafolhapagamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listavaletransporte(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listamulta(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listaticket(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function Listaconvenio(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listafolhaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 //    function Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 //    function Inserir(out erro: string): Boolean;
@@ -190,6 +190,55 @@ end;
 
 }
 
+function Trh.Listaconvenio(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+begin
+  try
+    qry := TFDQuery.Create(nil);
+    qry.connection := FConn;
+    with qry do
+    begin
+      Active := false;
+      SQL.Clear;
+      sql.add('SET @contador := 0; ');
+      sql.add('SELECT ');
+      sql.add('@contador := @contador + 1 AS id, ');
+      SQL.Add('convenio.codigo, ');
+      SQL.Add('gespessoa.nome, ');
+      SQL.Add('gespessoa.datanascimento, ');
+      SQL.Add('YEAR(CURDATE()) - YEAR(gespessoa.datanascimento) - ');
+      SQL.Add('(CASE ');
+      SQL.Add('WHEN MONTH(CURDATE()) < MONTH(gespessoa.datanascimento) OR ');
+      SQL.Add('(MONTH(CURDATE()) = MONTH(gespessoa.datanascimento) AND DAY(CURDATE()) < DAY(gespessoa.datanascimento)) ');
+      SQL.Add('THEN 1 ');
+      SQL.Add('ELSE 0 ');
+      SQL.Add('END) AS idade, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(convenio.portototal, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) as portototal, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(convenio.colaborador07, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) as colaborador07, ');
+      SQL.Add('convenio.dependente, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(convenio.descontocolaborador, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) as descontocolaborador, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(convenio.valorempresa, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) as valorempresa, ');
+      SQL.Add('convenio.periodo ');
+      SQL.Add('From ');
+      SQL.Add('convenio Left Join ');
+      SQL.Add('gespessoa On gespessoa.nregistro = convenio.codigo ');
+      SQL.Add('Where ');
+      SQL.Add('gespessoa.empresa = 148 and periodo=:periodo order by gespessoa.nome  ');
+      parambyname('periodo').asstring := AQuery.Items['datafolha'];
+      Active := true;
+    end;
+    erro := '';
+    Result := qry;
+  except
+    on ex: exception do
+    begin
+      erro := 'Erro ao consultar : ' + ex.Message;
+      Result := nil;
+    end;
+  end;
+end;
+
 function Trh.Listafolhaid(const AQuery: TDictionary<string, string>;
   out erro: string): TFDQuery;
 var
@@ -237,95 +286,6 @@ function Trh.Listafolhapagamento(const AQuery: TDictionary<string, string>; out 
 var
   qry: TFDQuery;
 begin
-  Result := nil;
-  erro := '';
-  qry := TFDQuery.Create(nil);
-
-  try
-    qry.Connection := FConn;
-    qry.SQL.BeginUpdate;
-    try
-      qry.SQL.Clear;
-
-      // Consulta SQL otimizada
-      qry.SQL.Add('SET @contador := 0;');
-      qry.SQL.Add('SELECT');
-      qry.SQL.Add('  @contador := @contador + 1 AS id,');
-      qry.SQL.Add('  d.codigo,');
-      qry.SQL.Add('  d.Nome,');
-      qry.SQL.Add('  d.competencia,');
-      qry.SQL.Add('  gespessoa.tipopessoa,');
-      qry.SQL.Add('  gespessoa.dataadmissao,');
-      qry.SQL.Add('  gespessoa.cargo,');
-      qry.SQL.Add('  gespessoa.cbo,');
-      qry.SQL.Add('  gespessoa.cpf,');
-      qry.SQL.Add('  CONCAT(''R$ '', FORMAT(d.salario, 2, ''de_DE'')) AS salario,');
-      qry.SQL.Add('  CONCAT(''R$ '', FORMAT(SUM(d.provento), 2, ''de_DE'')) AS provento,');
-      qry.SQL.Add('  CONCAT(''R$ '', FORMAT(SUM(d.desconto), 2, ''de_DE'')) AS desconto,');
-      qry.SQL.Add('  CONCAT(''R$ '', FORMAT(SUM(d.liquido), 2, ''de_DE'')) AS liquido');
-      qry.SQL.Add('FROM (');
-      qry.SQL.Add('  SELECT codigo, Nome, competencia, salario, 0 AS provento, 0 AS desconto, 0 AS liquido');
-      qry.SQL.Add('  FROM gesfolhapagamento');
-      qry.SQL.Add('  WHERE competencia = :periodo');
-      qry.SQL.Add('  GROUP BY codigo');
-      qry.SQL.Add('  UNION ALL');
-      qry.SQL.Add('  SELECT codigo, Nome, competencia, salario, Provento, 0, 0');
-      qry.SQL.Add('  FROM gesfolhapagamento');
-      qry.SQL.Add('  WHERE competencia = :periodo AND lancamento = ''Proventos''');
-      qry.SQL.Add('  UNION ALL');
-      qry.SQL.Add('  SELECT codigo, Nome, competencia, salario, 0, Desconto, 0');
-      qry.SQL.Add('  FROM gesfolhapagamento');
-      qry.SQL.Add('  WHERE competencia = :periodo AND lancamento = ''Descontos''');
-      qry.SQL.Add('  UNION ALL');
-      qry.SQL.Add('  SELECT codigo, Nome, competencia, salario, 0, 0, liquido');
-      qry.SQL.Add('  FROM gesfolhapagamento');
-      qry.SQL.Add('  WHERE competencia = :periodo AND lancamento = ''líquido''');
-      qry.SQL.Add(') AS d');
-      qry.SQL.Add('INNER JOIN gespessoa ON gespessoa.nregistro = d.codigo');
-      qry.SQL.Add('WHERE d.competencia = :periodo');
-      qry.SQL.Add('GROUP BY d.codigo');
-      qry.SQL.Add('ORDER BY d.Nome');
-
-      qry.SQL.EndUpdate;
-
-      // Parâmetro seguro
-      if AQuery.ContainsKey('datafolha') then
-        qry.ParamByName('periodo').AsString := AQuery['datafolha']
-      else
-        raise Exception.Create('Parâmetro "datafolha" não encontrado');
-
-      qry.Open;
-      Result := qry;
-
-    except
-      on E: Exception do
-      begin
-        qry.Free;
-        raise;
-      end;
-    end;
-
-  except
-    on E: Exception do
-    begin
-      erro := 'Erro ao consultar folha de pagamento: ' + E.Message;
-      if Assigned(qry) then
-        qry.Free;
-      Result := nil;
-    end;
-  end;
-end;
-
-function Trh.Listamulta(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
-begin
-
-end;
-
-
-function Trh.ListaConvenio(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
-var
-  qry: TFDQuery;
-begin
   try
     qry := TFDQuery.Create(nil);
     qry.connection := FConn;
@@ -333,8 +293,82 @@ begin
     begin
       Active := false;
       SQL.Clear;
-      qry.SQL.Add('SELECT idgeral as id, valorconvenio, descontocolaborador, valorempresa, periodo, idade, nome, nomeconvenio FROM convenio');
-
+      sql.add('SET @contador := 0; ');
+      sql.add('SELECT ');
+      sql.add('@contador := @contador + 1 AS id, ');
+      sql.add('    d.codigo, ');
+      sql.add('    d.Nome, ');
+      sql.add('    d.competencia, ');
+      sql.add('    gespessoa.tipopessoa, ');
+      sql.add('    gespessoa.dataadmissao, ');
+      sql.add('    gespessoa.cargo, ');
+      sql.add('    gespessoa.cbo, ');
+      sql.add('    gespessoa.cpf, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(d.salario, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) As salario, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(Sum(d.provento), 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) As provento, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(Sum(d.desconto), 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) As desconto, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(Sum(d.liquido), 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) As liquido ');
+      sql.add('From ');
+      sql.add('    (Select ');
+      sql.add('         gesfolhapagamento.codigo, ');
+      sql.add('         gesfolhapagamento.Nome, ');
+      sql.add('         gesfolhapagamento.competencia, ');
+      sql.add('         gesfolhapagamento.salario, ');
+      sql.add('         0 As provento, ');
+      sql.add('         0 As desconto, ');
+      sql.add('         0 As liquido ');
+      sql.add('     From ');
+      sql.add('         gesfolhapagamento ');
+      sql.add('     Group By ');
+      sql.add('         gesfolhapagamento.codigo ');
+      sql.add('     Union All ');
+      sql.add('     Select ');
+      sql.add('         gesfolhapagamento.codigo, ');
+      sql.add('         gesfolhapagamento.Nome, ');
+      sql.add('         gesfolhapagamento.competencia, ');
+      sql.add('         gesfolhapagamento.salario, ');
+      sql.add('         gesfolhapagamento.Provento, ');
+      sql.add('         0 As desconto, ');
+      sql.add('         0 As liquido ');
+      sql.add('     From ');
+      sql.add('         gesfolhapagamento ');
+      sql.add('     Where ');
+      sql.add('         gesfolhapagamento.lancamento = ''Proventos'' ');
+      sql.add('     Group By ');
+      sql.add('         gesfolhapagamento.codigo ');
+      sql.add('     Union All ');
+      sql.add('     Select ');
+      sql.add('         gesfolhapagamento.codigo, ');
+      sql.add('         gesfolhapagamento.Nome, ');
+      sql.add('         gesfolhapagamento.competencia, ');
+      sql.add('         gesfolhapagamento.salario, ');
+      sql.add('         0 As Provento, ');
+      sql.add('         gesfolhapagamento.Desconto, ');
+      sql.add('         0 As liquido ');
+      sql.add('     From ');
+      sql.add('gesfolhapagamento ');
+      sql.add('     Where ');
+      sql.add('         gesfolhapagamento.lancamento = ''Descontos'' ');
+      sql.add('     Group By ');
+      sql.add('         gesfolhapagamento.codigo ');
+      sql.add('     Union All ');
+      sql.add('     Select ');
+      sql.add('         gesfolhapagamento.codigo, ');
+      sql.add('         gesfolhapagamento.Nome, ');
+      sql.add('         gesfolhapagamento.competencia, ');
+      sql.add('         gesfolhapagamento.salario, ');
+      sql.add('         0 As Provento, ');
+      sql.add('         0 As desconto, ');
+      sql.add('         gesfolhapagamento.liquido ');
+      sql.add('     From ');
+      sql.add('         gesfolhapagamento ');
+      sql.add('     Where ');
+      sql.add('         gesfolhapagamento.lancamento = ''líquido'' ');
+      sql.add('     Group By ');
+      sql.add('         gesfolhapagamento.codigo) As d Inner Join ');
+      sql.add('    gespessoa On gespessoa.nregistro = d.codigo');
+      sql.add('Where d.competencia=:periodo Group By d.codigo order by d.Nome ');
+      parambyname('periodo').asstring := AQuery.Items['datafolha'];
       Active := true;
     end;
     erro := '';
@@ -348,58 +382,53 @@ begin
   end;
 end;
 
+function Trh.Listamulta(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+begin
+
+end;
 
 function Trh.Listaticket(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
 begin
-  qry := TFDQuery.Create(nil);
   try
-    qry.Connection := FConn;
-
-    with qry.SQL do
+    qry := TFDQuery.Create(nil);
+    qry.connection := FConn;
+    with qry do
     begin
-      Clear;
-      Add('SELECT');
-      Add('  ticket.idgeral AS idticket,');
-      Add('  ticket.codigo,');
-      Add('  gespessoa.nome,');
-      Add('  ticket.projeto,');
-      Add('  ticket.opcao,');
-      Add('  ticket.beneficio,');
-      Add('  ticket.desconto,');
-      Add('  ticket.valorempresa,');
-      Add('  ticket.periodo AS periodo,');
-      Add('  ticket.dias,');
-      Add('  ticket.observacao,');
-      Add('  ticket.criado_em');
-      Add('FROM ticket');
-      Add('LEFT JOIN gespessoa ON gespessoa.nregistro = ticket.codigo');
-
-      if AQuery.ContainsKey('datafolha') then
-        Add('WHERE ticket.periodo = :periodo');
-
-      Add('ORDER BY ticket.periodo');
+      Active := false;
+      SQL.Clear;
+      sql.add('SET @contador := 0; ');
+      sql.add('SELECT ');
+      sql.add('@contador := @contador + 1 AS id, ');
+      SQL.Add('ticket.codigo, ');
+      SQL.Add('gespessoa.nome, ');
+      SQL.Add('gespessoa.dataadmissao, ');
+      SQL.Add('gespessoa.cargo, ');
+      SQL.Add('ticket.projeto, ');
+      SQL.Add('ticket.opcao, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(ticket.beneficio, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) as beneficio, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(ticket.desconto, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) as desconto, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(ticket.valorempresa, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) as valorempresa, ');
+      SQL.Add('ticket.periodo ');
+      SQL.Add('From ');
+      SQL.Add('ticket left Join ');
+      SQL.Add('gespessoa On gespessoa.nregistro = ticket.codigo ');
+      SQL.Add('Where ');
+      SQL.Add('gespessoa.empresa = 148 and periodo=:periodo order by gespessoa.nome  ');
+      parambyname('periodo').asstring := AQuery.Items['datafolha'];
+      Active := true;
     end;
-
-    if AQuery.ContainsKey('datafolha') then
-      qry.ParamByName('periodo').AsString := AQuery['datafolha'];
-
-    qry.Open; // mais seguro que Active := True
-
     erro := '';
     Result := qry;
   except
-    on ex: Exception do
+    on ex: exception do
     begin
-      erro := 'Erro ao consultar: ' + ex.Message;
-      FreeAndNil(qry);
+      erro := 'Erro ao consultar : ' + ex.Message;
       Result := nil;
     end;
   end;
 end;
-
-
 
 function Trh.Listavaletransporte(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
@@ -407,44 +436,41 @@ var
 begin
   try
     qry := TFDQuery.Create(nil);
-    qry.Connection := FConn;
+    qry.connection := FConn;
     with qry do
     begin
-      Active := False;
+      Active := false;
       SQL.Clear;
-      SQL.Add('SELECT ');
-      SQL.Add('valetransporte.idgeral as idvaletransporte, ');
+      sql.add('SET @contador := 0; ');
+      sql.add('SELECT ');
+      sql.add('@contador := @contador + 1 AS id, ');
       SQL.Add('valetransporte.codigo, ');
       SQL.Add('gespessoa.nome, ');
+      SQL.Add('gespessoa.dataadmissao, ');
+      SQL.Add('gespessoa.cargo, ');
+      SQL.Add('gespessoa.cbo, ');
       SQL.Add('valetransporte.projeto, ');
-      SQL.Add('valetransporte.valordia, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(valetransporte.valordia, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) as valordia, ');
       SQL.Add('valetransporte.dias, ');
-      SQL.Add('valetransporte.beneficio, ');
-      SQL.Add('valetransporte.porc6, ');
-      SQL.Add('valetransporte.empresa, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(valetransporte.beneficio, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) as beneficio, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(valetransporte.porc6, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) as porc6, ');
+      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(valetransporte.empresa, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) as empresa, ');
       SQL.Add('valetransporte.estado, ');
-      SQL.Add('valetransporte.periodo, ');
-      SQL.Add('valetransporte.admissao, ');
-      SQL.Add('valetransporte.cargo, ');
-      SQL.Add('valetransporte.cbo, ');
-      SQL.Add('valetransporte.salario, ');
-      SQL.Add('valetransporte.observacao ');
-      SQL.Add('FROM valetransporte ');
-      SQL.Add('LEFT JOIN gespessoa ON gespessoa.nregistro = valetransporte.codigo ');
-
-      if AQuery.ContainsKey('datafolha') then
-        SQL.Add('WHERE valetransporte.periodo = :periodo');
-      if AQuery.ContainsKey('datafolha') then
-        qry.ParamByName('periodo').AsString := AQuery['datafolha'];
-      SQL.Add('ORDER BY gespessoa.nome;');
-      Active := True;
+      SQL.Add('valetransporte.periodo ');
+      SQL.Add('From ');
+      SQL.Add('valetransporte left Join ');
+      SQL.Add('gespessoa On gespessoa.nregistro = valetransporte.codigo ');
+      SQL.Add('Where ');
+      SQL.Add('gespessoa.empresa = 148 and periodo=:periodo order by gespessoa.nome  ');
+      parambyname('periodo').asstring := AQuery.Items['datafolha'];
+      Active := true;
     end;
     erro := '';
     Result := qry;
   except
-    on ex: Exception do
+    on ex: exception do
     begin
-      erro := 'Erro ao consultar Vale Transporte: ' + ex.Message;
+      erro := 'Erro ao consultar : ' + ex.Message;
       Result := nil;
     end;
   end;

@@ -35,7 +35,6 @@ import Box from '@mui/material/Box';
 import Select from 'react-select';
 import Typography from '@mui/material/Typography';
 import PropTypes from 'prop-types';
-import { toast, ToastContainer } from 'react-toastify';
 import api from '../../../services/api';
 import Loader from '../../../layouts/loader/Loader';
 import './textearea.css';
@@ -186,15 +185,6 @@ const HuaweiEdicao = ({
   const [startdate, setstartdate] = useState('');
   const [creationdate, setcreationdate] = useState('');
   const [lastupdatedate, setlastupdatedate] = useState('');
-  const [responsedate, setresponsedate] = useState('');
-  const [promisedate, setpromisedate] = useState('');
-  const [firstpromisedate, setfirstpromisedate] = useState('');
-  const [opendate, setopendate] = useState('');
-  const [dataacionamento, setdataacionamento] = useState('');
-  const [dataenvioemail, setdataenvioemail] = useState('');
-  const [authorizationstatus, setauthorizationstatus] = useState('');
-  const [shipmentstatus, setshipmentstatus] = useState('');
-  const [closedcode, setclosedcode] = useState('');
 
   const togglecadastro = () => {
     setshow(!show);
@@ -924,37 +914,22 @@ const HuaweiEdicao = ({
   const listaid = async () => {
     try {
       setloading(true);
-
-      const response = await api.get('v1/projetohuaweiid', { params });
-      const { data } = response;
-
-      setprojectno(data.projectno);
-      setregion(data.biddingarea);
-      setsiteid(data.siteid);
-      setsitename(data.sitename);
-      setsitecode(data.sitecode);
-      setid(data.id);
-
-      setpublishdate(data.publishdate);
-      setneedbydate(data.needbydate);
-      setapproveddate(data.approveddate);
-      setstartdate(data.startdate);
-      setcreationdate(data.creationdate);
-      setlastupdatedate(data.lastupdatedate);
-      setresponsedate(data.responsedate);
-      setpromisedate(data.promisedate);
-      setfirstpromisedate(data.firstpromisedate);
-      setopendate(data.opendate);
-
-      setdataacionamento(data.dataacionamento);
-      setdataenvioemail(data.dataenvioemail);
-
-      setauthorizationstatus(data.authorizationstatus);
-      setshipmentstatus(data.shipmentstatus);
-      setclosedcode(data.closedcode);
-      setobservacao(data.observacaogeral);
-
-      listapos();
+      await api.get('v1/projetohuaweiid', { params }).then((response) => {
+        setprojectno(response.data.projectno);
+        setregion(response.data.biddingarea);
+        setsiteid(response.data.siteid);
+        setsitename(response.data.sitename);
+        setsitecode(response.data.sitecode);
+        setid(response.data.id);
+        setpublishdate(response.data.publishdate);
+        setneedbydate(response.data.needbydate);
+        setapproveddate(response.data.approveddate);
+        setstartdate(response.data.startdate);
+        setcreationdate(response.data.creationdate);
+        setlastupdatedate(response.data.lastupdatedate);
+        //setopnegociado(response.data.negociadosn);
+        listapos();
+      });
     } catch (err) {
       setmensagem(err.message);
     } finally {
@@ -1003,33 +978,26 @@ const HuaweiEdicao = ({
     e.preventDefault();
     setmensagem('');
     setmensagemsucesso('');
-
     api
       .post('v1/projetohuawei', {
-        id: ididentificador,
-        observacao,
+        numero: ididentificador,
       })
       .then((response) => {
         if (response.status === 201) {
-          toast.success('Registro Salvo');
+          setmensagem('');
           setmensagemsucesso('Registro Salvo');
-
-          setTimeout(() => {
-            togglecadastro();
-          }, 2000);
-
+          setshow(!show);
+          togglecadastro.bind(null);
           atualiza();
         } else {
-          setmensagem(`Erro: ${response.status}`);
+          setmensagem(response.status);
           setmensagemsucesso('');
         }
       })
       .catch((err) => {
-        if (err.response && err.response.data && err.response.data.erro) {
-          toast.error(err.response.data.erro);
+        if (err.response) {
           setmensagem(err.response.data.erro);
         } else {
-          toast.error('Erro ao salvar registro.');
           setmensagem('Ocorreu um erro na requisição.');
         }
         setmensagemsucesso('');
@@ -1068,24 +1036,18 @@ const HuaweiEdicao = ({
     e.preventDefault();
     setmensagem('');
     setmensagemsucesso('');
-    if (rowSelectionModel.length > 1) {
-      toast.error('Selecione apenas uma atividades clt');
-      return;
-    }
-    const poservico = poservicolista.find((item) => item.id === rowSelectionModel[0]);
-    console.log(poservico);
     api
       .post('v1/projetoericsson/listaatividadeclt/salva', {
         numero: ididentificador,
         //idposervico, //descrição serviços
-        po: poservico?.value,
+        //po,
         //escopo,
         idcolaboradorclt, //colaborador
         datainicioclt,
         datafinalclt,
         observacaoclt,
         totalhorasclt,
-        descricaoservico: poservico?.label,
+        //descricaoservico,
         valorhora,
         horanormalclt,
         hora50clt,
@@ -1343,17 +1305,6 @@ const HuaweiEdicao = ({
         {titulo}
       </ModalHeader>
       <ModalBody style={{ backgroundColor: 'white' }}>
-        <ToastContainer
-          position="top-right"
-          autoClose={5000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-        />
         {mensagem.length > 0 ? (
           <div className="alert alert-danger mt-2" role="alert">
             {mensagem}
@@ -1365,7 +1316,6 @@ const HuaweiEdicao = ({
             Registro Salvo
           </div>
         ) : null}
-
         {telaatividadeedicao ? (
           <>
             {' '}
@@ -1505,182 +1455,99 @@ const HuaweiEdicao = ({
 
               {/**DADOS DA OBRA */}
               <TabPanel value={value} index={0}>
-                {/* OS */}
-                <div className="row g-3 mb-3">
+                <div className="row g-3">
                   <div className="col-sm-3">
                     OS
                     <Input
                       type="text"
-                      value={os}
                       onChange={(e) => setos(e.target.value)}
+                      value={os}
                       placeholder="OS"
                       disabled
                     />
                   </div>
                 </div>
 
-                {/* Datas principais */}
-                <div className="row g-3 mb-3">
+                <br />
+                <div className="row g-3">
                   <div className="col-sm-3">
-                    Data de Publicação
+                    Publish Date
                     <Input
-                      type="datetime-local"
-                      value={publishdate}
+                      type="datetime"
                       onChange={(e) => setpublishdate(e.target.value)}
+                      value={publishdate}
                       disabled
                     />
                   </div>
                   <div className="col-sm-3">
-                    Data Necessária
+                    Need By Date
                     <Input
-                      type="datetime-local"
-                      value={needbydate}
+                      type="datetime"
                       onChange={(e) => setneedbydate(e.target.value)}
+                      value={needbydate}
                       disabled
                     />
                   </div>
+                </div>
+
+                <br />
+                <div className="row g-3">
                   <div className="col-sm-3">
-                    Data de Aprovação
+                    Approved Date
                     <Input
-                      type="datetime-local"
-                      value={approveddate}
+                      type="datetime"
                       onChange={(e) => setapproveddate(e.target.value)}
+                      value={approveddate}
                       disabled
                     />
                   </div>
                   <div className="col-sm-3">
-                    Data de Criação
+                    Start Date
                     <Input
-                      type="datetime-local"
-                      value={creationdate}
-                      onChange={(e) => setcreationdate(e.target.value)}
-                      disabled
-                    />
-                  </div>
-                </div>
-
-                {/* Criação e atualização */}
-                <div className="row g-3 mb-3">
-                  <div className="col-sm-3">
-                    Data de Início
-                    <Input
-                      type="date"
-                      value={startdate}
+                      type="datetime"
                       onChange={(e) => setstartdate(e.target.value)}
+                      value={startdate}
                       disabled
                     />
                   </div>
+                </div>
 
+                <br />
+                <div className="row g-3">
                   <div className="col-sm-3">
-                    Última Atualização
+                    creation Date
                     <Input
-                      type="datetime-local"
-                      value={lastupdatedate}
+                      type="datetime"
+                      onChange={(e) => setcreationdate(e.target.value)}
+                      value={creationdate}
+                      disabled
+                    />
+                  </div>
+                  <div className="col-sm-3">
+                    Last Update Date
+                    <Input
+                      type="datetime"
                       onChange={(e) => setlastupdatedate(e.target.value)}
-                      disabled
-                    />
-                  </div>
-
-                  <div className="col-sm-3">
-                    Data de Resposta
-                    <Input
-                      type="datetime-local"
-                      value={responsedate}
-                      onChange={(e) => setresponsedate(e.target.value)}
-                      disabled
-                    />
-                  </div>
-                  <div className="col-sm-3">
-                    Data Prometida
-                    <Input
-                      type="datetime-local"
-                      value={promisedate}
-                      onChange={(e) => setpromisedate(e.target.value)}
-                      disabled
-                    />
-                  </div>
-                  <div className="col-sm-3">
-                    Primeira Data Prometida
-                    <Input
-                      type="datetime-local"
-                      value={firstpromisedate}
-                      onChange={(e) => setfirstpromisedate(e.target.value)}
-                      disabled
-                    />
-                  </div>
-                  <div className="col-sm-3">
-                    Data de Abertura
-                    <Input
-                      type="datetime-local"
-                      value={opendate}
-                      onChange={(e) => setopendate(e.target.value)}
-                      disabled
-                    />
-                  </div>
-
-                  <div className="col-sm-3">
-                    Data de Acionamento
-                    <Input
-                      type="datetime-local"
-                      value={dataacionamento}
-                      onChange={(e) => setdataacionamento(e.target.value)}
-                      disabled
-                    />
-                  </div>
-                  <div className="col-sm-3">
-                    Data de Envio de Email
-                    <Input
-                      type="datetime-local"
-                      value={dataenvioemail}
-                      onChange={(e) => setdataenvioemail(e.target.value)}
+                      value={lastupdatedate}
                       disabled
                     />
                   </div>
                 </div>
 
-                {/* Status */}
-                <div className="row g-3 mb-3">
-                  <div className="col-sm-3">
-                    Status de Autorização
-                    <Input
-                      type="text"
-                      value={authorizationstatus}
-                      onChange={(e) => setauthorizationstatus(e.target.value)}
-                      disabled
-                    />
-                  </div>
-                  <div className="col-sm-3">
-                    Status da Remessa
-                    <Input
-                      type="text"
-                      value={shipmentstatus}
-                      onChange={(e) => setshipmentstatus(e.target.value)}
-                      disabled
-                    />
-                  </div>
-                  <div className="col-sm-3">
-                    Código de Fechamento
-                    <Input
-                      type="text"
-                      value={closedcode}
-                      onChange={(e) => setclosedcode(e.target.value)}
-                      disabled
-                    />
-                  </div>
-                </div>
+                <br />
 
-                {/* Observação */}
-                <div className="row g-3 mb-3">
+                <div className="row g-3">
                   <div className="col-sm-12">
                     Observação
                     <Input
                       type="textarea"
-                      value={observacao}
                       onChange={(e) => setobservacao(e.target.value)}
-                      placeholder="Observação"
+                      value={observacao}
+                      placeholder="Observacao"
                     />
                   </div>
                 </div>
+                <br />
               </TabPanel>
 
               {/**DOCUMENTAÇÃO OBRA */}

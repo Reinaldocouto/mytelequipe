@@ -25,6 +25,7 @@ import {
 } from '@mui/x-data-grid';
 import Pagination from '@mui/material/Pagination';
 import LinearProgress from '@mui/material/LinearProgress';
+import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 //import SearchIcon from '@mui/icons-material/Search';
 import * as Icon from 'react-feather';
@@ -88,9 +89,9 @@ function a12yProps(index) {
 }
 
 const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atualiza, idsite }) => {
-  const [value, setValue] = useState(0);
+  const [value2, setValue2] = useState(0);
   const handleChange = (event, newValue) => {
-    setValue(newValue);
+    setValue2(newValue);
   };
 
   const [value1, setValue1] = useState(0);
@@ -137,10 +138,6 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
 
   const [datainicioclt, setdatainicioclt] = useState(Date);
   const [datafinalclt, setdatafinalclt] = useState(Date);
-  const [identificadorsolicitacaodiaria, setidentificadorsolicitacaodiaria] = useState('');
-  const [titulodiaria, settitulodiaria] = useState('');
-  const [telacadastrosolicitacaodiaria, settelacadastrosolicitacaodiaria] = useState(false);
-
 
   const [totalhorasclt, settotalhorasclt] = useState('');
   const [observacaoclt, setobservacaoclt] = useState('');
@@ -154,9 +151,6 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
   const [mostra, setmostra] = useState('');
   const [motivo, setmotivo] = useState('');
   const [mensagemtela, setmensagemtela] = useState('');
-  const [telaexclusaodiaria, settelaexclusaodiaria] = useState(false);
-  const [iddiaria, setiddiaria] = useState(0);
-  const [solicitacaodiaria, setsolicitacaodiaria] = useState([]);
 
   const [identificadorsolicitacao, setidentificadorsolicitacao] = useState('');
   const [selectedoptioncolaboradorclt, setselectedoptioncolaboradorclt] = useState(null);
@@ -197,9 +191,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
     idcontroleacessobusca: localStorage.getItem('sessionId'),
     idempresas: idcolaboradorpj,
     deletado: 0,
-    osouobra: ididentificador,
+    osouobra: numero,
     obra: numero,
-    projeto: 'ERICSSON',
     //identificador pra mandar pro solicitação edição:
     identificadorsolicitacao: ididentificador2,
   };
@@ -222,7 +215,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
         dataacionamento: item.dataacionamento ? new Date(item.dataacionamento) : null,
       }));
       const somaDosValores = dadosFormatados?.reduce((total, item) => total + (item.valor || 0), 0);
-      setTotalFinanceiro(somaDosValores || 0);
+      setTotalFinanceiro(somaDosValores);
       setRelatorioDespesas(dadosFormatados || []);
     } catch (err) {
       toast.error(err.response?.data?.message || err.message);
@@ -243,26 +236,14 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
     const apiRef = useGridApiContext();
     const page = useGridSelector(apiRef, gridPageSelector);
     const pageCount = useGridSelector(apiRef, gridPageCountSelector);
-    const rowCount = apiRef.current.getRowsCount(); // Obtém total de itens
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          width: '100%',
-          padding: '10px',
-        }}
-      >
-        <Typography variant="body2">Total de itens: {rowCount}</Typography>
 
-        <Pagination
-          color="primary"
-          count={pageCount}
-          page={page + 1}
-          onChange={(event, value2) => apiRef.current.setPage(value2 - 1)}
-        />
-      </Box>
+    return (
+      <Pagination
+        color="primary"
+        count={pageCount}
+        page={page + 1}
+      //onChange={(event, value) => apiRef.current.setPage(value - 1)}
+      />
     );
   }
 
@@ -270,53 +251,32 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
     const apiRef = useGridApiContext();
     const page = useGridSelector(apiRef, gridPageSelector);
     const pageCount = useGridSelector(apiRef, gridPageCountSelector);
-    const rowCount = apiRef.current.getRowsCount(); // Obtém total de itens
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          width: '100%',
-          padding: '10px',
-        }}
-      >
-        <Typography variant="body2">Total de itens: {rowCount}</Typography>
+    //   const itens = atividadecltlista.length;
+    //   const totalhoras = atividadecltlista.reduce((total, atividade) => total + parseFloat(atividade.totalhorasclt), 0);
 
-        <Pagination
-          color="primary"
-          count={pageCount}
-          page={page + 1}
-          onChange={(event, value2) => apiRef.current.setPage(value2 - 1)}
-        />
-      </Box>
+    /*   const calculatamanho = () => {
+         if (itens < 10) return '88%';
+         if (itens < 21) return '85%';
+         if (itens < 31) return '82%';
+         if (itens < 40) return '79%';
+         return '70%';
+       };  */
+
+    return (
+      <>
+        {/* <Box className='col-sm-10 d-flex flex-row-reverse'>
+          <Box sx={{ width: calculatamanho(totalhoras) }}>
+            {itens !== 0 && `Total de Horas: ${totalhoras}`}
+          </Box>
+          <Box sx={{ width: calculatamanho(itens) }}>
+            {itens !== 0 && `Total de Lançamentos: ${itens}`}
+          </Box>
+        </Box>  */}
+
+        <Pagination color="primary" count={pageCount} page={page + 1} />
+      </>
     );
   }
-
-  const novocadastrodiaria = () => {
-    api
-      .post('v1/solicitacao/novocadastrodiaria', {
-        idcliente: localStorage.getItem('sessionCodidcliente'),
-        idusuario: localStorage.getItem('sessionId'),
-        idloja: localStorage.getItem('sessionloja'),
-      })
-      .then((response) => {
-        if (response.status === 201) {
-          setidentificadorsolicitacaodiaria(response.data.retorno);
-          settitulodiaria('Cadastrar Solicitação de Diaria');
-          settelacadastrosolicitacaodiaria(true);
-        } else {
-          toast.error(response.status);
-        }
-      })
-      .catch((err) => {
-        if (err.response) {
-          toast.error(err.response.data.erro);
-        } else {
-          toast.error('Ocorreu um erro na requisição.');
-        }
-      });
-  };
 
   const listaatividadeclt = async () => {
     try {
@@ -350,11 +310,10 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
     }
   };
 
-
   const listasolicitacao = async () => {
     try {
       setloading(true);
-      await api.get('v1/solicitacao/listaporempresa', { params }).then((response) => {
+      await api.get('v1/solicitacaoid', { params }).then((response) => {
         setsolicitacao(response.data);
       });
     } catch (err) {
@@ -363,21 +322,6 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
       setloading(false);
     }
   };
-
-  const listasolicitacaodiaria = async () => {
-    try {
-      setloading(true);
-      await api.get('v1/projetotelefonica/diaria', { params }).then((response) => {
-        setsolicitacaodiaria(response.data);
-      });
-    } catch (err) {
-      toast.error(err.message);
-    }
-    setloading(false);
-  };
-
-
-
   const columnsFinanceiro = [
     {
       field: 'idpmts',
@@ -975,6 +919,10 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
     settelaexclusaosolicitacao(true);
     setidentificadorsolicitacao(stat);
   }
+  function alterardespesa(stat) {
+    settelacadastroedicaosolicitacao(true);
+    setidentificadorsolicitacao(stat);
+  }
 
   //tabela de dados de despesa do atividades
   const columnsdespesa = [
@@ -986,6 +934,12 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
       align: 'center',
       getActions: (parametros) => [
         <GridActionsCellItem
+          icon={<EditIcon />}
+          label="Alterar"
+          title="Alterar"
+          onClick={() => alterardespesa(parametros.id)}
+        />,
+        <GridActionsCellItem
           icon={<DeleteIcon />}
           label="Delete"
           title="Delete"
@@ -993,25 +947,12 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
         />,
       ],
     },
-    { field: 'idsolicitacao', headerName: 'Solicitação', width: 90, align: 'center' },
+    { field: 'id', headerName: 'ID', width: 60, align: 'center' },
     {
       field: 'data',
       headerName: 'Data',
-      type: 'string',
-      width: 120,
-      align: 'left',
-      valueGetter: (parametros) => parametros.value ? new Date(`${parametros.value}T00:00:00`) : null,
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      type: 'string',
-      width: 130,
+      type: 'center',
+      width: 100,
       align: 'left',
       editable: false,
     },
@@ -1019,172 +960,149 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
       field: 'nome',
       headerName: 'Solicitante',
       type: 'string',
-      width: 200,
-      align: 'left',
-      editable: false,
-      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
-    },
-    {
-      field: 'projeto',
-      headerName: 'Projeto',
-      type: 'string',
-      width: 100,
-      align: 'left',
-      editable: false,
-    },
-    {
-      field: 'obra',
-      headerName: 'Obra/OS',
-      type: 'string',
-      width: 120,
-      align: 'left',
-      editable: false,
-    },
-    {
-      field: 'descricao',
-      headerName: 'Descrição',
-      type: 'string',
-      width: 300,
-      align: 'left',
-      editable: false,
-      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
-    },
-    {
-      field: 'unidade',
-      headerName: 'Unidade',
-      type: 'string',
-      width: 120,
-      align: 'left',
-      editable: false,
-    },
-    {
-      field: 'quantidade',
-      headerName: 'Quant. Solicitada',
-      type: 'string',
-      width: 150,
-      align: 'center',
-      editable: false,
-    },
-    {
-      field: 'estoque',
-      headerName: 'Quant. Estoque',
-      type: 'string',
-      width: 150,
-      align: 'center',
-      editable: false,
-    },
-    {
-      field: 'observacao',
-      headerName: 'Observação',
-      type: 'string',
       width: 400,
       align: 'left',
       editable: false,
-      renderCell: (parametros) => (
-        <div
-          style={{
-            whiteSpace: 'pre-wrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-          }}
-        >
-          {parametros.value}
-        </div>
-      ),
+    },
+
+    {
+      field: 'status',
+      headerName: 'Status',
+      type: 'string',
+      width: 250,
+      align: 'left',
+      editable: false,
     },
   ];
 
-  function deletediaria(stat) {
-    setiddiaria(stat);
-    settelaexclusaodiaria(true);
-  }
-
   //tabela de dados de despesa diarias
-  const colunasdiarias = [
+  const columnsdiarias = [
     {
       field: 'actions',
       headerName: 'Ação',
       type: 'actions',
       width: 80,
       align: 'center',
-      getActions: (parametros) => [
+      getActions: () => [
         <GridActionsCellItem
           icon={<DeleteIcon />}
           label="Delete"
           title="Delete"
-          onClick={() => deletediaria(parametros.id)}
+          onClick={() => null}
         />,
       ],
-    }, // { field: 'id', headerName: 'ID', width: 60, align: 'center' },
+    },
+    // { field: 'id', headerName: 'ID', width: 60, align: 'center' },
     {
       field: 'datasolicitacao',
       headerName: 'Data',
-      width: 140,
+      type: 'string',
+      width: 80,
       align: 'left',
-      type: 'date',
-      valueGetter: (parametros) =>
-        parametros.value ? new Date(`${parametros.value}T00:00:00`) : null,
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
       editable: false,
     },
     {
-      field: 'nome',
-      headerName: 'Nome Colaborador',
+      field: 'horasolicitacao',
+      headerName: 'Hora',
       type: 'string',
-      width: 300,
+      width: 80,
       align: 'left',
+      editable: false,
+    },
+    {
+      field: 'nomecolaborador',
+      headerName: 'Nome',
+      type: 'string',
+      width: 250,
+      align: 'right',
+      editable: false,
+    },
+    {
+      field: 'projeto',
+      headerName: 'Projeto',
+      type: 'string',
+      width: 150,
+      align: 'right',
+      editable: false,
+    },
+    {
+      field: 'siteid',
+      headerName: 'Siteid',
+      type: 'string',
+      width: 80,
+      align: 'center',
+      editable: false,
+    },
+    {
+      field: 'siglasite',
+      headerName: 'Sigla Site',
+      type: 'string',
+      width: 80,
+      align: 'center',
+      editable: false,
+    },
+    {
+      field: 'PO',
+      headerName: 'PO',
+      type: 'string',
+      width: 100,
+      align: 'center',
+      editable: false,
+    },
+    {
+      field: 'local',
+      headerName: 'Local',
+      type: 'string',
+      width: 150,
+      align: 'center',
       editable: false,
     },
     {
       field: 'descricao',
       headerName: 'Descrição',
       type: 'string',
-      width: 300,
-      align: 'left',
+      width: 150,
+      align: 'center',
+      editable: false,
+    },
+    {
+      field: 'cliente',
+      headerName: 'Cliente',
+      type: 'string',
+      width: 150,
+      align: 'center',
       editable: false,
     },
     {
       field: 'valoroutrassolicitacoes',
       headerName: 'Outras Solicitações',
-      type: 'number',
+      type: 'string',
       width: 150,
-      align: 'right',
-      valueFormatter: (parametros) => {
-        if (parametros.value == null) return '';
-        return parametros.value.toLocaleString('pt-BR', {
-          style: 'currency',
-          currency: 'BRL',
-        });
-      },
+      align: 'center',
+      editable: false,
+    },
+    {
+      field: 'diarias',
+      headerName: 'Diarias',
+      type: 'string',
+      width: 100,
+      align: 'center',
       editable: false,
     },
     {
       field: 'valortotal',
       headerName: 'Valor Total',
-      type: 'number',
-      width: 150,
-      align: 'right',
-      valueFormatter: (parametros) => {
-        if (parametros.value == null) return '';
-        return parametros.value.toLocaleString('pt-BR', {
-          style: 'currency',
-          currency: 'BRL',
-        });
-      },
+      type: 'string',
+      width: 100,
+      align: 'center',
       editable: false,
     },
     {
       field: 'solicitante',
       headerName: 'Solicitante',
       type: 'string',
-      width: 250,
-      align: 'left',
+      width: 150,
+      align: 'center',
       editable: false,
     },
   ];
@@ -1449,18 +1367,19 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
       return;
     }
     const poservico = poservicolista.find((item) => item.id === rowSelectionModel[0]);
+    console.log(poservico);
     api
       .post('v1/projetoericsson/listaatividadeclt/salva', {
         numero: ididentificador,
         //idposervico, //descrição serviços
-        po: poservico?.value,
+        po: poservico.value,
         //escopo,
         idcolaboradorclt, //colaborador
         datainicioclt,
         datafinalclt,
         observacaoclt,
         totalhorasclt,
-        descricaoservico: poservico?.label,
+        descricaoservico: poservico.label,
         valorhora,
         horanormalclt,
         hora50clt,
@@ -1484,11 +1403,13 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
   }
 
   const salvarpj = async (poit) => {
+    console.log('poit', poit);
     api
       .post('v1/projetoericsson/listaatividadepj/salva', {
         numero: ididentificador,
         // idposervico, //descrição serviços
         // po,
+
         selecao: poit,
         // escopo,
         idcolaboradorpj, //colaborador
@@ -1514,8 +1435,9 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
       });
   };
 
-  const svlista = async () => {
+ /* const svlista = async () => {
     const camposExistentes = [];
+    console.log('rowSelectionModel', rowSelectionModel);
     rowSelectionModel.forEach((poite) => {
       const existe = atividadepjlista.some((item) => item.poitem.toString() === poite.toString());
       if (!existe) {
@@ -1532,7 +1454,47 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
         )})`,
       );
     }
-  };
+  };  */
+
+
+const svlista = async () => {
+  const camposExistentes = [];
+  const camposSelecionados = [];
+
+  console.log('rowSelectionModel', rowSelectionModel);
+
+  rowSelectionModel.forEach((idSelecionado) => {
+    const itemSelecionado = poservicolista.find(item => item.id === idSelecionado);
+    if (!itemSelecionado) return;
+
+    const { value } = itemSelecionado; // ← aqui trocamos po por value
+
+    const existe = atividadepjlista.some((item) =>
+      item.poitem?.toString() === value?.toString()
+    );
+
+salvarpj(value); // ← aqui também
+console.log(existe);
+console.log(camposSelecionados);
+
+ /*   if (!existe) {
+      salvarpj(value); // ← aqui também
+      camposSelecionados.push(value); // ← e aqui
+    } else {
+      camposExistentes.push(value); // ← e aqui
+    }  */
+  });
+
+  listaatividadepj();
+
+  if (camposExistentes.length > 0) {
+    toast.error(
+      `Existem campos já inseridos, remova para adicionar os novos. (${camposExistentes.join(', ')})`
+    );
+  }
+};
+
+
 
   //abre tela de solicitação de material
   const novocadastro = () => {
@@ -1688,7 +1650,6 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
     listadocumentacaoobrafinal();
     listadocumentacaoobrafinalcivilwork();
     listasolicitacao();
-    listasolicitacaodiaria();
   };
   useEffect(() => {
     if (site) {
@@ -1723,22 +1684,6 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
           draggable
           pauseOnHover
         />
-        {telacadastrosolicitacaodiaria ? (
-          <Solicitardiaria
-            show={telacadastrosolicitacaodiaria}
-            setshow={settelacadastrosolicitacaodiaria}
-            ididentificador={identificadorsolicitacaodiaria}
-            atualiza={listasolicitacaodiaria}
-            titulotopo={titulodiaria}
-            //ver o que é isso aqui:
-            novo="0"
-            projetousual="ERICSSON"
-            numero={numero}
-            idlocal={numero}
-            sigla={site}
-            clientelocal={cliente}
-          />
-        ) : null}
         {telaatividadeedicao ? (
           <>
             {' '}
@@ -1784,17 +1729,6 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
             />{' '}
           </>
         ) : null}
-        {telaexclusaodiaria ? (
-          <>
-            <Excluirregistro
-              show={telaexclusaodiaria}
-              setshow={settelaexclusaodiaria}
-              ididentificador={iddiaria}
-              quemchamou="DIARIA"
-              atualiza={listasolicitacaodiaria}
-            />{' '}
-          </>
-        ) : null}
         {loading ? (
           <Loader />
         ) : (
@@ -1827,7 +1761,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                 />
               </div>
               <div className="col-sm-3">
-                Regional
+                Nome
                 <Input
                   type="text"
                   onChange={(e) => setregiona(e.target.value)}
@@ -1854,7 +1788,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
 
             <Box sx={{ width: '100%' }}>
               <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tabs value={value} onChange={handleChange} aria-label="basic tabs">
+                <Tabs value={value2} onChange={handleChange} aria-label="basic tabs">
                   <Tab label="Dados da Obra" {...a11yProps(0)} />
                   <Tab label="Documentação Obra" {...a11yProps(1)} />
                   {ericFechamento === 1 && <Tab label="Financeiro" {...a11yProps(2)} />}
@@ -1863,7 +1797,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
               </Box>
 
               {/**DADOS DA OBRA */}
-              <TabPanel value={value} index={0}>
+              <TabPanel value={value2} index={0}>
                 <div className="row g-3">
                   <div className="col-sm-4">
                     Situação Implantação
@@ -2082,7 +2016,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
               </TabPanel>
 
               {/**DOCUMENTAÇÃO OBRA */}
-              <TabPanel value={value} index={1}>
+              <TabPanel value={value2} index={1}>
                 <Label>INSTALAÇÃO (ARQUIVO DOCUMENTAÇÃO DA OBRA FINAL)</Label>
                 <Box sx={{ height: 500, width: '100%' }}>
                   <DataGrid
@@ -2124,7 +2058,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
               {/**FINANCEIRO */}
               {ericFechamento === 1 ? (
                 <>
-                  <TabPanel value={value} index={2}>
+                  <TabPanel value={value2} index={2}>
                     <Label>ACIONAMENTO ERICSSON (VALOR PO)</Label>
                     <Box sx={{ height: 500, width: '100%' }}>
                       <DataGrid
@@ -2191,7 +2125,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                     >
                       <Label>FINANCEIRO</Label>
                       <Typography variant="subtitle1" color="text.secondary">
-                        <b>Total:</b> R$ {totalfinanceiro ? totalfinanceiro?.toFixed(2) : '0'}
+                        <b>Total:</b> R${' '}
+                        {totalfinanceiro ? totalfinanceiro?.toFixed(2) : 'Somando...'}
                       </Typography>
                     </div>
 
@@ -2199,7 +2134,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                       <DataGrid
                         rows={relatorioDespesas}
                         columns={columnsFinanceiro}
-                        loading={loadingFinanceiro}
+                        loading={loading}
                         pageSize={pageSize}
                         onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
                         disableSelectionOnClick
@@ -2214,11 +2149,11 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                     </Box>
                   </TabPanel>
                   {/**ATIVIDADES */}
-                  <TabPanel value={value} index={3}>
+                  <TabPanel value={value2} index={3}>
                     <FormGroup>
                       <div className="row g-3">
                         <Box sx={{ height: 400, width: '100%' }}>
-                          <DataGrid
+                          {/*  <DataGrid
                             rows={poservicolista}
                             columns={columnsescopo}
                             loading={loading}
@@ -2238,7 +2173,28 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                             }}
                             //opções traduzidas da tabela
                             localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                          />  */}
+
+                          <DataGrid
+                            rows={poservicolista}
+                            columns={columnsescopo}
+                            loading={false}
+                            paginationModel={{ pageSize, page: 0 }}
+                            onPaginationModelChange={(model) => setPageSize(model.pageSize)}
+                            checkboxSelection
+                            onRowSelectionModelChange={(newSelection) => {
+                              setRowSelectionModel(newSelection);
+                            }}
+                            rowSelectionModel={rowSelectionModel}
+                            getRowId={(row) => row.id}
+                            components={{
+                              LoadingOverlay: LinearProgress,
+                            }}
+                            localeText={ptBR}
                           />
+
+
+
                         </Box>
                       </div>
                       <br></br>
@@ -2554,7 +2510,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                       show={telaexclusaosolicitacao}
                                       setshow={settelaexclusaosolicitacao}
                                       ididentificador={identificadorsolicitacao}
-                                      quemchamou="SOLICITACAOITENS"
+                                      quemchamou="SOLICITACAO"
                                       atualiza={listasolicitacao}
                                       idlojaatual={localStorage.getItem('sessionloja')}
                                     />{' '}
@@ -2585,13 +2541,14 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                             </Box>
                           </div>
                         </TabPanel>
+
                         {/**diarias*/}
                         <TabPanel value={value1} index={3}>
                           <div className="row g-3">
                             <div className="col-sm-6">Dados da Diaria</div>
                             <div className=" col-sm-6 d-flex flex-row-reverse">
                               <div className=" col-sm-6 d-flex flex-row-reverse">
-                                <Button color="primary" onClick={() => novocadastrodiaria()}>
+                                <Button color="primary" onClick={() => handleSolicitarDiaria()}>
                                   Solicitar Diária <Icon.Plus />
                                 </Button>
                                 {telacadastrosolicitacao ? (
@@ -2627,8 +2584,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                           <div className="row g-3">
                             <Box sx={{ height: 400, width: '100%' }}>
                               <DataGrid
-                                rows={solicitacaodiaria}
-                                columns={colunasdiarias}
+                                rows={solicitacao}
+                                columns={columnsdiarias}
                                 loading={loading}
                                 pageSize={pageSize}
                                 onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
@@ -2651,7 +2608,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                 </>
               ) : (
                 <>
-                  <TabPanel value={value} index={2}>
+                  <TabPanel value={value2} index={2}>
                     <FormGroup>
                       <div className="row g-3">
                         <Box sx={{ height: 400, width: '100%' }}>
@@ -2985,7 +2942,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                       show={telaexclusaosolicitacao}
                                       setshow={settelaexclusaosolicitacao}
                                       ididentificador={identificadorsolicitacao}
-                                      quemchamou="SOLICITACAOITENS"
+                                      quemchamou="SOLICITACAO"
                                       atualiza={listasolicitacao}
                                       idlojaatual={localStorage.getItem('sessionloja')}
                                     />{' '}
@@ -3000,7 +2957,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                               <DataGrid
                                 rows={solicitacao}
                                 columns={columnsdespesa}
-                                loading={loading}
+                                loading={loadingFinanceiro}
                                 pageSize={pageSize}
                                 onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
                                 disableSelectionOnClick
@@ -3060,7 +3017,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                             <Box sx={{ height: 400, width: '100%' }}>
                               <DataGrid
                                 rows={solicitacao}
-                                columns={colunasdiarias}
+                                columns={columnsdiarias}
                                 loading={loading}
                                 pageSize={pageSize}
                                 onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}

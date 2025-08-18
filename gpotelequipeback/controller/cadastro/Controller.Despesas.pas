@@ -146,10 +146,6 @@ begin
       servico.periodicidade := body.GetValue<string>('periodicidade', '');
       servico.categoria := body.GetValue<string>('categoria', '');
       servico.periodo := body.GetValue<string>('periodo', '');
-      servico.valordaparcela := body.GetValue<string>('valordaparcela', '');
-      servico.dataInicio := body.GetValue<string>('dataInicio', '');
-      servico.parceladoEm := body.GetValue<string>('parceladoEm', '');
-      servico.despesacadastradapor := body.GetValue<string>('despesacadastradapor', '');
 
       servico.idcliente := body.getvalue<integer>('idcliente', 0);
       servico.idloja := body.getvalue<integer>('idloja', 0);

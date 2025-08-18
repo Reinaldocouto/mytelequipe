@@ -1,15 +1,9 @@
-ï»¿unit Controller.Projetotelefonica;
+unit Controller.Projetotelefonica;
 
 interface
 
 uses
-  Winapi.ActiveX, ComObj,
-  System.NetEncoding,
-  Horse.Commons,
-  System.IOUtils, System.Classes,
-   Variants,
-   System.DateUtils,
-  Horse, System.JSON, System.Generics.Collections, System.SysUtils, FireDAC.Comp.Client, Data.DB, Model.Email,
+  Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,
   DataSet.Serialize, Model.Projetotelefonica, UtFuncao, Controller.Auth;
 
 procedure Registry;
@@ -110,22 +104,6 @@ procedure editartarefa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure salvadesconto(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
-procedure ListPrevisaoFechamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
-procedure dashboardtelefonicaposicionamentofinanceiro(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
-procedure historicopagamentogeral(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
-procedure EditarEmMassa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
-procedure ListaDespesas(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-procedure listat4(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-procedure GerarTaf(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-procedure AtualizarEmFaturamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-procedure SalvarNotaFiscal(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-procedure GerarT4Excel(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-procedure GerarT4CSV(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 implementation
 
 procedure Registry;
@@ -161,7 +139,6 @@ begin
   THorse.get('v1/projetotelefonica/listacodt2', listacodt2);
   THorse.post('v1/projetotelefonica/gerardt2', Editart2);
   THorse.get('v1/projetotelefonica/listat2', listat2);
-  THorse.get('v1/projetotelefonica/listat4', listat4);
   THorse.get('v1/projetotelefonica/emailadicional', emailadicional);
   THorse.get('v1/projetotelefonica/listaacionamentos', Listaacionamentos);
   THorse.get('v1/projetotelefonica/listaSelectpjtelefonica', ListaSelectpjtelefonica);
@@ -179,19 +156,6 @@ begin
   THorse.get('v1/projetotelefonica/listaacionamentoshistorico', historicopagamento);
   THorse.post('v1/projetotelefonica/editartarefa', editartarefa);
   THorse.post('v1/projetotelefonica/salvadesconto', salvadesconto);
-  THorse.post('v1/projetotelefonica/gerartaf', GerarTaf);
-  THorse.post('v1/projetotelefonica/emfaturamento', AtualizarEmFaturamento);
-  THorse.post('v1/projetotelefonica/salvarnotafiscal', SalvarNotaFiscal);
-
-  THorse.get('v1/projetotelefonica/previsaofechamento', ListPrevisaoFechamento);
-
-  THorse.get('v1/projetotelefonica/dashboardtelefinicatiporatividades', dashboardtelefonicaposicionamentofinanceiro);
-  THorse.get('v1/projetotelefonica/historicofechamento', historicopagamentogeral);
-  THorse.Get('v1/gerart4excel', GerarT4Excel);
-  THorse.Get('v1/gerart4csv', GerarT4CSV);
-
-  THorse.get('v1/projetotelefonica/ListaDespesas', Listadespesas);
-  THorse.post('v1/projetotelefonica/editaremmassa', EditarEmMassa);
 end;
 
 
@@ -294,88 +258,6 @@ begin
   end;
 end;
 
-procedure dashboardtelefonicaposicionamentofinanceiro(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TProjetotelefonica;
-  qry: TFDQuery;
-  erro: string;
-  jsonArray: TJSONArray;
-  jsonObj: TJSONObject;
-begin
-  try
-    servico := TProjetotelefonica.Create;
-  except
-    on E: Exception do
-    begin
-      Res.Send<TJSONObject>(TJSONObject.Create(TJSONPair.Create('erro', 'Erro ao conectar com o banco: ' + E.Message)))
-        .Status(THTTPStatus.InternalServerError);
-      Exit;
-    end;
-  end;
-
-  qry := servico.dashboardtelefonicaposicionamentofinanceiro(Req.Query.Dictionary, erro);
-  try
-    if Assigned(qry) then
-    begin
-      try
-        jsonArray := TJSONArray.Create;
-
-        if not qry.IsEmpty then
-        begin
-          qry.First;
-          while not qry.Eof do
-          begin
-            jsonObj := TJSONObject.Create;
-
-            // Adiciona todos os campos ao objeto JSON
-            jsonObj.AddPair('TipoAtividade', qry.FieldByName('TipoAtividade').AsString);
-            jsonObj.AddPair('PO_Preenchido', TJSONNumber.Create(qry.FieldByName('PO_Preenchido').AsInteger));
-            jsonObj.AddPair('TIV_Emitidas', TJSONNumber.Create(qry.FieldByName('TIV_Emitidas').AsInteger));
-            jsonObj.AddPair('TII_Emitidas', TJSONNumber.Create(qry.FieldByName('TII_Emitidas').AsInteger));
-            jsonObj.AddPair('Carta_TAF_Emitida', TJSONNumber.Create(qry.FieldByName('Carta_TAF_Emitida').AsInteger));
-            jsonObj.AddPair('TotalItens', TJSONNumber.Create(qry.FieldByName('TotalItens').AsInteger));
-            jsonObj.AddPair('totalPMTS', TJSONNumber.Create(qry.FieldByName('totalPMTS').AsInteger));
-
-            jsonArray.AddElement(jsonObj);
-            qry.Next;
-          end;
-        end;
-
-        if erro = '' then
-        begin
-          if jsonArray.Count > 0 then
-            Res.Send<TJSONArray>(jsonArray).Status(THTTPStatus.OK)
-          else
-            Res.Send<TJSONObject>(TJSONObject.Create(TJSONPair.Create('aviso', 'Nenhum dado encontrado')))
-              .Status(THTTPStatus.OK);
-        end
-        else
-        begin
-          jsonArray.Free;
-          Res.Send<TJSONObject>(TJSONObject.Create(TJSONPair.Create('erro', erro)))
-            .Status(THTTPStatus.InternalServerError);
-        end;
-      except
-        on E: Exception do
-        begin
-          if Assigned(jsonArray) then
-            jsonArray.Free;
-          Res.Send<TJSONObject>(TJSONObject.Create(TJSONPair.Create('erro', 'Erro ao processar dados: ' + E.Message)))
-            .Status(THTTPStatus.InternalServerError);
-        end;
-      end;
-    end
-    else
-    begin
-      Res.Send<TJSONObject>(TJSONObject.Create(TJSONPair.Create('erro', erro)))
-        .Status(THTTPStatus.InternalServerError);
-    end;
-  finally
-    if Assigned(qry) then
-      qry.Free;
-    servico.Free;
-  end;
-end;
 
 procedure extratodesconto(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -488,10 +370,10 @@ begin
   try
     erro := '';
     try
-      // LÃª o body como JSON
+      // Lê o body como JSON
       JSONBody := Req.Body<TJSONObject>;
 
-      // Chama o mÃ©todo com os dados do body (nÃ£o da query string!)
+      // Chama o método com os dados do body (não da query string!)
       if servico.apagarpagamento(JSONBody, erro) then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.numero)).Status(THTTPStatus.Created)
       else
@@ -837,64 +719,6 @@ begin
   end;
 end;
 
-
-procedure EditarEmMassa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TProjetotelefonica;
-  erro: string;
-  sucesso: Boolean;
-  body: string;
-
-begin
-  try
-    servico := TProjetotelefonica.Create;
-    try
-      body := Req.Body;
-
-      if body.Trim = '' then
-      begin
-        erro := 'body vazio';
-        Exit;
-      end;
-
-      sucesso := servico.EditarEmMassa(body, erro);
-
-      if sucesso then
-      begin
-
-        Res.Send<TJSONObject>(
-          TJSONObject.Create
-            .AddPair('sucesso', 'true')
-            .AddPair('mensagem', 'Registros atualizados com sucesso')
-        ).Status(THTTPStatus.OK);
-      end
-      else
-      begin
-        // Retorna erro especÃ­fico da operaÃ§Ã£o
-        Res.Send<TJSONObject>(
-          TJSONObject.Create
-            .AddPair('sucesso', 'false')
-            .AddPair('erro', erro)
-        ).Status(THTTPStatus.BadRequest);
-      end;
-    except
-      on E: Exception do
-      begin
-        // Retorna erro inesperado
-        Res.Send<TJSONObject>(
-          TJSONObject.Create
-            .AddPair('sucesso', 'false')
-            .AddPair('erro', 'Erro inesperado: ' + E.Message)
-        ).Status(THTTPStatus.InternalServerError);
-      end;
-    end;
-  finally
-    if Assigned(servico) then
-      servico.Free;
-  end;
-end;
-
-
 procedure historicopagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TProjetotelefonica;
@@ -910,40 +734,6 @@ begin
     exit;
   end;
   qry := servico.Listaacionamentosfhistorico(Req.Query.Dictionary, erro);
-  try
-
-    try
-      arraydados := qry.ToJSONArray();
-      if erro = '' then
-        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-    except
-      on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
-    end;
-  finally
-    qry.Free;
-    servico.Free;
-  end;
-end;
-
-
-procedure historicopagamentogeral(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TProjetotelefonica;
-  qry: TFDQuery;
-  erro: string;
-  arraydados: TJSONArray;
-  body: TJSONValue;
-begin
-  try
-    servico := TProjetotelefonica.Create;
-  except
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
-  end;
-  qry := servico.Listaacionamentoshistoricopagamento(Req.Query.Dictionary, erro);
   try
 
     try
@@ -1157,7 +947,7 @@ begin
               Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
           end
           else
-            Res.Send<TJSONObject>(CreateJsonObj('erro', 'JÃ¡ existe pagamento nesse periodo')).Status(THTTPStatus.BadRequest);
+            Res.Send<TJSONObject>(CreateJsonObj('erro', 'Já existe pagamento nesse periodo')).Status(THTTPStatus.BadRequest);
 
         end;
       end
@@ -1507,153 +1297,6 @@ begin
   end;
 end;
 
-procedure GerarTaf(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TProjetotelefonica;
-  numeroTAF, erro: string;
-  resultado: TJSONObject;
-  sucesso: Boolean;
-  dadosDict: TDictionary<string, string>;
-  jsonBody: TJSONObject;
-  pair: TJSONPair;
-  nomeArquivo: String;
-begin
-  resultado := nil;
-  servico := TProjetotelefonica.Create;
-  dadosDict := TDictionary<string, string>.Create;
-  try
-    try
-      jsonBody := TJSONObject.ParseJSONValue(Req.Body) as TJSONObject;
-      if Assigned(jsonBody) then
-      begin
-        for pair in jsonBody do
-          dadosDict.Add(pair.JsonString.Value, pair.JsonValue.Value);
-      end
-      else
-      begin
-        resultado := TJSONObject.Create;
-        resultado.AddPair('erro', 'JSON de entrada invÃ¡lido ou ausente.');
-        Res.Send<TJSONObject>(resultado).Status(THTTPStatus.BadRequest);
-        Exit;
-      end;
-
-      sucesso := servico.RegistrarCartaTAF(dadosDict, erro, NomeArquivo);
-      if sucesso then
-      begin
-        resultado := TJSONObject.Create;
-        resultado.AddPair('status', 'sucesso');
-        resultado.AddPair('numeroTAF', nomeArquivo);
-        Res.Send<TJSONObject>(resultado).Status(THTTPStatus.OK);
-      end
-      else
-      begin
-        resultado := TJSONObject.Create;
-        resultado.AddPair('erro', erro);
-        Res.Send<TJSONObject>(resultado).Status(THTTPStatus.InternalServerError);
-      end;
-    except
-      on ex: Exception do
-      begin
-        if Assigned(resultado) then
-          resultado.Free;
-        resultado := TJSONObject.Create;
-        resultado.AddPair('erro', ex.Message);
-        Res.Send<TJSONObject>(resultado).Status(THTTPStatus.InternalServerError);
-      end;
-    end;
-  finally
-    servico.Free;
-    dadosDict.Free;
-    jsonBody.Free;
-  end;
-end;
-
-
-procedure AtualizarEmFaturamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TProjetotelefonica;
-  erro: string;
-  sucesso: Boolean;
-  resultado: TJSONObject;
-begin
-  servico := TProjetotelefonica.Create;
-  try
-    try
-      // Tenta atualizar para "Em Faturamento"
-      sucesso := servico.AtualizarParaEmFaturamento(Req.Query.Dictionary, erro);
-
-      if sucesso then
-      begin
-        resultado := TJSONObject.Create
-          .AddPair('sucesso', TJSONBool.Create(True))
-          .AddPair('mensagem', 'Status atualizado para "Em Faturamento" com sucesso');
-        Res.Send<TJSONObject>(resultado).Status(THTTPStatus.OK);
-      end
-      else
-      begin
-        resultado := TJSONObject.Create
-          .AddPair('sucesso', TJSONBool.Create(False))
-          .AddPair('erro', erro);
-        Res.Send<TJSONObject>(resultado).Status(THTTPStatus.BadRequest);
-      end;
-    except
-      on E: Exception do
-      begin
-        resultado := TJSONObject.Create
-          .AddPair('sucesso', TJSONBool.Create(False))
-          .AddPair('erro', 'Erro ao processar requisiÃ§Ã£o: ' + E.Message);
-        Res.Send<TJSONObject>(resultado).Status(THTTPStatus.InternalServerError);
-      end;
-    end;
-  finally
-    servico.Free;
-  end;
-end;
-
-
-
-procedure SalvarNotaFiscal(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TProjetotelefonica;
-  erro: string;
-  sucesso: Boolean;
-  resultado: TJSONObject;
-begin
-  servico := TProjetotelefonica.Create;
-  try
-    try
-      // Tenta salvar a nota fiscal
-      sucesso := servico.SalvarNotaFiscalT4(Req.Query.Dictionary, erro);
-
-      if sucesso then
-      begin
-        resultado := TJSONObject.Create
-          .AddPair('sucesso', TJSONBool.Create(True))
-          .AddPair('mensagem', 'Nota fiscal salva com sucesso');
-        Res.Send<TJSONObject>(resultado).Status(THTTPStatus.OK);
-      end
-      else
-      begin
-        resultado := TJSONObject.Create
-          .AddPair('sucesso', TJSONBool.Create(False))
-          .AddPair('erro', erro);
-        Res.Send<TJSONObject>(resultado).Status(THTTPStatus.BadRequest);
-      end;
-    except
-      on E: Exception do
-      begin
-        resultado := TJSONObject.Create
-          .AddPair('sucesso', TJSONBool.Create(False))
-          .AddPair('erro', 'Erro ao processar requisiÃ§Ã£o: ' + E.Message);
-        Res.Send<TJSONObject>(resultado).Status(THTTPStatus.InternalServerError);
-      end;
-    end;
-  finally
-    servico.Free;
-  end;
-end;
-
-
 procedure listacodt2(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TProjetotelefonica;
@@ -1685,107 +1328,6 @@ begin
     servico.Free;
   end;
 end;
-
-
-
-procedure listat4(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TProjetotelefonica;
-  qry: TFDQuery;
-  erro: string;
-  arraydados: TJSONArray;
-  jsonStr: string; // VariÃ¡vel auxiliar para debug
-begin
-  servico := nil;
-  qry := nil;
-  arraydados := nil;
-  erro := '';
-
-  try
-    try
-      servico := TProjetotelefonica.Create;
-      qry := servico.listat4(Req.Query.Dictionary, erro);
-
-      if not Assigned(qry) then
-      begin
-        if erro = '' then erro := 'Consulta nÃ£o retornou dados';
-        Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', erro))
-          .Status(THTTPStatus.InternalServerError);
-        Exit;
-      end;
-
-      try
-        // Converter para JSON e manter em variÃ¡vel temporÃ¡ria
-        arraydados := qry.ToJSONArray();
-        jsonStr := arraydados.ToString();
-
-        // Debug seguro - limitar tamanho do log
-        System.Writeln('JSON Size: ', arraydados.Count);
-        System.Writeln('First 200 chars: ', Copy(jsonStr, 1, 200));
-
-        if erro = '' then
-        begin
-          // Enviar resposta e LIBERAR IMEDIATAMENTE os recursos usados
-          Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK);
-          arraydados := nil; // Impede que seja liberado no finally
-        end
-        else
-        begin
-          Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', erro))
-            .Status(THTTPStatus.InternalServerError);
-        end;
-      except
-        on ex: Exception do
-        begin
-          erro := 'Erro ao converter dados: ' + ex.Message;
-          Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', erro))
-            .Status(THTTPStatus.InternalServerError);
-        end;
-      end;
-    except
-      on ex: Exception do
-      begin
-        Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', ex.Message))
-          .Status(THTTPStatus.InternalServerError);
-      end;
-    end;
-  finally
-    // LiberaÃ§Ã£o segura de recursos
-    try
-      if Assigned(arraydados) then
-      begin
-        System.Writeln('Liberando arraydados');
-        arraydados.Free;
-      end;
-    except
-      on ex: Exception do
-        System.Writeln('Erro ao liberar arraydados: ', ex.Message);
-    end;
-
-    try
-      if Assigned(qry) then
-      begin
-        System.Writeln('Liberando qry');
-        FreeAndNil(qry);
-      end;
-    except
-      on ex: Exception do
-        System.Writeln('Erro ao liberar qry: ', ex.Message);
-    end;
-
-    try
-      if Assigned(servico) then
-      begin
-        System.Writeln('Liberando serviÃ§o');
-        FreeAndNil(servico);
-      end;
-    except
-      on ex: Exception do
-        System.Writeln('Erro ao liberar serviÃ§o: ', ex.Message);
-    end;
-  end;
-end;
-
 
 procedure listat2(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -1899,14 +1441,14 @@ begin
     erro := '';
     retorno := '';
     try
-      // LÃª o corpo da requisiÃ§Ã£o como TJSONObject
+      // Lê o corpo da requisição como TJSONObject
       body := Req.Body<TJSONObject>;
       servico.sitename := body.GetValue<string>('sitename', '');
       servico.sitenamefrom := body.GetValue<string>('sitenamefrom', '');
       servico.estado := body.GetValue<string>('estado', '');
       servico.siteid := body.GetValue<string>('siteid', '');
 
-      // LÃª o array de objetos (se existir)
+      // Lê o array de objetos (se existir)
       if body.TryGetValue<TJSONArray>('tarefas', JSONArray) then
       begin
         for i := 0 to JSONArray.Count - 1 do
@@ -1924,18 +1466,18 @@ begin
           // Validar e salvar cada item
             if not servico.salvartarefa(erro) then
             begin
-              erro := Format('Erro ao salvar tarefa com nÃºmero "%s": %s', [servico.numero, erro]);
+              erro := Format('Erro ao salvar tarefa com número "%s": %s', [servico.numero, erro]);
               Break;
             end;
 
-          // Adicionar o ID do serviÃ§o salvo Ã  resposta de sucesso
+          // Adicionar o ID do serviço salvo à resposta de sucesso
             if retorno <> '' then
               retorno := retorno + ', ';
             retorno := retorno + servico.id;
           except
             on ex: Exception do
             begin
-              erro := Format('Erro ao processar tarefa com nÃºmero "%s": %s', [servico.numero, ex.Message]);
+              erro := Format('Erro ao processar tarefa com número "%s": %s', [servico.numero, ex.Message]);
               Break;
             end;
           end;
@@ -1943,7 +1485,7 @@ begin
 
           // Processa cada objeto do array
           // Exemplo: JSONObj.GetValue<string>('campo') ou armazena em outra estrutura
-          // Aqui vocÃª pode adicionar lÃ³gica para armazenar ou processar os dados
+          // Aqui você pode adicionar lógica para armazenar ou processar os dados
         end;
       end;
 
@@ -1978,7 +1520,7 @@ begin
     erro := '';
     retorno := '';
     try
-      // LÃª o corpo da requisiÃ§Ã£o como TJSONObject
+      // Lê o corpo da requisição como TJSONObject
       body := Req.body<tjsonobject>;
       servico.infra := body.getvalue<string>('infra', '');
       servico.infravivo := body.getvalue<string>('infraviv', '');
@@ -2007,7 +1549,6 @@ begin
       servico.documentacao := body.getvalue<string>('documentacao', '');
       servico.dtplan := body.getvalue<string>('dtplan', '');
       servico.dtreal := body.getvalue<string>('dtreal', '');
-      servico.aprovacaossv := body.getvalue<string>('aprovacaossv', '');
       servico.statusobra := body.getvalue<string>('statusobra', '');
       servico.docaplan := body.getvalue<string>('docaplan', '');
       servico.ov := body.getvalue<string>('ov', '');
@@ -2021,9 +1562,6 @@ begin
       servico.req := body.getvalue<string>('req', '');
       servico.acompanhamentofisicoobservacao := body.getvalue<string>('acompanhamentofisicoobservacao', '');
       servico.equipe := body.getvalue<string>('equipe', '');
-      servico.initialtunningstatus := body.getvalue<string>('initialtunningstatus', '');
-      servico.initialtunningreal := body.getvalue<string>('initialtunningreal', '');
-
       if Length(erro) = 0 then
       begin
         if servico.Editar(erro) then
@@ -2057,7 +1595,7 @@ begin
     erro := '';
     retorno := '';
     try
-      // LÃª o corpo da requisiÃ§Ã£o como TJSONObject
+      // Lê o corpo da requisição como TJSONObject
       body := Req.Body<TJSONObject>;
       servico.idrollout := body.GetValue<integer>('idrollout', 0);
       servico.idatividade := body.GetValue<integer>('idatividade', 0);
@@ -2094,104 +1632,55 @@ end;
 procedure salvaacionamentoclt(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TProjetotelefonica;
-  body: TJSONObject;
-  jsonValue: TJSONValue;
-  erro: string;
-  tempInt: Integer;
-  tempStr: string;
-  tempDouble: Double;
+  body: TJSONValue;
+  JSONArray: TJSONArray;
+  JSONObj: TJSONObject;
+  JSONItem: TJSONValue;
+  erro, retorno: string;
+  i: integer;
+  xData: string;
 begin
   servico := TProjetotelefonica.Create;
   try
+    erro := '';
+    retorno := '';
     try
+      // Lê o corpo da requisição como TJSONObject
       body := Req.Body<TJSONObject>;
-      erro := '';
+      servico.idrollout := body.GetValue<integer>('idrollout', 0);
+      servico.idatividade := body.GetValue<integer>('idatividade', 0);
+      servico.idcolaborador := body.GetValue<integer>('idcolaborador', 0);
+      servico.idpmts := body.GetValue<string>('idpmts', '');
+      servico.idfuncionario := body.GetValue<integer>('idfuncionario', 0);
+      servico.atividade := body.GetValue<string>('atividade', '');
+      servico.datainicioclt := body.GetValue<string>('datainicioclt', '');
+      servico.datafinalclt := body.GetValue<string>('datafinalclt', '');
 
-      if body.TryGetValue<string>('idpmts', tempStr) then
-        servico.idpmts := tempStr
+      servico.totalhorasclt := body.GetValue<double>('totalhorasclt', 0);
+      servico.observacaoclt := body.GetValue<string>('observacaoclt', '');
+      servico.horanormalclt := body.GetValue<double>('horanormalclt', 0);
+      servico.hora50clt := body.GetValue<double>('hora50clt', 0);
+      servico.hora100clt := body.GetValue<double>('hora100clt', 0);
+
+      if Length(erro) = 0 then
+      begin
+        if servico.salvaacionamentoclt(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idgeral)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
       else
-        servico.idpmts := '';
-
-
-      if body.TryGetValue<integer>('idfuncionario', tempInt) then
-        servico.idfuncionario := tempInt
-      else
-        servico.idfuncionario := 0;
-
-      if body.TryGetValue<integer>('idcolaborador', tempInt) then
-        servico.idcolaborador := tempInt
-      else
-        servico.idcolaborador := 0;
-
-      if body.TryGetValue<integer>('idatividade', tempInt) then
-        servico.idatividade := tempInt
-      else
-        servico.idatividade := 0;
-
-     if body.TryGetValue<string>('po', tempStr) then
-      servico.po := tempStr
-     else
-      servico.po := '';
-
-      if body.TryGetValue<string>('atividade', tempStr) then
-        servico.atividade := tempStr
-      else
-        servico.atividade := '';
-
-
-      jsonValue := body.GetValue('datainicioclt');
-      if (jsonValue <> nil) and not (jsonValue is TJSONNull) then
-        servico.datainicioclt := jsonValue.Value
-      else
-        servico.datainicioclt := '';
-
-      jsonValue := body.GetValue('datafinalclt');
-      if (jsonValue <> nil) and not (jsonValue is TJSONNull) then
-        servico.datafinalclt := jsonValue.Value
-      else
-        servico.datafinalclt := '';
-
-      if body.TryGetValue<integer>('totalhorasclt', tempInt) then
-        servico.totalhorasclt := tempInt
-      else
-        servico.totalhorasclt := 0;
-
-      if body.TryGetValue<string>('observacaoclt', tempStr) then
-        servico.observacaoclt := tempStr
-      else
-        servico.observacaoclt := '';
-
-      if body.TryGetValue<double>('horanormalclt', tempDouble) then
-        servico.horanormalclt := tempDouble
-      else
-        servico.horanormalclt := 0;
-
-      jsonValue := body.GetValue('hora50clt');
-      if (jsonValue <> nil) and not (jsonValue is TJSONNull) and (jsonValue.Value <> '') then
-        servico.hora50clt := jsonValue.AsType<double>
-      else
-        servico.hora50clt := 0;
-
-      jsonValue := body.GetValue('hora100clt');
-      if (jsonValue <> nil) and not (jsonValue is TJSONNull) and (jsonValue.Value <> '') then
-        servico.hora100clt := jsonValue.AsType<double>
-      else
-        servico.hora100clt := 0;
-
-
-      if servico.salvaacionamentoclt(erro) then
-        Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idgeral)).Status(THTTPStatus.Created)
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
 
     except
       on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro no processamento: ' + ex.Message)).Status(THTTPStatus.InternalServerError);
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
     servico.Free;
   end;
 end;
+
 procedure Salvar(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TProjetotelefonica;
@@ -2495,502 +1984,6 @@ begin
     servico.Free;
   end;
 end;
-
-procedure ListPrevisaoFechamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TProjetotelefonica;
-  ds: TFDQuery;
-  arr: TJSONArray;
-  msgErro: string;
-begin
-  servico := TProjetotelefonica.Create;
-  try
-    ds := servico.ListPrevisaoFechamento(Req.Query.Dictionary, msgErro);
-    try
-
-      if ds.IsEmpty then
-      begin
-        Res.Send<TJSONObject>(
-          TJSONObject.Create.AddPair('aviso', 'Nenhum registro encontrado')
-        ).Status(THTTPStatus.NoContent); // 204 Ã© mais adequado para resposta vazia
-        Exit;
-      end;
-
-      arr := nil;
-      try
-        arr := ds.ToJSONArray;
-        Res.Send<TJSONArray>(arr).Status(THTTPStatus.OK);
-        arr := nil; // Impede que seja liberado pelo finally
-      except
-        on E: Exception do
-        begin
-          FreeAndNil(arr);
-          Res.Send<TJSONObject>(
-            TJSONObject.Create
-              .AddPair('erro', 'Falha ao gerar resposta JSON')
-              .AddPair('detalhes', E.Message)
-          ).Status(THTTPStatus.InternalServerError);
-        end;
-      end;
-    finally
-      FreeAndNil(ds);
-    end;
-  finally
-    FreeAndNil(servico);
-  end;
-end;
-
-procedure ListaDespesas(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: TProjetotelefonica;
-  qry: TFDQuery;
-  erro: string;
-  arraydados: TJSONArray;
-  jsonResponse: TJSONObject;
-  totalGeral: Double;
-begin
-  try
-    servico := TProjetotelefonica.Create;
-  except
-    on E: Exception do
-    begin
-      Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco: ' + E.Message)).Status(500);
-      Exit;
-    end;
-  end;
-
-  try
-    qry := servico.ListaDespesas(Req.Query.Dictionary, erro, totalGeral);
-    try
-      if Assigned(qry) then
-      begin
-        arraydados := qry.ToJSONArray();
-
-        jsonResponse := TJSONObject.Create;
-        try
-          jsonResponse.AddPair('dados', arraydados);
-          jsonResponse.AddPair('total_geral', TJSONNumber.Create(totalGeral));
-
-          if erro = '' then
-            Res.Send<TJSONObject>(jsonResponse).Status(THTTPStatus.OK)
-          else
-            Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-        except
-          jsonResponse.Free;
-          raise;
-        end;
-      end
-      else
-      begin
-        if erro <> '' then
-          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.NotFound)
-        else
-          Res.Send<TJSONObject>(CreateJsonObj('erro', 'Nenhum dado encontrado')).Status(THTTPStatus.NotFound);
-      end;
-    except
-      on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
-    end;
-  finally
-    if Assigned(qry) then
-      qry.Free;
-    servico.Free;
-  end;
-end;
-
-
-procedure GerarT4Excel(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-const
-  xlOpenXMLWorkbookMacroEnabled = 52; // formato .xlsm
-var
-  ExcelApp, Workbook, Sheet: OleVariant;
-  TempFileName, TemplatePath: string;
-  FileStream: TFileStream;
-  FS: TFormatSettings;
-  DataAcionamento: TDateTime;
-  i: Integer;
-  ParamName, ParamValue: string;
-  ParamList: TStringList;
-  TempDir: string;
-  ErrorStage: string;
-  FileBytes: TBytes;
-
-function ParseISODate(const ISODate: string): TDateTime;
-  var
-    DateTimeStr: string;
-  begin
-    DateTimeStr := StringReplace(ISODate, 'T', ' ', []);
-    try
-      Result := StrToDateTime(DateTimeStr, FS);
-    except
-      Result := EncodeDate(
-        StrToIntDef(Copy(ISODate, 1, 4), 2025),
-        StrToIntDef(Copy(ISODate, 6, 2), 1),
-        StrToIntDef(Copy(ISODate, 9, 2), 1)
-      );
-    end;
-  end;
-
-begin
-  FS := TFormatSettings.Create;
-  FS.DecimalSeparator := '.';
-  FS.DateSeparator := '/';
-  FS.ShortDateFormat := 'dd/mm/yyyy';
-
-  try
-    // Stage 1: Log all received parameters
-    ErrorStage := 'Logging parameters';
-    ParamList := TStringList.Create;
-
-    // Stage 2: Prepare temporary directory
-    ErrorStage := 'Creating temp directory';
-    TempDir := TPath.Combine(ExtractFilePath(ParamStr(0)), 'TempExcelFiles');
-    if not DirectoryExists(TempDir) then
-      ForceDirectories(TempDir);
-
-    // Stage 3: Generate temp filename
-    ErrorStage := 'Generating temp filename';
-    TempFileName := TPath.Combine(TempDir, 'generatecartataf.xlsm');
-
-
-    // Stage 4: Initialize COM and Excel
-    ErrorStage := 'Initializing Excel';
-    CoInitialize(nil);
-    try
-      ExcelApp := CreateOleObject('Excel.Application');
-      ExcelApp.Visible := False;
-      ExcelApp.DisplayAlerts := False;
-
-      // Stage 5: Verify template exists
-      ErrorStage := 'Checking template file';
-      TemplatePath := TPath.Combine(ExtractFilePath(ParamStr(0)), 'documents\cartataf.xlsm');
-      if not FileExists(TemplatePath) then
-        raise Exception.Create(Format('Template file not found: %s', [TemplatePath]));
-
-      // Stage 6: Open workbook
-      ErrorStage := 'Opening workbook';
-      Workbook := ExcelApp.Workbooks.Open(TemplatePath);
-      Sheet := Workbook.Worksheets[1];
-
-      try
-        // Stage 7: Process parameters
-        ErrorStage := 'Processing parameters';
-
-        // Parse date if provided
-        if Req.Query.TryGetValue('dataacionamento', ParamValue) then
-          DataAcionamento := ParseISODate(ParamValue);
-
-        // Fill cells with parameter validation
-        ErrorStage := 'Filling cell Z6';
-        if Req.Query.TryGetValue('pepnivel3', ParamValue) then
-          Sheet.Cells[6, 26].Value := ParamValue;
-
-        ErrorStage := 'Filling cell E9';
-        if Req.Query.TryGetValue('numerodocontrato', ParamValue) then
-          Sheet.Cells[9, 5].Value := ParamValue;
-
-        if Req.Query.TryGetValue('codfornecedor', ParamValue) then
-        begin
-          ErrorStage := 'Filling cells I7 and C16';
-          Sheet.Cells[9, 8].Value := ParamValue;
-          Sheet.Cells[17, 4].Value := ParamValue;
-        end;
-
-        ErrorStage := 'Filling cell K7';
-        if Req.Query.TryGetValue('empresa', ParamValue) then
-          Sheet.Cells[7, 11].Value := ParamValue;
-
-        ErrorStage := 'Filling cell D16';
-        if Req.Query.TryGetValue('t2descricaocod', ParamValue) then
-          Sheet.Cells[17, 5].Value := ParamValue;
-
-        ErrorStage := 'Filling cell E16';
-        if Req.Query.TryGetValue('t2codmatservsw', ParamValue) then
-          Sheet.Cells[17, 6].Value := ParamValue;
-
-        ErrorStage := 'Filling cell J16';
-        if Req.Query.TryGetValue('quantidade', ParamValue) then
-          Sheet.Cells[17, 14].Value := ParamValue;
-
-        ErrorStage := 'Filling cell M16';
-        if Req.Query.TryGetValue('valor', ParamValue) then
-          Sheet.Cells[17, 15].Value := ParamValue;
-
-        // Stage 8: Save workbook
-        ErrorStage := 'Saving workbook';
-        if FileExists(TempFileName) then
-        begin
-          try
-            DeleteFile(TempFileName);
-          except
-            on E: Exception do
-              raise Exception.CreateFmt('Erro ao tentar sobrescrever o arquivo "%s": %s', [TempFileName, E.Message]);
-          end;
-        end;
-        Workbook.SaveAs(TempFileName, xlOpenXMLWorkbookMacroEnabled);
-      except
-        on E: Exception do
-        begin
-          // Add stage info to error message
-          raise Exception.Create(Format('Error during %s: %s', [ErrorStage, E.Message]));
-        end;
-      end;
-
-    finally
-      // Stage 9: Cleanup Excel
-      ErrorStage := 'Cleaning up Excel';
-      if not VarIsEmpty(Sheet) then Sheet := Unassigned;
-      if not VarIsEmpty(Workbook) then
-      begin
-        Workbook.Close(False);
-        Workbook := Unassigned;
-      end;
-      if not VarIsEmpty(ExcelApp) then
-      begin
-        ExcelApp.Quit;
-        ExcelApp := Unassigned;
-      end;
-      CoUninitialize;
-    end;
-
-    // Stage 10: Verify output file
-    ErrorStage := 'Verifying output file';
-    if not FileExists(TempFileName) then
-      raise Exception.Create(Format('Output file not created: %s', [TempFileName]));
-
-    // Stage 11: Send response
-    ErrorStage := 'Sending response';
-    try
-      // LÃª o arquivo como array de bytes e envia
-        FileBytes := TFile.ReadAllBytes(TempFileName);
-
-        // Configura os headers e envia a resposta
-        Res.ContentType('application/vnd.ms-excel.sheet.macroEnabled.12');
-        Res.AddHeader('Content-Disposition', 'attachment; filename="cartataf_gerado.xlsm"');
-        Res.Status(THTTPStatus.OK);
-        Res.SendFile(TempFileName);
-
-    except
-      on E: Exception do
-      begin
-        Writeln('Erro ao enviar arquivo: ' + E.Message);
-        raise;
-      end;
-    end;
-  except
-    on E: Exception do
-    begin
-      // Stage 12: Error handling
-      Writeln(Format('Error at stage "%s": %s', [ErrorStage, E.Message]));
-
-      // Cleanup temp file if exists
-      if (TempFileName <> '') and FileExists(TempFileName) then
-        DeleteFile(TempFileName);
-
-      // Return detailed error to client
-      Res.Send(Format('Erro ao gerar carta TAF (etapa: %s): %s',
-        [ErrorStage, E.Message]))
-        .Status(THTTPStatus.InternalServerError);
-    end;
-  end;
-end;
-
-procedure GerarT4CSV(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-const
-  xlOpenXMLWorkbookMacroEnabled = 52; // formato .xlsm
-var
-  ExcelApp, Workbook, Sheet: OleVariant;
-  TempFileName, TemplatePath: string;
-  FileStream: TFileStream;
-  FS: TFormatSettings;
-  DataAcionamento: TDateTime;
-  i: Integer;
-  ParamName, ParamValue: string;
-  ParamList: TStringList;
-  TempDir: string;
-  ErrorStage: string;
-  FileBytes: TBytes;
-
-function ParseISODate(const ISODate: string): TDateTime;
-  var
-    DateTimeStr: string;
-  begin
-    DateTimeStr := StringReplace(ISODate, 'T', ' ', []);
-    try
-      Result := StrToDateTime(DateTimeStr, FS);
-    except
-      Result := EncodeDate(
-        StrToIntDef(Copy(ISODate, 1, 4), 2025),
-        StrToIntDef(Copy(ISODate, 6, 2), 1),
-        StrToIntDef(Copy(ISODate, 9, 2), 1)
-      );
-    end;
-  end;
-
-begin
-  FS := TFormatSettings.Create;
-  FS.DecimalSeparator := '.';
-  FS.DateSeparator := '/';
-  FS.ShortDateFormat := 'dd/mm/yyyy';
-
-  try
-    // Stage 1: Log all received parameters
-    ErrorStage := 'Logging parameters';
-    ParamList := TStringList.Create;
-
-    // Stage 2: Prepare temporary directory
-    ErrorStage := 'Creating temp directory';
-    TempDir := TPath.Combine(ExtractFilePath(ParamStr(0)), 'TempExcelFiles');
-    if not DirectoryExists(TempDir) then
-      ForceDirectories(TempDir);
-
-    // Stage 3: Generate temp filename
-    ErrorStage := 'Generating temp filename';
-    TempFileName := TPath.Combine(TempDir, 'generatecartataf.csv');
-
-
-    // Stage 4: Initialize COM and Excel
-    ErrorStage := 'Initializing Excel';
-    CoInitialize(nil);
-    try
-      ExcelApp := CreateOleObject('Excel.Application');
-      ExcelApp.Visible := False;
-      ExcelApp.DisplayAlerts := False;
-
-      // Stage 5: Verify template exists
-      ErrorStage := 'Checking template file';
-      TemplatePath := TPath.Combine(ExtractFilePath(ParamStr(0)), 'documents\cartatafcsv.csv');
-      if not FileExists(TemplatePath) then
-        raise Exception.Create(Format('Template file not found: %s', [TemplatePath]));
-
-      // Stage 6: Open workbook
-      ErrorStage := 'Opening workbook';
-      Workbook := ExcelApp.Workbooks.Open(TemplatePath);
-      Sheet := Workbook.Worksheets[1];
-
-      try
-        // Stage 7: Process parameters
-        ErrorStage := 'Processing parameters';
-
-        // Parse date if provided
-        if Req.Query.TryGetValue('dataacionamento', ParamValue) then
-          DataAcionamento := ParseISODate(ParamValue);
-
-        // Fill cells with parameter validation
-        ErrorStage := 'Filling cell Z6';
-        if Req.Query.TryGetValue('pepnivel3', ParamValue) then
-          Sheet.Cells[6, 26].Value := ParamValue;
-
-        ErrorStage := 'Filling cell E9';
-        if Req.Query.TryGetValue('numerodocontrato', ParamValue) then
-          Sheet.Cells[9, 6].Value := ParamValue;
-
-        if Req.Query.TryGetValue('codfornecedor', ParamValue) then
-        begin
-          ErrorStage := 'Filling cells I7 and C16';
-          Sheet.Cells[9, 11].Value := ParamValue;
-          Sheet.Cells[17, 4].Value := ParamValue;
-        end;
-
-        ErrorStage := 'Filling cell K7';
-        if Req.Query.TryGetValue('empresa', ParamValue) then
-          Sheet.Cells[7, 11].Value := ParamValue;
-
-        ErrorStage := 'Filling cell D16';
-        if Req.Query.TryGetValue('t2descricaocod', ParamValue) then
-          Sheet.Cells[17, 5].Value := ParamValue;
-
-        ErrorStage := 'Filling cell E16';
-        if Req.Query.TryGetValue('t2codmatservsw', ParamValue) then
-          Sheet.Cells[17, 6].Value := ParamValue;
-
-        ErrorStage := 'Filling cell J16';
-        if Req.Query.TryGetValue('quantidade', ParamValue) then
-          Sheet.Cells[17, 14].Value := ParamValue;
-
-        ErrorStage := 'Filling cell M16';
-        if Req.Query.TryGetValue('valor', ParamValue) then
-          Sheet.Cells[17, 15].Value := ParamValue;
-
-        // Stage 8: Save workbook
-        ErrorStage := 'Saving workbook';
-        if FileExists(TempFileName) then
-        begin
-          try
-            DeleteFile(TempFileName);
-          except
-            on E: Exception do
-              raise Exception.CreateFmt('Erro ao tentar sobrescrever o arquivo "%s": %s', [TempFileName, E.Message]);
-          end;
-        end;
-        Workbook.SaveAs(TempFileName, xlOpenXMLWorkbookMacroEnabled);
-      except
-        on E: Exception do
-        begin
-          // Add stage info to error message
-          raise Exception.Create(Format('Error during %s: %s', [ErrorStage, E.Message]));
-        end;
-      end;
-
-    finally
-      // Stage 9: Cleanup Excel
-      ErrorStage := 'Cleaning up Excel';
-      if not VarIsEmpty(Sheet) then Sheet := Unassigned;
-      if not VarIsEmpty(Workbook) then
-      begin
-        Workbook.Close(False);
-        Workbook := Unassigned;
-      end;
-      if not VarIsEmpty(ExcelApp) then
-      begin
-        ExcelApp.Quit;
-        ExcelApp := Unassigned;
-      end;
-      CoUninitialize;
-    end;
-
-    // Stage 10: Verify output file
-    ErrorStage := 'Verifying output file';
-    if not FileExists(TempFileName) then
-      raise Exception.Create(Format('Output file not created: %s', [TempFileName]));
-
-    // Stage 11: Send response
-    ErrorStage := 'Sending response';
-    try
-      // LÃª o arquivo como array de bytes e envia
-        FileBytes := TFile.ReadAllBytes(TempFileName);
-
-        // Configura os headers e envia a resposta
-        Res.ContentType('application/vnd.ms-excel.sheet.macroEnabled.12');
-        Res.AddHeader('Content-Disposition', 'attachment; filename="cartataf_gerado.csv"');
-        Res.Status(THTTPStatus.OK);
-        Res.SendFile(TempFileName);
-
-    except
-      on E: Exception do
-      begin
-        Writeln('Erro ao enviar arquivo: ' + E.Message);
-        raise;
-      end;
-    end;
-  except
-    on E: Exception do
-    begin
-      // Stage 12: Error handling
-      Writeln(Format('Error at stage "%s": %s', [ErrorStage, E.Message]));
-
-      // Cleanup temp file if exists
-      if (TempFileName <> '') and FileExists(TempFileName) then
-        DeleteFile(TempFileName);
-
-      // Return detailed error to client
-      Res.Send(Format('Erro ao gerar carta TAF (etapa: %s): %s',
-        [ErrorStage, E.Message]))
-        .Status(THTTPStatus.InternalServerError);
-    end;
-  end;
-end;
-
 
 end.
 

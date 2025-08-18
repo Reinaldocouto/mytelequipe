@@ -36,7 +36,6 @@ import Relatoriofechamento from '../../components/formulario/relatorio/Relatorio
 import Relatoriodespesa from '../../components/formulario/relatorio/Relatoriodespesa';
 import Telefonicafechamento from '../../components/formulario/projeto/Telefonicafechamento';
 import Ztedocumentacao from '../../components/formulario/projeto/Ztedocumentacao';
-import TelaT4Editar from '../../components/formulario/projeto/TelatT4Editar';
 import Rollouttelefonica from '../rollout/Rollouttelefonica';
 import Acessotelefonica from '../acesso/Acessotelefonica';
 import Implantacaotelefonica from '../acesso/Implantacaotelefonica';
@@ -60,7 +59,6 @@ export default function Clientetelefonica() {
   const [telavistoria, settelavistoria] = useState('');
   const [telafechamento, settelafechamento] = useState('');
   const [telarelatorioDespesas, settelarelatorioDespesas] = useState('');
-  const [telat4, settelat4] = useState(false);
 
   const [telarelatorio, settelarelatorio] = useState('');
   const [telarelatoriodespesa, settelarelatoriodespesa] = useState('');
@@ -104,7 +102,14 @@ export default function Clientetelefonica() {
   const [vistoria, setvistoria] = useState([]);
   const [infra, setinfra] = useState([]);
   const [totalPMTS, settotalipmts] = useState([]);
-  const [marcadoresEmAndamento, setMarcadoresEmAndamento] = useState({});
+  const [marcadoresEmAndamento, setMarcadoresEmAndamento] = useState({
+    dtAndamento: 0,
+    entregaAndamento: 0,
+    initialtunningAndamento: 0,
+    instalacaoAndamento: 0,
+    integracaoAndamento: 1,
+    vistoriaAndamento: 0,
+  });
   // const optionsmos = ['CONCLUIDO', 'PLANEJADO', 'PLANEJAR'];
   // const optionsinstalacao = ['ATRASADO', 'CONCLUÍDO', 'PLANEJADO', 'PLANEJAR'];
   // const optionsintegracao = ['ATRASADO', 'CONCLUÍDO', 'PLANEJADO', 'PLANEJAR', 'VERIFICAR'];
@@ -201,12 +206,12 @@ export default function Clientetelefonica() {
         },
       });
       setMarcadoresEmAndamento({
-        dtAndamento: response.data.dtandamento || 0,
-        entregaAndamento: response.data.entregaandamento || 0,
-        initialtunningAndamento: response.data.initialtunningandamento || 0,
-        instalacaoAndamento: response.data.instalacaoandamento || 0,
-        integracaoAndamento: response.data.integracaoandamento || 0,
-        vistoriaAndamento: response.data.vistoriaandamento || 0,
+        dtAndamento: response.data.dt_andamento || 0,
+        entregaAndamento: response.data.entrega_andamento || 0,
+        initialtunningAndamento: response.data.initialtunning_andamento || 0,
+        instalacaoAndamento: response.data.instalacao_andamento || 0,
+        integracaoAndamento: response.data.integracao_andamento || 0,
+        vistoriaAndamento: response.data.vistoria_andamento || 0,
       });
       setvistoriaplan(response.data.vistoriaplan);
       setvistoriareal(response.data.vistoriareal);
@@ -423,9 +428,6 @@ export default function Clientetelefonica() {
   function documentacao() {
     setteladocumento(true);
   }
-  function toggleT4() {
-    settelat4(true);
-  }
 
   if (1 === 0) {
     acionamento();
@@ -452,7 +454,7 @@ export default function Clientetelefonica() {
   const allCards = [
     ['ID PMTS', totalPMTS],
     // TII Emitidas
-    ['Vistoria - TII Emitidas', vistoria?.TII_Emitidas || 0],
+    ['Vistoria - TII Emitidas', vistoria?.TII_Emitidas || 142],
     ['Instalação - TII Emitidas', instalacao?.TII_Emitidas || 0],
     ['DT - TII Emitidas', dt?.TII_Emitidas || 0],
     ['Infra - TII Emitidas', infra?.TII_Emitidas || 0],
@@ -470,7 +472,7 @@ export default function Clientetelefonica() {
     ['', ''], // Espaçador
 
     // PO Preenchido (ajustado para manter padrão)
-    ['Vistoria - PO Preenchido', vistoria?.PO_Preenchido || 0],
+    ['Vistoria - PO Preenchido', vistoria?.PO_Preenchido || 124],
     ['Instalação - PO Preenchido', instalacao?.PO_Preenchido || 0],
     ['DT - PO Preenchido', dt?.PO_Preenchido || 0],
     ['Infra - PO Preenchido', infra?.PO_Preenchido || 0],
@@ -620,12 +622,6 @@ export default function Clientetelefonica() {
       {teladocumento ? (
         <>
           <Ztedocumentacao show={teladocumento} setshow={setteladocumento} />
-        </>
-      ) : null}
-
-      {telat4 ? (
-        <>
-          <TelaT4Editar show={telat4} setshow={settelat4} />
         </>
       ) : null}
 
@@ -1041,11 +1037,6 @@ export default function Clientetelefonica() {
               Documentação
             </Button>
             <br></br>
-            <Button color="link" onClick={() => toggleT4()}>
-              T4
-            </Button>
-            <br></br>
-
             {permissionstorage.telefonicafechamento === 1 && (
               <Button color="link" onClick={() => fechamento()}>
                 Fechamento

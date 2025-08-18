@@ -112,11 +112,7 @@ uses
   Model.HistoricoVeiculo in 'model\cadastro\Model.HistoricoVeiculo.pas',
   Controller.HistoricoVeiculo in 'Controller.HistoricoVeiculo.pas',
   Model.Projetotelefonica in 'model\Projeto\Model.Projetotelefonica.pas',
-  Controller.Projetotelefonica in 'controller\projeto\Controller.Projetotelefonica.pas',
-  Controller.configuracaoemail in 'controller\configuracoes\Controller.configuracaoemail.pas',
-  Model.ConfiguracaoEmail in 'model\configuracoes\Model.ConfiguracaoEmail.pas',
-  Controller.Monitoramento in 'controller\cadastro\Controller.Monitoramento.pas',
-  Model.Monitoramento in 'model\cadastro\Model.Monitoramento.pas';
+  Controller.Projetotelefonica in 'controller\projeto\Controller.Projetotelefonica.pas';
 
 var
   CronJob: TCronJob;
@@ -135,10 +131,11 @@ begin
       Result := AUsername.Equals('a') and APassword.Equals('1');
       end));     }
 
-    THorse.IOHandleSSL.SSLVersions := [sslvSSLv3, sslvTLSv1_2];
+  {  THorse.IOHandleSSL.SSLVersions := [sslvSSLv3, sslvTLSv1_2];
     THorse.IOHandleSSL.CertFile := 'C:\appsiti\certificate.crt';
     THorse.IOHandleSSL.KeyFile := 'C:\appsiti\private.key';
-    THorse.IOHandleSSL.Active := True;
+    THorse.IOHandleSSL.Active := True; }
+
 
   controller.usuario.Registry;
   Controller.Produto.Registry;
@@ -183,16 +180,14 @@ begin
   Controller.Projetohuawei.Registry;
   Controller.HistoricoVeiculo.Registry;
   Controller.Projetotelefonica.Registry;
-  Controller.configuracaoemail.Registry;
-  Controller.Monitoramento.Registry;
     //CronJob := TCronJob.Create(EncodeTime(15, 0,0,0)); // Cron job executado a cada 5 da manhã um vez por dia!
     //CronJob := TCronJob.Create(EncodeTime(0, 0, 2, 0));
     //CronJob.Start;
   try
-    THorse.Listen(8145,
+    THorse.Listen(8140,
       procedure(Horse: THorse)
       begin
-        Writeln('SISTEMA GPO TELEQUIPE DESENVOLVIMENTO');
+        Writeln('SISTEMA GPO TELEQUIPE');
         Writeln('Servidor ouvindo na porta: ' + Horse.Port.ToString);
         Writeln('Ligado as ' + datetostr(Date) + ' ' + TimeToStr(time));
         Writeln('Versão ' + VersaoExe);

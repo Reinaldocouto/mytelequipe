@@ -51,7 +51,14 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
   };
 
     const columns = [
-            
+            {
+      field: 'nome',
+      headerName: 'COLABORADOR',
+      width: 350,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
     {
       field: 'idpmts',
       headerName: 'IDMPTS',
@@ -132,7 +139,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       headerName: 'VALOR PJ',
       width: 150,
       align: 'right',
-      type: 'number', 
+      type: 'number', // Melhor usar 'number' para valores monetários
       editable: false,
       valueFormatter: (parametros) => {
         if (parametros.value == null) return ''; // Caso o valor seja nulo
@@ -144,13 +151,13 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       headerName: 'DATA ACIONAMENTO',
       width: 150,
       align: 'center',
-      type: 'date', 
+      type: 'date', // Use 'date' para o DataGrid entender o tipo
       editable: false,
       valueFormatter: (parametros) => {
-        if (!parametros.value) return ''; 
+        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
-        
+        // Verifica se a data é 30/12/1899
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -168,13 +175,13 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       headerName: 'DATA ENVIO EMAIL',
       width: 150,
       align: 'center',
-      type: 'date',
+      type: 'date', // Use 'date' para o DataGrid entender o tipo
       editable: false,
       valueFormatter: (parametros) => {
-        if (!parametros.value) return ''; 
+        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
-
+        // Verifica se a data é 30/12/1899
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -195,22 +202,68 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       editable: false,
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
+    /*  {
+        field: 'entregarequest',
+        headerName: 'ENTREGA REQUEST',
+        width: 150,
+        align: 'center',
+        type: 'date', // Use 'date' para o DataGrid entender o tipo
+        editable: false,
+        valueFormatter: (parametros) => {
+          if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
+  
+          const date = new Date(parametros.value);
+          // Verifica se a data é 30/12/1899
+          if (
+            date.getDate() === 30 &&
+            date.getMonth() === 11 && // Dezembro (0-based)
+            date.getFullYear() === 1899
+          ) {
+            return '';
+          }
+  
+          return date.toLocaleDateString('pt-BR');
+        },
+      },
+      {
+        field: 'entregaplan',
+        headerName: 'ENTREGA PLAN',
+        width: 150,
+        align: 'center',
+        type: 'date', // Use 'date' para o DataGrid entender o tipo
+        editable: false,
+        valueFormatter: (parametros) => {
+          if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
+  
+          const date = new Date(parametros.value);
+          // Verifica se a data é 30/12/1899
+          if (
+            date.getDate() === 30 &&
+            date.getMonth() === 11 && // Dezembro (0-based)
+            date.getFullYear() === 1899
+          ) {
+            return '';
+          }
+  
+          return date.toLocaleDateString('pt-BR');
+        },
+      }, */
 
     {
       field: 'vistoriareal',
       headerName: 'VISTORIA REAL',
       width: 150,
       align: 'center',
-      type: 'date',
+      type: 'date', // Use 'date' para o DataGrid entender o tipo
       editable: false,
       valueFormatter: (parametros) => {
-        if (!parametros.value) return ''; 
+        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
-
+        // Verifica se a data é 30/12/1899
         if (
           date.getDate() === 30 &&
-          date.getMonth() === 11 && 
+          date.getMonth() === 11 && // Dezembro (0-based)
           date.getFullYear() === 1899
         ) {
           return '';
@@ -225,37 +278,13 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       headerName: 'ENTREGA REAL',
       width: 150,
       align: 'center',
-      type: 'date', 
+      type: 'date', // Use 'date' para o DataGrid entender o tipo
       editable: false,
       valueFormatter: (parametros) => {
-        if (!parametros.value) return ''; 
+        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
-
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 && 
-          date.getFullYear() === 1899
-        ) {
-          return '';
-        }
-
-        return date.toLocaleDateString('pt-BR');
-      },
-    },
-    
-    {
-      field: 'fiminstalacaoreal',
-      headerName: 'FIM INSTALACAO REAL',
-      width: 150,
-      align: 'center',
-      type: 'date', 
-      editable: false,
-      valueFormatter: (parametros) => {
-        if (!parametros.value) return '';
-
-        const date = new Date(parametros.value);
-       
+        // Verifica se a data é 30/12/1899
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -267,7 +296,75 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         return date.toLocaleDateString('pt-BR');
       },
     },
+    /*  {
+        field: 'fiminstalacaoplan',
+        headerName: 'FIM INSTALACAO PLAN',
+        width: 150,
+        align: 'center',
+        type: 'date', // Use 'date' para o DataGrid entender o tipo
+        editable: false,
+        valueFormatter: (parametros) => {
+          if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
+  
+          const date = new Date(parametros.value);
+          // Verifica se a data é 30/12/1899
+          if (
+            date.getDate() === 30 &&
+            date.getMonth() === 11 && // Dezembro (0-based)
+            date.getFullYear() === 1899
+          ) {
+            return '';
+          }
+  
+          return date.toLocaleDateString('pt-BR');
+        },
+      }, */
+    {
+      field: 'fiminstalacaoreal',
+      headerName: 'FIM INSTALACAO REAL',
+      width: 150,
+      align: 'center',
+      type: 'date', // Use 'date' para o DataGrid entender o tipo
+      editable: false,
+      valueFormatter: (parametros) => {
+        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
+        const date = new Date(parametros.value);
+        // Verifica se a data é 30/12/1899
+        if (
+          date.getDate() === 30 &&
+          date.getMonth() === 11 && // Dezembro (0-based)
+          date.getFullYear() === 1899
+        ) {
+          return '';
+        }
+
+        return date.toLocaleDateString('pt-BR');
+      },
+    },
+    /*   {
+         field: 'integracaoplan',
+         headerName: 'INTEGRACAO PLAN',
+         width: 150,
+         align: 'center',
+         type: 'date', // Use 'date' para o DataGrid entender o tipo
+         editable: false,
+         valueFormatter: (parametros) => {
+           if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
+   
+           const date = new Date(parametros.value);
+           // Verifica se a data é 30/12/1899
+           if (
+             date.getDate() === 30 &&
+             date.getMonth() === 11 && // Dezembro (0-based)
+             date.getFullYear() === 1899
+           ) {
+             return '';
+           }
+   
+           return date.toLocaleDateString('pt-BR');
+         },
+       },  */
     {
       field: 'integracaoreal',
       headerName: 'INTEGRACAO REAL',
@@ -279,7 +376,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
-        
+        // Verifica se a data é 30/12/1899
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -302,7 +399,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
-       
+        // Verifica se a data é 30/12/1899
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -325,7 +422,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
-       
+        // Verifica se a data é 30/12/1899
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -337,10 +434,32 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         return date.toLocaleDateString('pt-BR');
       },
     },
-
+    /*  {
+        field: 'dtplan',
+        headerName: 'DT PLAN',
+        width: 150,
+        align: 'center',
+        type: 'date', // Use 'date' para o DataGrid entender o tipo
+        editable: false,
+        valueFormatter: (parametros) => {
+          if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
+  
+          const date = new Date(parametros.value);
+          // Verifica se a data é 30/12/1899
+          if (
+            date.getDate() === 30 &&
+            date.getMonth() === 11 && // Dezembro (0-based)
+            date.getFullYear() === 1899
+          ) {
+            return '';
+          }
+  
+          return date.toLocaleDateString('pt-BR');
+        },
+      },  */
     {
       field: 'initialtunningreal',
-      headerName: 'INITIAL TUNNING REAL',
+      headerName: 'INITIAL TUNNING',
       width: 150,
       align: 'center',
       type: 'date', // Use 'date' para o DataGrid entender o tipo
@@ -349,7 +468,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
-   
+        // Verifica se a data é 30/12/1899
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -373,7 +492,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
- 
+        // Verifica se a data é 30/12/1899
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -411,7 +530,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
-  
+        // Verifica se a data é 30/12/1899
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -428,7 +547,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       headerName: 'VALOR PAGO',
       width: 150,
       align: 'right',
-      type: 'number',
+      type: 'number', // Melhor usar 'number' para valores monetários
       editable: false,
       valueFormatter: (parametros) => {
         if (parametros.value == null) return ''; // Caso o valor seja nulo
@@ -522,6 +641,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
             };
     
             return {
+            COLABORADOR: item.nome,    
             IDMPTS: item.idpmts,
             REGIONAL: item.regional,
             PO: item.po,
@@ -534,7 +654,6 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
             VALOR:  item.valor?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
             'DATA ACIONAMENTO': formatarData(item.dataacionamento),
             'DATA ENVIO EMAIL': formatarData(item.dataenvioemail),
-            COLABORADOR: item.nome,
             'VISTORIA REAL': formatarData(item.vistoriareal),
             'ENTREGA REAL': formatarData(item.entregareal),
             'FIM INSTALACAO REAL': formatarData(item.fiminstalacaoreal),

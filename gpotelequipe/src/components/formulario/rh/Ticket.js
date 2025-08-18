@@ -195,11 +195,9 @@ const Ticket = ({ setshow, show }) => {
         };*/
   const uploadanexo = async (e) => {
     e.preventDefault();
-    const nomeSemAcento = 'ticket.xls';
-    const arquivoModificado = new File([arquivoanexo], nomeSemAcento, { type: arquivoanexo.type });
 
     const formData = new FormData();
-    formData.append('files', arquivoModificado);
+    formData.append('files', arquivoanexo);
 
     const header = {
       headers: {

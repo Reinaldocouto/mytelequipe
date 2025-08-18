@@ -87,6 +87,7 @@ const Ericssonacionamento = ({ setshow, show }) => {
     try {
       setloading(true);
       await api.get('v1/projetoericsson', { params }).then((response) => {
+        console.log('vi/projetoericsson:  ', response.data);
         setprojeto(response.data);
         setpesqgeral('');
         setmensagem('');

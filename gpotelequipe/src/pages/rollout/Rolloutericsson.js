@@ -12,6 +12,8 @@ import {
   ptBR,
 } from '@mui/x-data-grid';
 import EditIcon from '@mui/icons-material/Edit';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+//import DeleteIcon from '@mui/icons-material/Delete';
 import PropTypes from 'prop-types';
 import Typography from '@mui/material/Typography';
 import Pagination from '@mui/material/Pagination';
@@ -21,19 +23,24 @@ import api from '../../services/api';
 import exportExcel from '../../data/exportexcel/Excelexport';
 import Rolloutericssonedicao from '../../components/formulario/rollout/Rolloutericssonedicao';
 import Excluirregistro from '../../components/Excluirregistro';
+import Telat2editar from '../../components/formulario/projeto/Telat2editar';
 
 const Rolloutericsson = ({ setshow, show }) => {
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
-  const [rollout, setrollout] = useState([]);
+  const [totalacionamento, settotalacionamento] = useState([]);
   const [mensagem, setmensagem] = useState('');
   const [ididentificador, setididentificador] = useState(0);
   const [telacadastroedicao, settelacadastroedicao] = useState('');
+  const [telacadastrot2edicao, settelacadastrot2edicao] = useState('');
   const [telaexclusao, settelaexclusao] = useState('');
   const [titulo, settitulo] = useState('');
+  const [titulot2, settitulot2] = useState('');
+  const [pmuf, setpmuf] = useState('');
+  const [idr, setidr] = useState('');
+  const [idpmtslocal, setidpmtslocal] = useState('');
   const [show1, setshow1] = useState(false);
-
-
+  const [idobra, setidobra] = useState('');
 
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
@@ -42,13 +49,11 @@ const Rolloutericsson = ({ setshow, show }) => {
     deletado: 0,
   };
 
-
-
   const listarolloutericsson = async () => {
     try {
       setLoading(true);
-      const response = await api.get('v1/projetoericsson', { params });
-      setrollout(response.data);
+      const response = await api.get('v1/rolloutericsson', { params });
+      settotalacionamento(response.data);
       setmensagem('');
     } catch (err) {
       setmensagem(err.message);
@@ -57,16 +62,31 @@ const Rolloutericsson = ({ setshow, show }) => {
     }
   };
 
+ 
 
-
-  function alterarUser(stat) {
+  function alterarUser(stat, pmuflocal, idrlocal, ipmts) {
     settitulo('Editar Rollout Ericsson');
-    settelacadastroedicao(true);
     setididentificador(stat);
+    setpmuf(pmuflocal);
+    setidr(idrlocal);
+    settelacadastroedicao(true);
+    setidpmtslocal(ipmts);
+    console.log(ipmts);
+    console.log(stat);
+  }
+
+  function t2editar(stat, pmuflocal, idrlocal, ipmts) {
+    setididentificador(stat);
+    setpmuf(pmuflocal);
+    setidr(idrlocal);
+    settelacadastrot2edicao(true);
+    setidpmtslocal(ipmts);
+    settitulot2(`T2 - ${ipmts}`);
+    setidobra(stat);
   }
 
   const [
-    ErirssonSelecionado, setericssonSelecionado
+    ErirssonSelecionado,setericssonSelecionado 
   ] = useState(null);
 
 
@@ -85,211 +105,236 @@ const Rolloutericsson = ({ setshow, show }) => {
           hint="Alterar"
           onClick={() => {
             alterarUser(
-              parametros.id,
+              parametros.row.uididcpomrf,
+              parametros.row.pmoregional,
+              parametros.row.id,
+              parametros.row.uididpmts,
             );
             setericssonSelecionado(parametros.row);
           }
           }
         />,
+        <GridActionsCellItem
+          icon={<AssignmentIcon />}
+          label="T2"
+          hint="T2"
+          onClick={() =>
+            t2editar(
+              parametros.row.uididcpomrf,
+              parametros.row.pmoregional,
+              parametros.row.id,
+              parametros.row.uididpmts,
+            )
+          }
+        />,
+
+        /*    <GridActionsCellItem
+              icon={<DeleteIcon />}
+              disabled={modoVisualizador()}
+              label="Delete"
+              onClick={() => deleteUser(parametros.id)}
+            />, */
       ],
     },
-
+   
     { field: 'rfp', headerName: 'RFP', width: 120 },
-    { field: 'id', headerName: 'Número', width: 100 },
-    { field: 'cliente', headerName: 'Cliente', width: 150 },
-    { field: 'regiona', headerName: 'Regional', width: 150 },
-    { field: 'site', headerName: 'Site', width: 150 },
-    { field: 'fornecedor', headerName: 'Fornecedor', width: 150 },
-    { field: 'situacaoimplantacao', headerName: 'Situação Impl.', width: 300, renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>, },
-    { field: 'situacaodaintegracao', headerName: 'Situação Int.', width: 200, renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>, },
-    {
-      field: 'datadacriacaodademandadia',
-      headerName: 'Data Criação Demanda',
-      width: 160,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    {
-      field: 'datalimiteaceitedia',
-      headerName: 'Data Limite Aceite',
-      width: 160,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    {
-      field: 'dataaceitedemandadia',
-      headerName: 'Data Aceite Demanda',
-      width: 160,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    {
-      field: 'datainicioprevistasolicitantebaselinemosdia',
-      headerName: 'Início Prev. Solicitante',
-      width: 180,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    {
-      field: 'datainicioentregamosplanejadodia',
-      headerName: 'Início Entrega Planejada',
-      width: 180,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    {
-      field: 'datarecebimentodositemosreportadodia',
-      headerName: 'Recebimento Reportado',
-      width: 180,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    {
-      field: 'datafimprevistabaselinefiminstalacaodia',
-      headerName: 'Fim Prev. Baseline Inst.',
-      width: 180,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    {
-      field: 'datafiminstalacaoplanejadodia',
-      headerName: 'Fim Inst. Planejada',
-      width: 160,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    {
-      field: 'dataconclusaoreportadodia',
-      headerName: 'Conclusão Reportada',
-      width: 160,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    {
-      field: 'datavalidacaoinstalacaodia',
-      headerName: 'Validação Instalação',
-      width: 160,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    {
-      field: 'dataintegracaobaselinedia',
-      headerName: 'Integração Baseline',
-      width: 160,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    {
-      field: 'dataintegracaoplanejadodia',
-      headerName: 'Integração Planejada',
-      width: 160,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    {
-      field: 'datavalidacaoeriboxedia',
-      headerName: 'Validação Eriboxe',
-      width: 160,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    { field: 'listadepos', headerName: 'Lista de POS', width: 150 },
-    { field: 'gestordeimplantacaonome', headerName: 'Gestor Impl.', width: 300 },
-    { field: 'statusrsa', headerName: 'Status RSA', width: 300 },
-    { field: 'rsarsa', headerName: 'RSA', width: 100 },
-    { field: 'arqsvalidadapelocliente', headerName: 'Docs Validados', width: 140 },
-    { field: 'statusaceitacao', headerName: 'Status Aceite', width: 140 },
-    {
-      field: 'datadefimdaaceitacaosydledia',
-      headerName: 'Fim Aceite Sydle',
-      width: 160,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    { field: 'ordemdevenda', headerName: 'Ordem de Venda', width: 200 },
-    { field: 'coordenadoaspnome', headerName: 'Coordenador ASP', width: 300 },
-    {
-      field: 'rsavalidacaorsanrotrackerdatafimdia',
-      headerName: 'Fim Validação RSA Tracker',
-      width: 200,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    {
-      field: 'fimdeobraplandia',
-      headerName: 'Fim Obra Plan.',
-      width: 140,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    {
-      field: 'fimdeobrarealdia',
-      headerName: 'Fim Obra Real',
-      width: 140,
-      type: 'date',
-      valueGetter: ({ value }) => value ? new Date(value) : null,
-      valueFormatter: ({ value }) => value
-        ? new Intl.DateTimeFormat('pt-BR').format(value)
-        : ''
-    },
-    { field: 'tipoatualizacaofam', headerName: 'Tipo Atualização FAM', width: 200 },
-    { field: 'sinergia', headerName: 'Sinergia', width: 100 },
-    { field: 'sinergia5g', headerName: 'Sinergia 5G', width: 100 },
-    { field: 'escoponome', headerName: 'Escopo', width: 300, renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>, },
-    { field: 'slapadraoescopodias', headerName: 'SLA Padrão (dias)', width: 140 },
-    { field: 'tempoparalisacaoinstalacaodias', headerName: 'Tempo Paralisação (dias)', width: 180 },
-    { field: 'localizacaositeendereco', headerName: 'Endereço Site', width: 300, renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>, },
-    { field: 'localizacaositecidade', headerName: 'Cidade Site', width: 300, renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>, },
-    { field: 'documentacaosituacao', headerName: 'Situação Doc.', width: 300 },
-    { field: 'sitepossuirisco', headerName: 'Site Possui Risco', width: 150 },
+  { field: 'numero', headerName: 'Número', width: 100 },
+  { field: 'cliente', headerName: 'Cliente', width: 150 },
+  { field: 'regiona', headerName: 'Regional', width: 150 },
+  { field: 'site', headerName: 'Site', width: 150 },
+  { field: 'fornecedor', headerName: 'Fornecedor', width: 150 },
+  { field: 'situacaoimplantacao', headerName: 'Situação Impl.', width: 150 },
+  { field: 'situacaodaintegracao', headerName: 'Situação Int.', width: 150 },
+  {
+    field: 'datadacriacaodademandadia',
+    headerName: 'Data Criação Demanda',
+    width: 160,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  {
+    field: 'datalimiteaceitedia',
+    headerName: 'Data Limite Aceite',
+    width: 160,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  {
+    field: 'dataaceitedemandadia',
+    headerName: 'Data Aceite Demanda',
+    width: 160,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  {
+    field: 'datainicioprevistasolicitantebaselinemosdia',
+    headerName: 'Início Prev. Solicitante',
+    width: 180,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  {
+    field: 'datainicioentregamosplanejadodia',
+    headerName: 'Início Entrega Planejada',
+    width: 180,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  {
+    field: 'datarecebimentodositemosreportadodia',
+    headerName: 'Recebimento Reportado',
+    width: 180,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  {
+    field: 'datafimprevistabaselinefiminstalacaodia',
+    headerName: 'Fim Prev. Baseline Inst.',
+    width: 180,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  {
+    field: 'datafiminstalacaoplanejadodia',
+    headerName: 'Fim Inst. Planejada',
+    width: 160,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  {
+    field: 'dataconclusaoreportadodia',
+    headerName: 'Conclusão Reportada',
+    width: 160,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  {
+    field: 'datavalidacaoinstalacaodia',
+    headerName: 'Validação Instalação',
+    width: 160,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  {
+    field: 'dataintegracaobaselinedia',
+    headerName: 'Integração Baseline',
+    width: 160,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  {
+    field: 'dataintegracaoplanejadodia',
+    headerName: 'Integração Planejada',
+    width: 160,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  {
+    field: 'datavalidacaoeriboxedia',
+    headerName: 'Validação Eriboxe',
+    width: 160,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  { field: 'listadepos', headerName: 'Lista de POS', width: 150 },
+  { field: 'gestordeimplantacaonome', headerName: 'Gestor Impl.', width: 180 },
+  { field: 'statusrsa', headerName: 'Status RSA', width: 120 },
+  { field: 'rsarsa', headerName: 'RSA', width: 100 },
+  { field: 'arqsvalidadapelocliente', headerName: 'Docs Validados', width: 140 },
+  { field: 'statusaceitacao', headerName: 'Status Aceite', width: 140 },
+  {
+    field: 'datadefimdaaceitacaosydledia',
+    headerName: 'Fim Aceite Sydle',
+    width: 160,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  { field: 'ordemdevenda', headerName: 'Ordem de Venda', width: 200 },
+  { field: 'coordenadoaspnome', headerName: 'Coordenador ASP', width: 180 },
+  {
+    field: 'rsavalidacaorsanrotrackerdatafimdia',
+    headerName: 'Fim Validação RSA Tracker',
+    width: 200,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  {
+    field: 'fimdeobraplandia',
+    headerName: 'Fim Obra Plan.',
+    width: 140,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  {
+    field: 'fimdeobrarealdia',
+    headerName: 'Fim Obra Real',
+    width: 140,
+    type: 'date',
+    valueGetter: ({ value }) => value ? new Date(value) : null,
+    valueFormatter: ({ value }) => value
+      ? new Intl.DateTimeFormat('pt-BR').format(value)
+      : ''
+  },
+  { field: 'tipoatualizacaofam', headerName: 'Tipo Atualização FAM', width: 200 },
+  { field: 'sinergia', headerName: 'Sinergia', width: 100 },
+  { field: 'sinergia5g', headerName: 'Sinergia 5G', width: 100 },
+  { field: 'escoponome', headerName: 'Escopo', width: 300 },
+  { field: 'slapadraoescopodias', headerName: 'SLA Padrão (dias)', width: 140 },
+  { field: 'tempoparalisacaoinstalacaodias', headerName: 'Tempo Paralisação (dias)', width: 180 },
+  { field: 'localizacaositeendereco', headerName: 'Endereço Site', width: 200 },
+  { field: 'localizacaositecidade', headerName: 'Cidade Site', width: 150 },
+  { field: 'documentacaosituacao', headerName: 'Situação Doc.', width: 150 },
+  { field: 'sitepossuirisco', headerName: 'Site Possui Risco', width: 150 },
+  { field: 'id', headerName: 'ID', width: 100 },
+  { field: 'numeroint', headerName: 'Número Int.', width: 100 },
 
 
   ];
@@ -349,115 +394,118 @@ const Rolloutericsson = ({ setshow, show }) => {
     iniciatabelas();
   }, []);
 
-  /* ---------- helpers -------------------------------------------------- */
-  const dateFields = new Set([
-    // já existentes
-    'ENTRGA_REQUEST', 'ENTREGA_PLAN', 'ENTREGA_REAL',
-    'FIM_INSTALACAO_PLAN', 'FIM_INSTALACAO_REAL',
-    'INTEGRACAO_PLAN', 'INTEGRACAO_REAL',
-    'DT_PLAN', 'DT_REAL', 'DELIVERY_PLAN',
-    'REGIONAL_LIB_SITE_P', 'REGIONAL_LIB_SITE_R',
-    'EQUIPAMENTO_ENTREGA_P', 'REGIONAL_CARIMBO',
-    'ATIVACAO_REAL', 'DOCUMENTACAO', 'INITIAL_TUNNING_REAL', 'INITIAL_TUNNING_STATUS',
-    'VISTORIA_PLAN', 'VISTORIA_REAL',
-    'DOCUMENTACAO_VISTORIA_PLAN',
-    'DOCUMENTACAO_VISTORIA_REAL', 'REQ'
-  ]);
+ /* ---------- helpers -------------------------------------------------- */
+const dateFields = new Set([
+  // já existentes
+  'ENTRGA_REQUEST', 'ENTREGA_PLAN', 'ENTREGA_REAL',
+  'FIM_INSTALACAO_PLAN', 'FIM_INSTALACAO_REAL',
+  'INTEGRACAO_PLAN', 'INTEGRACAO_REAL',
+  'DT_PLAN', 'DT_REAL', 'DELIVERY_PLAN',
+  'REGIONAL_LIB_SITE_P', 'REGIONAL_LIB_SITE_R',
+  'EQUIPAMENTO_ENTREGA_P', 'REGIONAL_CARIMBO',
+  'ATIVACAO_REAL', 'DOCUMENTACAO', 'INITIAL_TUNNING_REAL', 'INITIAL_TUNNING_STATUS',
+  'VISTORIA_PLAN', 'VISTORIA_REAL',
+  'DOCUMENTACAO_VISTORIA_PLAN',
+  'DOCUMENTACAO_VISTORIA_REAL', 'REQ'
+]);
 
-  const toBRDate = (v) => {
-    if (!v) return v;
-    // “datas nulas” → vazio
-    if (/^(1899-12-(30|31)|0000-00-00)/.test(v)) return '';
+const toBRDate = (v) => {
+  if (!v) return v;            
+  // “datas nulas” → vazio
+  if (/^(1899-12-(30|31)|0000-00-00)/.test(v)) return '';
 
-    // "YYYY-MM-DD HH:MM:SS" ⇒ "YYYY-MM-DDTHH:MM:SS"
-    const spaced = typeof v === 'string' && v.includes(' ')
-      ? v.replace(' ', 'T')
-      : v;
+  // "YYYY-MM-DD HH:MM:SS" ⇒ "YYYY-MM-DDTHH:MM:SS"
+  const spaced = typeof v === 'string' && v.includes(' ')
+    ? v.replace(' ', 'T')
+    : v;
 
-    const d = spaced instanceof Date ? spaced : new Date(spaced);
-    if (!Number.isNaN(d.getTime()))
-      return d.toLocaleDateString('pt-BR');              // 28/04/2025
+  const d = spaced instanceof Date ? spaced : new Date(spaced);
+  if (!Number.isNaN(d.getTime()))
+    return d.toLocaleDateString('pt-BR');              // 28/04/2025
 
-    // dd/mm/aaaa ou dd-mm-aaaa
-    const br = typeof v === 'string' &&
-      v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-    if (br) {
-      const [, dd, mm, yyyy] = br;
-      const normal = `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}`;
-      if (normal === '31/12/1899' || normal === '30/12/1899') return '';
-      return normal;
-    }
-    return v;                                            // valor não reconhecido
-  };
+  // dd/mm/aaaa ou dd-mm-aaaa
+  const br = typeof v === 'string' &&
+             v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (br) {
+    const [, dd, mm, yyyy] = br;
+    const normal = `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}`;
+    if (normal === '31/12/1899' || normal === '30/12/1899') return '';
+    return normal;
+  }
+  return v;                                            // valor não reconhecido
+};
 
-  const formatDatesBR = (row) =>
-    Object.fromEntries(
-      Object.entries(row).map(([k, v]) => [k, dateFields.has(k) ? toBRDate(v) : v])
-    );
+const formatDatesBR = (row) =>
+  Object.fromEntries(
+    Object.entries(row).map(([k, v]) => [k, dateFields.has(k) ? toBRDate(v) : v])
+  );
 
-  const upperStrings = (row) =>
-    Object.fromEntries(
-      Object.entries(row).map(([k, v]) => [k, typeof v === 'string' ? v.toUpperCase() : v])
-    );
+const upperStrings = (row) =>
+  Object.fromEntries(
+    Object.entries(row).map(([k, v]) => [k, typeof v === 'string' ? v.toUpperCase() : v])
+  );
 
-  /* ---------- função principal ---------------------------------------- */
-  const gerarexcel = () => {
-    const excelData = rollout
-      .map(item => ({
-        RFP: item.rfp,
-        NÚMERO: item.numero,
-        CLIENTE: item.cliente,
-        REGIONAL: item.regiona,
-        SITE: item.site,
-        FORNECEDOR: item.fornecedor,
-        'SITUAÇÃO IMPL.': item.situacaoimplantacao,
-        'SITUAÇÃO INT.': item.situacaodaintegracao,
+/* ---------- função principal ---------------------------------------- */
+const gerarexcel = () => {
+  const excelData = totalacionamento
+    .map(item => ({
+      RFP: item.rfp,
+      NÚMERO: item.numero,
+      CLIENTE: item.cliente,
+      REGIONAL: item.regiona,
+      SITE: item.site,
+      FORNECEDOR: item.fornecedor,
+      'SITUAÇÃO IMPL.': item.situacaoimplantacao,
+      'SITUAÇÃO INT.': item.situacaodaintegracao,
 
-        'DATA CRIAÇÃO DEMANDA': item.datadacriacaodademandadia,
-        'DATA LIMITE ACEITE': item.datalimiteaceitedia,
-        'DATA ACEITE DEMANDA': item.dataaceitedemandadia,
-        'INÍCIO PREV. SOLICITANTE': item.datainicioprevistasolicitantebaselinemosdia,
-        'INÍCIO ENTREGA PLANEJADA': item.datainicioentregamosplanejadodia,
-        'RECEBIMENTO REPORTADO': item.datarecebimentodositemosreportadodia,
-        'FIM PREV. BASELINE INST.': item.datafimprevistabaselinefiminstalacaodia,
-        'FIM INST. PLANEJADA': item.datafiminstalacaoplanejadodia,
-        'CONCLUSÃO REPORTADA': item.dataconclusaoreportadodia,
-        'VALIDAÇÃO INSTALAÇÃO': item.datavalidacaoinstalacaodia,
-        'INTEGRAÇÃO BASELINE': item.dataintegracaobaselinedia,
-        'INTEGRAÇÃO PLANEJADA': item.dataintegracaoplanejadodia,
-        'VALIDAÇÃO ERIBOXE': item.datavalidacaoeriboxedia,
+      'DATA CRIAÇÃO DEMANDA': item.datadacriacaodademandadia,
+      'DATA LIMITE ACEITE': item.datalimiteaceitedia,
+      'DATA ACEITE DEMANDA': item.dataaceitedemandadia,
+      'INÍCIO PREV. SOLICITANTE': item.datainicioprevistasolicitantebaselinemosdia,
+      'INÍCIO ENTREGA PLANEJADA': item.datainicioentregamosplanejadodia,
+      'RECEBIMENTO REPORTADO': item.datarecebimentodositemosreportadodia,
+      'FIM PREV. BASELINE INST.': item.datafimprevistabaselinefiminstalacaodia,
+      'FIM INST. PLANEJADA': item.datafiminstalacaoplanejadodia,
+      'CONCLUSÃO REPORTADA': item.dataconclusaoreportadodia,
+      'VALIDAÇÃO INSTALAÇÃO': item.datavalidacaoinstalacaodia,
+      'INTEGRAÇÃO BASELINE': item.dataintegracaobaselinedia,
+      'INTEGRAÇÃO PLANEJADA': item.dataintegracaoplanejadodia,
+      'VALIDAÇÃO ERIBOXE': item.datavalidacaoeriboxedia,
 
-        'LISTA DE POS': item.listadepos,
-        'GESTOR IMPL.': item.gestordeimplantacaonome,
-        'STATUS RSA': item.statusrsa,
-        RSA: item.rsarsa,
-        'DOCS VALIDADOS': item.arqsvalidadapelocliente,
-        'STATUS ACEITE': item.statusaceitacao,
-        'FIM ACEITE SYDLE': item.datadefimdaaceitacaosydledia,
+      'LISTA DE POS': item.listadepos,
+      'GESTOR IMPL.': item.gestordeimplantacaonome,
+      'STATUS RSA': item.statusrsa,
+      RSA: item.rsarsa,
+      'DOCS VALIDADOS': item.arqsvalidadapelocliente,
+      'STATUS ACEITE': item.statusaceitacao,
+      'FIM ACEITE SYDLE': item.datadefimdaaceitacaosydledia,
 
-        'ORDEM DE VENDA': item.ordemdevenda,
-        'COORDENADOR ASP': item.coordenadoaspnome,
-        'FIM VAL. RSA TRACKER': item.rsavalidacaorsanrotrackerdatafimdia,
-        'FIM OBRA PLAN.': item.fimdeobraplandia,
-        'FIM OBRA REAL': item.fimdeobrarealdia,
+      'ORDEM DE VENDA': item.ordemdevenda,
+      'COORDENADOR ASP': item.coordenadoaspnome,
+      'FIM VAL. RSA TRACKER': item.rsavalidacaorsanrotrackerdatafimdia,
+      'FIM OBRA PLAN.': item.fimdeobraplandia,
+      'FIM OBRA REAL': item.fimdeobrarealdia,
 
-        'TIPO ATUALIZAÇÃO FAM': item.tipoatualizacaofam,
-        SINERGIA: item.sinergia,
-        'SINERGIA 5G': item.sinergia5g,
-        ESCOPO: item.escoponome,
-        'SLA PADRÃO (DIAS)': item.slapadraoescopodias,
-        'TEMPO PARALISAÇÃO (DIAS)': item.tempoparalisacaoinstalacaodias,
+      'TIPO ATUALIZAÇÃO FAM': item.tipoatualizacaofam,
+      SINERGIA: item.sinergia,
+      'SINERGIA 5G': item.sinergia5g,
+      ESCOPO: item.escoponome,
+      'SLA PADRÃO (DIAS)': item.slapadraoescopodias,
+      'TEMPO PARALISAÇÃO (DIAS)': item.tempoparalisacaoinstalacaodias,
 
-        'ENDEREÇO SITE': item.localizacaositeendereco,
-        'CIDADE SITE': item.localizacaositecidade,
-        'SIT. DOC.': item.documentacaosituacao,
-        'SITE POSSUI RISCO': item.sitepossuirisco,
-      }))
-      .map(formatDatesBR)   // converte datas / zera 1899-12-xx
-      .map(upperStrings);   // caixa-alta
+      'ENDEREÇO SITE': item.localizacaositeendereco,
+      'CIDADE SITE': item.localizacaositecidade,
+      'SIT. DOC.': item.documentacaosituacao,
+      'SITE POSSUI RISCO': item.sitepossuirisco,
 
-    exportExcel({ excelData, fileName: 'ROLLOUT ERICSSON' });
-  };
+      ID: item.id,
+      'NÚMERO INT.': item.numeroint,
+    }))
+    .map(formatDatesBR)   // converte datas / zera 1899-12-xx
+    .map(upperStrings);   // caixa-alta
+
+  exportExcel({ excelData, fileName: 'ROLLOUT ERICSSON' });
+};
 
 
 
@@ -895,8 +943,8 @@ const Rolloutericsson = ({ setshow, show }) => {
 
             <div className="d-flex align-items-center gap-3 mb-3">
               <input
-                type="checkbox"
-                id="chkEntregaRequest"
+                type="checkbox" 
+                id="chkEntregaRequest" 
                 style={{ width: '20px', height: '20px' }} />
               <span className="mb-0">ENTREGA-REQUEST</span>
               <input
@@ -971,7 +1019,7 @@ const Rolloutericsson = ({ setshow, show }) => {
               />
             </div>
 
-            <div className="d-flex align-items-center gap-3 mb-3">
+             <div className="d-flex align-items-center gap-3 mb-3">
               <input
                 type="checkbox"
                 id="chkIntegracaoReal"
@@ -1016,7 +1064,7 @@ const Rolloutericsson = ({ setshow, show }) => {
             </div>
 
             <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkInitialTunningReal" style={{ width: '20px', height: '20px' }} />
+              <input type ="checkbox" id="chkInitialTunningReal" style={{ width: '20px', height: '20px' }} />
               <span className="mb-0">INITIAL TUNNING REAL</span>
               <input
                 type="text"
@@ -1027,7 +1075,7 @@ const Rolloutericsson = ({ setshow, show }) => {
               />
             </div>
 
-            <div className="d-flex align-items-center gap-3 mb-3">
+             <div className="d-flex align-items-center gap-3 mb-3">
               <input type="checkbox" id="chkDtReal" style={{ width: '20px', height: '20px' }} />
               <span className="mb-0">DT REAL</span>
               <input
@@ -1055,7 +1103,7 @@ const Rolloutericsson = ({ setshow, show }) => {
               />
             </div>
 
-
+            
 
             <div className="d-flex align-items-center gap-3 mb-3">
               <input
@@ -1073,7 +1121,7 @@ const Rolloutericsson = ({ setshow, show }) => {
               />
             </div>
 
-
+            
 
             <div className="d-flex align-items-center gap-3 mb-3">
               <input type="checkbox" id="chkInitialTunningStatus" style={{ width: '20px', height: '20px' }} />
@@ -1427,7 +1475,25 @@ const Rolloutericsson = ({ setshow, show }) => {
                     ericssonSelecionado={ErirssonSelecionado}
                     //pmuf={pmuf}
                     titulotopo={titulo}
-                  //idpmtslocal={idpmtslocal}
+                    idr={idr}
+                    //idpmtslocal={idpmtslocal}
+                  />{' '}
+                </>
+              ) : null}
+
+              {telacadastrot2edicao ? (
+                <>
+                  {' '}
+                  <Telat2editar
+                    show={telacadastrot2edicao}
+                    setshow={settelacadastrot2edicao}
+                    ididentificador={ididentificador}
+                    atualiza={listarolloutericsson}
+                    pmuf={pmuf}
+                    titulo={titulot2}
+                    idr={idr}
+                    idobra={idobra}
+                    idpmtslocal={idpmtslocal}
                   />{' '}
                 </>
               ) : null}
@@ -1461,7 +1527,7 @@ const Rolloutericsson = ({ setshow, show }) => {
               <br />
               <Box sx={{ height: '85%', width: '100%' }}>
                 <DataGrid
-                  rows={rollout}
+                  rows={totalacionamento}
                   columns={columns}
                   loading={loading}
                   pageSize={pageSize}
@@ -1471,6 +1537,327 @@ const Rolloutericsson = ({ setshow, show }) => {
                     Pagination: CustomPagination,
                     LoadingOverlay: LinearProgress,
                     NoRowsOverlay: CustomNoRowsOverlay,
+                  }}
+                  sx={{
+                    '& .MuiDataGrid-menuIconButton': {
+                      color: 'white',
+                    },
+
+                    '& .MuiDataGrid-sortIcon': {
+                      color: 'white', // Ícone de ordenação branco
+                    },
+                    '& .MuiDataGrid-columnHeaders': {
+                      backgroundColor: '#f0f0f0', // Cor de fundo geral do cabeçalho
+                      minHeight: '30px !important', // Define a altura mínima do cabeçalho
+                      maxHeight: '30px !important', // Define a altura máxima do cabeçalho
+                    },
+                    '& .MuiDataGrid-columnHeader': {
+                      minHeight: '30px !important',
+                      maxHeight: '30px !important',
+                      lineHeight: '30px !important',
+                      padding: '0px 8px !important', // Remove o excesso de espaço interno
+                    },
+                    '& .MuiDataGrid-columnHeaderTitle': {
+                      fontSize: '14px', // Ajusta o tamanho da fonte para caber melhor
+                      lineHeight: '32px',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='rfp']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='numero']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='cliente']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='regiona']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='site']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='fornecedor']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='situacaoimplantacao']": {
+                      backgroundColor: '#4caf50', // verde
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='situacaodaintegracao']": {
+                      backgroundColor: '#4caf50', // verde
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='pmoregional']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='cidade']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='eapautomatica']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='regionaleapinfra']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='statusmensaltx']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='masterobrastatusrollout']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='regionallibsitep']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='regionallibsiter']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='equipamentoentregap']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='regionalcarimbo']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='rsorsasci']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='rsorsascistatus']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='regionalofensordetalhe']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='vendorvistoria']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='vendorprojeto']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='vendorinstalador']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='vendorintegrador']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='pmotecnequip']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='pmofreqequip']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='uididcpomrf']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='docaplan']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='deliverypolan']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='ov']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='nomedosite']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='endereco']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='rsorsadetentora']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='rsorsaiddetentora']": {
+                      backgroundColor: '#000000', // preto
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='acesso']": {
+                      backgroundColor: '#ff4d4d', // Vermelho
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='resumodafase']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='infravivo']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='equipe']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='docplan']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+
+                    "& .MuiDataGrid-columnHeader[data-field='entregarequest']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='entregaplan']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='vistoriareal']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='entregareal']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='fiminstalacaoplan']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='fiminstalacaoreal']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='integracaoplan']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='integracaoreal']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='ativacao']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='documentacao']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='initialtunningreal']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='initialtunningstatus']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='dtplan']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='dtreal']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='rollout']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='acompanhamentofisicoobservacao']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='statusobra']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='acionamento']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='t2instalacao']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='numerodareq']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='numerot2']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='pedido']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='t2vistoria']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='numerodareqvistoria']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='numerot2vistoria']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='pedidovistoria']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
                   }}
                   localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                 />
