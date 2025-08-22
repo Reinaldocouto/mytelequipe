@@ -9,6 +9,8 @@ import {
   Button,
   InputGroup,
   ModalFooter,
+  Col,
+  FormGroup,
 } from 'reactstrap';
 import * as Icon from 'react-feather';
 import { Box } from '@mui/material';
@@ -40,6 +42,33 @@ import Solicitacaoedicao from '../suprimento/Solicitacaoedicao';
 import Mensagemsimples from '../../Mensagemsimples';
 import Solicitardiaria from '../projeto/Solicitardiaria';
 import Tarefaedicaotelefonica from '../projeto/Tarefaedicaotelefonica';
+import S3Service from '../../../services/s3Service';
+
+let s3Service;
+const fetchS3Credentials = async () => {
+  try {
+    const response = await api.get('v1/credenciaiss3');
+    if (response.status === 200) {
+      const { acesskeyid, secretkey, region, bucketname } = response?.data[0];
+      s3Service = new S3Service({
+        region,
+        accessKeyId: acesskeyid,
+        secretAccessKey: secretkey,
+        bucketName: bucketname,
+      });
+    } else {
+      console.error('Credenciais do S3 não encontradas ou resposta malformada:', response.data);
+    }
+  } catch (error) {
+    console.error('Erro ao buscar credenciais do S3:', error);
+  }
+};
+const statusOptions = [
+  { value: 'Aprovado', label: 'Aprovado' },
+  { value: 'Em Progresso', label: 'Em Progresso' },
+  { value: 'Incompleto', label: 'Incompleto' },
+  { value: 'Reprovado', label: 'Reprovado' },
+];
 
 const Rollouttelefonicaedicao = ({
   setshow,
@@ -55,7 +84,7 @@ const Rollouttelefonicaedicao = ({
   const [pacotes, setpacotes] = useState([]);
   const [pacotesacionadospj, setpacotesacionadospj] = useState([]);
   const [atividades, setatividades] = useState([]);
-  const [paginationModel, setPaginationModel] = useState({ pageSize: 10, page: 0 });
+  const [paginationModel, setPaginationModel] = useState({ pageSize: 5, page: 0 });
   const [paginationModelatividade, setPaginationModelatividade] = useState({
     pageSize: 5,
     page: 0,
@@ -130,7 +159,11 @@ const Rollouttelefonicaedicao = ({
   const [dtplan, setdtplan] = useState('');
   const [initialtunningstatus, setinitialtunningstatus] = useState('');
   const [initialtunningreal, setinitialtunningreal] = useState('');
+  const [initialtunningrealfinal, setinitialtunningrealfinal] = useState('');
   const [dtreal, setdtreal] = useState('');
+  const [aprovacaossv, setaprovacaossv] = useState('');
+  const [dataimprodutiva, setdataimprodutiva] = useState('');
+  const [statusaprovacaossv, setstatusaprovacaossv] = useState('');
   const [statusobra, setstatusobra] = useState('');
   const [docaplan, setdocaplan] = useState('');
   const [ov, setov] = useState('');
@@ -177,8 +210,18 @@ const Rollouttelefonicaedicao = ({
   const [equipe, setequipe] = useState('');
   const [tarefaedicao, settarefaedicao] = useState(false);
   const [usuario, setusuario] = useState('');
-  const [valorTotal, setValorTotal] = useState('');
+  const [valorTotal, setValorTotal] = useState();
   const [despesas, setdespesas] = useState([]);
+  const [telaexclusaosolicitacao, settelaexclusaosolicitacao] = useState('');
+  const [observacaoDocumentacao, setObservacaoDocumentacao] = useState('');
+  const [fileDocumentacao, setFileDocumentacao] = useState();
+  const [selectedOptionStatusDocumentacao, setSelectedStatusDocumentacao] = useState('');
+  const [dataPostagemDoc, setDataPostagemDoc] = useState();
+  const [dataExecucaoDoc, setDataExecucaoDoc] = useState();
+  const [dataExecucaoDocVDVM, setDataExecucaoDocVDVM] = useState();
+  const [dataPostagemDocVDVM, setDataPostagemDocVDVM] = useState();
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [permissionStorage, setPermssionStorage] = useState();
 
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
@@ -191,6 +234,7 @@ const Rollouttelefonicaedicao = ({
     osouobra: idpmtslocal,
     idcolaborador: idcolaboradorpj,
     deletado: 0,
+    projeto: 'TELEFONICA',
   };
 
   const togglecadastro = () => {
@@ -288,10 +332,10 @@ const Rollouttelefonicaedicao = ({
   const handleChangelpu = (stat) => {
     if (stat !== null) {
       if (stat.label === 'NEGOCIADO') {
-        if (usuario !== '33' && usuario !== '35' && usuario !== '78' && usuario !== '64'  &&  usuario !== '62'  && usuario !== '100'  &&  usuario !== '101' &&  usuario !== '55' &&  usuario !== '51' ) {
+        if (usuario !== '33' && usuario !== '35' && usuario !== '78') {
           setlpuhistorico('');
           setselectedoptionlpu({ value: null, label: null });
-          toast.warning('Você não tem permissão para acionar PJ como valor negociado.');
+          toast.warning('Você não tem permissão para acionar PJ com valor negociado.');
         } else {
           setlpuhistorico(stat.label);
           setselectedoptionlpu({ value: stat.value, label: stat.label });
@@ -340,7 +384,7 @@ const Rollouttelefonicaedicao = ({
         setacessodatainicial(trataData(response.data.acessodatainicial));
         setacessodatafinal(trataData(response.data.acessodatafinal));
 
-        setacessostatus(response.data.acessos);
+        setacessostatus(response.data.acessostatus);
         setentregaplan(trataData(response.data.entregaplan));
         setentregareal(trataData(response.data.entregareal));
         setfiminstalacaoplan(trataData(response.data.fiminstalacaoplan));
@@ -355,6 +399,9 @@ const Rollouttelefonicaedicao = ({
         setdocvitoriareal(trataData(response.data.docvitoriareal));
         setdtplan(trataData(response.data.dtplan));
         setdtreal(trataData(response.data.dtreal));
+        setaprovacaossv(trataData(response.data.aprovacaossv));
+        setdataimprodutiva(trataData(response.data.dataimprodutiva));
+        setstatusaprovacaossv(response.data.statusaprovacaossv);
         setstatusobra(response.data.statusobra);
         setdocaplan(trataData(response.data.docaplan));
         setov(response.data.ov);
@@ -364,7 +411,18 @@ const Rollouttelefonicaedicao = ({
         setequipe(response.data.equipe);
         setacompanhamentofisicoobservacao(response.data.acompanhamentofisicoobservacao);
         setinitialtunningreal(trataData(response.data.initialtunningreal));
+        setinitialtunningrealfinal(trataData(response.data.initialtunningrealfinal));
         setinitialtunningstatus(response.data.initialtunnigstatus);
+        setDataExecucaoDoc(trataData(response.data.dataexecucaodoc));
+        setDataPostagemDoc(trataData(response.data.datapostagemdoc));
+        setSelectedStatusDocumentacao({
+          value: response.data.statusdocumentacao,
+          label: response.data.statusdocumentacao,
+        });
+
+        setDataExecucaoDocVDVM(trataData(response.data.dataexecucaodocvdvm));
+        setDataPostagemDocVDVM(trataData(response.data.datapostagemdocvdvm));
+        setObservacaoDocumentacao(response.data.observacaodocumentacao);
       } else {
         toast.error(`Erro: ${response.status}`);
       }
@@ -414,7 +472,44 @@ const Rollouttelefonicaedicao = ({
       setregiao(stat);
     }
   };
+  async function listaValorTotal() {
+    try {
+      const response = await api.get('v1/projetotelefonica/ListaDespesas', {
+        params: {
+          idpmts: uididpmts,
+          idmpst: uididpmts,
+        },
+      });
+      setdespesas(response.data.dados);
+      setValorTotal(response.data[0].totalsomado);
+    } catch (err) {
+      console.error(err.message);
+    }
+  }
+  const handleChangeStatusRelatorioFotografico = (stat) => {
+    const trataData = (data) => {
+      const dataFormatada =
+        data instanceof Date
+          ? data.toISOString().split('T')[0] // Formata para "YYYY-MM-DD"
+          : data;
 
+      return !data || dataFormatada === '1899-12-30' ? '1899-12-30' : dataFormatada;
+    };
+    const data = trataData(new Date());
+
+    if (stat !== null) {
+      console.log(stat);
+      console.log(stat.value);
+      if (stat.value === 'Aprovado') {
+        setdocumentacao(data);
+      } else {
+        setdocumentacao('');
+      }
+      setSelectedStatusDocumentacao({ value: stat.value, label: stat.label });
+    } else {
+      setSelectedStatusDocumentacao({ value: null, label: null });
+    }
+  };
   const handlechangetipo = (stat) => {
     if (stat !== null) {
       setacionamentoatividade(stat);
@@ -430,6 +525,34 @@ const Rollouttelefonicaedicao = ({
         setdatainicioclt(integracaoreal);
         setdatafinalclt(vistoriareal);
       }
+    }
+  };
+  const handleGenerateDownloadLink = async (fileName) => {
+    try {
+      const key = `telequipe/rollout/${uididpmts}/${fileName}`;
+
+      const url = await s3Service.getFileUrl(key);
+
+      if (!url) {
+        throw new Error('URL não gerado corretamente');
+      }
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName; // Força o download
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Falha ao gerar o link de download', error);
+    }
+  };
+  const handleDeleteFile = async (fileKey) => {
+    try {
+      await s3Service.deleteFile(fileKey);
+      setUploadedFiles(uploadedFiles.filter((uploadedFile) => uploadedFile.key !== fileKey));
+    } catch (error) {
+      console.error('File deletion failed', error);
     }
   };
 
@@ -719,6 +842,191 @@ const Rollouttelefonicaedicao = ({
       type: 'number',
       editable: true,
     },
+    {
+      field: 'acesso',
+      headerName: 'Acesso',
+      width: 150,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'infra',
+      headerName: 'Infra',
+      width: 150,
+      align: 'left',
+      editable: true,
+      type: 'singleSelect',
+      valueOptions: ['GREENFIELD', 'BROWNFIELD'], // Ajustar conforme opções reais
+    },
+    {
+      field: 'rsorsadetentora',
+      headerName: 'Detentora',
+      width: 150,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'rsorsaiddetentora',
+      headerName: 'ID Detentora',
+      width: 150,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'rsorsasci',
+      headerName: 'FCU',
+      width: 150,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'rsorsascistatus',
+      headerName: 'RSO_RSA_SCI_STATUS',
+      width: 150,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'acessoatividade',
+      headerName: 'Atividade',
+      width: 200,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'acessocomentario',
+      headerName: 'Comentários',
+      width: 200,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'acessooutros',
+      headerName: 'Outros',
+      width: 150,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'acessoformaacesso',
+      headerName: 'Forma de Acesso',
+      width: 150,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'endereco',
+      headerName: 'Endereço',
+      width: 250,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'ddd',
+      headerName: 'DDD',
+      width: 80,
+      align: 'center',
+      editable: true,
+    },
+    {
+      field: 'cidade',
+      headerName: 'Município',
+      width: 200,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'nomedosite',
+      headerName: 'Nome Vivo',
+      width: 200,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'latitude',
+      headerName: 'Latitude',
+      width: 150,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'longitude',
+      headerName: 'Longitude',
+      width: 150,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'acessoobs',
+      headerName: 'OBS',
+      width: 200,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'acessosolicitacao',
+      headerName: 'Solicitação',
+      width: 200,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'acessodatasolicitacao',
+      headerName: 'Data Solicitação',
+      width: 150,
+      align: 'left',
+      type: 'date',
+      valueGetter: (paramsacessodatasolicitacao) =>
+        paramsacessodatasolicitacao.value ? new Date(paramsacessodatasolicitacao.value) : null,
+      valueFormatter: (paramsacessodatasolicitacao) =>
+        paramsacessodatasolicitacao.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(
+              paramsacessodatasolicitacao.value,
+            )
+          : '',
+      editable: true,
+    },
+    {
+      field: 'acessodatainicial',
+      headerName: 'Data Inicial',
+      width: 150,
+      align: 'left',
+      type: 'date',
+      valueGetter: (paramsacessodatainicial) =>
+        paramsacessodatainicial.value ? new Date(paramsacessodatainicial.value) : null,
+      valueFormatter: (paramsacessodatainicial) =>
+        paramsacessodatainicial.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(
+              paramsacessodatainicial.value,
+            )
+          : '',
+      editable: true,
+    },
+    {
+      field: 'acessodatafinal',
+      headerName: 'Data Final',
+      width: 150,
+      align: 'left',
+      type: 'date',
+      valueGetter: (paramsacessodatafinal) =>
+        paramsacessodatafinal.value ? new Date(paramsacessodatafinal.value) : null,
+      valueFormatter: (paramsacessodatafinal) =>
+        paramsacessodatafinal.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(
+              paramsacessodatafinal.value,
+            )
+          : '',
+      editable: true,
+    },
+    {
+      field: 'acessostatus',
+      headerName: 'Status',
+      width: 150,
+      align: 'left',
+      type: 'singleSelect',
+      editable: true,
+      valueOptions: ['AGUARDANDO', 'APROVADO', 'REPROVADO'], // Ajustar conforme regras reais
+    },
   ];
 
   const listacolaboradorpj = async () => {
@@ -841,7 +1149,7 @@ const Rollouttelefonicaedicao = ({
       getActions: (parametros) => [
         <GridActionsCellItem
           icon={<DeleteIcon />}
-          disabled={modoVisualizador()||deletadoidpmts===1}
+          disabled={modoVisualizador() || deletadoidpmts === 1}
           label="Delete"
           onClick={() => deleteUser(parametros.id)}
         />,
@@ -936,7 +1244,7 @@ const Rollouttelefonicaedicao = ({
       getActions: (parametros) => [
         <GridActionsCellItem
           icon={<DeleteIcon />}
-          disabled={modoVisualizador()||deletadoidpmts===1}
+          disabled={modoVisualizador() || deletadoidpmts === 1}
           label="Delete"
           onClick={() => deleteuserclt(parametros.id)}
         />,
@@ -1026,6 +1334,11 @@ const Rollouttelefonicaedicao = ({
     },
   ];
 
+  function deletedespesa(stat) {
+    settelaexclusaosolicitacao(true);
+    setidentificadorsolicitacao(stat);
+  }
+
   const colunasmaterialeservico = [
     {
       field: 'actions',
@@ -1033,18 +1346,24 @@ const Rollouttelefonicaedicao = ({
       type: 'actions',
       width: 80,
       align: 'center',
-      getActions: () => [
-        <GridActionsCellItem icon={<DeleteIcon />} label="Delete" title="Delete" />,
+      getActions: (parametros) => [
+        <GridActionsCellItem
+          icon={<DeleteIcon />}
+          label="Delete"
+          title="Delete"
+          onClick={() => deletedespesa(parametros.id)}
+        />,
       ],
     },
-    { field: 'id', headerName: 'ID', width: 60, align: 'center' },
+    { field: 'idsolicitacao', headerName: 'Solicitação', width: 90, align: 'center' },
     {
       field: 'data',
       headerName: 'Data',
-      width: 100,
+      type: 'string',
+      width: 120,
       align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) =>
+        parametros.value ? new Date(`${parametros.value}T00:00:00`) : null,
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -1052,24 +1371,94 @@ const Rollouttelefonicaedicao = ({
       editable: false,
     },
     {
+      field: 'status',
+      headerName: 'Status',
+      type: 'string',
+      width: 130,
+      align: 'left',
+      editable: false,
+    },
+    {
       field: 'nome',
       headerName: 'Solicitante',
+      type: 'string',
+      width: 200,
+      align: 'left',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'projeto',
+      headerName: 'Projeto',
+      type: 'string',
+      width: 100,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'obra',
+      headerName: 'Obra/OS',
+      type: 'string',
+      width: 120,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'descricao',
+      headerName: 'Descrição',
+      type: 'string',
+      width: 300,
+      align: 'left',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'unidade',
+      headerName: 'Unidade',
+      type: 'string',
+      width: 120,
+      align: 'left',
+      editable: false,
+    },
+    {
+      field: 'quantidade',
+      headerName: 'Quant. Solicitada',
+      type: 'string',
+      width: 150,
+      align: 'center',
+      editable: false,
+    },
+    {
+      field: 'estoque',
+      headerName: 'Quant. Estoque',
+      type: 'string',
+      width: 150,
+      align: 'center',
+      editable: false,
+    },
+    {
+      field: 'observacao',
+      headerName: 'Observação',
       type: 'string',
       width: 400,
       align: 'left',
       editable: false,
-    },
-
-    {
-      field: 'status',
-      headerName: 'Status',
-      type: 'string',
-      width: 250,
-      align: 'left',
-      editable: false,
+      renderCell: (parametros) => (
+        <div
+          style={{
+            whiteSpace: 'pre-wrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+          }}
+        >
+          {parametros.value}
+        </div>
+      ),
     },
   ];
-
   /*  const salvarpj = async (pacoteid, atividadeid) => {
   
       if (lpuhistorico === 'NEGOCIAVEL') {
@@ -1218,6 +1607,7 @@ const Rollouttelefonicaedicao = ({
         acessodatafinal,
         acessodatasolicitacao,
         acessosolicitacao,
+        acessostatus,
         entregaplan,
         entregareal,
         fiminstalacaoplan,
@@ -1228,8 +1618,12 @@ const Rollouttelefonicaedicao = ({
         documentacao,
         initialtunningstatus,
         initialtunningreal,
+        initialtunningrealfinal,
         dtplan,
         dtreal,
+        aprovacaossv,
+        dataimprodutiva,
+        statusaprovacaossv,
         statusobra,
         vistoriaplan,
         vistoriareal,
@@ -1292,7 +1686,7 @@ const Rollouttelefonicaedicao = ({
           console.error(res.reason);
         }
       });
-
+      listaValorTotal();
       if (algumSucesso) {
         toast.success('Acionamentos salvos com sucesso!');
       } else {
@@ -1324,7 +1718,8 @@ const Rollouttelefonicaedicao = ({
     try {
       await salvarclt(rowSelectionModel[0]);
 
-      listapacotesacionadosclt();
+      await listapacotesacionadosclt();
+      await listaValorTotal();
       toast.success('Acionamento salvo com sucesso!');
     } catch (erro) {
       console.error(erro);
@@ -1344,6 +1739,7 @@ const Rollouttelefonicaedicao = ({
           setidentificadorsolicitacao(response.data.retorno);
           settitulomaterial('Cadastrar Solicitação de Produto');
           settelacadastrosolicitacao(true);
+          listaValorTotal();
         } else {
           toast.error(response.status);
         }
@@ -1369,6 +1765,7 @@ const Rollouttelefonicaedicao = ({
           setidentificadorsolicitacaodiaria(response.data.retorno);
           settitulodiaria('Cadastrar Solicitação de Diaria');
           settelacadastrosolicitacaodiaria(true);
+          listaValorTotal();
         } else {
           toast.error(response.status);
         }
@@ -1385,7 +1782,7 @@ const Rollouttelefonicaedicao = ({
   const listasolicitacao = async () => {
     try {
       setloading(true);
-      await api.get('v1/solicitacaoid', { params }).then((response) => {
+      await api.get('v1/solicitacao/listaporempresa', { params }).then((response) => {
         setmaterialeservico(response.data);
       });
     } catch (err) {
@@ -1570,6 +1967,34 @@ const Rollouttelefonicaedicao = ({
   }, 200);
 
   useEffect(() => {
+    if (!dtreal) {
+      setaprovacaossv('');
+      setstatusaprovacaossv('');
+    }
+  }, [dtreal]);
+
+  useEffect(() => {
+    if (!aprovacaossv) {
+      setstatusaprovacaossv('');
+    }
+  }, [aprovacaossv]);
+  const listFilesFromS3 = async () => {
+    try {
+      const prefix = `telequipe/rollout/${uididpmts}/`;
+      const files = await s3Service.listFiles(prefix);
+      const fileUrls = await Promise.all(
+        files.map(async (filee) => {
+          const url = await s3Service.getFileUrl(filee.Key);
+          return { name: filee.Key.split('/').pop(), url, key: filee.Key };
+        }),
+      );
+      console.log(fileUrls);
+      setUploadedFiles(fileUrls);
+    } catch (error) {
+      console.error('Failed to list files', error);
+    }
+  };
+  useEffect(() => {
     calcularTotalDebounced(horanormalclt, hora50clt, hora100clt);
   }, [horanormalclt, hora50clt, hora100clt]);
   const listasolicitacaodiaria = async () => {
@@ -1583,6 +2008,32 @@ const Rollouttelefonicaedicao = ({
     }
     setloading(false);
   };
+  const handleFileUpload = async () => {
+    const prefix = `telequipe/rollout/${uididpmts}/`;
+
+    try {
+      const files = await s3Service.listFiles(prefix);
+      if (files.length > 0) {
+        await Promise.all(
+          files
+            .filter((file) => file.Key) // garante que a key existe
+            .map((file) => s3Service.deleteFile(file.Key)),
+        );
+      }
+
+      if (fileDocumentacao) {
+        const key = `${prefix}${fileDocumentacao.name}`; // sem barra extra
+        await s3Service.uploadFile(fileDocumentacao, key);
+
+        const url = await s3Service.getFileUrl(key);
+        setUploadedFiles((prev) => [...prev, { name: fileDocumentacao.name, url }]);
+
+        listFilesFromS3();
+      }
+    } catch (error) {
+      console.error('File upload failed', error);
+    }
+  };
 
   const emailadicional = async () => {
     try {
@@ -1592,20 +2043,7 @@ const Rollouttelefonicaedicao = ({
       console.error(err.message);
     }
   };
-  async function listaValorTotal() {
-    try {
-      const response = await api.get('v1/projetotelefonica/ListaDespesas', {
-        params: {
-          idpmts: uididpmts,
-          idmpst: uididpmts,
-        },
-      });
-      setdespesas(response.data.dados);
-      setValorTotal(response.data.total_geral);
-    } catch (err) {
-      console.error(err.message);
-    }
-  }
+
   const iniciatabelas = async () => {
     await listaid();
     await listaacompanhamentofinanceiro();
@@ -1624,18 +2062,24 @@ const Rollouttelefonicaedicao = ({
     listapacotesacionados();
   }, [motivo]);
   useEffect(() => {
-    listaValorTotal();
+    if (uididpmts) {
+      listaValorTotal();
+      fetchS3Credentials();
+    }
   }, [uididpmts]);
 
   useEffect(() => {
     iniciatabelas();
+    setPermssionStorage(JSON.parse(localStorage.getItem('permission')));
     if (1 === 0) {
       console.log(colaboradoremail);
       console.log(retanexo);
     }
   }, []);
   useEffect(() => {
-    listaValorTotal();
+    if (uididpmts) {
+      listaValorTotal();
+    }
   }, [
     telacadastrosolicitacaodiaria,
     telaexclusaopj,
@@ -1752,6 +2196,19 @@ const Rollouttelefonicaedicao = ({
                 clientelocal="VIVO"
               />
             ) : null}
+            {telaexclusaosolicitacao ? (
+              <>
+                <Excluirregistro
+                  show={telaexclusaosolicitacao}
+                  setshow={settelaexclusaosolicitacao}
+                  ididentificador={identificadorsolicitacao}
+                  quemchamou="SOLICITACAOITENS"
+                  atualiza={listasolicitacao}
+                  idlojaatual={localStorage.getItem('sessionloja')}
+                />{' '}
+              </>
+            ) : null}
+
             <ToastContainer
               style={{ zIndex: 9999999 }}
               position="top-right"
@@ -1973,6 +2430,7 @@ const Rollouttelefonicaedicao = ({
                     <option value="LIBERADO">LIBERADO</option>
                     <option value="PEDIR">PEDIR</option>
                     <option value="REJEITADO">REJEITADO</option>
+                    <option value="SSV ENTREGUE">SSV ENTREGUE</option>
                   </Input>
                 </div>
               </div>
@@ -2124,19 +2582,30 @@ const Rollouttelefonicaedicao = ({
                   Documentação Instalação
                   <Input
                     type="date"
+                    disabled
                     onChange={(e) => setdocumentacao(e.target.value)}
                     value={documentacao}
                   />
                 </div>
                 <div className="col-sm-2">
-                  Initial Tunning Real
+                  Initial Tunning Real Início
                   <Input
                     type="date"
                     onChange={(e) => setinitialtunningreal(e.target.value)}
                     value={initialtunningreal}
+                    disabled={modoVisualizador() || deletadoidpmts === 1}
                   />
                 </div>
 
+                <div className="col-sm-2">
+                  Initial Tunning Real Final
+                  <Input
+                    type="date"
+                    onChange={(e) => setinitialtunningrealfinal(e.target.value)}
+                    value={initialtunningrealfinal}
+                    disabled={modoVisualizador() || deletadoidpmts === 1}
+                  />
+                </div>
                 <div className="col-sm-2">
                   Initial Tunning Status
                   <Input
@@ -2144,11 +2613,12 @@ const Rollouttelefonicaedicao = ({
                     type="select"
                     value={initialtunningstatus}
                     onChange={(e) => setinitialtunningstatus(e.target.value)}
+                    disabled={modoVisualizador() || deletadoidpmts === 1}
                   >
                     <option value="">Selecione...</option>
-                    <option value="AGUARDANDO">Aguardando</option>
-                    <option value="EM_ANDAMENTO">Em andamento</option>
-                    <option value="FINALIZADO">Finalizado</option>
+                    <option value="ABERTA">Aberta</option>
+                    <option value="COMPLETADO_COM_PENDENCIAS">Completado Com Pendências</option>
+                    <option value="COMPLETADO">Completado</option>
                   </Input>
                 </div>
 
@@ -2158,8 +2628,62 @@ const Rollouttelefonicaedicao = ({
                 </div>
                 <div className="col-sm-2">
                   DT Real
-                  <Input type="date" onChange={(e) => setdtreal(e.target.value)} value={dtreal} />
+                  <Input
+                    type="date"
+                    data-testid="dtreal"
+                    onChange={(e) => setdtreal(e.target.value)}
+                    value={dtreal}
+                  />
                 </div>
+                <div className="col-sm-2">
+                  Data Improdutiva
+                  <Input
+                    type="date"
+                    onChange={(e) => setdataimprodutiva(e.target.value)}
+                    value={dataimprodutiva}
+                  />
+                </div>
+                {dtreal && (
+                  <>
+                    <div className="col-sm-2">
+                      Aprovação de SSV
+                      <Input
+                        type="date"
+                        onChange={(e) => setaprovacaossv(e.target.value)}
+                        value={aprovacaossv}
+                        disabled={modoVisualizador() || deletadoidpmts === 1}
+                      />
+                    </div>
+                    {aprovacaossv && (
+                      <div className="col-sm-2">
+                        Status Aprovação SSV
+                        <Input
+                          type="select"
+                          onChange={(e) => setstatusaprovacaossv(e.target.value)}
+                          value={statusaprovacaossv}
+                        >
+                          <option value="">Selecione</option>
+                          <option value="APROVADO">APROVADO</option>
+                          <option value="REPROVADO">REPROVADO</option>
+                        </Input>
+                      </div>
+                    )}
+                    <div className="col-sm-2">
+                      Status Aprovação de SSV
+                      <Input
+                        type="select"
+                        value={statusaprovacaossv}
+                        onChange={(e) => setstatusaprovacaossv(e.target.value)}
+                        disabled={modoVisualizador() || deletadoidpmts === 1}
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="ABERTA">Aberta</option>
+                        <option value="COMPLETADO_COM_PENDENCIAS">Completado Com Pendências</option>
+                        <option value="COMPLETADO">Completado</option>
+                      </Input>
+                    </div>
+                  </>
+                )}
                 <div className="col-sm-2">
                   Status Obra
                   <Input
@@ -2371,9 +2895,144 @@ const Rollouttelefonicaedicao = ({
                   />
                 </div>
               </div>
+              {permissionStorage?.telefonicaedicaodocumentacao === 1 && (
+                <div>
+                  <b>Documentação</b>
+                  <hr style={{ marginTop: '0px', width: '100%' }} />
+                  <CardBody className="px-4 pb-2">
+                    <div className="row g-3">
+                      <div className="col-sm-2">
+                        Data de Execução Doc.
+                        <Input
+                          type="date"
+                          onChange={(e) => setDataExecucaoDoc(e.target.value)}
+                          value={dataExecucaoDoc}
+                          placeholder=""
+                        />
+                      </div>
+                      <div className="col-sm-2">
+                        Data da Postagem Doc.
+                        <Input
+                          type="date"
+                          onChange={(e) => setDataPostagemDoc(e.target.value)}
+                          value={dataPostagemDoc}
+                          placeholder=""
+                        />
+                      </div>
+                      <div className="col-sm-4">
+                        Status do Relatório Fotográfico
+                        <Select
+                          isClearable
+                          isSearchable
+                          name="statusrelatoriofotografico"
+                          options={statusOptions}
+                          placeholder="Selecione"
+                          isLoading={loading}
+                          onChange={handleChangeStatusRelatorioFotografico}
+                          value={selectedOptionStatusDocumentacao}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="row g-3 mt-3">
+                      <div className="col-sm-4">
+                        Data da Execução Doc. VD/VM.
+                        <Input
+                          type="date"
+                          onChange={(e) => setDataExecucaoDocVDVM(e.target.value)}
+                          value={dataExecucaoDocVDVM}
+                          placeholder=""
+                        />
+                      </div>
+                      <div className="col-sm-4">
+                        Data da Postagem Doc. VD/VM.
+                        <Input
+                          type="date"
+                          onChange={(e) => setDataPostagemDocVDVM(e.target.value)}
+                          value={dataPostagemDocVDVM}
+                          placeholder=""
+                        />
+                      </div>
+                      <div className="col-sm-12 mb-4">
+                        Observação
+                        <Input
+                          type="textarea"
+                          onChange={(e) => setObservacaoDocumentacao(e.target.value)}
+                          value={observacaoDocumentacao}
+                          placeholder=""
+                        />
+                      </div>
+                    </div>
+                    <div className="row g-3">
+                      <Col md="12">
+                        <FormGroup>
+                          <div className="d-flex align-items-center">
+                            <Input
+                              type="file"
+                              onChange={(e) => setFileDocumentacao(e.target.files[0])}
+                            />
+                            <Button
+                              color="primary"
+                              onClick={handleFileUpload}
+                              className="ms-0"
+                              disabled={!ididentificador}
+                            >
+                              Upload
+                            </Button>
+                          </div>
+                        </FormGroup>
+                        <div style={{ backgroundColor: 'white' }}>
+                          <div className="col-sm-12">
+                            <div className="d-flex flex-row-reverse custom-file">
+                              <table className="table table-white-bg">
+                                <thead>
+                                  <tr>
+                                    <th>Nome do arquivo</th>
+                                    <th>Download</th>
+                                    <th>Delete</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {uploadedFiles.map((uploadedFile) => (
+                                    <tr key={uploadedFile.name}>
+                                      <td>{uploadedFile.name}</td>
+                                      <td>
+                                        <Button
+                                          color="primary"
+                                          onClick={() =>
+                                            handleGenerateDownloadLink(uploadedFile.name)
+                                          }
+                                        >
+                                          Download
+                                        </Button>
+                                      </td>
+                                      <td>
+                                        <Button
+                                          color="danger"
+                                          onClick={() => handleDeleteFile(uploadedFile.key)}
+                                        >
+                                          Delete
+                                        </Button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      </Col>
+                    </div>
+                  </CardBody>
+                </div>
+              )}
               <br />
               <div className=" col-sm-12 d-flex flex-row-reverse">
-                <Button color="primary" onClick={execacionamentoclt} disabled={modoVisualizador()||deletadoidpmts===1}>
+                <Button
+                  color="primary"
+                  onClick={execacionamentoclt}
+                  disabled={modoVisualizador() || deletadoidpmts === 1}
+                >
                   Adicionar Acionamento CLT <Icon.Plus />
                 </Button>
               </div>
@@ -2446,7 +3105,7 @@ const Rollouttelefonicaedicao = ({
 
                 {lpuhistorico === 'NEGOCIADO' && (
                   <>
-                    {(usuario === '33' || usuario === '35' || usuario === '78' || usuario === '64'  || usuario === '62'  || usuario === '100'  || usuario === '101'   || usuario === '55'  || usuario === '51'  ) && (
+                    {(usuario === '33' || usuario === '35' || usuario === '78') && (
                       <div className="col-sm-2">
                         Valor Negociado
                         <NumericFormat
@@ -2484,7 +3143,7 @@ const Rollouttelefonicaedicao = ({
                   <div className=" col-sm-12 d-flex flex-row-reverse">
                     <Button
                       color="primary"
-                      disabled={modoVisualizador()||deletadoidpmts===1}
+                      disabled={modoVisualizador() || deletadoidpmts === 1}
                       onClick={() => settarefaedicao(true)}
                     >
                       Adicionar Tarefa Avulso <Icon.Plus />
@@ -2521,7 +3180,11 @@ const Rollouttelefonicaedicao = ({
               </div>
               <br />
               <div className=" col-sm-12 d-flex flex-row-reverse">
-                <Button color="primary" onClick={execacionamentopj} disabled={modoVisualizador()||deletadoidpmts===1}>
+                <Button
+                  color="primary"
+                  onClick={execacionamentopj}
+                  disabled={modoVisualizador() || deletadoidpmts === 1}
+                >
                   Adicionar Acionamento PJ <Icon.Plus />
                 </Button>
               </div>
@@ -2576,7 +3239,11 @@ const Rollouttelefonicaedicao = ({
                         className="custom-file-input"
                         id="customFile3"
                       />
-                      <Button color="primary" onClick={uploadanexo} disabled={modoVisualizador()||deletadoidpmts===1}>
+                      <Button
+                        color="primary"
+                        onClick={uploadanexo}
+                        disabled={modoVisualizador() || deletadoidpmts === 1}
+                      >
                         Anexar{' '}
                       </Button>
                     </InputGroup>
@@ -2585,7 +3252,11 @@ const Rollouttelefonicaedicao = ({
 
                 <br></br>
                 <div className=" col-sm-12 d-flex flex-row-reverse">
-                  <Button color="secondary" onClick={enviaremail} disabled={modoVisualizador()||deletadoidpmts===1}>
+                  <Button
+                    color="secondary"
+                    onClick={enviaremail}
+                    disabled={modoVisualizador() || deletadoidpmts === 1}
+                  >
                     Enviar E-mail de Acionamento <Icon.Mail />
                   </Button>
                 </div>
@@ -2606,7 +3277,7 @@ const Rollouttelefonicaedicao = ({
                       <Button
                         color="primary"
                         onClick={() => novocadastro()}
-                        disabled={modoVisualizador()||deletadoidpmts===1}
+                        disabled={modoVisualizador() || deletadoidpmts === 1}
                       >
                         Solicitar Material/Serviço <Icon.Plus />
                       </Button>
@@ -2647,7 +3318,11 @@ const Rollouttelefonicaedicao = ({
                   <div className="col-sm-6"></div>
                   <div className=" col-sm-6 d-flex flex-row-reverse">
                     <div className=" col-sm-6 d-flex flex-row-reverse">
-                      <Button color="primary" onClick={() => novocadastrodiaria()} disabled={modoVisualizador()||deletadoidpmts===1}>
+                      <Button
+                        color="primary"
+                        onClick={() => novocadastrodiaria()}
+                        disabled={modoVisualizador() || deletadoidpmts === 1}
+                      >
                         Solicitar Diária <Icon.Plus />
                       </Button>
                     </div>
@@ -2683,7 +3358,7 @@ const Rollouttelefonicaedicao = ({
             <hr style={{ marginTop: '0px', width: '100%' }} />
             <div className="col-sm-12 mt-3 mb-3">
               <p className="text-end text-muted text-sm mt-2">
-                Valor total: <strong>R$ {Number(valorTotal).toFixed(2)}</strong>
+                Valor total: <strong>R$ {valorTotal ? Number(valorTotal)?.toFixed(2) : 0}</strong>
               </p>
             </div>
             <div className="row g-3">
@@ -2701,7 +3376,8 @@ const Rollouttelefonicaedicao = ({
                       NoRowsOverlay: CustomNoRowsOverlay,
                     }}
                     localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
-                    // Usa estado para controlar a paginação dinamicamente
+                    paginationModel={paginationModel}
+                    onPaginationModelChange={setPaginationModelmaterialservico}
                   />
                 </Box>
               </div>
@@ -2709,7 +3385,11 @@ const Rollouttelefonicaedicao = ({
           </div>
         </ModalBody>
         <ModalFooter style={{ backgroundColor: 'white' }}>
-          <Button color="success" onClick={ProcessaCadastro} disabled={modoVisualizador()||deletadoidpmts===1}>
+          <Button
+            color="success"
+            onClick={ProcessaCadastro}
+            disabled={modoVisualizador() || deletadoidpmts === 1}
+          >
             Salvar
           </Button>
           <Button color="secondary" onClick={togglecadastro.bind(null)}>
@@ -2729,7 +3409,7 @@ Rollouttelefonicaedicao.propTypes = {
   pmuf: PropTypes.string.isRequired,
   idr: PropTypes.number.isRequired,
   idpmtslocal: PropTypes.string.isRequired,
-  deletadoidpmts: PropTypes.number.isRequired,  
+  deletadoidpmts: PropTypes.number.isRequired,
 };
 
 export default Rollouttelefonicaedicao;

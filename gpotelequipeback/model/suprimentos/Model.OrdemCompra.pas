@@ -25,6 +25,7 @@ type
     Fipi: Double;
     Fvalorst: Double;
     Fvalortotal: Double;
+    Fidsolicitacaoitens: Integer;
 
     Fnitens: Integer;
     Fidfornecedor: Integer;
@@ -42,6 +43,10 @@ type
     Fdataprevista: string;
     Fobservacao: string;
     Fobservacaointerna: string;
+    Fsite: string;
+    Fobra: string;
+    Fcomprador: string;
+    Fnumerosolicitacao: string;
   public
     constructor Create;
     destructor Destroy; override;
@@ -60,6 +65,7 @@ type
     property ipi: double read Fipi write Fipi;
     property valorst: double read Fvalorst write Fvalorst;
     property valortotal: double read Fvalortotal write Fvalortotal;
+    property idsolicitacaoitens: Integer read Fidsolicitacaoitens write Fidsolicitacaoitens;
 
     property nitens: Integer read Fnitens write Fnitens;
     property idfornecedor: Integer read Fidfornecedor write Fidfornecedor;
@@ -77,6 +83,10 @@ type
     property idtipofrete: Integer read Fidtipofrete write Fidtipofrete;
     property observacao: string read Fobservacao write Fobservacao;
     property observacaointerna: string read Fobservacaointerna write Fobservacaointerna;
+    property numerosolicitacao: string read Fnumerosolicitacao write Fnumerosolicitacao;
+    property site: string read Fsite write Fsite;
+    property obra: string read Fobra write Fobra;
+    property comprador: string read Fcomprador write Fcomprador;
 
     function Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
@@ -115,48 +125,80 @@ var
 begin
   try
     qry := TFDQuery.Create(nil);
-    qry.connection := FConn;
+    qry.Connection := FConn;
     with qry do
     begin
-      Active := false;
+      Active := False;
       SQL.Clear;
       SQL.Add('Select ');
-      SQL.Add('gesordemcompra.idordemcompra as id, ');
-      SQL.Add('DATE_FORMAT(gesordemcompra.data,''%d/%m/%Y'') as data, ');
-      SQL.Add('DATE_FORMAT(gesordemcompra.dataprevisto,''%d/%m/%Y'') as dataprevisto, ');
-      SQL.Add('gesempresas.nome as fornecedor, ');
-      SQL.Add('gesordemcompra.situacao, ');
-      SQL.Add('gesordemcompra.lancarestoque, ');
-      SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(gesordemcompra.totalgeral, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) as total, ');
-      SQL.Add('gesordemcompra.marcadores ');
-      SQL.Add('From ');
-      SQL.Add('gesordemcompra left Join ');
-      SQL.Add('gesempresas On gesempresas.idempresa = gesordemcompra.idfornecedor WHERE gesordemcompra.idordemcompra is not null and gesordemcompra.deletado = 0 ');
+      SQL.Add('  oc.idordemcompra                                      as id,');
+      SQL.Add('  COALESCE(s.idgeral, '''')                             as numerosolicitacao,');
+      SQL.Add('  COALESCE(s.idgeral, '''')                             as idgeral,');
+      SQL.Add('  COALESCE(s.projeto, '''')                             as site,');
+      SQL.Add('  COALESCE(s.obra, '''')                                as obra,');
+      SQL.Add('  u.nome                                                as comprador,');
+      SQL.Add('  DATE_FORMAT(s.`data`, ''%d/%m/%Y'')                   as datasolicitacao,');
+      SQL.Add('  DATE_FORMAT(oc.data, ''%d/%m/%Y'')                    as data,');
+      SQL.Add('  DATE_FORMAT(oc.dataprevisto, ''%d/%m/%Y'')            as dataprevisto,');
+      SQL.Add('  e.nome                                                as fornecedor,');
+      SQL.Add('  oc.situacao,');
+      SQL.Add('  oc.lancarestoque,');
+      SQL.Add('  oc.aprovadopor,');
+      SQL.Add('  DATE_FORMAT(oc.dataaprovacao, ''%d/%m/%Y %H:%i'')     as dataaprovacao,');
+      SQL.Add('  oc.statuscompraaprovada,');
+      SQL.Add('  Concat(''R$ '',Replace(Replace(Replace(FORMAT(oc.totalgeral, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) as total,');
+      SQL.Add('  oc.marcadores');
+      SQL.Add('From gesordemcompra oc');
+      SQL.Add('  left join (');
+      SQL.Add('    select i.idordemcompra, i.idsolicitacao');
+      SQL.Add('      from gessolicitacaoitens i');
+      SQL.Add('      inner join (');
+      SQL.Add('        select idordemcompra, max(idsolicitacaoitens) as max_item');
+      SQL.Add('          from gessolicitacaoitens');
+      SQL.Add('         where (deletado = 0 or deletado is null)');
+      SQL.Add('         group by idordemcompra');
+      SQL.Add('      ) ult on ult.idordemcompra = i.idordemcompra and ult.max_item = i.idsolicitacaoitens');
+      SQL.Add('  ) si on si.idordemcompra = oc.idordemcompra');
+      SQL.Add('  left join gessolicitacao s on s.idsolicitacao = si.idsolicitacao');
+      SQL.Add('  left join gesempresas e    on e.idempresa     = oc.idfornecedor');
+      SQL.Add('  left join gesusuario  u    on u.idusuario     = oc.idusuario');
+      SQL.Add('where oc.idordemcompra is not null');
+      SQL.Add('  and oc.deletado = 0');
 
-
-      //pesquisar
-      if AQuery.ContainsKey('busca') then
+      if AQuery.ContainsKey('idcliente') then
       begin
-        if Length(AQuery.Items['busca']) > 0 then
-        begin
-          SQL.Add('AND(gesempresas.nome like ''%' + AQuery.Items['busca'] + '%'') ');
-          //SQL.Add('or gesordemcompra.descricao like ''%' + AQuery.Items['busca'] + '%'' )');
-        end;
+        SQL.Add('  and oc.idcliente = :idcliente');
+        ParamByName('idcliente').AsInteger := AQuery.Items['idcliente'].ToInteger;
       end;
 
-      SQL.Add('order by idordemcompra desc  ');
-      Active := true;
+      if AQuery.ContainsKey('idloja') then
+      begin
+        SQL.Add('  and oc.idloja = :idloja');
+        ParamByName('idloja').AsInteger := AQuery.Items['idloja'].ToInteger;
+      end;
+
+      if AQuery.ContainsKey('busca') then
+        if Length(AQuery.Items['busca']) > 0 then
+        begin
+          SQL.Add('  and (e.nome like :busca)');
+          ParamByName('busca').AsString := '%' + AQuery.Items['busca'] + '%';
+        end;
+
+      SQL.Add('order by oc.idordemcompra desc');
+      Active := True;
     end;
     erro := '';
     Result := qry;
   except
-    on ex: exception do
+    on ex: Exception do
     begin
       erro := 'Erro ao consultar : ' + ex.Message;
       Result := nil;
     end;
   end;
 end;
+
+
 
 function TOrdemCompra.Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
@@ -164,43 +206,59 @@ var
 begin
   try
     qry := TFDQuery.Create(nil);
-    qry.connection := FConn;
+    qry.Connection := FConn;
     with qry do
     begin
-      Active := false;
+      Active := False;
       SQL.Clear;
-      SQL.Add('Select ');
-      SQL.Add('gesordemcompra.*, ');
-      SQL.Add('gesempresas.nome as nomefornecedor, ');
-      SQL.Add('gesempresas.fantasia as fantasiafornecedor, ');
-      SQL.Add('gesusuario.nome as nomeusuario');
-      SQL.Add('From ');
-      SQL.Add('gesordemcompra left Join ');
-      SQL.Add('gesempresas On gesempresas.idempresa = gesordemcompra.idfornecedor left Join  ');
-      SQL.Add('gesusuario On gesusuario.idusuario = gesordemcompra.idusuario ');
-      SQL.Add(' WHERE gesordemcompra.idordemcompra is not null and gesordemcompra.idordemcompra=:idordemcompra ');
-      ParamByName('idordemcompra').Value := AQuery.Items['idordemcomprabusca'].ToInteger;
+      SQL.Add('Select');
+      SQL.Add('  oc.*,');
+      SQL.Add('  COALESCE(s.idgeral, '''')                 as numerosolicitacao,');
+      SQL.Add('  COALESCE(s.idgeral, '''')                 as idgeral,');
+      SQL.Add('  COALESCE(s.projeto, '''')                 as site,');
+      SQL.Add('  COALESCE(s.obra, '''')                    as obra,');
+      SQL.Add('  DATE_FORMAT(s.`data`, ''%d/%m/%Y'')       as datasolicitacao,');
+      SQL.Add('  e.nome                                    as nomefornecedor,');
+      SQL.Add('  e.fantasia                                as fantasiafornecedor,');
+      SQL.Add('  u.nome                                    as comprador');
+      SQL.Add('From gesordemcompra oc');
+      SQL.Add('  left join (');
+      SQL.Add('    select i.idordemcompra, i.idsolicitacao');
+      SQL.Add('      from gessolicitacaoitens i');
+      SQL.Add('      inner join (');
+      SQL.Add('        select idordemcompra, max(idsolicitacaoitens) as max_item');
+      SQL.Add('          from gessolicitacaoitens');
+      SQL.Add('         where (deletado = 0 or deletado is null)');
+      SQL.Add('         group by idordemcompra');
+      SQL.Add('      ) ult on ult.idordemcompra = i.idordemcompra and ult.max_item = i.idsolicitacaoitens');
+      SQL.Add('  ) si on si.idordemcompra = oc.idordemcompra');
+      SQL.Add('  left join gessolicitacao s on s.idsolicitacao = si.idsolicitacao');
+      SQL.Add('  left join gesempresas e    on e.idempresa     = oc.idfornecedor');
+      SQL.Add('  left join gesusuario  u    on u.idusuario     = oc.idusuario');
+      SQL.Add('where oc.idordemcompra is not null');
+      SQL.Add('  and oc.idordemcompra = :idordemcompra');
+      ParamByName('idordemcompra').AsInteger := AQuery.Items['idordemcomprabusca'].ToInteger;
+
       if AQuery.ContainsKey('deletado') then
-      begin
         if Length(AQuery.Items['deletado']) > 0 then
         begin
-          SQL.Add('AND gesordemcompra.deletado = :deletado');
-          ParamByName('deletado').Value := AQuery.Items['deletado'].ToInteger;
+          SQL.Add('  and oc.deletado = :deletado');
+          ParamByName('deletado').AsInteger := AQuery.Items['deletado'].ToInteger;
         end;
-      end;
 
-      Active := true;
+      Active := True;
     end;
     erro := '';
     Result := qry;
   except
-    on ex: exception do
+    on ex: Exception do
     begin
       erro := 'Erro ao consultar : ' + ex.Message;
       Result := nil;
     end;
   end;
 end;
+
 
 function TOrdemCompra.Listaitens(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
@@ -489,7 +547,7 @@ begin
       end;
       FConn.Commit;
       erro := '';
-      Result := id
+      Result := idordemcompraitens;
     except
       on ex: exception do
       begin
@@ -624,15 +682,19 @@ begin
       begin
         Active := false;
         sql.Clear;
-        sql.add('update gessolicitacaoitens set status=:status where idsolicitacaoitens=:id ');
+        sql.add('update gessolicitacaoitens '+
+         '   set status = :status, '+
+         '       idordemcompra = :idoc '+
+         ' where idsolicitacaoitens = :id ');
         ParamByName('status').asstring := 'EM PROCESSO';
-        parambyname('id').AsInteger := idproduto;
+        ParamByName('idoc').AsInteger := idordemcompra;
+        parambyname('id').AsInteger    := idsolicitacaoitens;
         ExecSQL;
 
         Active := false;
         sql.Clear;
-        sql.add('Select gessolicitacaoitens.idproduto,gessolicitacaoitens.quantidade From gessolicitacaoitens where idsolicitacaoitens=:id');
-        parambyname('id').AsInteger := idproduto;
+        sql.add('select idproduto, quantidade from gessolicitacaoitens where idsolicitacaoitens = :id');
+        parambyname('id').AsInteger := idsolicitacaoitens;
         Open();
         idproduto := FieldByName('idproduto').AsInteger;
         quantidade := FieldByName('quantidade').AsFloat;
@@ -902,6 +964,7 @@ begin
     qry.Free;
   end;
 end;
+
 
 end.
 

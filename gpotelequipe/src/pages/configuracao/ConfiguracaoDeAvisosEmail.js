@@ -3,24 +3,32 @@ import { Card, CardBody, CardTitle, Button, Input, Spinner } from 'reactstrap';
 import { toast, ToastContainer } from 'react-toastify';
 import api from '../../services/api';
 
+const normalizeEmails = (valor) =>
+  valor
+    .split(/[;,]+/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+    .join(';');
+
 
 const ConfiguracaoDeAvisosEmail = () => {
   const [emailsSolicitacaoDiariaAviso, setEmailsSolicitacaoDiariaAviso] = useState('');
   const [emailmaterial, setemailmaterial] = useState('');
+  const [emailfaturamento, setemailfaturamento] = useState('');
 
   const [loading, setLoading] = useState(false);
 
-
-
-  function ProcessaCadastro() {
+  async function ProcessaCadastro() {
     setLoading(true);
     try {
-      const response = api.post('v1/emails/aviso', {
-        emailsSolicitacaoDiariaAviso,
-        emailmaterial,
+      await api.post('v1/emails/aviso', {
+         emailsSolicitacaoDiariaAviso: normalizeEmails(
+          emailsSolicitacaoDiariaAviso
+        ),
+        emailmaterial: normalizeEmails(emailmaterial),
+        emailfaturamento: normalizeEmails(emailfaturamento),
       });
 
-      console.log(response);
       toast.success('Salvo com sucesso');
     } catch (e) {
       if (e.response) {
@@ -33,11 +41,13 @@ const ConfiguracaoDeAvisosEmail = () => {
     }
   }
 
-
   async function loadingTable() {
     const response = await api.get('v1/emails/aviso');
-    setEmailsSolicitacaoDiariaAviso(response.data.emaildiaria);
-    setemailmaterial(response.data.emailmaterial);
+     setEmailsSolicitacaoDiariaAviso(
+      normalizeEmails(response.data.emaildiaria)
+    );
+    setemailmaterial(normalizeEmails(response.data.emailmaterial));
+    setemailfaturamento(normalizeEmails(response.data.emailfaturamento));
   }
   useEffect(() => {
     loadingTable();
@@ -66,13 +76,12 @@ const ConfiguracaoDeAvisosEmail = () => {
         <CardBody>
           <div className="row g-3">
             <div className="col-sm-12">
-
               <div className="col-sm-12">
                 E-mails de Solicitação de diária
                 <Input
                   id="email"
                   type="text"
-                  placeholder="Digite os e-mails separados por vírgula"
+                  placeholder="Digite os e-mails separados por vírgula ou ponto e vírgula"
                   onChange={(e) => {
                     setEmailsSolicitacaoDiariaAviso(e.target.value);
                   }}
@@ -87,28 +96,36 @@ const ConfiguracaoDeAvisosEmail = () => {
                 <Input
                   id="email"
                   type="text"
-                  placeholder="Digite os e-mails separados por vírgula"
+                  placeholder="Digite os e-mails separados por ponto e vírgula"
                   onChange={(e) => {
                     setemailmaterial(e.target.value);
                   }}
                   value={emailmaterial}
                 />
               </div>
+              <div className="col-sm-12">
+                E-mails de Faturamento
+                <Input
+                  id="email"
+                  type="text"
+                  placeholder="Digite os e-mails separados por ponto e vírgula"
+                  onChange={(e) => {
+                    setemailfaturamento(e.target.value);
+                  }}
+                  value={emailfaturamento}
+                />
+              </div>
 
               <br />
               <br />
               {/*  handleSalvar(EmailTipoConst.Diaria, emailsSolicitacaoDiariaAviso)} */}
-              <Button
-                color="primary"
-                onClick={ProcessaCadastro}
-                disabled={loading}
-              >
+              <Button color="primary" onClick={ProcessaCadastro} disabled={loading}>
                 {loading ? <Spinner size="sm" /> : 'Salvar'}
               </Button>
             </div>
           </div>
         </CardBody>
-      </Card >
+      </Card>
     </>
   );
 };

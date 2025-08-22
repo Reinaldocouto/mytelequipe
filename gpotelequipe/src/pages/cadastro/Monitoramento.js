@@ -82,11 +82,12 @@ export default function Pessoas() {
       return;
     }
     const formData = new FormData();
-    formData.append('files', arquivo);
+    const nomeSemAcento = `monitoramento.xls`;
+    const arquivoModificado = new File([arquivo], nomeSemAcento, { type: arquivo.type });
+    formData.append('files', arquivoModificado);
     const header = {
       headers: { 'Content-Type': 'multipart/form-data' },
     };
-
     try {
       setloading(true);
 

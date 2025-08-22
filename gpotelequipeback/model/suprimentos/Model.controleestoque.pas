@@ -1,4 +1,4 @@
-unit Model.ControleEstoque;
+﻿unit Model.ControleEstoque;
 
 interface
 
@@ -51,6 +51,7 @@ type
     function Listalancamentotipo(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Editar(out erro: string): Boolean;
     function NovoCadastro(out erro: string): integer;
+    function RelatorioCustoSolicitacao(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
   end;
 
 implementation
@@ -112,7 +113,7 @@ begin
       else
       begin
         //FConn.Rollback;
-        erro := 'Erro ao salvar lan�amento: Problema ao atualizar estoque';
+        erro := 'Erro ao salvar lançamento: Problema ao atualizar estoque';
         Result := false;
       end;
 
@@ -437,6 +438,96 @@ begin
     end;
   end;
 end;
+
+function Tcontroleestoque.RelatorioCustoSolicitacao(
+  const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+  idClienteValue, idLojaValue: string;
+  idCliente, idLoja: Integer;
+begin
+  Result := nil;
+  erro := '';
+  qry := nil;
+
+  try
+    qry := TFDQuery.Create(nil);
+    qry.Connection := FConn;
+
+    AQuery.TryGetValue('idcliente', idClienteValue);
+    AQuery.TryGetValue('idloja',    idLojaValue);
+    idCliente := StrToIntDef(Trim(idClienteValue), 0);
+    idLoja    := StrToIntDef(Trim(idLojaValue), 0);
+
+    qry.SQL.BeginUpdate;
+    try
+      qry.SQL.Clear;
+      qry.SQL.Add('SELECT');
+      qry.SQL.Add('  COALESCE(NULLIF(TRIM(s.obra), ''''), '''')            AS obra,');
+      qry.SQL.Add('  COALESCE(NULLIF(TRIM(s.projeto), ''''), ''AVULSO'')   AS projeto,');
+      qry.SQL.Add('  SUM(COALESCE(e.entrada, 0))                           AS entrada,');
+      qry.SQL.Add('  SUM(COALESCE(e.saida,   0))                           AS saida,');
+      qry.SQL.Add('  SUM(CASE');
+      qry.SQL.Add('        WHEN COALESCE(e.entrada,0) > 0 THEN COALESCE(e.entrada,0) * COALESCE(e.valor,0)');
+      qry.SQL.Add('        WHEN COALESCE(e.saida,0)   > 0 THEN -COALESCE(e.saida,0)   * COALESCE(e.valor,0)');
+      qry.SQL.Add('        ELSE 0');
+      qry.SQL.Add('      END)                                              AS valortotal');
+      qry.SQL.Add('FROM gescontroleestoque e');
+
+      // 1) liga movimento -> item de solicitação (pela coluna comum idproduto)
+      qry.SQL.Add('LEFT JOIN gessolicitacaoitens si');
+      qry.SQL.Add('  ON si.idproduto = e.idproduto');
+      qry.SQL.Add(' AND si.deletado = 0');
+
+      // 2) liga item -> solicitação (onde estão obra/projeto)
+      qry.SQL.Add('LEFT JOIN gessolicitacao s');
+      qry.SQL.Add('  ON s.idgeral = si.idgeral');
+      qry.SQL.Add(' AND s.deletado = 0');
+
+      qry.SQL.Add('WHERE e.deletado = 0');
+
+      // Multi-tenant: aplica filtros se vierem
+      if idCliente > 0 then
+      begin
+        qry.SQL.Add('  AND e.idcliente = :idcliente');
+        // se s existir, filtra também; se não existir (linha avulsa), não exclui
+        qry.SQL.Add('  AND (s.idcliente = :idcliente OR s.idcliente IS NULL)');
+      end;
+
+      if idLoja > 0 then
+      begin
+        qry.SQL.Add('  AND e.idloja = :idloja');
+        qry.SQL.Add('  AND (s.idloja = :idloja OR s.idloja IS NULL)');
+      end;
+
+      qry.SQL.Add('GROUP BY');
+      qry.SQL.Add('  COALESCE(NULLIF(TRIM(s.obra), ''''), ''''),');
+      qry.SQL.Add('  COALESCE(NULLIF(TRIM(s.projeto), ''''), ''AVULSO'')');
+
+    finally
+      qry.SQL.EndUpdate;
+    end;
+
+    if idCliente > 0 then
+      qry.ParamByName('idcliente').AsInteger := idCliente;
+    if idLoja > 0 then
+      qry.ParamByName('idloja').AsInteger := idLoja;
+
+    qry.Open;
+    Result := qry;
+
+  except
+    on ex: Exception do
+    begin
+      erro := 'Erro ao consultar: ' + ex.Message;
+      FreeAndNil(qry);
+      Result := nil;
+    end;
+  end;
+end;
+
+
+
 
 end.
 

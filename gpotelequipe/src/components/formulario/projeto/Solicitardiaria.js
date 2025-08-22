@@ -131,6 +131,8 @@ const Solicitardiaria = ({
   function ProcessaCadastro() {
     const datasolicitacao = formatarDataBrasilComVerificacao(datasol);
     const colaborador = colaboradorcltlista.find((item) => item.value === idcolaboradorclt);
+    if (!colaborador) {toast.error('Selecione um colaborador válido'); return;}
+    setloading(true);
     api
       .post('v1/solicitacao/editardiaria', {
         idsolicitacao,
@@ -167,8 +169,9 @@ const Solicitardiaria = ({
         } else {
           toast.error('Ocorreu um erro na requisição.');
         }
-      });
-  }
+      }).finally(() => {
+        setloading(false) ;
+  })  }
 
   function limpacampos() {
     //setnitens('0');

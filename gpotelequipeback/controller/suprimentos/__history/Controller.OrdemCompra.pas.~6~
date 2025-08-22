@@ -1,0 +1,643 @@
+unit Controller.OrdemCompra;
+
+interface
+
+uses
+  Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,
+  DataSet.Serialize, Model.ordemcompra, UtFuncao, Controller.Auth,
+  model.connection;
+
+procedure Registry;
+
+procedure Lista(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listaid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listaitens(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listaitensid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Listaitenssoma(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Aprovacao(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure novocadastro(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure novocadastroitens(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Salvaitens(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Salvaitenssolicitacao(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure Salva(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure mudarstatus(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure lancarestoque(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure cancelarlancarestoque(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+implementation
+
+procedure Registry;
+begin
+  THorse.get('v1/ordemcompra', Lista);
+  THorse.get('v1/ordemcompraid', Listaid);
+  THorse.Post('v1/ordemcompra', salva);
+  THorse.get('v1/ordemcompra/itens', Listaitens);
+  THorse.get('v1/ordemcompra/itensid', Listaitensid);
+  THorse.get('v1/ordemcompra/itens/soma', Listaitenssoma);
+  THorse.Post('v1/ordemcompra/novocadastro', novocadastro);
+  THorse.Post('v1/ordemcompra/novocadastroitens', novocadastroitens);
+  THorse.Post('v1/ordemcompra/itens', salvaitens);
+  THorse.Post('v1/ordemcompra/itenssolicitacao', Salvaitenssolicitacao);
+  THorse.Post('v1/ordemcompra/mudarstatus', mudarstatus);
+  THorse.Post('v1/ordemcompra/lancarestoque', lancarestoque);
+  THorse.Post('v1/ordemcompra/cancelarlancarestoque', cancelarlancarestoque);
+  THorse.Post('v1/ordemcompra/aprovacao', Aprovacao);
+end;
+
+procedure novocadastro(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TOrdemCompra;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TOrdemCompra.Create;
+  try
+    try
+      body := Req.body<TJSONObject>;
+      servico.idcliente := body.getvalue<integer>('idcliente', 0);
+      servico.idloja := body.getvalue<integer>('idloja', 0);
+      if servico.NovoCadastro(erro) > 0 then
+        Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idordemcompra)).Status(THTTPStatus.Created)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure lancarestoque(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TOrdemCompra;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TOrdemCompra.Create;
+  try
+    try
+      body := Req.body<TJSONObject>;
+      servico.idordemcompra := body.getvalue<integer>('idordemcompra', 0);
+      servico.idcliente := body.getvalue<integer>('idcliente', 0);
+      servico.idloja := body.getvalue<integer>('idloja', 0);
+      servico.idusuario := body.getvalue<integer>('idusuario', 0);
+      if servico.lancarestoque(erro) then
+        Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idordemcompra)).Status(THTTPStatus.Created)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure cancelarlancarestoque(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TOrdemCompra;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TOrdemCompra.Create;
+  try
+    try
+      body := Req.body<TJSONObject>;
+      servico.idordemcompra := body.getvalue<integer>('idordemcompra', 0);
+      servico.idcliente := body.getvalue<integer>('idcliente', 0);
+      servico.idloja := body.getvalue<integer>('idloja', 0);
+      servico.idusuario := body.getvalue<integer>('idusuario', 0);
+      if servico.cancelarlancarestoque(erro) then
+        Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idordemcompra)).Status(THTTPStatus.Created)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure mudarstatus(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TOrdemCompra;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TOrdemCompra.Create;
+  try
+    try
+      body := Req.body<TJSONObject>;
+      servico.idordemcompra := body.getvalue<integer>('idordemcompra', 0);
+      servico.situacao := body.getvalue<string>('situacao', '');
+      servico.idcliente := body.getvalue<integer>('idcliente', 0);
+      servico.idloja := body.getvalue<integer>('idloja', 0);
+      if servico.mudarstatus(erro) then
+        Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idordemcompra)).Status(THTTPStatus.Created)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure novocadastroitens(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TOrdemCompra;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TOrdemCompra.Create;
+  try
+    try
+      body := Req.body<TJSONObject>;
+      servico.idcliente := body.getvalue<integer>('idcliente', 0);
+      servico.idloja := body.getvalue<integer>('idloja', 0);
+
+      if servico.NovoCadastroItens(erro) > 0 then
+        Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idordemcompraitens)).Status(THTTPStatus.Created)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure Lista(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TOrdemCompra;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  begin
+  servico := nil;
+  qry := nil;
+  try
+    servico := TOrdemCompra.Create;
+    qry := servico.Lista(Req.Query.Dictionary, erro);
+
+    if (qry = nil) then
+    begin
+      if erro = '' then erro := 'Falha ao executar consulta.';
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      Exit;
+    end;
+
+    try
+      arraydados := qry.ToJSONArray;
+      Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    if Assigned(qry) then qry.Free;
+    if Assigned(servico) then servico.Free;
+  end;
+end;
+
+procedure Listaitensid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TOrdemCompra;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONObject;
+
+begin
+  servico := nil;
+  qry := nil;
+  try
+    servico := TOrdemCompra.Create;
+    qry := servico.Listaitensid(Req.Query.Dictionary, erro);
+    if (qry = nil) then
+    begin
+      if erro = '' then erro := 'Falha ao executar consulta.';
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      Exit;
+    end;
+    try
+      arraydados := qry.ToJSONObject;
+      Res.Send<TJSONObject>(arraydados).Status(THTTPStatus.OK);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    if Assigned(qry) then qry.Free;
+    if Assigned(servico) then servico.Free;
+  end;
+end;
+
+procedure Listaid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TOrdemCompra;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONObject;
+
+begin
+  servico := nil;
+  qry := nil;
+  try
+    servico := TOrdemCompra.Create;
+    qry := servico.Listaid(Req.Query.Dictionary, erro);
+    if (qry = nil) then
+    begin
+      if erro = '' then erro := 'Falha ao executar consulta.';
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      Exit;
+    end;
+    try
+      arraydados := qry.ToJSONObject;
+      Res.Send<TJSONObject>(arraydados).Status(THTTPStatus.OK);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    if Assigned(qry) then qry.Free;
+    if Assigned(servico) then servico.Free;
+  end;
+end;
+
+procedure Listaitens(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TOrdemCompra;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+
+begin
+  servico := nil;
+  qry := nil;
+  try
+    servico := TOrdemCompra.Create;
+    qry := servico.Listaitens(Req.Query.Dictionary, erro);
+    if (qry = nil) then
+    begin
+      if erro = '' then erro := 'Falha ao executar consulta.';
+     Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      Exit;
+    end;
+    try
+      arraydados := qry.ToJSONArray;
+      Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    if Assigned(qry) then qry.Free;
+    if Assigned(servico) then servico.Free;
+  end;
+end;
+
+procedure Listaitenssoma(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TOrdemCompra;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONObject;
+
+begin
+  servico := nil;
+  qry := nil;
+  try
+    servico := TOrdemCompra.Create;
+    qry := servico.Listaitenssoma(Req.Query.Dictionary, erro);
+    if (qry = nil) then
+    begin
+      if erro = '' then erro := 'Falha ao executar consulta.';
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      Exit;
+    end;
+    try
+      arraydados := qry.ToJSONObject;
+      Res.Send<TJSONObject>(arraydados).Status(THTTPStatus.OK);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    if Assigned(qry) then qry.Free;
+    if Assigned(servico) then servico.Free;
+  end;
+end;
+
+procedure Salvaitenssolicitacao(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TOrdemCompra;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TOrdemCompra.Create;
+  try
+    erro := '';
+    try
+      body := Req.body<TJSONObject>;
+      servico.idproduto := body.getvalue<integer>('idproduto', 0);
+      servico.idsolicitacaoitens := body.getvalue<integer>('idsolicitacaoitens', 0);
+
+      if strisint(body.getvalue<string>('idordemcompra', '')) then
+        servico.idordemcompra := body.getvalue<integer>('idordemcompra', 0)
+      else
+        servico.idordemcompra := 0;
+
+      if strisint(body.getvalue<string>('idordemcompraitens', '')) then
+        servico.idordemcompraitens := body.getvalue<integer>('idordemcompraitens', 0)
+      else
+        servico.idordemcompraitens := 0;
+
+      servico.quantidade := body.getvalue<double>('qtd', 0);
+      servico.preco := body.getvalue<double>('preco', 0);
+      servico.ipi := body.getvalue<double>('ipi', 0);
+      servico.valorst := body.getvalue<double>('valorst', 0);
+      servico.valortotal := body.getvalue<double>('valortotal', 0);
+      servico.idusuario := body.getvalue<integer>('idusuario', 0);
+      servico.idcliente := body.getvalue<integer>('idcliente', 0);
+      servico.idloja := body.getvalue<integer>('idloja', 0);
+      servico.item := body.getvalue<integer>('item', 0);
+
+      if Length(erro) = 0 then
+      begin
+        if servico.EditarItenssolicitacao(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idordemcompraitens)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure SalvaItens(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TOrdemCompra;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TOrdemCompra.Create;
+  try
+    erro := '';
+    try
+      body := Req.body<TJSONObject>;
+      if strisint(body.getvalue<string>('idproduto', '')) then
+        servico.idproduto := body.getvalue<integer>('idproduto', 0)
+      else
+        servico.idproduto := 0;
+
+      if strisint(body.getvalue<string>('idordemcompra', '')) then
+        servico.idordemcompra := body.getvalue<integer>('idordemcompra', 0)
+      else
+        servico.idordemcompra := 0;
+
+      if strisint(body.getvalue<string>('idordemcompraitens', '')) then
+        servico.idordemcompraitens := body.getvalue<integer>('idordemcompraitens', 0)
+      else
+        servico.idordemcompraitens := 0;
+
+      servico.quantidade := body.getvalue<double>('qtd', 0);
+      servico.preco := body.getvalue<double>('preco', 0);
+      servico.ipi := body.getvalue<double>('ipi', 0);
+      servico.valorst := body.getvalue<double>('valorst', 0);
+      servico.valortotal := body.getvalue<double>('valortotal', 0);
+      servico.idusuario := body.getvalue<integer>('idusuario', 0);
+      servico.idcliente := body.getvalue<integer>('idcliente', 0);
+      servico.idloja := body.getvalue<integer>('idloja', 0);
+      servico.item := body.getvalue<integer>('item', 0);
+
+      if Length(erro) = 0 then
+      begin
+        if servico.EditarItens(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idordemcompraitens)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure Salva(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TOrdemCompra;
+  body: TJSONValue;
+  JSON: TJSONObject;
+  erro: string;
+begin
+  servico := TOrdemCompra.Create;
+  try
+    erro := '';
+    try
+      body := Req.body<TJSONObject>;
+
+      if strisint(body.getvalue<string>('idordemcompra', '')) then
+        servico.idordemcompra := body.getvalue<integer>('idordemcompra', 0)
+      else
+        servico.idordemcompra := 0;
+
+      if strisint(body.getvalue<string>('idfornecedor', '')) then
+        servico.idfornecedor := body.getvalue<integer>('idfornecedor', 0)
+      else
+        servico.idfornecedor := 0;
+
+      if strisint(body.getvalue<string>('idtipofrete', '')) then
+        servico.idtipofrete := body.getvalue<integer>('idtipofrete', 0)
+      else
+        servico.idtipofrete := 0;
+
+      servico.nitens := body.getvalue<integer>('nitens', 0);
+      servico.somaqtdes := body.getvalue<double>('somaqtdes', 0);
+      servico.totalprodutos := body.getvalue<double>('totalprodutos', 0);
+      servico.desconto := body.getvalue<double>('desconto', 0);
+      servico.frete := body.getvalue<double>('frete', 0);
+      servico.totalipi := body.getvalue<double>('totalipi', 0);
+      servico.totalicmsst := body.getvalue<double>('totalicmsst', 0);
+      servico.totalgeral := body.getvalue<double>('totalgeral', 0);
+      servico.numerofornecedor := body.getvalue<string>('numerofornecedor', '');
+      servico.datacompra := body.getvalue<string>('datacompra', '');
+      servico.dataprevista := body.getvalue<string>('dataprevista', '');
+      servico.observacao := body.getvalue<string>('observacao', '');
+      servico.idtransportadora := body.getvalue<integer>('idtransportadora', 0);
+      servico.observacaointerna := body.getvalue<string>('observacoesinterna', '');
+
+      servico.idusuario := body.getvalue<integer>('idusuario', 0);
+      servico.idcliente := body.getvalue<integer>('idcliente', 0);
+      servico.idloja := body.getvalue<integer>('idloja', 0);
+
+      if servico.idfornecedor = 0 then
+        erro := 'Campo Fornecedor é Obrigatório';
+
+      if Length(erro) = 0 then
+      begin
+         if servico.Editar(erro) then
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idordemcompra)).Status(THTTPStatus.Created)
+        else
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
+// POST /v1/ordemcompra/aprovacao
+procedure Aprovacao(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  Body: TJSONValue;
+  Id, IdCliente, IdLoja: Integer;
+  AprovadoPor: string;
+  C: TFDConnection;
+  Q: TFDQuery;
+begin
+  Body := Req.Body<TJSONObject>;
+  Id          := Body.GetValue<Integer>('idordemcompra', 0);
+  IdCliente   := Body.GetValue<Integer>('idcliente', 0);
+  IdLoja      := Body.GetValue<Integer>('idloja', 0);
+  AprovadoPor := Trim(Body.GetValue<string>('aprovadopor', ''));
+
+  if Id = 0 then
+  begin
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'idordemcompra inválido'))
+      .Status(THTTPStatus.BadRequest);
+    Exit;
+  end;
+
+  if AprovadoPor = '' then
+  begin
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'aprovadopor é obrigatório'))
+      .Status(THTTPStatus.BadRequest);
+    Exit;
+  end;
+
+  C := nil;
+  Q := nil;
+  try
+    C := TConnection.CreateConnection;
+    Q := TFDQuery.Create(nil);
+    Q.Connection := C;
+
+
+    try
+      C.StartTransaction;
+
+
+      Q.SQL.Text :=
+        'select statuscompraaprovada '+
+        '  from gesordemcompra '+
+        ' where idordemcompra = :id '+
+        '   and (:cli = 0 or idcliente = :cli) '+
+        '   and (:loja = 0 or idloja    = :loja) ';
+      Q.ParamByName('id').AsInteger   := Id;
+      Q.ParamByName('cli').AsInteger  := IdCliente;
+      Q.ParamByName('loja').AsInteger := IdLoja;
+      Q.Open;
+
+      if Q.Eof then
+      begin
+        C.Rollback;
+        Res.Send<TJSONObject>(CreateJsonObj('erro', 'Ordem de compra não encontrada'))
+          .Status(THTTPStatus.NotFound);
+        Exit;
+      end;
+
+      if SameText(Q.FieldByName('statuscompraaprovada').AsString, 'Aprovado') then
+      begin
+        C.Rollback;
+        Res.Send<TJSONObject>(CreateJsonObj('erro', 'Ordem de compra já aprovada'))
+          .Status(THTTPStatus.Conflict);
+        Exit;
+      end;
+
+      Q.Close;
+
+
+      Q.SQL.Text :=
+        'update gesordemcompra '+
+        '   set statuscompraaprovada = ''Aprovado'', '+
+        '       aprovadopor          = :aprovadopor, '+
+        '       dataaprovacao        = now() '+
+        ' where idordemcompra = :id '+
+        '   and (:cli = 0 or idcliente = :cli) '+
+        '   and (:loja = 0 or idloja    = :loja) ';
+      Q.ParamByName('aprovadopor').AsString := AprovadoPor;
+      Q.ParamByName('id').AsInteger         := Id;
+      Q.ParamByName('cli').AsInteger        := IdCliente;
+      Q.ParamByName('loja').AsInteger       := IdLoja;
+      Q.ExecSQL;
+
+      C.Commit;
+
+      Res.Send<TJSONObject>(CreateJsonObj('retorno', Id))
+        .Status(THTTPStatus.OK);
+    except
+      on E: Exception do
+      begin
+        if Assigned(C) and C.InTransaction then
+          C.Rollback;
+        Res.Send<TJSONObject>(CreateJsonObj('erro', E.Message))
+          .Status(THTTPStatus.InternalServerError);
+      end;
+    end;
+  finally
+    if Assigned(Q) then Q.Free;
+    if Assigned(C) then C.Free;
+  end;
+end;
+
+
+end.
+

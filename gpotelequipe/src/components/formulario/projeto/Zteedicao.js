@@ -1219,18 +1219,20 @@ const Zteedicao = ({
     e.preventDefault();
     setmensagem('');
     setmensagemsucesso('');
+
+    const poservico = poservicolista.find((item) => item.id === rowSelectionModel[0]);
+    console.log(poservico);
     api
       .post('v1/projetoericsson/listaatividadeclt/salva', {
         numero: ididentificador,
         //idposervico, //descrição serviços
-        //po,
-        //escopo,
+        po: poservico.value, //escopo,
         idcolaboradorclt, //colaborador
         datainicioclt,
         datafinalclt,
         observacaoclt,
         totalhorasclt,
-        //descricaoservico,
+        descricaoservico: poservico.label,
         valorhora,
         horanormalclt,
         hora50clt,
@@ -2381,7 +2383,11 @@ const Zteedicao = ({
                             <div className="col-sm-6">Dados de Despesa</div>
                             <div className=" col-sm-6 d-flex flex-row-reverse">
                               <div className=" col-sm-6 d-flex flex-row-reverse">
-                                <Button color="primary" onClick={() => handleSolicitarMaterial()} disabled={modoVisualizador()}s>
+                                <Button
+                                  color="primary"
+                                  onClick={() => handleSolicitarMaterial()}
+                                  disabled={modoVisualizador()}
+                                >
                                   Solicitar Material/Serviço <Icon.Plus />
                                 </Button>
                                 {telacadastrosolicitacao ? (
@@ -2836,7 +2842,11 @@ const Zteedicao = ({
                             <div className="col-sm-6">Dados de Despesa</div>
                             <div className=" col-sm-6 d-flex flex-row-reverse">
                               <div className=" col-sm-6 d-flex flex-row-reverse">
-                                <Button color="primary" onClick={() => handleSolicitarMaterial()} disabled={modoVisualizador()}>
+                                <Button
+                                  color="primary"
+                                  onClick={() => handleSolicitarMaterial()}
+                                  disabled={modoVisualizador()}
+                                >
                                   Solicitar Material/Serviço <Icon.Plus />
                                 </Button>
                                 {telacadastrosolicitacao ? (

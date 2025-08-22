@@ -23,7 +23,6 @@ const RelatoriofechamentohistoricoEricsson = ({ setshow, show }) => {
   const [totalacionamento, settotalacionamento] = useState([]);
   const [mensagem, setmensagem] = useState('');
 
-  
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
     idusuario: localStorage.getItem('sessionId'),

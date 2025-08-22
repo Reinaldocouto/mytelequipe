@@ -690,6 +690,46 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
       },
     },
     {
+      field: 'dataimprodutiva',
+      headerName: 'DATA IMPRODUTIVA',
+      width: 180,
+      align: 'center',
+      type: 'date',
+      editable: false,
+      valueFormatter: (parametros) => {
+        if (!parametros.value) return '';
+        const date = new Date(parametros.value);
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
+          return '';
+        }
+        return date.toLocaleDateString('pt-BR');
+      },
+    },
+    {
+      field: 'aprovacaossv',
+      headerName: 'APROVAÇÃO SSV',
+      width: 180,
+      align: 'center',
+      type: 'date',
+      editable: false,
+      valueFormatter: (parametros) => {
+        if (!parametros.value) return '';
+        const date = new Date(parametros.value);
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
+          return '';
+        }
+        return date.toLocaleDateString('pt-BR');
+      },
+    },
+    {
+      field: 'statusaprovacaossv',
+      headerName: 'STATUS APROVAÇÃO SSV',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
       field: 'statusobra',
       headerName: 'STATUS OBRA',
       width: 180,
@@ -1208,6 +1248,46 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
       },
     },
     {
+      field: 'dataimprodutiva',
+      headerName: 'DATA IMPRODUTIVA',
+      width: 180,
+      align: 'center',
+      type: 'date',
+      editable: false,
+      valueFormatter: (parametros) => {
+        if (!parametros.value) return '';
+        const date = new Date(parametros.value);
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
+          return '';
+        }
+        return date.toLocaleDateString('pt-BR');
+      },
+    },
+    {
+      field: 'aprovacaossv',
+      headerName: 'APROVAÇÃO SSV',
+      width: 180,
+      align: 'center',
+      type: 'date',
+      editable: false,
+      valueFormatter: (parametros) => {
+        if (!parametros.value) return '';
+        const date = new Date(parametros.value);
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
+          return '';
+        }
+        return date.toLocaleDateString('pt-BR');
+      },
+    },
+    {
+      field: 'statusaprovacaossv',
+      headerName: 'STATUS APROVAÇÃO SSV',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
       field: 'statusobra',
       headerName: 'STATUS OBRA',
       width: 180,
@@ -1369,6 +1449,9 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
         REGIAO: item.region,
         QTY: item.qty,
         'Inicio Atividade Real': item.inicioatividadereal,
+        'DATA IMPRODUTIVA': item.dataimprodutiva,
+        'APROVAÇÃO SSV': item.aprovacaossv,
+        'STATUS APROVAÇÃO SSV': item.statusaprovacaossv,
         'APROVAÇÃO COSMX': item.aprovacaocosmx,
         'VALOR LPU': item.valorlpu,
       };
@@ -1413,6 +1496,9 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
             DOCUMENTACAO: formatarData(item.documentacao),
             'INITIAL TUNNING REAL': formatarData(item.initialtunningreal),
             'DT REAL': formatarData(item.dtreal),
+            'DATA IMPRODUTIVA': formatarData(item.dataimprodutiva),
+            'APROVAÇÃO SSV': formatarData(item.aprovacaossv),
+            'STATUS APROVAÇÃO SSV': item.statusaprovacaossv,
             'STATUS OBRA': item.statusobra,
             'MES PAGAMENTO': item.mespagamento,
             'DATA PAGAMENTO': formatarData(item.datapagamento),

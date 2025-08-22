@@ -1,6 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <BorlandProject>
 	<ProjectSortOrder AutoSort="0" SortType="0">
+    <File Path="C:\RBA"/>
+    <File Path="..\gpotelequipe"/>
+    <File Path="..\gpotelequipe\src"/>
+    <File Path="..\gpotelequipe\src\assets"/>
+    <File Path="..\gpotelequipe\src\assets\documents"/>
+    <File Path="..\gpotelequipe\src\assets\documents\cartataf.xlsm"/>
+    <File Path="..\gpotelequipe\src\assets\documents\cartatafcsv.csv"/>
+    <File Path="..\gpotelequipe\src\assets\documents\~$cartataf.xlsm"/>
     <File Path="controller"/>
     <File Path="controller\cadastro"/>
     <File Path="controller\cadastro\Controller.Categoria.pas"/>
@@ -130,6 +138,17 @@
     <File Path="model\model.connection.pas"/>
     <File Path="model\Model.Exclusao.pas"/>
     <File Path="model\Model.RegrasdeNegocio.pas"/>
+    <File Path="documents\cartataf.xlsm"/>
+    <File Path="documents\cartatafcsv.csv"/>
+    <File Path="documents\~$cartataf.xlsm"/>
     <File Path="Controller.HistoricoVeiculo.pas"/>
   </ProjectSortOrder>
+	<Transactions>
+    <Transaction>2025/06/17 01:16:12.000.490,=C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\Unit1.pas</Transaction>
+    <Transaction>2025/06/17 01:17:44.000.922,C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\Unit1.pas=C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\controller\cadastro\Controller.Monitoramento.pas</Transaction>
+    <Transaction>2025/06/17 01:18:36.000.489,=C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\Unit1.pas</Transaction>
+    <Transaction>2025/06/17 01:21:22.000.225,C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\Unit1.pas=C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\model\cadastro\Model.Monitoramento.pas</Transaction>
+    <Transaction>2025/06/29 20:36:16.000.126,=C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\controller\cadastro\Controller.Monitoramento.pas</Transaction>
+    <Transaction>2025/06/29 20:37:45.000.153,=C:\Users\Marcelo\OneDrive\Desktop\trabalho\telequipe\gpotelequipeback\model\cadastro\Model.Monitoramento.pas</Transaction>
+  </Transactions>
 </BorlandProject>

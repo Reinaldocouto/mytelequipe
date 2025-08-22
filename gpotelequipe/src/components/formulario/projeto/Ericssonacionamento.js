@@ -87,7 +87,6 @@ const Ericssonacionamento = ({ setshow, show }) => {
     try {
       setloading(true);
       await api.get('v1/projetoericsson', { params }).then((response) => {
-        console.log('vi/projetoericsson:  ', response.data);
         setprojeto(response.data);
         setpesqgeral('');
         setmensagem('');
@@ -217,9 +216,7 @@ const Ericssonacionamento = ({ setshow, show }) => {
       if (response && response.data) {
         console.log(response);
         if (response.status === 200) {
-          setmensagemsucesso(
-            'Upload concluido, aguarde a atualização que dura em torno de 20 minutos',
-          );
+          setmensagemsucesso('Upload concluído. A atualização será processada em até 6 horas.');
           setmensagem('');
         } else {
           setmensagemsucesso('');

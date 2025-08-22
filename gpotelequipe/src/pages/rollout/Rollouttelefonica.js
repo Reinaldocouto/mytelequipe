@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Button, Modal, ModalBody, ModalHeader, ModalFooter } from 'reactstrap';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { Button, InputGroup, Input, Modal, ModalBody, ModalHeader, ModalFooter } from 'reactstrap';
 import { Box } from '@mui/material';
 import {
   DataGrid,
@@ -10,7 +10,9 @@ import {
   useGridSelector,
   GridOverlay,
   ptBR,
+  useGridApiRef,
 } from '@mui/x-data-grid';
+import JSZip from 'jszip';
 import EditIcon from '@mui/icons-material/Edit';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 //import DeleteIcon from '@mui/icons-material/Delete';
@@ -18,15 +20,41 @@ import PropTypes from 'prop-types';
 import Typography from '@mui/material/Typography';
 import Pagination from '@mui/material/Pagination';
 import LinearProgress from '@mui/material/LinearProgress';
+import { ToastContainer, toast } from 'react-toastify';
 import Loader from '../../layouts/loader/Loader';
 import api from '../../services/api';
 import exportExcel from '../../data/exportexcel/Excelexport';
 import Rollouttelefonicaedicao from '../../components/formulario/rollout/Rollouttelefonicaedicao';
+import FiltroRolloutTelefonica from '../../components/modals/FiltroRolloutTelefonica';
 import Excluirregistro from '../../components/Excluirregistro';
 import Telat2editar from '../../components/formulario/projeto/Telat2editar';
+import ConfirmaModal from '../../components/modals/ConfirmacaoModal';
+import modoVisualizador from '../../services/modovisualizador';
+import S3Service from '../../services/s3Service';
+
+let s3Service;
+
+const fetchS3Credentials = async () => {
+  try {
+    const response = await api.get('v1/credenciaiss3');
+    if (response.status === 200) {
+      const { acesskeyid, secretkey, region, bucketname } = response?.data[0];
+      s3Service = new S3Service({
+        region,
+        accessKeyId: acesskeyid,
+        secretAccessKey: secretkey,
+        bucketName: bucketname,
+      });
+    } else {
+      console.error('Credenciais do S3 não encontradas ou resposta malformada:', response.data);
+    }
+  } catch (error) {
+    console.error('Erro ao buscar credenciais do S3:', error);
+  }
+};
 
 const Rollouttelefonica = ({ setshow, show }) => {
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(100);
   const [loading, setLoading] = useState(false);
   const [totalacionamento, settotalacionamento] = useState([]);
   const [mensagem, setmensagem] = useState('');
@@ -41,23 +69,52 @@ const Rollouttelefonica = ({ setshow, show }) => {
   const [idpmtslocal, setidpmtslocal] = useState('');
   const [show1, setshow1] = useState(false);
   const [idobra, setidobra] = useState('');
-  const [idpmtdeletado, setidpmtdeletado] = useState('');  
+  const [idpmtdeletado, setidpmtdeletado] = useState('');
   const [paginationModel, setPaginationModel] = useState({
-    pageSize: 10,
+    pageSize: 100,
     page: 0,
-  });  
+  });
+  const [rowSelectionModel, setRowSelectionModel] = useState([]);
+  const [filter, setFilter] = useState({});
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [rowToUpdate, setRowToUpdate] = useState(null);
+  const [file, setFile] = useState(null);
+  const apiRef = useGridApiRef();
+  const scrollerRef = useRef(null);
 
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
     idusuario: localStorage.getItem('sessionId'),
     idloja: localStorage.getItem('sessionloja'),
     deletado: 0,
+    ...filter,
   };
 
   const listarollouttelefonica = async () => {
     try {
       setLoading(true);
       const response = await api.get('v1/rollouttelefonica', { params });
+      settotalacionamento(response.data);
+      setmensagem('');
+    } catch (err) {
+      setmensagem(err.message);
+    } finally {
+      setLoading(false);
+      const savedPos = localStorage.getItem('gridScrollPos');
+      console.log(savedPos);
+      if (savedPos) {
+        const { top, left } = JSON.parse(savedPos);
+        requestAnimationFrame(() => {
+          if (apiRef?.current?.scroll) apiRef.current.scroll({ top, left });
+        });
+      }
+    }
+  };
+
+  const listaFilterrollouttelefonica = async (items) => {
+    try {
+      setLoading(true);
+      const response = await api.get('v1/rollouttelefonica', { params, ...items });
       settotalacionamento(response.data);
       setmensagem('');
     } catch (err) {
@@ -80,7 +137,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
     setidr(idrlocal);
     settelacadastroedicao(true);
     setidpmtslocal(ipmts);
-    setidpmtdeletado(delet)
+    setidpmtdeletado(delet);
     console.log(ipmts);
   }
 
@@ -94,7 +151,11 @@ const Rollouttelefonica = ({ setshow, show }) => {
     setidobra(stat);
   }
 
-  const columns = [
+  const handleProcessRowUpdateError = (error) => {
+    console.error('Erro ao salvar:', error);
+    setmensagem('Erro ao salvar a edição!');
+  };
+  const columns = useMemo(() => [
     {
       field: 'actions',
       headerName: 'Ação',
@@ -395,8 +456,25 @@ const Rollouttelefonica = ({ setshow, show }) => {
       headerName: 'Status Obra',
       width: 200,
       align: 'left',
-      type: 'string',
-      editable: false,
+      type: 'singleSelect',
+      editable: true,
+      valueOptions: [
+        'APROVADO',
+        'REPROVADO',
+        'AGENDAR',
+        'AG. TX',
+        'ATIVAÇÃO',
+        'CANCELADO',
+        'CONCLUIDO',
+        'DT',
+        'ENTREGA',
+        'INSTALAÇÃO',
+        'INTEGRAÇÃO',
+        'PARALISADO',
+        'PLANEJAMENTO',
+        'PROG. INTEGRAÇÃO',
+        'VISTORIA',
+      ],
     },
 
     {
@@ -410,7 +488,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
           : '',
-      editable: false,
+      editable: true,
     },
     {
       field: 'vistoriareal',
@@ -423,7 +501,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
           : '',
-      editable: false,
+      editable: true,
     },
     {
       field: 'docplan',
@@ -431,9 +509,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      editable: false,
+      editable: true,
       valueFormatter: (parametros) => {
-        console.log(parametros.value);
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
@@ -462,9 +539,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      editable: false,
+      editable: true,
       valueFormatter: (parametros) => {
-        console.log(parametros.value);
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
@@ -493,9 +569,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      editable: false,
+      editable: true,
       valueFormatter: (parametros) => {
-        console.log(parametros.value);
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
@@ -529,7 +604,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
           : '',
-      editable: false,
+      editable: true,
     },
     {
       field: 'entregareal',
@@ -542,7 +617,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
           : '',
-      editable: false,
+      editable: true,
     },
     {
       field: 'fiminstalacaoplan',
@@ -555,8 +630,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
           : '',
-      editable: false,
-    },    
+      editable: true,
+    },
     {
       field: 'fiminstalacaoreal',
       headerName: 'Fim Instalação Real',
@@ -568,7 +643,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
           : '',
-      editable: false,
+      editable: true,
     },
     {
       field: 'integracaoplan',
@@ -581,8 +656,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
           : '',
-      editable: false,
-    },    
+      editable: true,
+    },
     {
       field: 'integracaoreal',
       headerName: 'Integração Real',
@@ -594,9 +669,9 @@ const Rollouttelefonica = ({ setshow, show }) => {
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
           : '',
-      editable: false,
+      editable: true,
     },
-  
+
     {
       field: 'ativacao',
       headerName: 'Ativação Real',
@@ -608,7 +683,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
           : '',
-      editable: false,
+      editable: true,
     },
     {
       field: 'documentacao',
@@ -621,11 +696,11 @@ const Rollouttelefonica = ({ setshow, show }) => {
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
           : '',
-      editable: false,
+      editable: true,
     },
     {
       field: 'initialtunningreal',
-      headerName: 'Initial Tunning Real',
+      headerName: 'Initial Tunning Real Início',
       width: 200,
       align: 'left',
       type: 'date',
@@ -638,16 +713,58 @@ const Rollouttelefonica = ({ setshow, show }) => {
       valueFormatter: ({ value }) =>
         value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
 
-      editable: false,
+      editable: !modoVisualizador(),
+    },
+    {
+      field: 'initialtunningrealfinal',
+      headerName: 'Initial Tunning Real Final',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: ({ value }) => {
+        if (!value) return null;
+        const data = new Date(value);
+        data.setDate(data.getDate() + 1);
+        return data;
+      },
+      valueFormatter: ({ value }) =>
+        value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
+      editable: !modoVisualizador(),
     },
     {
       field: 'initialtunnigstatus',
       headerName: 'Initial Tunning Status',
+      width: 250,
+      align: 'left',
+      type: 'singleSelect', // muda de string para singleSelect
+      editable: true,
+      valueOptions: ['ABERTA', 'COMPLETADO_COM_PENDENCIAS', 'COMPLETADO'], // opções do dropdown
+    },
+    {
+      field: 'aprovacaossv',
+      headerName: 'Aprovação de SSV',
       width: 200,
       align: 'left',
-      type: 'string',
-      editable: false,
-    },    
+      type: 'date',
+      valueGetter: ({ value }) => {
+        if (!value) return null;
+        const data = new Date(value);
+        data.setDate(data.getDate() + 1);
+        return data;
+      },
+      valueFormatter: ({ value }) =>
+        value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
+      editable: !modoVisualizador(),
+    },
+    {
+      field: 'statusaprovacaossv',
+      headerName: 'Status Aprovação de SSV',
+      width: 220,
+      align: 'left',
+      type: 'singleSelect',
+      editable: !modoVisualizador(),
+      valueOptions: ['APROVADO', 'REPROVADO'],
+    },
     {
       field: 'dtplan',
       headerName: 'DT Plan',
@@ -659,8 +776,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
           : '',
-      editable: false,
-    },    
+      editable: true,
+    },
     {
       field: 'dtreal',
       headerName: 'DT Real',
@@ -672,10 +789,23 @@ const Rollouttelefonica = ({ setshow, show }) => {
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
           : '',
-      editable: false,
+      editable: true,
+    },
+    {
+      field: 'dataimprodutiva',
+      headerName: 'Data Improdutiva',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: true,
     },
 
-/*    {
+    /*    {
       field: 'entregarequest',
       headerName: 'Entrega Request',
       width: 200,
@@ -686,7 +816,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
           : '',
-      editable: false,
+      editable: true,
     },*/
 
     {
@@ -695,7 +825,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 400,
       align: 'left',
       type: 'string',
-      editable: false,
+      editable: true,
       renderCell: (cellParams) => <div style={{ whiteSpace: 'pre-wrap' }}>{cellParams.value}</div>,
     },
     {
@@ -704,7 +834,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 400,
       align: 'left',
       type: 'string',
-      editable: false,
+      editable: true,
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
@@ -713,7 +843,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 250,
       align: 'left',
       type: 'string',
-      editable: false,
+      editable: true,
     },
     {
       field: 'nomedosite',
@@ -721,7 +851,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 400,
       align: 'left',
       type: 'string',
-      editable: false,
+      editable: true,
     },
     {
       field: 'endereco',
@@ -729,7 +859,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 400,
       align: 'left',
       type: 'string',
-      editable: false,
+      editable: true,
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
@@ -869,7 +999,251 @@ const Rollouttelefonica = ({ setshow, show }) => {
       type: 'string',
       editable: false,
     },
-  ];
+    {
+      field: 'datapostagemdoc',
+      headerName: 'Data de Postagem Doc.',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: true,
+    },
+    {
+      field: 'dataexecucaodoc',
+      headerName: 'Data de Execução Doc',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: true,
+    },
+    {
+      field: 'datapostagemdocvdvm',
+      headerName: 'Data de Postagem Doc. VD/VM',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: true,
+    },
+    {
+      field: 'dataexecucaodocvdvm',
+      headerName: 'Data de Execução Doc. VD/VM',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: true,
+    },
+    {
+      field: 'statusdocumentacao',
+      headerName: 'Status Relatório Fotográfico',
+      width: 200,
+      align: 'left',
+      type: 'singleSelect',
+      editable: true,
+      valueOptions: ['Aprovado', 'Em Progresso', 'Incompleto', 'Reprovado'],
+    },
+    {
+      field: 'infra',
+      headerName: 'Infra',
+      width: 150,
+      align: 'left',
+      editable: true,
+      type: 'singleSelect',
+      valueOptions: [
+        'CAMUFLADO',
+        'GREENFIELD',
+        'INDOOR',
+        'MASTRO',
+        'POSTE METÁLICO',
+        'ROOFTOP',
+        'TORRE METALICA',
+        'SLS',
+      ],
+    },
+    {
+      field: 'acessoatividade',
+      headerName: 'Atividade',
+      width: 200,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'acessocomentario',
+      headerName: 'Comentários',
+      width: 200,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'acessooutros',
+      headerName: 'Outros',
+      width: 150,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'acessoformaacesso',
+      headerName: 'Forma de Acesso',
+      width: 150,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'ddd',
+      headerName: 'DDD',
+      width: 80,
+      align: 'center',
+      editable: true,
+    },
+    {
+      field: 'latitude',
+      headerName: 'Latitude',
+      width: 150,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'longitude',
+      headerName: 'Longitude',
+      width: 150,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'acessoobs',
+      headerName: 'Acesso OBS',
+      width: 200,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'acessosolicitacao',
+      headerName: 'Acesso Solicitação',
+      width: 200,
+      align: 'left',
+      editable: true,
+    },
+    {
+      field: 'acessodatasolicitacao',
+      headerName: 'Data Solicitação',
+      width: 150,
+      align: 'left',
+      type: 'date',
+      valueGetter: (acessoDataSolicitacao) =>
+        acessoDataSolicitacao.value ? new Date(acessoDataSolicitacao.value) : null,
+      valueFormatter: (acessoDataSolicitacao) =>
+        acessoDataSolicitacao.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(
+              acessoDataSolicitacao.value,
+            )
+          : '',
+      editable: true,
+    },
+    {
+      field: 'acessodatainicial',
+      headerName: 'Data Inicial',
+      width: 150,
+      align: 'left',
+      type: 'date',
+      valueGetter: (acessodatainicial) => (acessodatainicial.value ? new Date(params.value) : null),
+      valueFormatter: (acessodatainicial) =>
+        acessodatainicial.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(params.value)
+          : '',
+      editable: true,
+    },
+    {
+      field: 'acessodatafinal',
+      headerName: 'Data Final',
+      width: 150,
+      align: 'left',
+      type: 'date',
+      valueGetter: (acessodatafinal) =>
+        acessodatafinal.value ? new Date(acessodatafinal.value) : null,
+      valueFormatter: (acessodatafinal) =>
+        acessodatafinal.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(acessodatafinal.value)
+          : '',
+      editable: true,
+    },
+    {
+      field: 'acessostatus',
+      headerName: 'Status',
+      width: 150,
+      align: 'left',
+      type: 'singleSelect',
+      editable: true,
+      valueOptions: [
+        'AGUARDANDO',
+        'CANCELADO',
+        'CONCLUIDO',
+        'LIBERADO',
+        'PEDIR',
+        'REJEITADO',
+        'SSV ENTREGUE',
+      ],
+    },
+  ]);
+  const handleConfirmSave = async () => {
+    if (!rowSelectionModel.length) {
+      console.warn('Nenhuma atividade selecionada.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Filtra os IDs das atividades selecionadas
+      const atividadeSelecionada = totalacionamento
+        .filter((item) => rowSelectionModel.includes(item.id))
+        .map((item) => item.uididpmts)
+        .join(',');
+
+      // Espera a resposta da API
+      const response = await api.post('v1/projetotelefonica/editaremmassa', {
+        ...params,
+        uuidps: atividadeSelecionada,
+        [rowToUpdate.changedFields[0]]: rowToUpdate.newRow[rowToUpdate.changedFields[0]],
+      });
+
+      // Opcional: log de sucesso
+      console.log('Alterações salvas com sucesso:', response.data);
+
+      // Fecha o modal e atualiza a lista
+
+      listarollouttelefonica();
+    } catch (error) {
+      console.error('Erro ao salvar alterações em massa:', error);
+      // Opcional: mostrar feedback visual ao usuário
+      setLoading(false);
+      toast.error('Falha ao salvar alterações.');
+    } finally {
+      setConfirmOpen(false);
+    }
+  };
+
+  const handleCancelSave = () => {
+    console.log('Cancelado pelo usuário.');
+    setConfirmOpen(false);
+  };
 
   function CustomNoRowsOverlay() {
     return (
@@ -880,10 +1254,10 @@ const Rollouttelefonica = ({ setshow, show }) => {
   }
 
   function CustomPagination() {
-    const apiRef = useGridApiContext();
-    const page = useGridSelector(apiRef, gridPageSelector);
-    const pageCount = useGridSelector(apiRef, gridPageCountSelector);
-    const rowCount = apiRef.current.getRowsCount(); // Obtém total de itens
+    const apiRefPage = useGridApiContext();
+    const page = useGridSelector(apiRefPage, gridPageSelector);
+    const pageCount = useGridSelector(apiRefPage, gridPageCountSelector);
+    const rowCount = apiRefPage.current.getRowsCount(); // Obtém total de itens
     return (
       <Box
         sx={{
@@ -900,7 +1274,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
           color="primary"
           count={pageCount}
           page={page + 1}
-          onChange={(event, value1) => apiRef.current.setPage(value1 - 1)}
+          onChange={(event, value1) => apiRefPage.current.setPage(value1 - 1)}
         />
       </Box>
     );
@@ -914,8 +1288,53 @@ const Rollouttelefonica = ({ setshow, show }) => {
     setshow1(!show1);
   };
 
+  useEffect(() => {
+    // Função para configurar listener de scroll
+    const setupScrollListener = () => {
+      const scroller = document.querySelector('.MuiDataGrid-virtualScroller');
+      if (!scroller) return; // ainda não renderizou
+      scrollerRef.current = scroller;
+
+      // Restaura posição salva
+      const savedPos = localStorage.getItem('gridScrollPos');
+      if (savedPos) {
+        const { top, left } = JSON.parse(savedPos);
+        scroller.scrollTop = top;
+        scroller.scrollLeft = left;
+      }
+
+      // Remove listener antigo se existir
+      scroller.removeEventListener('scroll', scrollerRef.current.handleScroll);
+
+      // Cria novo listener para salvar scroll sempre que ele mudar
+      scrollerRef.current.handleScroll = () => {
+        localStorage.setItem(
+          'gridScrollPos',
+          JSON.stringify({ top: scroller.scrollTop, left: scroller.scrollLeft }),
+        );
+      };
+
+      scroller.addEventListener('scroll', scrollerRef.current.handleScroll);
+    };
+
+    // Tenta configurar várias vezes até o scroller existir
+    const interval = setInterval(() => {
+      setupScrollListener();
+      if (scrollerRef.current) clearInterval(interval);
+    }, 50);
+
+    return () => {
+      clearInterval(interval);
+      // remove listener se existir
+      if (scrollerRef.current) {
+        scrollerRef.current.removeEventListener('scroll', scrollerRef.current.handleScroll);
+      }
+    };
+  }, [totalacionamento]);
+
   const iniciatabelas = () => {
     listarollouttelefonica();
+    fetchS3Credentials();
   };
 
   const chamarfiltro = () => {
@@ -939,6 +1358,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
     'DT_PLAN',
     'DT_REAL',
     'DELIVERY_PLAN',
+    'DATA_IMPRODUTIVA',
     'REGIONAL_LIB_SITE_P',
     'REGIONAL_LIB_SITE_R',
     'EQUIPAMENTO_ENTREGA_P',
@@ -946,6 +1366,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
     'ATIVACAO_REAL',
     'DOCUMENTACAO',
     'INITIAL_TUNNING_REAL',
+    'INITIAL_TUNNING_REAL_FINAL',
+    'APROVACAO_SSV',
     'INITIAL_TUNNING_STATUS',
     'VISTORIA_PLAN',
     'VISTORIA_REAL',
@@ -1020,19 +1442,23 @@ const Rollouttelefonica = ({ setshow, show }) => {
         VISTORIA_PLAN: item.vistoriaplan,
         VISTORIA_REAL: item.vistoriareal,
         DOCUMENTACAO_VISTORIA_PLAN: item.docplan,
-        DOCUMENTACAO_VISTORIA_REAL: item.docvitoriareal,     
-        REQ: item.req,           
-        ENTREGA_PLAN: item.entregaplan,           
+        DOCUMENTACAO_VISTORIA_REAL: item.docvitoriareal,
+        REQ: item.req,
+        ENTREGA_PLAN: item.entregaplan,
         ENTREGA_REAL: item.entregareal,
-        FIM_INSTALACAO_PLAN: item.fiminstalacaoplan,        
+        FIM_INSTALACAO_PLAN: item.fiminstalacaoplan,
         FIM_INSTALACAO_REAL: item.fiminstalacaoreal,
-        INTEGRACAO_PLAN: item.integracaoplan,        
+        INTEGRACAO_PLAN: item.integracaoplan,
         INTEGRACAO_REAL: item.integracaoreal,
         ATIVACAO_REAL: item.ativacao,
         DOCUMENTACAO: item.documentacao,
+        DATA_IMPRODUTIVA: item.dataimprodutiva,
         INITIAL_TUNNING_REAL: item.initialtunningreal,
-        INITIAL_TUNNING_STATUS: item.initialtunningstatus,   
-        DT_PLAN: item.dtplan,             
+        INITIAL_TUNNING_REAL_FINAL: item.initialtunningrealfinal,
+        APROVACAO_SSV: item.aprovacaossv,
+        STATUS_APROVACAO_SSV: item.statusaprovacaossv,
+        INITIAL_TUNNING_STATUS: item.initialtunningstatus,
+        DT_PLAN: item.dtplan,
         DT_REAL: item.dtreal,
         OBSERVACAO: item.acompanhamentofisicoobservacao,
         ROLLOUT: item.rollout,
@@ -1063,947 +1489,134 @@ const Rollouttelefonica = ({ setshow, show }) => {
 
     exportExcel({ excelData, fileName: 'ROLLOUT TELEFONICA' });
   };
+  const [changedField, setChangedField] = useState();
+
+  const handleFileUpload = async () => {
+    if (!file) return;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const zip = await JSZip.loadAsync(arrayBuffer);
+
+      const filesInsideZip = Object.keys(zip.files);
+      if (!filesInsideZip.length) throw new Error('ZIP está vazio');
+
+      await Promise.all(
+        filesInsideZip.map(async (fileName) => {
+          const match = fileName.match(/BA\d+/);
+          if (!match) {
+            console.warn(`Código BA não encontrado em: ${fileName}`);
+            return;
+          }
+          const identificador = match[0];
+          const prefix = `telequipe/rollout/${identificador}/`;
+          const existingFiles = await s3Service.listFiles(prefix);
+          if (existingFiles.length > 0) {
+            await Promise.all(
+              existingFiles
+                .filter((fileItem) => fileItem.Key)
+                .map((fileMap) => s3Service.deleteFile(fileMap.Key)),
+            );
+          }
+
+          const zipContent = await zip.files[fileName].async('blob');
+          const innerFile = new File([zipContent], fileName, { type: 'application/zip' });
+          const key = `${prefix}${fileName}`;
+          await s3Service.uploadFile(innerFile, key);
+        }),
+      );
+
+      setFile(null);
+      toast.success(`Arquivo anexado com sucesso`);
+    } catch (error) {
+      toast.error(`Erro ao subir arquivo: ${error}`);
+      setFile(null);
+      console.error('Erro ao processar ZIP', error);
+    }
+  };
+
+  const handleChange = async (event) => {
+    const { files } = event.target;
+
+    if (!files || files.length === 0) {
+      toast.warning('Nenhum arquivo selecionado');
+      return;
+    }
+
+    if (files.length > 1) {
+      toast.error('Por favor, selecione apenas um arquivo');
+      return;
+    }
+
+    const selectedFile = files[0];
+    try {
+      const arrayBuffer = await selectedFile.arrayBuffer();
+      const zip = await JSZip.loadAsync(arrayBuffer);
+
+      const filesInsideZip = Object.keys(zip.files);
+      const invalidFiles = filesInsideZip.filter((fileName) => !/BA\d+/.test(fileName));
+      if (invalidFiles.length > 0) {
+        toast.warning(`Arquivos sem identificador encontrado: \n${invalidFiles.join('\n')}`);
+        return;
+      }
+      setFile(selectedFile);
+    } catch (error) {
+      console.error('Erro ao validar ZIP', error);
+      toast.warning('Erro ao processar o arquivo ZIP');
+    }
+  };
+
+  const handleProcessRowUpdate = async (newRow, oldRow) => {
+    if (rowSelectionModel.length === 0) {
+      setmensagem('Selecione pelo menos um item');
+      return oldRow;
+    }
+
+    // Find all changed fields (more robust than just finding the first one)
+    const changedFields = Object.keys(newRow).filter(
+      (key) => newRow[key] !== oldRow[key] && key !== 'id', // Exclude ID field from changes if needed
+    );
+
+    if (changedFields.length === 0) {
+      return oldRow; // No actual changes detected
+    }
+
+    React.startTransition(() => {
+      setChangedField(changedFields[0]);
+      setRowToUpdate({
+        newRow,
+        oldRow,
+        changedFields,
+      });
+      setConfirmOpen(true);
+    });
+
+    return newRow;
+  };
+
+  useEffect(() => {
+    if (rowToUpdate) {
+      setConfirmOpen(true);
+    }
+  }, [rowToUpdate]);
 
   return (
     <>
-      <Modal
-        isOpen={show1}
-        toggle={toggle1}
-        className="modal-dialog modal-lg modal-dialog-scrollable"
-        backdrop="static"
-        keyboard={false}
-      >
-        <ModalHeader toggle={toggle}>Filtro</ModalHeader>
-        <ModalBody>
-          <div>
-            <div className="col-9 d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPmoref" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">PMO - REF</span>
-              <select
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PMO - REF"
-                defaultValue=""
-              >
-                <option value="" disabled>
-                  Selecione PMO-REF
-                </option>
-                <option value="Rollout_2025">Rollout_2025</option>
-                <option value="Rollout_2026">Rollout_2026</option>
-              </select>
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPmoref" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">PMO - CATEGORIA</span>
-              <select
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PMO - CATEGORIA"
-                defaultValue=""
-              >
-                <option value="" disabled>
-                  Selecione PMO-CATEGORIA
-                </option>
-                <option value="Existente">Existente</option>
-                <option value="Novo">Novo</option>
-              </select>
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPmoref" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">UID - IDPMTS</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite o UID - IDPMTS"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro UID - IDPMTS"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPmoref" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">UF/SIGLA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite o UF/SIGLA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro UF/SIGLA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPmoref" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">PMO - SIGLA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite o PMO - SIGLA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PMO - SIGLA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPmoref" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">PMO - UF</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite o PMO - UF"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PMO - UF"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkPmoregional"
-                style={{ width: '20px', height: '20px' }}
-              />
-
-              <span className="mb-0">PMO - REGIONAL</span>
-
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite o PMO - REGIONAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PMO - REGIONAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkCidade" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">CIDADE</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite a CIDADE"
-                style={{ width: '400px', height: '40px', alignItems: 'center' }}
-                aria-label="Filtro CIDADE"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkEAPAutomatica"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">EAP - AUTOMATICA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite EAP - AUTOMATICA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro EAP - AUTOMATICA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRegionalEAPInfra"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">REGIONAL - EAP - INFRA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite REGIONAL - EAP - INFRA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro REGIONAL - EAP - INFRA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkStatusMensalTx"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">STATUS-MENSAL-TX</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite STATUS-MENSAL-TX"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro STATUS-MENSAL-TX"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkMASTEROBRStatusRollout"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">MASTEROBR-STATUS-ROLLOUT</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite MASTEROBR-STATUS-ROLLOUT"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro MASTEROBR-STATUS-ROLLOUT"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRegionalLibSiteP"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">REGIONAL-LIB-SITE-P</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite REGIONAL-LIB-SITE-P"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro REGIONAL-LIB-SITE-P"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRegionalLibSiteR"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">REGIONAL-LIB-SITE-R</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite REGIONAL-LIB-SITE-R"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro REGIONAL-LIB-SITE-R"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkEquipamentoEntregaP"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">EQUIPAMENTO-ENTREGA-P</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite EQUIPAMENTO-ENTREGA-P"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro EQUIPAMENTO-ENTREGA-P"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRegionalCarimbo"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">REGIONAL-CARIMBO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite REGIONAL-CARIMBO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro REGIONAL-CARIMBO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkRSORsaSci" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">RSO-RSA-SCI</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite RSO-RSA-SCI"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro RSO-RSA-SCI"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRSORsaSciStatus"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">RSO-RSA-SCI-STATUS</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite RSO-RSA-SCI-STATUS"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro RSO-RSA-SCI-STATUS"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRegionalOfensorDetalhe"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">REGIONAL-OFENSOR-DETALHE</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite REGIONAL-OFENSOR-DETALHE"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro REGIONAL-OFENSOR-DETALHE"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkVendorVistoria"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">VENDOR-VISTORIA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite VENDOR-VISTORIA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro VENDOR-VISTORIA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkVendorProjeto"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">VENDOR-PROJETO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite VENDOR-PROJETO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro VENDOR-PROJETO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkVendorInstalador"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">VENDOR-INSTALADOR</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite VENDOR-INSTALADOR"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro VENDOR-INSTALADOR"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkVendorIntegrador"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">VENDOR-INTEGRADOR</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite VENDOR-INTEGRADOR"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro VENDOR-INTEGRADOR"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkPMOTecnEquip"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">PMO-TECN-EQUIP</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite PMO-TECN-EQUIP"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PMO-TECN-EQUIP"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkPMOFreqEquip"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">PMO-FREQ-EQUIP</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite PMO-FREQ-EQUIP"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PMO-FREQ-EQUIP"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkUIDIDCPOMRF"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">UID-IDCPOMRF</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite UID-IDCPOMRF"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro UID-IDCPOMRF"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkStatusObra" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">STATUS OBRA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite STATUS OBRA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro STATUS OBRA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="date" id="chkDocPlan" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">DOC PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite DOC PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro DOC PLAN"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkEntregaRequest"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">ENTREGA-REQUEST</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ENTREGA-REQUEST"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ENTREGA-REQUEST"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkEntregaPlan"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">ENTREGA-PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ENTREGA-PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ENTREGA-PLAN"
-              />
-            </div>
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkvistoriareal"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">VISTORIA-REAL</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite VISTORIA-REAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro VISTORIA-REAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkEntregaReal"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">ENTREGA-REAL</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ENTREGA-REAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ENTREGA-REAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkFimInstalacaoReal"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">FIM INSTALAÇÃO REAL</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite FIM INSTALAÇÃO REAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro FIM INSTALAÇÃO REAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkIntegracaoReal"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">INTEGRAÇÃO REAL</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite INTEGRAÇÃO REAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro INTEGRAÇÃO REAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkAtivacao" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">ATIVAÇÃO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ATIVAÇÃO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ATIVAÇÃO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkDocumentacao"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">DOCUMENTAÇÃO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite DOCUMENTAÇÃO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro DOCUMENTAÇÃO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkInitialTunningReal"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">INITIAL TUNNING REAL</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite INITIAL TUNNING REAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro INITIAL TUNNING REAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkDtReal" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">DT REAL</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite DT REAL"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro DT REAL"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkFimInstalacaoPlan"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">FIM INSTALAÇÃO PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite FIM INSTALAÇÃO PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro FIM INSTALAÇÃO PLAN"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkIntegracaoPlan"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">INTEGRAÇÃO PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite INTEGRAÇÃO PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro INTEGRAÇÃO PLAN"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkInitialTunningStatus"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">INITIAL TUNNING STATUS</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite INITIAL TUNNING STATUS"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro INITIAL TUNNING STATUS"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkDtPlan" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">DT PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite DT PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro DT PLAN"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkRollout" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">ROLLOUT</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ROLLOUT"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ROLLOUT"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkAcionamento"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">ACIONAMENTO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ACIONAMENTO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ACIONAMENTO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkNomeDoSite" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">NOME DO SITE</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite NOME DO SITE"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro NOME DO SITE"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkEndereco" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">ENDEREÇO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ENDEREÇO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ENDEREÇO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRSORSADetentora"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">RSO-RSA-DETENTORA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite RSO-RSA-DETENTORA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro RSO-RSA-DETENTORA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkRSORSAIDDentetora"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">RSO-RSA-ID-DENTETORA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite RSO-RSA-ID-DENTETORA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro RSO-RSA-DETENTORA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkResumoDaFase"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">RESUMO DA FASE</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite RESUMO DA FASE"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro RESUMO DA FASE"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkInfraVivo" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">INFRA VIVO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite INFRA VIVO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro INFRA VIVO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkEquipe" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">EQUIPE</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite EQUIPE"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro EQUIPE"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkDocaPlan" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">DOCA PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite DOCA PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro DOCA PLAN"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkDeliveryPlan"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">DELIVERY PLAN</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite DELIVERY PLAN"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro DELIVERY PLAN"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkOV" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">OV</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite OV"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro OV"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkAcesso" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">ACESSO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite ACESSO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro ACESSO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkT2Instalacao"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">T2 INSTALAÇÃO</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite T2 INSTALAÇÃO"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro T2 INSTALAÇÃO"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkNumeroDaReq"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">NÚMERO DA REQ - INST</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite NÚMERO DA REQ - INST"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro NÚMERO DA REQ - INST"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkNumeroT2" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">NÚMERO T2 - INST</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite NÚMERO T2 - INST"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro NÚMERO T2 - INST"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPedido" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">PEDIDO - INST</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite PEDIDO - INST"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PEDIDO - INST"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkT2Vistoria" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">T2 VISTORIA</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite T2 VISTORIA"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro T2 VISTORIA"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkNumeroDaReqVist"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">NÚMERO DA REQ - VIST</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite NÚMERO DA REQ - VIST"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro NÚMERO DA REQ - VIST"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input
-                type="checkbox"
-                id="chkNumeroT2Vist"
-                style={{ width: '20px', height: '20px' }}
-              />
-              <span className="mb-0">NÚMERO T2 - VIST</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite NÚMERO T2 - VIST"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro NÚMERO T2 - VIST"
-              />
-            </div>
-
-            <div className="d-flex align-items-center gap-3 mb-3">
-              <input type="checkbox" id="chkPedidoVist" style={{ width: '20px', height: '20px' }} />
-              <span className="mb-0">PEDIDO - VIST</span>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Digite PEDIDO - VIST"
-                style={{ width: '400px', height: '40px' }}
-                aria-label="Filtro PEDIDO - VIST"
-              />
-            </div>
-          </div>
-        </ModalBody>
-        <ModalFooter>
-          <Button color="primary" onClick={toggle1}>
-            Aplicar Filtro
-          </Button>{' '}
-          <Button color="secondary" onClick={toggle1}>
-            Cancel
-          </Button>
-        </ModalFooter>
-      </Modal>
-
+      {show1 && (
+        <FiltroRolloutTelefonica
+          filter={filter}
+          setFilter={setFilter}
+          toggle={toggle1}
+          atualiza={listaFilterrollouttelefonica}
+        />
+      )}
+      <ConfirmaModal
+        open={confirmOpen}
+        quantity={rowSelectionModel.length}
+        onConfirm={handleConfirmSave}
+        onCancel={handleCancelSave}
+        campo={changedField}
+      />
       <Modal
         isOpen={show}
         toggle={toggle}
@@ -2038,7 +1651,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
                   />{' '}
                 </>
               ) : null}
-
               {telacadastrot2edicao ? (
                 <>
                   {' '}
@@ -2055,7 +1667,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
                   />{' '}
                 </>
               ) : null}
-
               {telaexclusao ? (
                 <>
                   <Excluirregistro
@@ -2066,9 +1677,40 @@ const Rollouttelefonica = ({ setshow, show }) => {
                     atualiza={listarollouttelefonica}
                   />{' '}
                 </>
-              ) : null}
-
+              ) : null}{' '}
+              <ToastContainer
+                position="top-right"
+                autoClose={5000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+              />{' '}
+              <ToastContainer />
               <div className="row g-3">
+                <div className="col-sm-12">
+                  Anexar Documentação em Massa
+                  <div className="d-flex flex-row-reverse custom-file">
+                    <InputGroup>
+                      <Input
+                        type="file"
+                        onChange={handleChange}
+                        className="custom-file-input"
+                        id="customFile3"
+                      />
+                      <Button
+                        color="primary"
+                        onClick={handleFileUpload}
+                        disabled={modoVisualizador()}
+                      >
+                        Anexar
+                      </Button>
+                    </InputGroup>
+                  </div>
+                </div>
                 <div className="col-sm-3">
                   <Button color="link" onClick={gerarexcel}>
                     Exportar Excel
@@ -2085,21 +1727,40 @@ const Rollouttelefonica = ({ setshow, show }) => {
               <br />
               <Box sx={{ height: '85%', width: '100%' }}>
                 <DataGrid
+                  apiRef={apiRef}
                   rows={totalacionamento}
+                  getRowId={(row) => row.id}
                   columns={columns}
                   loading={loading}
                   pageSize={pageSize}
                   onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
                   disableSelectionOnClick
+                  checkboxSelection
+                  processRowUpdate={handleProcessRowUpdate}
+                  onProcessRowUpdateError={handleProcessRowUpdateError}
+                  rowSelectionModel={rowSelectionModel}
+                  onRowSelectionModelChange={setRowSelectionModel}
                   components={{
                     Pagination: CustomPagination,
                     LoadingOverlay: LinearProgress,
                     NoRowsOverlay: CustomNoRowsOverlay,
                   }}
                   getRowClassName={(parametros) =>
-                    parametros.row.deletado === 1 ? 'linha-diferente' : '' // troque a lógica conforme necessário
+                    parametros.row.deletado === 1 ? 'linha-diferente' : ''
                   }
+                  isRowSelectable={(rowSelectable) => rowSelectable.row.deletado !== 1}
                   sx={{
+                    '& .MuiDataGrid-row.Mui-selected': {
+                      backgroundColor: '#32ccbc !important', // cor base
+                      color: '#fff', // texto claro para contraste
+                      transition: 'background-color 0.2s ease-in-out',
+                      '&:hover': {
+                        backgroundColor: '#28a89b !important', // cor um pouco mais escura no hover
+                      },
+                    },
+                    '& .MuiDataGrid-cell:focus': {
+                      outline: 'none', // remove a borda azul padrão
+                    },
                     '& .MuiDataGrid-row.linha-diferente .MuiDataGrid-cell': {
                       backgroundColor: '#ffe0b2 !important',
                     },
@@ -2325,10 +1986,10 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
                     },
-                   "& .MuiDataGrid-columnHeader[data-field='req']": {
+                    "& .MuiDataGrid-columnHeader[data-field='req']": {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
-                    },                    
+                    },
                     "& .MuiDataGrid-columnHeader[data-field='entregarequest']": {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
@@ -2344,7 +2005,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
                     "& .MuiDataGrid-columnHeader[data-field='vistoriaplan']": {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
-                    },                    
+                    },
                     "& .MuiDataGrid-columnHeader[data-field='entregareal']": {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
@@ -2377,7 +2038,19 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
                     },
+                    "& .MuiDataGrid-columnHeader[data-field='initialtunningrealfinal']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
                     "& .MuiDataGrid-columnHeader[data-field='initialtunnigstatus']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='aprovacaossv']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='statusaprovacaossv']": {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
                     },
@@ -2437,10 +2110,66 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       backgroundColor: '#2196f3', // Azul
                       color: 'white',
                     },
+                    "& .MuiDataGrid-columnHeader[data-field='infra']": {
+                      backgroundColor: '#9c27b0',
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='acessoatividade']": {
+                      backgroundColor: '#9c27b0',
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='acessocomentario']": {
+                      backgroundColor: '#9c27b0',
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='acessooutros']": {
+                      backgroundColor: '#9c27b0',
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='acessoformaacesso']": {
+                      backgroundColor: '#9c27b0',
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='ddd']": {
+                      backgroundColor: '#9c27b0',
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='latitude']": {
+                      backgroundColor: '#9c27b0',
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='longitude']": {
+                      backgroundColor: '#9c27b0',
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='acessoobs']": {
+                      backgroundColor: '#9c27b0',
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='acessosolicitacao']": {
+                      backgroundColor: '#9c27b0',
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='acessodatasolicitacao']": {
+                      backgroundColor: '#9c27b0',
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='acessodatainicial']": {
+                      backgroundColor: '#9c27b0',
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='acessodatafinal']": {
+                      backgroundColor: '#9c27b0',
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='acessostatus']": {
+                      backgroundColor: '#9c27b0',
+                      color: 'white',
+                    },
                   }}
                   localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
-                    paginationModel={paginationModel}
-                    onPaginationModelChange={setPaginationModel}                  
+                  paginationModel={paginationModel}
+                  onPaginationModelChange={setPaginationModel}
                 />
               </Box>
             </>

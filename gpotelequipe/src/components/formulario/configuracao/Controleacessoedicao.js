@@ -118,6 +118,8 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
   const [telefonicaControle, setTelefonicaControle] = useState('');
   const [telefonicaRelatorio, setTelefonicaRelatorio] = useState('');
   const [telefonicaControleLpu, setTelefonicaControleLpu] = useState('');
+  const [telefonicaEdicaoDocumentacao, setTelefonicaEdicaoDocumentacao] = useState('');
+  const [telefonicaT4, setTelefonicaT4] = useState('');
 
   //Fechamento
   const [ericfechamento, setericfechamento] = useState('');
@@ -156,8 +158,6 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
     try {
       setLoading(true);
       await api.get('v1/cadusuariosistemaid', { params }).then((response) => {
-        //console.log("params que estou enviando: ", params);
-        console.log('o que receb', response);
         setidusuario(response.data.idusuario);
         setnome(response.data.nome);
         setemail(response.data.email);
@@ -216,6 +216,8 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
         setTelefonicaControle(response.data.telefonicacontrole);
         setTelefonicaRelatorio(response.data.telefonicarelatorio);
         setTelefonicaControleLpu(response.data.telefonicacontrolelpu);
+        setTelefonicaEdicaoDocumentacao(response.data.telefonicaedicaodocumentacao);
+        setTelefonicaT4(response.data?.telefonicat4);
 
         //Fechamento teste
         setericfechamento(response.data.ericfechamento);
@@ -243,6 +245,20 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
     e.preventDefault();
     setMensagem('');
     setMensagemsucesso('');
+    const novosErros = {};
+
+    if (!nome) novosErros.nome = 'Por favor, preencha o nome';
+    if (!email) novosErros.email = 'Por favor, preencha o e-mail';
+    if (!senha) novosErros.senha = 'Por favor, preencha a senha';
+    if (!datacriacao) novosErros.datacriacao = 'Por favor, informe a data de criação';
+
+    // Mostra erros via toast e sai da função
+    if (Object.keys(novosErros).length > 0) {
+      Object.values(novosErros).forEach((msg) =>
+        toast.error(msg, { position: 'top-right', autoClose: 3000 }),
+      );
+      return;
+    }
 
     const dados = {
       idusuario: ididentificador,
@@ -277,6 +293,7 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
       zteAcionamento,
       zteAdicional,
       zteControleLpu,
+      telefonicaT4,
       zteRelatorio,
       cosControle,
       cosRelatorio,
@@ -285,6 +302,7 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
       telefonicaControle,
       telefonicaRelatorio,
       telefonicaControleLpu,
+      telefonicaEdicaoDocumentacao,
       ericfechamento,
       huafechamento,
       ztefechamento,
@@ -496,7 +514,7 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
                     <Tab label="COSMX" {...a11yProps(6)} />
                     <Tab label="Telefonica" {...a11yProps(7)} />
                     <Tab label="Fechamento" {...a11yProps(8)} />
-                    <Tab label="Demonstrativo*" {...a11yProps(9)} />
+                    <Tab label="Demonstrativo" {...a11yProps(9)} />
                     <Tab label="Configurações" {...a11yProps(10)} />
                   </Tabs>
                 </Box>
@@ -876,6 +894,24 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
                                 checked={telefonicaControleLpu}
                               />
                               <Label check>Controle LPU</Label>
+                            </FormGroup>
+                            <FormGroup check>
+                              <Input
+                                type="checkbox"
+                                id="check23"
+                                onChange={(e) => setTelefonicaEdicaoDocumentacao(e.target.checked)}
+                                checked={telefonicaEdicaoDocumentacao}
+                              />
+                              <Label check>Edição da documentação</Label>
+                            </FormGroup>
+                            <FormGroup check>
+                              <Input
+                                type="checkbox"
+                                id="check23"
+                                onChange={(e) => setTelefonicaT4(e.target.checked)}
+                                checked={telefonicaT4}
+                              />
+                              <Label check>Faturamento</Label>
                             </FormGroup>
                           </div>
                         </div>
