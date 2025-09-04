@@ -3,7 +3,7 @@ import XLSX from 'sheetjs-style';
 
 const exportExcel = ({ excelData, fileName }) => {
   const fileType =
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset-UTF-8';
+    'application/vnd.openxmloformats-officedocument.spreadsheetml.sheet;charset-UTF-8';
   const fileExtension = '.xlsx';
 
   // Função para ajustar a largura das colunas com base no conteúdo

@@ -3,8 +3,8 @@
 interface
 
 uses
-  FireDAC.Comp.Client, Data.DB, System.SysUtils, model.connection, ComObj,
-  System.StrUtils, FireDAC.DApt, System.Generics.Collections, UtFuncao;
+  FireDAC.Comp.Client, Data.DB, Classes, System.SysUtils, model.connection, ComObj,
+  System.StrUtils, FireDAC.DApt, System.Generics.Collections, UtFuncao, System.JSON;
 
 type
   TProjetoericsson = class
@@ -180,12 +180,85 @@ type
     function NovoCadastrotarefa(out erro: string): integer;
     function Editartarefa(out erro: string): Boolean;
     function criarsite(out erro: string): Boolean;
-
+    function ObterRelatorioDespesas(const AFiltros: TDictionary<string, string>; out AErro: string): TFDQuery;
+    function regionalericsson(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function diaria(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function EditarEmMassa(const AJsonBody: string; out erro: string): Boolean;
   end;
 
 implementation
 
 { TProjetoericsson }
+
+function TProjetoericsson.diaria(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+  a: string;
+begin
+  try
+    qry := TFDQuery.Create(nil);
+    qry.connection := FConn;
+    with qry do
+    begin
+      Active := false;
+      SQL.Clear;
+      SQL.Add('Select  ');
+      SQL.Add('    gesdiaria.numero as id,  ');
+      SQL.Add('    gesdiaria.datasolicitacao,  ');
+      SQL.Add('    gespessoa.nome,  ');
+      SQL.Add('    gesdiaria.projeto,  ');
+      SQL.Add('    gesdiaria.siteid,  ');
+      SQL.Add('    gesdiaria.siglasite,  ');
+      SQL.Add('    gesdiaria.po,  ');
+      SQL.Add('    gesdiaria.local,  ');
+      SQL.Add('    gesdiaria.descricao,  ');
+      SQL.Add('    gesdiaria.valoroutrassolicitacoes,  ');
+      SQL.Add('    gesdiaria.diarias,  ');
+      SQL.Add('    gesdiaria.valortotal,  ');
+      SQL.Add('    gesdiaria.solicitante  ');
+      SQL.Add('From  ');
+      SQL.Add('    gesdiaria Inner Join  ');
+      SQL.Add('    gespessoa On gespessoa.idpessoa = gesdiaria.colaborador where gesdiaria.siteid =:siteid ');
+      ParamByName('siteid').asstring := AQuery.Items['osouobra'];
+      a := AQuery.Items['osouobra'];
+      Active := true;
+    end;
+    erro := '';
+    Result := qry;
+  except
+    on ex: exception do
+    begin
+      erro := 'Erro ao consultar : ' + ex.Message;
+      Result := nil;
+    end;
+  end;
+end;
+
+function TProjetoericsson.regionalericsson(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+  a: string;
+begin
+  try
+    qry := TFDQuery.Create(nil);
+    qry.connection := FConn;
+    with qry do
+    begin
+      Active := false;
+      SQL.Clear;
+      SQL.Add('Select  regional  From emailregional order by regional ');
+      Active := true;
+    end;
+    erro := '';
+    Result := qry;
+  except
+    on ex: exception do
+    begin
+      erro := 'Erro ao consultar : ' + ex.Message;
+      Result := nil;
+    end;
+  end;
+end;
 
 function TProjetoericsson.consultapagamento: Boolean;
 var
@@ -445,8 +518,8 @@ begin
         SQL.Add('Select obraericssonmigo.descricaoservico,obraericssonmigo.po From ');
         SQL.Add('obraericssonmigo  ');
         SQL.Add('Where ');
-        SQL.Add('obraericssonmigo.poritem =:poritem ');
-        ParamByName('poritem').AsString := po;
+        SQL.Add('obraericssonmigo.poritem=:po ');
+        ParamByName('po').AsString := po;
         Open();
         descricaoservico := FieldByName('descricaoservico').AsString;
         polocal := FieldByName('po').AsString;
@@ -523,80 +596,80 @@ begin
         end ; }
        // else
        // begin
-          while not eof do
+        while not eof do
+        begin
+          with qry1 do
           begin
-            with qry1 do
-            begin
-              close;
-              SQL.clear;
-              sql.Add('insert into obraericssonatividadepj(idcolaboradorpj,idposervico,po,lpuhistorico,');
-              sql.Add('poitem,escopo,numero,deletado,valorservico,observacaopj,descricaoservico,codigoservico,dataacionamento)');
-              sql.Add('                             values(:idcolaboradorpj,:idposervico,:po,:lpuhistorico,');
-              sql.Add(':poitem,:escopo,:numero,:deletado,:valorservico,:observacaopj,:descricaoservico,:codigoservico,:dataacionamento)');
-              ParamByName('idcolaboradorpj').asinteger := idcolaboradorpj;
-              ParamByName('idposervico').asstring := idposervico;
-              ParamByName('po').asstring := polocal;
-              ParamByName('poitem').asstring := qry.FieldByName('poritem').AsString;
-              ParamByName('escopo').asstring := escopo;
-              ParamByName('numero').asstring := numero;
-              ParamByName('deletado').asinteger := 0;
-              if lpuhistorico = 'NEGOCIADO' then
-                ParamByName('valorservico').asfloat := valornegociado
-              else
-                ParamByName('valorservico').asfloat := qry.FieldByName('Valor').AsFloat * qry.FieldByName('qtyordered').asfloat;
-              ;
-              ParamByName('observacaopj').asstring := observacaopj;
-              ParamByName('descricaoservico').asstring := descricaoservico;
-              ParamByName('codigoservico').asstring := qry.FieldByName('codigoservico').AsString;
-              ParamByName('lpuhistorico').asstring := lpuhistorico;
-              ParamByName('dataacionamento').AsDate := Date;
-              ExecSQL;
+            close;
+            SQL.clear;
+            sql.Add('insert into obraericssonatividadepj(idcolaboradorpj,idposervico,po,lpuhistorico,');
+            sql.Add('poitem,escopo,numero,deletado,valorservico,observacaopj,descricaoservico,codigoservico,dataacionamento)');
+            sql.Add('                             values(:idcolaboradorpj,:idposervico,:po,:lpuhistorico,');
+            sql.Add(':poitem,:escopo,:numero,:deletado,:valorservico,:observacaopj,:descricaoservico,:codigoservico,:dataacionamento)');
+            ParamByName('idcolaboradorpj').asinteger := idcolaboradorpj;
+            ParamByName('idposervico').asstring := idposervico;
+            ParamByName('po').asstring := polocal;
+            ParamByName('poitem').asstring := qry.FieldByName('poritem').AsString;
+            ParamByName('escopo').asstring := escopo;
+            ParamByName('numero').asstring := numero;
+            ParamByName('deletado').asinteger := 0;
+            if lpuhistorico = 'NEGOCIADO' then
+              ParamByName('valorservico').asfloat := valornegociado
+            else
+              ParamByName('valorservico').asfloat := qry.FieldByName('Valor').AsFloat * qry.FieldByName('qtyordered').asfloat;
+            ;
+            ParamByName('observacaopj').asstring := observacaopj;
+            ParamByName('descricaoservico').asstring := descricaoservico;
+            ParamByName('codigoservico').asstring := qry.FieldByName('codigoservico').AsString;
+            ParamByName('lpuhistorico').asstring := lpuhistorico;
+            ParamByName('dataacionamento').AsDate := Date;
+            ExecSQL;
 
-              close;
-              SQL.clear;
-              SQL.Add('insert into obraericssonfechamento (Demanda,PO,POITEM,Item,Sigla,IDSydle,Cliente,Estado,Codigo,');
-              SQL.Add('Descricao,VALORPJ,Quant,EMPRESA,DATADEENVIO,idcolaboradorpj,MOSREAL,INSTALREAL,INTEGREAL) ');
-              sql.Add('                            values(:Demanda,:PO,:POITEM,:Item,:Sigla,:IDSydle,:Cliente,:Estado,:Codigo,');
-              sql.Add(':Descricao,:VALORPJ,:Quant,:EMPRESA,:DATADEENVIO,:idcolaboradorpj,:MOSREAL,:INSTALREAL,:INTEGREAL) ');
-              ParamByName('Demanda').AsInteger := demanda;
-              ParamByName('PO').Asstring := polocal;
-              ParamByName('POITEM').AsString := qry.FieldByName('poritem').AsString;
-              if qry.FieldByName('sigla').asstring = 'T' then
-                ParamByName('Item').AsInteger := 0
-              else
-                ParamByName('Item').AsInteger := qry.FieldByName('item').asinteger;
-              ParamByName('Sigla').asstring := site;
-              ParamByName('IDSydle').asstring := numero;
-              ParamByName('Cliente').asstring := cliente;
-              ParamByName('Estado').asstring := qry.FieldByName('estado').AsString;
-              ParamByName('Codigo').asstring := qry.FieldByName('codigoservico').AsString;
-              ParamByName('Descricao').asstring := descricaoservico;
-              if lpuhistorico = 'NEGOCIADO' then
-                ParamByName('VALORPJ').asfloat := valornegociado
-              else
-                ParamByName('VALORPJ').asfloat := qry.FieldByName('Valor').AsFloat * qry.FieldByName('qtyordered').asfloat;
-              ParamByName('Quant').asfloat := qry.FieldByName('qtyordered').asfloat;
-              if qry2.FieldByName('datarecebimentodositemosreportadodia').asstring = '' then
-                ParamByName('MOSREAL').AsDate := StrToDate('30/12/1899')
-              else
-                ParamByName('MOSREAL').AsDate := qry2.FieldByName('datarecebimentodositemosreportadodia').AsDateTime;
+            close;
+            SQL.clear;
+            SQL.Add('insert into obraericssonfechamento (Demanda,PO,POITEM,Item,Sigla,IDSydle,Cliente,Estado,Codigo,');
+            SQL.Add('Descricao,VALORPJ,Quant,EMPRESA,DATADEENVIO,idcolaboradorpj,MOSREAL,INSTALREAL,INTEGREAL) ');
+            sql.Add('                            values(:Demanda,:PO,:POITEM,:Item,:Sigla,:IDSydle,:Cliente,:Estado,:Codigo,');
+            sql.Add(':Descricao,:VALORPJ,:Quant,:EMPRESA,:DATADEENVIO,:idcolaboradorpj,:MOSREAL,:INSTALREAL,:INTEGREAL) ');
+            ParamByName('Demanda').AsInteger := demanda;
+            ParamByName('PO').Asstring := polocal;
+            ParamByName('POITEM').AsString := qry.FieldByName('poritem').AsString;
+            if qry.FieldByName('sigla').asstring = 'T' then
+              ParamByName('Item').AsInteger := 0
+            else
+              ParamByName('Item').AsInteger := qry.FieldByName('item').asinteger;
+            ParamByName('Sigla').asstring := site;
+            ParamByName('IDSydle').asstring := numero;
+            ParamByName('Cliente').asstring := cliente;
+            ParamByName('Estado').asstring := qry.FieldByName('estado').AsString;
+            ParamByName('Codigo').asstring := qry.FieldByName('codigoservico').AsString;
+            ParamByName('Descricao').asstring := descricaoservico;
+            if lpuhistorico = 'NEGOCIADO' then
+              ParamByName('VALORPJ').asfloat := valornegociado
+            else
+              ParamByName('VALORPJ').asfloat := qry.FieldByName('Valor').AsFloat * qry.FieldByName('qtyordered').asfloat;
+            ParamByName('Quant').asfloat := qry.FieldByName('qtyordered').asfloat;
+            if qry2.FieldByName('datarecebimentodositemosreportadodia').asstring = '' then
+              ParamByName('MOSREAL').AsDate := StrToDate('30/12/1899')
+            else
+              ParamByName('MOSREAL').AsDate := qry2.FieldByName('datarecebimentodositemosreportadodia').AsDateTime;
 
-              if qry2.FieldByName('datavalidacaoinstalacaodia').asstring = '' then
-                ParamByName('INSTALREAL').AsDate := StrToDate('30/12/1899')
-              else
-                ParamByName('INSTALREAL').AsDate := qry2.FieldByName('datavalidacaoinstalacaodia').AsDateTime;
+            if qry2.FieldByName('datavalidacaoinstalacaodia').asstring = '' then
+              ParamByName('INSTALREAL').AsDate := StrToDate('30/12/1899')
+            else
+              ParamByName('INSTALREAL').AsDate := qry2.FieldByName('datavalidacaoinstalacaodia').AsDateTime;
 
-              if qry2.FieldByName('datavalidacaoeriboxedia').asstring = '' then
-                ParamByName('INTEGREAL').AsDate := StrToDate('30/12/1899')
-              else
-                ParamByName('INTEGREAL').AsDate := qry2.FieldByName('datavalidacaoeriboxedia').AsDateTime;
-              ParamByName('EMPRESA').asstring := empresa;
-              ParamByName('DATADEENVIO').asdate := date;
-              ParamByName('idcolaboradorpj').asinteger := idcolaboradorpj;
-              execsql;
-            end;
-            Next;
+            if qry2.FieldByName('datavalidacaoeriboxedia').asstring = '' then
+              ParamByName('INTEGREAL').AsDate := StrToDate('30/12/1899')
+            else
+              ParamByName('INTEGREAL').AsDate := qry2.FieldByName('datavalidacaoeriboxedia').AsDateTime;
+            ParamByName('EMPRESA').asstring := empresa;
+            ParamByName('DATADEENVIO').asdate := date;
+            ParamByName('idcolaboradorpj').asinteger := idcolaboradorpj;
+            execsql;
           end;
+          Next;
+        end;
         //end;
 
       end;
@@ -1015,7 +1088,7 @@ begin
           ParamByName('observacao').AsString := observacaopagamento;
           ParamByName('observacaointerna').AsString := observacaopagamentointerna;
           ParamByName('datadopagamento').AsDate := datadopagamento;
-           ParamByName('status').asString := status;
+          ParamByName('status').asString := status;
           ParamByName('desconto').asfloat := 0;
           ExecSQL;
         end;
@@ -1164,7 +1237,7 @@ begin
           SQL.Add('AND(obraericssonpagamento.mespagamento like ''%' + AQuery.Items['mespagamento'] + '%'') ');
         end;
       end;
-      
+
 {*      if AQuery.ContainsKey('numero') then
       begin
         if Length(AQuery.Items['numero']) > 0 then
@@ -2342,8 +2415,9 @@ begin
     begin
       Active := false;
       SQL.Clear;
-      SQL.Add('Select ');
-      SQL.Add('obraericssonmigo.poritem as id, ');
+      SQL.Add('SET @rownum := 0;');
+      SQL.Add('SELECT');
+      SQL.Add('  @rownum := @rownum + 1 AS id,');
       SQL.Add('obraericssonmigo.poritem as value, ');
       SQL.Add('obraericssonmigo.po, ');
       SQL.Add('obraericssonmigo.escopo, obraericssonmigo.siteid, ');
@@ -2479,6 +2553,7 @@ end;
 function TProjetoericsson.Listaatividadeclt(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
+  a :string;
 begin
   try
     qry := TFDQuery.Create(nil);
@@ -2492,12 +2567,11 @@ begin
       SQL.Add('obraericssonatividadeclt.numero, ');
       SQL.Add('obraericssonatividadeclt.idcolaboradorclt, ');
       SQL.Add('gespessoa.nome  as colaboradorclt, ');
-      SQL.Add('obraericssonatividadeclt.idposervico,obraericssonmigo.descricaoservico,');
+      SQL.Add('obraericssonatividadeclt.idposervico,obraericssonatividadeclt.descricaoservico,');
       SQL.Add('DATE_FORMAT(obraericssonatividadeclt.datainicio,"%d/%m/%Y") as datainicio, ');
       SQL.Add('DATE_FORMAT(obraericssonatividadeclt.datafin,"%d/%m/%Y") as datafin ,');
       SQL.Add('obraericssonatividadeclt.escopo,');
       SQL.Add('obraericssonatividadeclt.po,');
-      SQL.Add('obraericssonatividadeclt.descricaoservico,');
       SQL.Add('obraericssonatividadeclt.totalhorasclt,');
       SQL.Add('obraericssonatividadeclt.valorhora,');
       SQL.Add('obraericssonatividadeclt.horaxvalor,obraericssonatividadeclt.observacaoclt ');
@@ -2507,6 +2581,7 @@ begin
       SQL.Add('obraericssonmigo On obraericssonmigo.poritem = obraericssonatividadeclt.idposervico');
       SQL.Add(' WHERE obraericssonatividadeclt.idgeral is not null and obraericssonatividadeclt.deletado = 0 and obraericssonatividadeclt.numero=:numero ');
       parambyname('numero').asstring := AQuery.Items['idlocal'];
+      a :=  AQuery.Items['idlocal'];
       Active := true;
     end;
     erro := '';
@@ -2556,6 +2631,7 @@ begin
       SQL.Add('obraericssonatividadepj.descricaoservico, ');
       SQL.Add('obraericssonatividadepj.codigoservico, ');
       SQL.Add('Date_Format(obraericssonatividadepj.dataacionamento, "%d/%m/%Y") As dataacionamento, ');
+      SQL.Add('Date_Format(obraericssonatividadepj.datadeenviodoemail, "%d/%m/%Y %H:%i") As datadeenviodoemail, ');
       SQL.Add('Concat(''R$ '',Replace(Replace(Replace(Format(obraericssonatividadepj.valorservico, 2), ''.'', ''|''), '','', ''.''), ''|'', '','')) as valorservico, ');
       SQL.Add('Sum(obraericssonpagamento.porcentagem) As porcentagem ');
       SQL.Add('From ');
@@ -2626,6 +2702,244 @@ begin
   end;
 
 end;
+
+function TProjetoericsson.ObterRelatorioDespesas(const AFiltros: TDictionary<string, string>; out AErro: string): TFDQuery;
+var
+  Qry: TFDQuery;
+  a:string;
+begin
+  Qry := TFDQuery.Create(nil);
+  try
+    Qry.Connection := FConn;
+
+    // Construção da query principal
+    Qry.SQL.Text := 'SET @rownum := 0; ' + 'SELECT ' + '  @rownum := @rownum + 1 AS id, ' + '  d.idpmts, ' + '  d.descricao, ' + '  d.valor, ' + '  d.dataacionamento, ' + '  d.nome, ' + '  d.tipo ' + 'FROM ( ' + '  SELECT ' + '      e.site as idpmts, ' + '      gp.nome AS descricao, ' + '      (ac.totalhorasclt * ac.valorhora) AS valor, ' + '      ac.dataacionamento, ' + '      gu.nome, ' + '      ''ACIONAMENTO CLT'' AS tipo ' + '  FROM ' + '      obraericssonatividadeclt ac ' + '      LEFT JOIN obraericsson e ON ac.numero = e.numero ' + '      INNER JOIN gespessoa gp ON gp.idpessoa = ac.idcolaboradorclt ' + '      INNER JOIN gesusuario gu ON gu.idusuario = ac.idcolaboradorclt ' + '  WHERE ' + '      ac.deletado = 0 ';
+
+    // Parte PJ
+    Qry.SQL.Add('  UNION ALL ' + '  SELECT ' + '      oe.numero as idpmts, ' + '      oap.descricaoservico AS descricao, ' + '      oem.medidafiltro as valor, ' + '      oap.dataacionamento, ' + '      ge.nome AS nome, ' + '      ''ACIONAMENTO PJ'' AS tipo ' + '  FROM ' + '      obraericssonatividadepj oap ' + '      LEFT JOIN gesempresas ge ON ge.idempresa = oap.idcolaboradorpj ' + '      LEFT JOIN obraericsson oe ON oe.numero = oap.numero ' + '      LEFT JOIN obraericssonmigo oem ON oem.poritem = oap.poitem ' + '  WHERE ' + '      oap.deletado = 0 ');
+
+    // Parte Material e Serviço
+    Qry.SQL.Add('  UNION ALL ');
+    Qry.SQL.Add(' Select ');
+    Qry.SQL.Add(' gs.obra as idpmts, ');
+    Qry.SQL.Add(' gp.descricao, ');
+    Qry.SQL.Add(' Coalesce((Select ');
+    Qry.SQL.Add(' gce.valor ');
+    Qry.SQL.Add(' From ');
+    Qry.SQL.Add(' gescontroleestoque gce ');
+    Qry.SQL.Add(' Where ');
+    Qry.SQL.Add(' gce.idtipomovimentacao = 1 And ');
+    Qry.SQL.Add(' gce.idproduto = gsi.idproduto ');
+    Qry.SQL.Add(' Limit 1), 0) As valor, ');
+    Qry.SQL.Add(' gs.data As dataacionamento, ');
+    Qry.SQL.Add(' gu.nome, ');
+    Qry.SQL.Add(' ''MATERIAL E SERVIÇO'' As tipo ');
+    Qry.SQL.Add(' From ');
+    Qry.SQL.Add(' gessolicitacao gs left Join ');
+    Qry.SQL.Add(' gessolicitacaoitens gsi On gsi.idsolicitacao = gs.idsolicitacao left Join ');
+    Qry.SQL.Add(' gesproduto gp On gp.idproduto = gsi.idproduto left Join ');
+    Qry.SQL.Add(' gesusuario gu On gu.idusuario = gs.idcolaborador ');
+    Qry.SQL.Add(' Where gs.projeto = ''ERICSSON'' and gsi.deletado = 0 ');
+
+    // Parte Diária
+    Qry.SQL.Add('  UNION ALL ' + '  SELECT ' + '      gd.siteid AS idpmts, ' + '      gd.descricao, ' + '      gd.valortotal AS valor, ' + '      gd.datasolicitacao AS dataacionamento, ' + '      gd.nomecolaborador AS nome, ' + '      ''DIARIA'' AS tipo ' + '  FROM ' + '      gesdiaria gd ' + '  WHERE ' + '      gd.projeto = ''ERICSSON'' ');
+
+    Qry.SQL.Add(') AS d ' + 'WHERE 1=1 ');
+
+    if AFiltros.ContainsKey('site') and (AFiltros['site'] <> '') then
+      Qry.SQL.Add('      AND d.idpmts LIKE ''%' + StringReplace(AFiltros['site'], '''', '''''', [rfReplaceAll]) + '%'' ');
+
+    a := AFiltros['site'];
+    // Filtro por nome
+    if AFiltros.ContainsKey('nome') and (AFiltros['nome'] <> '') then
+      Qry.SQL.Add('      AND d.nome LIKE ''%' + StringReplace(AFiltros['nome'], '''', '''''', [rfReplaceAll]) + '%'' ');
+
+    if AFiltros.ContainsKey('datainicio') and (AFiltros['datainicio'] <> '') then
+    begin
+      if AFiltros.ContainsKey('datafim') and (AFiltros['datafim'] <> '') then
+      begin
+        // Ambas as datas informadas
+        if AFiltros['datainicio'] = AFiltros['datafim'] then
+          Qry.SQL.Add('      AND d.dataacionamento BETWEEN ''' + AFiltros['datainicio'] + ' 00:00:00'' ' + '      AND DATE_ADD(''' + AFiltros['datafim'] + ''', INTERVAL 1 DAY) ')
+        else
+          Qry.SQL.Add('      AND d.dataacionamento BETWEEN ''' + AFiltros['datainicio'] + ' 00:00:00'' ' + '      AND DATE_ADD(''' + AFiltros['datafim'] + ''', INTERVAL 1 DAY) ');
+      end
+      else
+      begin
+        // Apenas data inicial informada
+        Qry.SQL.Add('      AND d.dataacionamento >= ''' + AFiltros['datainicio'] + ' 00:00:00'' ');
+      end;
+    end
+    else if AFiltros.ContainsKey('datafim') and (AFiltros['datafim'] <> '') then
+    begin
+      Qry.SQL.Add('      AND d.dataacionamento < DATE_ADD(''' + AFiltros['datafim'] + ''', INTERVAL 1 DAY)');
+    end;
+
+    Qry.SQL.Add('ORDER BY d.dataacionamento, d.tipo');
+
+    try
+      Qry.Open;
+      AErro := '';
+      Result := Qry;
+    except
+      on E: Exception do
+      begin
+        AErro := 'Erro ao executar consulta: ' + E.Message;
+        FreeAndNil(Qry);
+        Result := nil;
+      end;
+    end;
+  except
+    on E: Exception do
+    begin
+      AErro := 'Erro ao criar consulta: ' + E.Message;
+      FreeAndNil(Qry);
+      Result := nil;
+    end;
+  end;
+end;
+
+
+function TProjetoericsson.EditarEmMassa(const AJsonBody: string; out erro: string): Boolean;
+var
+  qry: TFDQuery;
+  jsonParams: TJSONObject;
+  updates, where, uuidValue, sUpdate: string;
+  updateParts: TStringList;
+  ids: TArray<string>;
+  i: Integer;
+  rowsAffected: Integer;
+begin
+  Result := False;
+  erro := '';
+  qry := nil;
+  jsonParams := nil;
+  updateParts := TStringList.Create;
+  try
+
+    if AJsonBody.Trim = '' then
+    begin
+      erro := 'body vazio';
+      Exit;
+    end;
+
+    jsonParams := TJSONObject.ParseJSONValue(AJsonBody) as TJSONObject;
+    if jsonParams = nil then
+    begin
+      erro := 'JSON inválido';
+      Exit;
+    end;
+
+    updateParts.Clear;
+    if Assigned(jsonParams.GetValue('fat')) then
+      updateParts.Add('fat = :fat');
+
+    // nenhum campo para atualizar?
+    if updateParts.Count = 0 then
+    begin
+      erro := 'nenhum campo para atualizar';
+      Exit;
+    end;
+
+    if jsonParams.GetValue('atividadeSelecionada') = nil then
+    begin
+      erro := 'Ids não informado';
+      Exit;
+    end;
+    uuidValue := jsonParams.GetValue('atividadeSelecionada').Value.Trim;
+    if uuidValue = '' then
+    begin
+      erro := 'atividadeSelecionada vazio';
+      Exit;
+    end;
+
+    if uuidValue.Contains(',') then
+    begin
+      ids := uuidValue.Split([',']);
+      where := 'poritem IN (';
+      for i := 0 to High(ids) do
+      begin
+        ids[i] := QuotedStr(Trim(ids[i])); // adiciona aspas e escapa apóstrofos
+        if i > 0 then
+          where := where + ',';
+        where := where + ids[i];
+      end;
+      where := where + ')';
+    end
+    else
+      where := 'poritem = :poritem';
+
+    sUpdate := '';
+    for i := 0 to updateParts.Count - 1 do
+    begin
+      if i > 0 then
+        sUpdate := sUpdate + ', ';
+      sUpdate := sUpdate + updateParts[i];
+    end;
+
+    qry := TFDQuery.Create(nil);
+    try
+      qry.Connection := FConn;
+      qry.SQL.Text := 'UPDATE obraericssonmigo SET ' + sUpdate + ' WHERE ' + where;
+
+      if Assigned(jsonParams.GetValue('fat')) then
+        qry.ParamByName('fat').AsString := jsonParams.GetValue('fat').Value.Trim;
+
+      if not uuidValue.Contains(',') then
+        qry.ParamByName('poritem').AsString := uuidValue;
+
+      if not FConn.InTransaction then
+        FConn.StartTransaction;
+      try
+        qry.ExecSQL;
+        rowsAffected := qry.RowsAffected; // número de linhas atualizadas
+        FConn.Commit;
+      except
+        on E: Exception do
+        begin
+          if FConn.InTransaction then
+            FConn.Rollback;
+          raise; // será capturado no except abaixo
+        end;
+      end;
+      if rowsAffected > 0 then
+      begin
+        Result := True;
+        erro := ''; // sem erro
+      end
+      else
+      begin
+        // nenhum registro alterado
+        Result := False;
+        erro := 'nenhum registro foi alterado (rowsAffected = 0)';
+      end;
+
+    finally
+      qry.Free;
+    end;
+
+  except
+    on e: Exception do
+    begin
+      // captura qualquer exceção e retorna mensagem
+      Result := False;
+      erro := 'erro na execução: ' + e.Message;
+      // garante que transação não fique aberta
+      try
+        if Assigned(FConn) and FConn.InTransaction then
+          FConn.Rollback;
+      except
+        // ignore
+      end;
+    end;
+  end;
+
+  // Liberar objetos criados
+  if Assigned(jsonParams) then
+    jsonParams.Free;
+  updateParts.Free;
+end;
+
 
 end.
 

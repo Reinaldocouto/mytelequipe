@@ -1455,7 +1455,7 @@ begin
       SQL.Add('treinamento.descricao, ');
       SQL.Add('Date_Format(gestreinamento.dataemissao, ''%d/%m/%Y'') As dataemissao, ');
       SQL.Add('Date_Format(gestreinamento.datavencimento, ''%d/%m/%Y'') As datavencimento, ');
-      SQL.Add('If(CurDate() > gestreinamento.datavencimento, ''VENCIDO'', (If(CurDate() + 30 >= gestreinamento.datavencimento, ');
+      SQL.Add('If(CurDate() > gestreinamento.datavencimento, ''VENCIDO'', (If(CurDate() + 60 >= gestreinamento.datavencimento, ');
       SQL.Add('''RENOVAR'', ''VALIDO''))) As situacao ');
       SQL.Add('From ');
       SQL.Add('gestreinamento Left Join ');
@@ -1494,7 +1494,7 @@ begin
       SQL.Add('treinamento.descricao, ');
       SQL.Add('Date_Format(gestreinamento.dataemissao, ''%d/%m/%Y'') As dataemissao, ');
       SQL.Add('Date_Format(gestreinamento.datavencimento, ''%d/%m/%Y'') As datavencimento, ');
-      SQL.Add('if( curdate() > gestreinamento.datavencimento, ''VENCIDO'', (If (curdate()+30 >= gestreinamento.datavencimento, ''RENOVAR'', ''VALIDO'' ) ) ) as situacao ');
+      SQL.Add('if( curdate() > gestreinamento.datavencimento, ''VENCIDO'', (If (curdate()+60 >= gestreinamento.datavencimento, ''RENOVAR'', ''VALIDO'' ) ) ) as situacao ');
       SQL.Add('From ');
       SQL.Add('gestreinamento left Join ');
       SQL.Add('treinamento On treinamento.id = gestreinamento.idtreinamento where gestreinamento.idpessoa=:idpessoa order by gestreinamento.idgestreinamento  ');
@@ -1638,11 +1638,11 @@ begin
       SQL.Clear;
       SQL.Add('SELECT');
      if AQuery.ContainsKey('showinative') and (AQuery.Items['showinative'] = 'true') then
-      begin
+     begin
         SQL.Add('  gespessoa.idpessoa AS value,');
         SQL.Add('  UPPER(CONCAT(');
         SQL.Add('    gespessoa.nome,');
-        SQL.Add('    IF(COALESCE(gespessoa.deletado, 0) = 1, '' - (Inativado)'', '''')');
+        SQL.Add('    IF(COALESCE(gespessoa.status, ''ATIVO'') <> ''ATIVO'', '' - (Inativado)'', '''')');
         SQL.Add('  )) AS label');
       end
       else

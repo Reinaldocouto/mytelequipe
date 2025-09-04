@@ -50,6 +50,9 @@ procedure rolloutzte(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure totalacionamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
+procedure listagemgrupolpu(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+procedure ListalpuGeral(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
 implementation
 
 procedure Registry;
@@ -64,6 +67,7 @@ begin
   THorse.post('v1/projetozte/listaatividadepj/salva', Salvaatividadepj);
   THorse.get('v1/projetozte/listaatividadepj', Listaatividadepj);
   THorse.get('v1/projetozte/listalpu/:idc', listalpu);
+  THorse.get('v1/projetozte/listalpu', ListalpuGeral);
   THorse.get('v1/projetozte/listaacionamento', listaacionamento);
   THorse.get('v1/projetozte/fechamento', Listafechamento);
   THorse.get('v1/projetozte/fechamentoporempresa', ListaFechamentoporempresa);
@@ -74,6 +78,7 @@ begin
   THorse.get('v1/projetozteid/extratototal', extratopagamentototal);
   THorse.get('v1/rolloutzte', rolloutzte);
   THorse.get('v1/projetozte/totalacionamento', totalacionamento);
+  THorse.get('v1/projetozte/selectlpu', listagemgrupolpu);
 end;
 
 
@@ -506,6 +511,38 @@ begin
   end;
 end;
 
+
+
+procedure ListalpuGeral(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetozte;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetozte.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.ListalpuGeral(Req.Query.Dictionary, erro);
+  try
+    if Assigned(qry) then
+    begin
+      arraydados := qry.ToJSONArray;
+      Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK);
+    end
+    else
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+
+   finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
 procedure Listaatividadepj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TProjetozte;
@@ -909,6 +946,40 @@ begin
     servico.Free;
   end;
 end;
+
+procedure listagemgrupolpu(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetozte;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetozte.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.listagemgrupolpu(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
 
 end.
 

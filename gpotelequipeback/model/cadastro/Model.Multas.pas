@@ -27,11 +27,11 @@ type
     Fdeletado: Integer;
     Fidempresa: integer;
     Fidpessoa: integer;
-
+    FidsMultas: string;
   public
     constructor Create;
     destructor Destroy; override;
-
+    property idsMultas: string read FidsMultas write FidsMultas;
     property idmultas: Integer read Fidmultas write Fidmultas;
     property idcliente: Integer read Fidcliente write Fidcliente;
     property idloja: Integer read Fidloja write Fidloja;
@@ -54,6 +54,7 @@ type
     function Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Editar(out erro: string): Boolean;
     function NovoCadastro(out erro: string): integer;
+    function TransformaDebitado(out erro: string): Boolean;
 
     // Mantemos apenas UMA defini��o da fun��o:
     function BuscaPorPlacaData(const APlaca, AData: string; out erro: string): TFDQuery;
@@ -233,6 +234,73 @@ begin
         FConn.Rollback;
         erro := 'Erro ao consultar : ' + ex.Message;
         Result := 0;
+      end;
+    end;
+  finally
+    qry.Free;
+  end;
+end;
+
+function TMultas.TransformaDebitado(out erro: string): Boolean;
+var
+  qry: TFDQuery;
+  dt: TDateTime;
+  dataBanco: string;
+  formatBanco: string;
+  sqlUpdate: string;
+begin
+  // Se datainfracao vier vazio, n�o vamos bloquear
+  if Trim(datainfracao) = '' then
+    dataBanco := ''
+  else
+  begin
+    formatSettings := TFormatSettings.Create;
+    formatSettings.ShortDateFormat := 'yyyy-mm-dd';
+    formatSettings.LongTimeFormat := 'hh:nn:ss.zzz';
+    formatSettings.DateSeparator := '-';
+    formatSettings.TimeSeparator := ':';
+
+    if not TryStrToDateTime(dataInfracao, dt, formatSettings) then
+    begin
+      erro := 'O campo Data/Hora da Infra��o est� com um valor inv�lido: ' + dataInfracao;
+      Exit;
+    end;
+  dataBanco := FormatDateTime('yyyy-mm-dd hh:nn:ss', dt);
+  end;
+
+  try
+    qry := TFDQuery.Create(nil);
+    qry.Connection := FConn;
+    try
+      FConn.StartTransaction;
+      qry.Active := False;
+      qry.SQL.Clear;
+      if Length(idsMultas) = 0 then
+      begin
+        raise Exception.Create('A lista de multas está vazia.');
+      end;
+
+      sqlUpdate :=
+        'UPDATE gesmultas SET ' +
+        '  debitado = :debitado ' +
+        'WHERE idmultas IN (' + idsMultas + ')';
+       qry.SQL.Text := sqlUpdate;
+         qry.ParamByName('debitado').AsString := 'Debitado';
+
+      qry.ExecSQL;
+      FConn.Commit;
+      erro := '';
+      Result := True;
+    except
+      on ex: Exception do
+      begin
+        FConn.Rollback;
+        // se vier "Incorrect datetime value" do MySQL, tratamos
+        if Pos('Incorrect datetime value', ex.Message) > 0 then
+          erro := 'O campo Data/Hora da Infra��o � inv�lido.'
+        else
+          erro := 'Erro ao cadastrar multas: ' + ex.Message;
+        Result := False;
       end;
     end;
   finally
@@ -436,6 +504,7 @@ begin
         SQL.Add('  gesmultas.idcliente,');
         SQL.Add('  gesmultas.idloja,');
         SQL.Add('  gesmultas.nomeindicacao,');
+        SQL.Add('  gesmultas.debitado,');
         SQL.Add('  gespessoa.nome as funcionario');
         SQL.Add('FROM gesmultas');
         SQL.Add('LEFT JOIN gespessoa ON gespessoa.idpessoa = gesmultas.idpessoa');
@@ -450,6 +519,13 @@ begin
           SQL.Add('OR gespessoa.nome LIKE :busca)');
           ParamByName('busca').AsString := '%' + AQuery.Items['busca'] + '%';
         end;
+
+      if AQuery.ContainsKey('debitado') and (AQuery.Items['debitado'] <> '') then
+      begin
+        SQL.Add(' AND (gesmultas.debitado LIKE :debitado)');
+        ParamByName('debitado').AsString := '%' + AQuery.Items['debitado'] + '%';
+      end;
+
 
         Active := True; // Executa a query
       end;

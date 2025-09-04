@@ -3,9 +3,9 @@ unit Controller.controleestoque;
 interface
 
 uses
-  Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,
-  DataSet.Serialize, Model.controleestoque, UtFuncao, Controller.Auth,
-  System.Generics.Collections;
+  Horse, System.JSON, System.SysUtils, System.Generics.Collections,
+  FireDAC.Comp.Client, Data.DB, DataSet.Serialize, Model.controleestoque,
+  UtFuncao, Controller.Auth;
 
 procedure Registry;
 
@@ -24,7 +24,6 @@ procedure salvalancamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure novocadastro(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure RelatorioCustoSolicitacao(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 
 implementation
 
@@ -203,6 +202,57 @@ begin
   end;
 end;
 
+
+procedure RelatorioCustoSolicitacao(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: Tcontroleestoque;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONObject;
+  params: TDictionary<string, string>;
+  obra, idcliente, idloja: string;
+begin
+  try
+    servico := Tcontroleestoque.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  body := Req.Body<TJSONObject>;
+  if not body.TryGetValue<string>('obra', obra) or (obra = '') or
+     not body.TryGetValue<string>('idcliente', idcliente) or (idcliente = '') or
+     not body.TryGetValue<string>('idloja', idloja) or (idloja = '') then
+  begin
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Campos obra, idcliente e idloja são obrigatórios')).Status(THTTPStatus.BadRequest);
+    servico.Free;
+    exit;
+  end;
+
+  params := TDictionary<string, string>.Create;
+  try
+    params.Add('obra', obra);
+    params.Add('idcliente', idcliente);
+    params.Add('idloja', idloja);
+
+    qry := servico.RelatorioCustoSolicitacao(params, erro);
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    params.Free;
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
 procedure Listadetalhestatus(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: Tcontroleestoque;
@@ -298,64 +348,6 @@ begin
     servico.Free;
   end;
 end;
-
-procedure RelatorioCustoSolicitacao(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: Tcontroleestoque;
-  qry: TFDQuery;
-  erro: string;
-  arraydados: TJSONArray;
-  params: TDictionary<string, string>;
-  body: TJSONValue;
-  obra, idcliente, idloja: string;
-begin
-  try
-    servico := Tcontroleestoque.Create;
-  except
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
-  end;
-
-  params := TDictionary<string, string>.Create;
-  qry := nil;
-  arraydados := nil;
-
-  try
-    try
-      body := Req.body<TJSONObject>;
-
-      // Extrai os valores do body
-      obra := body.GetValue<string>('obra', '');
-      idcliente := body.GetValue<string>('idcliente', '');
-      idloja := body.GetValue<string>('idloja', '');
-
-      // Adiciona apenas parâmetros preenchidos
-      if Trim(obra) <> '' then params.Add('obra', obra);
-      if Trim(idcliente) <> '' then params.Add('idcliente', idcliente);
-      if Trim(idloja) <> '' then params.Add('idloja', idloja);
-
-      // Executa a consulta
-      qry := servico.RelatorioCustoSolicitacao(params, erro);
-
-      if erro = '' then
-      begin
-        arraydados := qry.ToJSONArray();
-        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
-      end
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-
-    except
-      on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
-    end;
-  finally
-    if Assigned(qry) then qry.Free;
-    params.Free;
-    servico.Free;
-  end;
-end;
-
 
 end.
 

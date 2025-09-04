@@ -1,4 +1,4 @@
-unit model.configuracoesusuario;
+Ôªøunit model.configuracoesusuario;
 
 interface
 
@@ -44,6 +44,7 @@ type
     FzteControleLpu: Integer;
     FzteRelatorio: Integer;
     Fericfechamento:Integer;
+    FericFaturamento:Integer;
     Fhuafechamento:Integer;
     Fztefechamento:Integer;
     Ftelefonicafechamento:Integer;
@@ -56,6 +57,9 @@ type
     FcosControleLpu:Integer;
     Fdemonstrativo: Integer;
     Fsolicitacaoavulsa: Integer;
+    FtelefonicaEdicaoDocumentacao: Integer;
+    FtelefonicaT4: Integer;
+
     Fmodovisualizador: Integer;
 
     Fidcliente: Integer;
@@ -100,12 +104,15 @@ type
     property zteControleLpu: Integer read FzteControleLpu write FzteControleLpu;
     property zteRelatorio: Integer read FzteRelatorio write FzteRelatorio;
     property ericfechamento: Integer read Fericfechamento write Fericfechamento;
+    property ericFaturamento: Integer read FericFaturamento write FericFaturamento;
     property huafechamento: Integer read Fhuafechamento write Fhuafechamento;
     property ztefechamento: Integer read Fztefechamento write Fztefechamento;
     property telefonicafechamento: Integer read Ftelefonicafechamento write Ftelefonicafechamento;
     property telefonicaControle: Integer read FtelefonicaControle write FtelefonicaControle;
     property telefonicaRelatorio: Integer read FtelefonicaRelatorio write FtelefonicaRelatorio;
     property telefonicaControleLpu: Integer read FtelefonicaControleLpu write FtelefonicaControleLpu;
+    property telefonicaEdicaoDocumentacao: Integer read FtelefonicaEdicaoDocumentacao write FtelefonicaEdicaoDocumentacao;
+    property telefonicaT4: Integer read FtelefonicaT4 write FtelefonicaT4;
     property cosfechamento: Integer read Fcosfechamento write Fcosfechamento;
     property cosControle: Integer read FcosControle write FcosControle;
     property cosRelatorio: Integer read FcosRelatorio write FcosRelatorio;
@@ -201,17 +208,17 @@ begin
           SQL.Clear;
           SQL.Add('INSERT INTO gesusuario(idusuario,nome,email,senha,ativo,datacriacao,');
           SQL.Add('observacao,selecionarTodos,pessoas,produtos,empresas,rh,veiculos,gestaoMultas,despesas,monitoramento,controleestoque,');
-          SQL.Add('compras,solicitacao,requisicao,ericAcionamento,ericAdicional,ericControleLpu,ericRelatorio,huaAcionamento,');
+          SQL.Add('compras,solicitacao,requisicao,ericAcionamento,ericAdicional,ericControleLpu,ericRelatorio, ericFaturamento,huaAcionamento,');
           SQL.Add('huaAdicional,huaControleLpu,huaRelatorio,zteAcionamento,zteAdicional,zteControleLpu,zteRelatorio,ericfechamento,huafechamento,ztefechamento,cosfechamento, telefonicafechamento, ');
           SQL.Add('cosControle,cosRelatorio,cosControleLpu,demonstrativo,solicitacaoavulsa, ');
-          SQL.Add('telefonicaControle,  telefonicaRelatorio, telefonicaControleLpu, modovisualizador,');
+          SQL.Add('telefonicaControle,  telefonicaRelatorio, telefonicaEdicaoDocumentacao, telefonicaControleLpu, modovisualizador, telefonicaT4,');
           SQL.Add('IDCLIENTE,IDLOJA,DELETADO)');
           SQL.Add('VALUES(:idusuario,:nome,:email,:senha,:ativo,:datacriacao,');
           SQL.Add(':observacao,:selecionarTodos,:pessoas,:produtos,:empresas,:rh,:veiculos,:gestaoMultas,:despesas,:monitoramento,:controleestoque,');
-          SQL.Add(':compras,:solicitacao,:requisicao,:ericAcionamento,:ericAdicional,:ericControleLpu,:ericRelatorio,');
+          SQL.Add(':compras,:solicitacao,:requisicao,:ericAcionamento,:ericAdicional,:ericControleLpu,:ericRelatorio, :ericFaturamento,');
           SQL.Add(':huaAcionamento,:huaAdicional,:huaControleLpu,:huaRelatorio,:zteAcionamento,:zteAdicional,:zteControleLpu,:zteRelatorio,:ericfechamento,:huafechamento,:ztefechamento,:cosfechamento, :telefonicafechamento, ');
           SQL.Add(':cosControle,:cosRelatorio, :cosControleLpu, :demonstrativo, :solicitacaoavulsa,');
-          SQL.Add(':telefonicaControle,:telefonicaRelatorio,:telefonicaControleLpu, :modovisualizador,');
+          SQL.Add(':telefonicaControle,:telefonicaRelatorio, :telefonicaEdicaoDocumentacao, :telefonicaControleLpu, :modovisualizador,:telefonicaT4,');
           SQL.Add(':IDCLIENTE,:IDLOJA,:DELETADO)');
           ParamByName('senha').Value := senha;
         end
@@ -248,6 +255,7 @@ begin
           SQL.Add('ericAdicional=:ericAdicional,');
           SQL.Add('ericControleLpu=:ericControleLpu,');
           SQL.Add('ericRelatorio=:ericRelatorio,');
+          SQL.Add('ericFaturamento=:ericFaturamento,');
           SQL.Add('huaAcionamento=:huaAcionamento,');
           SQL.Add('huaAdicional=:huaAdicional,');
           SQL.Add('huaControleLpu=:huaControleLpu,');
@@ -267,8 +275,10 @@ begin
           SQL.Add('telefonicaControle=:telefonicaControle,');
           SQL.Add('telefonicaRelatorio=:telefonicaRelatorio,');
           SQL.Add('telefonicaControleLpu=:telefonicaControleLpu, ');
+          SQL.Add('telefonicaT4=:telefonicaT4, ');
           SQL.Add('demonstrativo=:demonstrativo,');
           SQL.Add('solicitacaoavulsa=:solicitacaoavulsa,');
+          SQL.Add('telefonicaEdicaoDocumentacao=:telefonicaEdicaoDocumentacao,');
           SQL.Add('modovisualizador=:modovisualizador,');
 
           SQL.Add('DELETADO=:DELETADO');
@@ -298,6 +308,7 @@ begin
         ParamByName('ericAdicional').Value := ericAdicional;
         ParamByName('ericControleLpu').Value := ericControleLpu;
         ParamByName('ericRelatorio').Value := ericRelatorio;
+        ParamByName('ericFaturamento').Value := ericfaturamento;
         ParamByName('huaAcionamento').Value := huaAcionamento;
         ParamByName('huaAdicional').Value := huaAdicional;
         ParamByName('huaControleLpu').Value := huaControleLpu;
@@ -317,6 +328,8 @@ begin
         ParamByName('telefonicaControle').Value := telefonicaControle;
         ParamByName('telefonicaRelatorio').Value := telefonicaRelatorio;
         ParamByName('telefonicaControleLpu').Value := telefonicaControleLpu;
+        ParamByName('telefonicaEdicaoDocumentacao').Value := telefonicaEdicaoDocumentacao;
+        ParamByName('telefonicaT4').Value := telefonicaT4;
         ParamByName('modovisualizador').Value := modovisualizador;
         ParamByName('demonstrativo').Value := demonstrativo;
         ParamByName('IDCLIENTE').Value := idcliente;
@@ -330,7 +343,7 @@ begin
     except
       on ex: exception do
       begin
-        erro := 'Erro ao cadastrar configuraÁ„o do usu·rio: ' + ex.Message;
+        erro := 'Erro ao cadastrar configura√ß√£o do usu√°rio: ' + ex.Message;
         Result := false;
       end;
     end;
@@ -405,6 +418,7 @@ end;
 function TUsuario.Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
+  a : string;
 begin
   try
     qry := TFDQuery.Create(nil);
@@ -416,33 +430,9 @@ begin
       SQL.Add('Select ');
       SQL.Add(' * ');
       SQL.Add('From ');
-      SQL.Add('gesusuario WHERE gesusuario.idusuario is not null and gesusuario.idusuario =:id ');
+      SQL.Add('gesusuario WHERE gesusuario.idusuario is not null and gesusuario.idusuario =:id and deletado = 0 ');
       ParamByName('id').AsInteger := AQuery.Items['idcontroleacessobusca'].ToInteger;
-
-      if AQuery.ContainsKey('deletado') then
-      begin
-        if Length(AQuery.Items['deletado']) > 0 then
-        begin
-          SQL.Add('AND gesusuario.deletado = :deletado');
-          ParamByName('deletado').Value := AQuery.Items['deletado'].ToInteger;
-        end;
-      end;
-      if AQuery.ContainsKey('idcliente') then
-      begin
-        if Length(AQuery.Items['idcliente']) > 0 then
-        begin
-          SQL.Add('AND gesusuario.idcliente = :idcliente');
-          ParamByName('idcliente').Value := AQuery.Items['idcliente'].ToInteger;
-        end;
-      end;
-      if AQuery.ContainsKey('idloja') then
-      begin
-        if Length(AQuery.Items['idloja']) > 0 then
-        begin
-          SQL.Add('AND gesusuario.idloja = :idloja');
-          ParamByName('idloja').Value := AQuery.Items['idloja'].ToInteger;
-        end;
-      end;
+      a :=  AQuery.Items['idcontroleacessobusca'];
       Active := true;
     end;
     erro := '';

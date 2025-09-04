@@ -67,7 +67,7 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
   };
 
   const [projeto, setprojeto] = useState([]);
-  const [projetohistorico, setprojetohistorico] = useState([]);  
+  const [projetohistorico, setprojetohistorico] = useState([]);
   const [loading, setloading] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [mensagem, setmensagem] = useState('');
@@ -151,30 +151,33 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
 
   const lista = async () => {
     setmensagemsucesso('');
+    setloading(true);
+
     try {
-      setloading(true);
-      await api
-        .get('v1/projetotelefonica/listaacionamentosf', {
-          params: {
-            fechamento: null,
-            diafec: null,
-            ...params,
-            mespagamento: null,
-          },
-        })
-        .then((response) => {
-          setprojeto(response.data);
-          setregionallocal(response.data[0].regional);
-          setmensagem('');
-        });
+      const response = await api.get('v1/projetotelefonica/listaacionamentosf', {
+        params: {
+          fechamento: null,
+          diafec: null,
+          mespagamento: null,
+          ...params,
+        },
+      });
+
+      const dados = response.data ?? [];
+
+      if (dados.length > 0) {
+        setprojeto(dados);
+        setregionallocal(dados[0].regional || '');
+        setmensagem('');
+      }
     } catch (err) {
-      setmensagem(err.message);
+      setmensagem(err?.response?.data?.message || err.message || 'Erro ao buscar dados');
     } finally {
       setloading(false);
     }
   };
 
- /* const listahistorico = async () => {
+  /* const listahistorico = async () => {
     try {
       setloading(true);
       setmensagem('');
@@ -210,22 +213,6 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
       setloading(false);
     }
   };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   /* useEffect(() => {
        if (datapagamento && numerol) {
@@ -744,7 +731,7 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
       align: 'left',
       type: 'string',
       editable: false,
-    },    
+    },
     {
       field: 'datapagamento',
       headerName: 'DATA PAGAMENTO',
@@ -800,7 +787,7 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
       align: 'left',
       type: 'string',
       editable: false,
-    },      
+    },
   ];
 
   const columns = [
@@ -1015,7 +1002,7 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
 
         return date.toLocaleDateString('pt-BR');
       },
-    },      
+    },
     {
       field: 'entregareal',
       headerName: 'ENTREGA REAL',
@@ -1223,7 +1210,7 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
 
         return date.toLocaleDateString('pt-BR');
       },
-    },      
+    },
     {
       field: 'dtreal',
       headerName: 'DT REAL',
@@ -1460,67 +1447,59 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
   };
 
   const gerarexcelhist = () => {
-        const excelData = projetohistorico.map((item) => {
-            const formatarData = (data) => {
-                if (!data) return '';
-                const d = new Date(data);
-                if (
-                    d.getFullYear() === 1899 &&
-                    d.getMonth() === 11 &&
-                    d.getDate() === 30
-                ) {
-                    return '';
-                }
-                return d.toLocaleDateString('pt-BR');
-            };
-    
-            return {
-            IDMPTS: item.idpmts,
-            REGIONAL: item.regional,
-            PO: item.po,
-            PMOSIGLA: item.pmosigla,
-            UFSIGLA: item.ufsigla,
-            ATIVIDADE: item.atividade,
-            QUANTIDADE: item.quantidade,
-            'CODIGO LPU VIVO': item.codigolpuvivo,
-            TAREFAS: item.tarefas,
-            VALOR:  item.valor?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-            'DATA ACIONAMENTO': formatarData(item.dataacionamento),
-            'DATA ENVIO EMAIL': formatarData(item.dataenvioemail),
-            COLABORADOR: item.nome,
-            'VISTORIA REAL': formatarData(item.vistoriareal),
-            'ENTREGA REAL': formatarData(item.entregareal),
-            'FIM INSTALACAO REAL': formatarData(item.fiminstalacaoreal),
-            'INTEGRACAO REAL': formatarData(item.integracaoreal),
-            ATIVACAO: formatarData(item.ativacao),
-            DOCUMENTACAO: formatarData(item.documentacao),
-            'INITIAL TUNNING REAL': formatarData(item.initialtunningreal),
-            'DT REAL': formatarData(item.dtreal),
-            'DATA IMPRODUTIVA': formatarData(item.dataimprodutiva),
-            'APROVAÇÃO SSV': formatarData(item.aprovacaossv),
-            'STATUS APROVAÇÃO SSV': item.statusaprovacaossv,
-            'STATUS OBRA': item.statusobra,
-            'MES PAGAMENTO': item.mespagamento,
-            'DATA PAGAMENTO': formatarData(item.datapagamento),
-            'VALOR PAGO': item.valorpagamento?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-            '% PAGO': item.porcentagem ? `${(item.porcentagem * 100).toFixed(2)}%` : '0%', 
-            'TIPO PAGAENTO': item.tipopagamento,
-        };
+    const excelData = projetohistorico.map((item) => {
+      const formatarData = (data) => {
+        if (!data) return '';
+        const d = new Date(data);
+        if (d.getFullYear() === 1899 && d.getMonth() === 11 && d.getDate() === 30) {
+          return '';
+        }
+        return d.toLocaleDateString('pt-BR');
+      };
+
+      return {
+        IDMPTS: item.idpmts,
+        REGIONAL: item.regional,
+        PO: item.po,
+        PMOSIGLA: item.pmosigla,
+        UFSIGLA: item.ufsigla,
+        ATIVIDADE: item.atividade,
+        QUANTIDADE: item.quantidade,
+        'CODIGO LPU VIVO': item.codigolpuvivo,
+        TAREFAS: item.tarefas,
+        VALOR: item.valor?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        'DATA ACIONAMENTO': formatarData(item.dataacionamento),
+        'DATA ENVIO EMAIL': formatarData(item.dataenvioemail),
+        COLABORADOR: item.nome,
+        'VISTORIA REAL': formatarData(item.vistoriareal),
+        'ENTREGA REAL': formatarData(item.entregareal),
+        'FIM INSTALACAO REAL': formatarData(item.fiminstalacaoreal),
+        'INTEGRACAO REAL': formatarData(item.integracaoreal),
+        ATIVACAO: formatarData(item.ativacao),
+        DOCUMENTACAO: formatarData(item.documentacao),
+        'INITIAL TUNNING REAL': formatarData(item.initialtunningreal),
+        'DT REAL': formatarData(item.dtreal),
+        'DATA IMPRODUTIVA': formatarData(item.dataimprodutiva),
+        'APROVAÇÃO SSV': formatarData(item.aprovacaossv),
+        'STATUS APROVAÇÃO SSV': item.statusaprovacaossv,
+        'STATUS OBRA': item.statusobra,
+        'MES PAGAMENTO': item.mespagamento,
+        'DATA PAGAMENTO': formatarData(item.datapagamento),
+        'VALOR PAGO': item.valorpagamento?.toLocaleString('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        }),
+        '% PAGO': item.porcentagem ? `${(item.porcentagem * 100).toFixed(2)}%` : '0%',
+        'TIPO PAGAENTO': item.tipopagamento,
+      };
     });
 
     exportExcel({ excelData, fileName: 'Relatório - Historico Fechamento' });
-};
-
-
-
-
+  };
 
   useEffect(() => {
     const selecionados = projeto.filter((row) => selectedIds.includes(row.id));
-    const soma = selecionados.reduce(
-      (acc, curr) => acc + (Number(curr.valor ) || 0),
-      0,
-    );
+    const soma = selecionados.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0);
 
     setSomaValorPj(soma);
     setvalorpago(soma * (porcentagemg / 100));

@@ -4,7 +4,9 @@ interface
 
 uses
   Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,
-  DataSet.Serialize, Model.Projetoericsson, UtFuncao, Controller.Auth;
+  DataSet.Serialize, Model.Projetoericsson, UtFuncao,
+  Horse.Commons, System.IOUtils, System.Classes, Variants, System.DateUtils,
+  System.Generics.Collections;
 
 procedure Registry;
 
@@ -78,6 +80,12 @@ procedure Editardesconto(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure criarsite(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
+procedure ericssonRelatorioDespesas(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure regionalericsson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure EditarEmMassaFaturamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
 
 implementation
 
@@ -123,7 +131,44 @@ begin
 
   THorse.post('v1/projetoericsson/salvadesconto', Editardesconto);
   THorse.post('v1/projetoericsson/criarsite', criarsite);
+  THorse.get('v1/projetoericsson/relatoriodespesas', ericssonRelatorioDespesas);
+  THorse.get('v1/projetoericsson/regionalericsson', regionalericsson);
+  THorse.post('v1/projetoericsson/editaremmassa', EditarEmMassaFaturamento);
 
+end;
+
+
+
+procedure regionalericsson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.regionalericsson(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
 end;
 
 procedure Novocadastrotarefa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -1423,6 +1468,79 @@ begin
     end;
   finally
     qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure ericssonRelatorioDespesas(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.ObterRelatorioDespesas(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+
+procedure EditarEmMassaFaturamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  body: TJSONObject;
+  jsonBody: string;
+  erro: string;
+  sucesso: Boolean;
+begin
+  servico := TProjetoericsson.Create;
+  try
+    erro := '';
+    try
+      // Obter o corpo da requisição como JSONObject
+      body := Req.Body<TJSONObject>;
+
+      // Converter o JSONObject para string para passar para EditarEmMassa
+      jsonBody := body.ToString;
+
+      // Chamar o método EditarEmMassa passando o JSON como string
+      sucesso := servico.EditarEmMassa(jsonBody, erro);
+
+      if sucesso then
+        Res.Send<TJSONObject>(TJSONObject.Create.AddPair('sucesso', 'true')
+          .AddPair('mensagem', 'Registros atualizados com sucesso'))
+          .Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', erro))
+          .Status(THTTPStatus.InternalServerError);
+
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', ex.Message))
+          .Status(THTTPStatus.InternalServerError);
+    end;
+  finally
     servico.Free;
   end;
 end;

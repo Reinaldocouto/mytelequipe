@@ -9,7 +9,6 @@ import {
   useGridSelector,
   GridOverlay,
 } from '@mui/x-data-grid';
-import { toast } from 'react-toastify';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card, CardBody, CardTitle, Button, Input, InputGroup } from 'reactstrap';
@@ -381,43 +380,36 @@ export default function Solicitacao() {
     exportExcel({ excelData, fileName: 'solicitacao' });
   };
 
-const gerarexcelRelatorioCustoCompleto = async () => {
-  setRowSelectionModel([]);
+  const gerarexcelRelatorioCustoCompleto = async () => {
+    const selectedRow = solicitacao.find(
+      (item) => String(item.id) === String(rowSelectionModel[0]),
+    );
+    const obra = String(selectedRow?.obra ?? '').trim();
 
-  // NÃO pegamos obra da seleção aqui
-  const idcliente = (localStorage.getItem('sessionCodidcliente') || '').trim();
-  const idloja    = (localStorage.getItem('sessionloja') || '').trim();
-
-  const payload = {};
-  if (idcliente) payload.idcliente = idcliente;
-  if (idloja)    payload.idloja    = idloja;
-  // sem payload.obra  -> back retorna todas as obras/projetos
-
-  try {
-    const { data } = await api.post('/v1/controleestoque/relatorioCustoSolicitacao', payload);
-    const rows = Array.isArray(data) ? data : [];
-
-    const excelData = rows.map((item) => {
-      const bruto = Number(item?.valortotal ?? item?.valor_total ?? 0); // <- usa valortotal do JSON
-      const custoFormatado = bruto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-      return {
-        'Obra/OS':    item?.obra ?? '',
-        'Projeto':    item?.projeto ?? '',
-        'Entrada':    item?.entrada ?? 0,
-        'Saída':      item?.saida ?? 0,
-        'Custo Total': custoFormatado,
-      };
-    });
-
-    exportExcel({ excelData, fileName: 'relatorio_custo_completo' });
-    toast.success(`Relatório gerado.`);
-  } catch (err) {
-    const msg = err?.response?.data?.erro || err?.message || 'Falha ao gerar relatório';
-    toast.error(msg);
-    console.error('RelatorioCustoSolicitacao_v2', payload, err?.response?.data);
-  }
-};
-
+    await api
+      .post('v1/controleestoque/relatorioCustoSolicitacao', {
+        idcliente: localStorage.getItem('sessionCodidcliente'),
+        idusuario: localStorage.getItem('sessionId'),
+        idloja: localStorage.getItem('sessionloja'),
+        obra,
+      })
+      .then((response) => {
+        const totalData = response.data;
+        const excelData = totalData.map((item) => {
+          const bruto =
+            Number(item?.valor_total ?? item?.valorTotal ?? 0);
+          const custoFormatado = bruto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+          return {
+            'Obra/OS': item.obra,
+            Projeto: item.projeto,
+            Entrada: item.entrada,
+            Saída: item.saida,
+            'Custo Total': custoFormatado,
+          };
+        });
+        exportExcel({ excelData, fileName: 'relatorio_custo_completo' });
+      });
+  };
   useEffect(() => {
     setstatussolicitacao('AGUARDANDO');
     listasolicitacao();

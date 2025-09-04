@@ -139,6 +139,8 @@ type
     function extratopagamentototal(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function rolloutzte(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function totalacionamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function listagemgrupolpu(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function ListalpuGeral(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
   end;
 
 implementation
@@ -597,6 +599,69 @@ begin
     on ex: exception do
     begin
       erro := 'Erro ao consultar : ' + ex.Message;
+      Result := nil;
+    end;
+  end;
+end;
+
+
+function TProjetozte.ListalpuGeral(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+  busca, descricao: string;
+begin
+  try
+    qry := TFDQuery.Create(nil);
+    qry.Connection := FConn;
+
+    // Usa TryGetValue para evitar access violation
+    if not AQuery.TryGetValue('busca', busca) then
+      busca := '';
+
+    if not AQuery.TryGetValue('lpudescricao', descricao) then
+      descricao := '';
+
+    with qry do
+    begin
+      Active := False;
+      SQL.Clear;
+      SQL.Add('SELECT geral AS id, PROJETO, DESCRICAOATIVIDADE, CODIGO, ESTADO, NOMEESTADO, REGIAO, LOCALIDADE, AREA, VALOR, historico, idcolaborador, deletado, datadeletado');
+      SQL.Add('FROM obraztelpu WHERE 1 = 1');
+
+
+      // Filtro por busca geral em múltiplos campos
+      if Trim(busca) <> '' then
+      begin
+        SQL.Add('AND (');
+        SQL.Add('  PROJETO LIKE :busca OR');
+        SQL.Add('  DESCRICAOATIVIDADE LIKE :busca OR');
+        SQL.Add('  CODIGO LIKE :busca OR');
+        SQL.Add('  ESTADO LIKE :busca OR');
+        SQL.Add('  NOMEESTADO LIKE :busca OR');
+        SQL.Add('  REGIAO LIKE :busca OR');
+        SQL.Add('  LOCALIDADE LIKE :busca OR');
+        SQL.Add('  AREA LIKE :busca OR');
+        SQL.Add('  historico LIKE :busca');
+        SQL.Add(')');
+        ParamByName('busca').AsString := '%' + busca + '%';
+      end;
+
+      // Filtro por lpudescricao (campo historico)
+      if Trim(descricao) <> '' then
+      begin
+        SQL.Add('AND historico LIKE :descricao');
+        ParamByName('descricao').AsString := '%' + descricao + '%';
+      end;
+
+      Active := True;
+    end;
+
+    erro := '';
+    Result := qry;
+  except
+    on ex: Exception do
+    begin
+      erro := 'Erro ao consultar: ' + ex.Message;
       Result := nil;
     end;
   end;
@@ -1322,6 +1387,48 @@ begin
       Result := nil;
     end;
   end;
+end;
+
+
+function TProjetozte.listagemgrupolpu(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+begin
+  try
+    qry := TFDQuery.Create(nil);
+    qry.connection := FConn;
+    with qry do
+    begin
+      Active := false;
+      SQL.Clear;
+      sql.add('SET @contador := 0; ');
+      sql.add('SELECT ');
+      sql.add('@contador := @contador + 1  As value, ');
+      SQL.Add('obraztelpu.historico As label ');
+      SQL.Add('From ');
+      SQL.Add('obraztelpu where historico <> ''NEGOCIADO'' ');
+      if AQuery.ContainsKey('deletado') then
+      begin
+        if Length(AQuery.Items['deletado']) > 0 then
+        begin
+          SQL.Add('AND obraztelpu.deletado = :deletado');
+          ParamByName('deletado').Value := AQuery.Items['deletado'].ToInteger;
+        end;
+      end;
+      SQL.Add('Group By ');
+      SQL.Add('obraztelpu.historico ');
+      Active := true;
+    end;
+    erro := '';
+    Result := qry;
+  except
+    on ex: exception do
+    begin
+      erro := 'Erro ao consultar : ' + ex.Message;
+      Result := nil;
+    end;
+  end;
+
 end;
 
 end.

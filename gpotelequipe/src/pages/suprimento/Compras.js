@@ -55,28 +55,16 @@ export default function Compras() {
   const [telacadastro, settelacadastro] = useState('');
   const [telacadastroedicao, settelacadastroedicao] = useState('');
   const [telaexclusao, settelaexclusao] = useState('');
-  const [pageSizeMain, setPageSizeMain] = useState(10);
-  const [pageSizeModal, setPageSizeModal] = useState(10);
+  const [pageSize, setPageSize] = useState(10);
   const [ididentificador, setididentificador] = useState(0);
   const [titulo, settitulo] = useState('');
-  const [permission, setpermission] = useState(false);
+  const [permission, setpermission] = useState(0);
   const [mensagemmostrardel, setmensagemmostrardel] = useState(false);
   const [mensagemmostrardel1, setmensagemmostrardel1] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [ordemcompraitenslista, setordemcompraitenslista] = useState([]);
-  const [loadingItensProduto, setLoadingItemsProduto] = useState(false);
-  const normaliza = (s) =>
-    String(s || '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .trim()
-      .toUpperCase();
-  const isAprovado = (status) => normaliza(status) === 'APROVADO';
-  const showOrDash = (v) => {
-    const s = v == null ? '' : String(v).trim();
-    return s || '-'; // evita ternário desnecessário e cobre string vazia
-  };
+  const [loadingItensProduto, setLoadingItemsProduto] = useState([]);
   //Parametros
   const params = {
     busca: pesqgeral,
@@ -162,9 +150,8 @@ export default function Compras() {
     listacompras();
   }
   function userpermission() {
-   const raw = localStorage.getItem('permission');
-   const permissionstorage = raw ? JSON.parse(raw) : {};
-   setpermission(Number(permissionstorage?.compras) === 1);
+    const permissionstorage = JSON.parse(localStorage.getItem('permission'));
+    setpermission(permissionstorage.compras === 1);
   }
 
   function alterarUser(stat) {
@@ -201,54 +188,31 @@ export default function Compras() {
     }
   }
 
-  const gerarRelatorioCompleto = async () => {
-  try {
-    // Evita quebra no export quando não há linhas
-    if (!Array.isArray(compras) || compras.length === 0) {
-      exportExcel({ excelData: [], fileName: 'relatorio_de_compras_completo' });
-      return;
-    }
-
-    const detalhes = await Promise.all(
-      compras.map(async (oc) => {
-        const p = { ...params, idordemcomprabusca: oc.id };
-        const r = await api.get('/v1/ordemcompraid', { params: p });
-        const det = r.data || {};
-        return { oc, det };
-      })
-    );
-
-    const excelData = detalhes.map(({ oc, det }) => ({
-      'Número da Solicitação': oc.numerosolicitacao || oc.id,
-      'Número do Pedido': oc.id,
-      Site: oc.site ?? '',
-      Obra: oc.obra ?? '',
-      Solicitante: oc.comprador || oc.solicitante || '',
-      Comprador:   oc.comprador || oc.solicitante || '',
-      'Data da solicitação': oc.datasolicitacao || '',
-      'Data do pedido de compra': oc.data || det.data || '',
-      Previsto: oc.dataprevisto || det.dataprevisto || '',
-      Fornecedor: oc.fornecedor || det.nomefornecedor || det.fantasiafornecedor || '',
-      Frete: det.frete ?? '',
-      Marcadores: oc.marcadores ?? '',
-      Observacoes: det.observacoes ?? '',
-      TotalProdutos: det.totalprodutos ?? '',
-      Desconto: det.desconto ?? '',
-      TotalIPI: det.totalipi ?? '',
-      TotalICMSST: det.totalicmsst ?? '',
-      ObservacoesInterna: det.observacoesinterna ?? '',
-      LancarEstoque: oc.lancarestoque ? 'Sim' : 'Não',
-      Total: det.totalgeral ?? oc.total ?? '',
-    }));
-
+  const gerarRelatorioCompleto = () => {
+    const excelData = compras.map((item) => {
+      return {
+        Número: item.id,
+        Solicitação: item.idordemcompra,
+        Situação: item.situacao,
+        Fornecedor: item.fornecedor,
+        Solicitante: item.solicitante,
+        'Data da solicitação': item.datasolicitacao,
+        'Data pedido da compra': item.data1,
+        Previsto: item.dataprevisto1,
+        Frete: item.frete,
+        Marcadores: item.marcadores,
+        Observacoes: item.observacoes,
+        TotalProdutos: item.totalprodutos,
+        Desconto: item.desconto,
+        TotalIPI: item.totalipi,
+        TotalICMSST: item.totalicmsst,
+        ObservacoesInterna: item.observacoesinterna,
+        LancarEstoque: item.lancarestoque,
+        Total: item.totalgeral,
+      };
+    });
     exportExcel({ excelData, fileName: 'relatorio_de_compras_completo' });
-  } catch (e) {
-    setmensagem(e?.response?.data?.erro || e.message);
-  }
-};
-
-
-
+  };
 
   function confirmacaodel1(resposta) {
     setmensagemmostrardel1(false);
@@ -309,7 +273,7 @@ export default function Compras() {
         aprovadopor: params.nomeUsuario,
       });
 
-      if (response.status === 200 || response.status === 201) {
+      if (response.status === 201) {
         setmensagem('');
         setShowApprovalModal(false);
         listacompras();
@@ -369,7 +333,7 @@ export default function Compras() {
         };
       case 'CANCELADO':
         return {
-          icon: <Brightness1Icon style={{ fill: '#262626' }} />,
+          icon: <Brightness1Icon style={{ fill: '#262626'[500] }} />,
           label: 'Cancelado',
           style: {
             borderColor: grey[900],
@@ -388,8 +352,9 @@ export default function Compras() {
   const listaordemcompraitens = async (id) => {
     try {
       setLoadingItemsProduto(true);
-      const p = { ...params, idpedido: id, idordemcomprabusca: id };
-      await api.get('v1/ordemcompra/itens', { params: p }).then((response) => {
+      params.idpedido = id;
+      params.idordemcomprabusca = id;
+      await api.get('v1/ordemcompra/itens', { params }).then((response) => {
         setordemcompraitenslista(response.data);
         setmensagem('');
       });
@@ -401,7 +366,9 @@ export default function Compras() {
   };
   const openApprovalModal = (paramsopen) => {
     listaordemcompraitens(paramsopen.id);
-    setSelectedRequest({ ...paramsopen.row, ...params });
+    paramsopen.row = { ...paramsopen.row, ...params };
+    // paramsopen.row.aprovadopor = localStorage.getItem('sessionNome');
+    setSelectedRequest(paramsopen.row);
     setShowApprovalModal(true);
   };
 
@@ -445,7 +412,7 @@ export default function Compras() {
       headerName: 'Preço un',
       width: 140,
       align: 'right',
-      type: 'string',
+      type: 'number',
       editable: false,
     },
     {
@@ -453,7 +420,7 @@ export default function Compras() {
       headerName: 'IPI%',
       width: 100,
       align: 'right',
-      type: 'string',
+      type: 'number',
       editable: false,
     },
     {
@@ -461,7 +428,7 @@ export default function Compras() {
       headerName: 'Preço Total',
       width: 150,
       align: 'right',
-      type: 'string',
+      type: 'number',
       editable: false,
     },
   ];
@@ -475,9 +442,8 @@ export default function Compras() {
       align: 'center',
       getActions: (parametros) => {
         const actions = [];
-       
-        const aprovado = isAprovado(parametros.row.statuscompraaprovada);
-        if (!aprovado) {
+        console.log(parametros.row);
+        if (parametros.row.statuscompraaprovada !== 'Aprovado') {
           actions.push(
             <GridActionsCellItem
               icon={<CheckCircleIcon />}
@@ -498,7 +464,7 @@ export default function Compras() {
             disabled={modoVisualizador()}
             label="Deletar"
             onClick={() => deleteUser(parametros.id)}
-            showInMenu={!aprovado}
+            showInMenu={parametros.row.statuscompraaprovada !== 'Aprovado'}
           />,
           <GridActionsCellItem
             icon={<Brightness1Icon style={{ fill: blue[500] }} />}
@@ -519,7 +485,7 @@ export default function Compras() {
             showInMenu
           />,
           <GridActionsCellItem
-            icon={<Brightness1Icon style={{ fill: '#262626' }} />}
+            icon={<Brightness1Icon style={{ fill: '#262626'[500] }} />}
             label="Cancelado"
             onClick={() => statuscancelado(parametros.id)}
             showInMenu
@@ -571,95 +537,59 @@ export default function Compras() {
       field: 'situacao',
       headerName: 'Situação',
       width: 110,
-      align: 'right',
+      align: 'rigth',
       editable: false,
       renderCell: (parametros) => {
         return <Chip variant="outlined" size="small" {...getChipProps(parametros.value)} />;
       },
     },
-    {
-      field: 'numerosolicitacao',  
-      headerName: 'Número Solicitação',
-      width: 160,
-      align: 'center',
-      editable: false,
-      valueGetter: (cellParams) =>
-        cellParams.row?.numerosolicitacao || cellParams.row?.id,
-    },
-    {
-      field: 'id',
-      headerName: 'Numero Pedido',
-      width: 120,
-      align: 'center',
-    },
+    { field: 'id', headerName: 'Pedido', width: 80, align: 'center' },
     {
       field: 'data',
       headerName: 'Data',
       width: 110,
-      align: 'right',
+      align: 'rigth',
       editable: false,
     },
     {
       field: 'dataprevisto',
       headerName: 'Previsto',
       width: 110,
-      align: 'right',
+      align: 'rigth',
       editable: false,
     },
     {
       field: 'aprovadopor',
       headerName: 'Aprovado por',
       width: 260,
-      align: 'right',
+      align: 'rigth',
       editable: false,
     },
     {
       field: 'dataaprovacao',
       headerName: 'Data aprovação',
       width: 260,
-      align: 'right',
+      align: 'rigth',
       editable: false,
     },
     {
       field: 'statuscompraaprovada',
       headerName: 'Status da Compra',
       width: 260,
-      align: 'right',
-      editable: false,
-    },
-    {
-      field: 'site',
-      headerName: 'Site',
-      width: 150,
-      align: 'right',
-      editable: false,
-      valueFormatter: ({ value }) => showOrDash(value),
-    },
-    {
-      field: 'obra',
-      headerName: 'Obra/OS',
-      width: 150,
-      align: 'right',
-      editable: false,
-      valueFormatter: ({ value }) => showOrDash(value),
-    },
-    {
-      field: 'comprador',
-      headerName: 'Comprador',
-      width: 200,
-      align: 'right',
+      align: 'rigth',
       editable: false,
     },
     {
       field: 'fornecedor',
       headerName: 'Fornecedor',
       width: 260,
-      align: 'right',
+      align: 'rigth',
       editable: false,
     },
     {
       field: 'total',
       headerName: 'Valor Total',
+      type: 'number',
       width: 140,
       align: 'right',
       editable: false,
@@ -732,8 +662,8 @@ export default function Compras() {
                 rows={ordemcompraitenslista}
                 columns={columnsItems}
                 loading={loadingItensProduto}
-                pageSize={pageSizeModal}
-                onPageSizeChange={(newPageSize) => setPageSizeModal(newPageSize)}
+                pageSize={pageSize}
+                onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
                 disableSelectionOnClick
                 experimentalFeatures={{ newEditingApi: true }}
                 components={{
@@ -778,6 +708,7 @@ export default function Compras() {
 
   const gerarexcel = () => {
     const excelData = compras.map((item) => {
+      console.log(item);
       return {
         Situação: item.situacao,
         ID: item.id,
@@ -786,7 +717,7 @@ export default function Compras() {
         Fornecedor: item.fornecedor,
       };
     });
-    exportExcel({ excelData, fileName: 'compras' });
+    exportExcel({ excelData, filename: 'compras' });
   };
   useEffect(() => {
     iniciatabelas();
@@ -912,8 +843,8 @@ export default function Compras() {
                   rows={compras}
                   columns={columns}
                   loading={loading}
-                  pageSize={pageSizeMain}
-                  onPageSizeChange={(newPageSize) => setPageSizeMain(newPageSize)}
+                  pageSize={pageSize}
+                  onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
                   //rowsPerPageOptions={[10]}
                   //checkboxSelection
                   disableSelectionOnClick

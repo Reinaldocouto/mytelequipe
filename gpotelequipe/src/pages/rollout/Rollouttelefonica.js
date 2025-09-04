@@ -716,22 +716,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: !modoVisualizador(),
     },
     {
-      field: 'initialtunningrealfinal',
-      headerName: 'Initial Tunning Real Final',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: ({ value }) => {
-        if (!value) return null;
-        const data = new Date(value);
-        data.setDate(data.getDate() + 1);
-        return data;
-      },
-      valueFormatter: ({ value }) =>
-        value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
-      editable: !modoVisualizador(),
-    },
-    {
       field: 'initialtunnigstatus',
       headerName: 'Initial Tunning Status',
       width: 250,
@@ -739,31 +723,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
       type: 'singleSelect', // muda de string para singleSelect
       editable: true,
       valueOptions: ['ABERTA', 'COMPLETADO_COM_PENDENCIAS', 'COMPLETADO'], // opções do dropdown
-    },
-    {
-      field: 'aprovacaossv',
-      headerName: 'Aprovação de SSV',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: ({ value }) => {
-        if (!value) return null;
-        const data = new Date(value);
-        data.setDate(data.getDate() + 1);
-        return data;
-      },
-      valueFormatter: ({ value }) =>
-        value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
-      editable: !modoVisualizador(),
-    },
-    {
-      field: 'statusaprovacaossv',
-      headerName: 'Status Aprovação de SSV',
-      width: 220,
-      align: 'left',
-      type: 'singleSelect',
-      editable: !modoVisualizador(),
-      valueOptions: ['APROVADO', 'REPROVADO'],
     },
     {
       field: 'dtplan',
@@ -791,20 +750,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
           : '',
       editable: true,
     },
-    {
-      field: 'dataimprodutiva',
-      headerName: 'Data Improdutiva',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: true,
-    },
-
     /*    {
       field: 'entregarequest',
       headerName: 'Entrega Request',
@@ -1201,6 +1146,61 @@ const Rollouttelefonica = ({ setshow, show }) => {
         'SSV ENTREGUE',
       ],
     },
+    {
+      field: 'initialtunningrealfinal',
+      headerName: 'Initial Tunning Real Final',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: ({ value }) => {
+        if (!value) return null;
+        const data = new Date(value);
+        data.setDate(data.getDate() + 1);
+        return data;
+      },
+      valueFormatter: ({ value }) =>
+        value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
+      editable: !modoVisualizador(),
+    },
+    {
+      field: 'dataimprodutiva',
+      headerName: 'Data Improdutiva',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: true,
+    },
+
+    {
+      field: 'aprovacaossv',
+      headerName: 'Aprovação de SSV',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: ({ value }) => {
+        if (!value) return null;
+        const data = new Date(value);
+        data.setDate(data.getDate() + 1);
+        return data;
+      },
+      valueFormatter: ({ value }) =>
+        value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
+      editable: !modoVisualizador(),
+    },
+    {
+      field: 'statusaprovacaossv',
+      headerName: 'Status Aprovação de SSV',
+      width: 220,
+      align: 'left',
+      type: 'singleSelect',
+      editable: !modoVisualizador(),
+      valueOptions: ['APROVADO', 'REPROVADO'],
+    },
   ]);
   const handleConfirmSave = async () => {
     if (!rowSelectionModel.length) {
@@ -1452,11 +1452,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
         INTEGRACAO_REAL: item.integracaoreal,
         ATIVACAO_REAL: item.ativacao,
         DOCUMENTACAO: item.documentacao,
-        DATA_IMPRODUTIVA: item.dataimprodutiva,
         INITIAL_TUNNING_REAL: item.initialtunningreal,
-        INITIAL_TUNNING_REAL_FINAL: item.initialtunningrealfinal,
-        APROVACAO_SSV: item.aprovacaossv,
-        STATUS_APROVACAO_SSV: item.statusaprovacaossv,
         INITIAL_TUNNING_STATUS: item.initialtunningstatus,
         DT_PLAN: item.dtplan,
         DT_REAL: item.dtreal,
@@ -1483,6 +1479,10 @@ const Rollouttelefonica = ({ setshow, show }) => {
         NUMERO_T2_VISTORIA: item.numerot2vistoria,
         PEDIDO_VISTORIA: item.pedidovistoria,
         DELETADO: item.deletado === 1 ? 'SIM' : 'NÃO',
+        INITIAL_TUNNING_REAL_FINAL: item.initialtunningrealfinal,
+        DATA_IMPRODUTIVA: item.dataimprodutiva,
+        APROVACAO_SSV: item.aprovacaossv,
+        STATUS_APROVACAO_SSV: item.statusaprovacaossv,
       }))
       .map(formatDatesBR) // 1. converte datas / zera 1899-12-xx
       .map(upperStrings); // 2. caixa-alta

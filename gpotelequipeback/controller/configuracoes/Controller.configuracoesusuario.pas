@@ -187,6 +187,8 @@ begin
         servico.telefonicaControle := 1;
         servico.telefonicaRelatorio := 1;
         servico.telefonicaControleLpu := 1;
+        servico.telefonicaEdicaoDocumentacao := 1;
+        servico.telefonicaT4 := 1;
         servico.cosfechamento := 1;
         servico.cosControle := 1;
         servico.cosRelatorio := 1;
@@ -270,6 +272,11 @@ begin
         else
           servico.ericAcionamento := 0;
 
+        if body.getvalue<boolean>('ericFaturamento', false) then
+          servico.ericFaturamento := 1
+        else
+          servico.ericFaturamento := 0;
+
         if body.getvalue<boolean>('ericAdicional', false) then
           servico.ericAdicional := 1
         else
@@ -351,6 +358,16 @@ begin
           servico.telefonicaRelatorio := 1
         else
           servico.telefonicaRelatorio := 0;
+
+        if body.getvalue<boolean>('telefonicaEdicaoDocumentacao', false) then
+          servico.telefonicaEdicaoDocumentacao := 1
+        else
+          servico.telefonicaEdicaoDocumentacao := 0;
+
+       if body.getvalue<boolean>('telefonicaT4', false) then
+          servico.telefonicaT4 := 1
+        else
+          servico.telefonicaT4 := 0;
 
         if body.getvalue<boolean>('telefonicaControleLpu', false) then
           servico.telefonicaControleLpu := 1
