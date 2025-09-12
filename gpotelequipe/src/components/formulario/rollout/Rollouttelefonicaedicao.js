@@ -332,7 +332,7 @@ const Rollouttelefonicaedicao = ({
   const handleChangelpu = (stat) => {
     if (stat !== null) {
       if (stat.label === 'NEGOCIADO') {
-        if (usuario !== '33' && usuario !== '35' && usuario !== '78') {
+        if (usuario !== '33' && usuario !== '35' && usuario !== '78' && usuario !== '51') {
           setlpuhistorico('');
           setselectedoptionlpu({ value: null, label: null });
           toast.warning('Você não tem permissão para acionar PJ com valor negociado.');
@@ -3112,7 +3112,10 @@ const Rollouttelefonicaedicao = ({
 
                 {lpuhistorico === 'NEGOCIADO' && (
                   <>
-                    {(usuario === '33' || usuario === '35' || usuario === '78') && (
+                    {(usuario === '33' ||
+                      usuario === '35' ||
+                      usuario === '78' ||
+                      usuario === '51') && (
                       <div className="col-sm-2">
                         Valor Negociado
                         <NumericFormat

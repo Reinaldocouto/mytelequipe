@@ -140,6 +140,7 @@ begin
       end;
     end;
   finally
+   if FConn <> nil then FConn.Free;
     qry.Free;
   end;
 end;
@@ -293,7 +294,10 @@ begin
       end;
     end;
   finally
+  begin
+     if FConn <> nil then FConn.Free;
     qry.Free;
+  end;
   end;
 end;
 
@@ -334,6 +338,7 @@ begin
       end;
     end;
   finally
+     if FConn <> nil then FConn.Free;
     qry.Free;
   end;
 end;
@@ -552,10 +557,12 @@ begin
         // 🔹 Mapeamento de parâmetros
         qry.ParamByName('po').AsInteger := poInt;
         qry.ParamByName('poritem').AsString := jsonObject.GetValue<string>('PO+Item', '');
-
+        qry.ParamByName('datacriacaopo').DataType := ftDateTime;
         // Validação de Data
         if jsonObject.TryGetValue<string>('Data Criação PO', poStr) and TryStrToDate(poStr, tempDate) then
+        begin
           qry.ParamByName('datacriacaopo').AsDateTime := tempDate
+        end
         else
           qry.ParamByName('datacriacaopo').Clear;
 
@@ -650,10 +657,7 @@ begin
       end
       else
         analiseStr := 'NOK';
-
-      // 🔹 Atribui o resultado no parâmetro da query
-      qry.ParamByName('analise').AsString := analiseStr;
-
+        qry.ParamByName('analise').AsString := analiseStr;
         qry.ParamByName('poativa').AsString := jsonObject.GetValue<string>('PO Ativa', '');
         qry.ParamByName('poaprovada').AsString := jsonObject.GetValue<string>('PO Aprovada', '');
         qry.ParamByName('classificacaopo').AsString := jsonObject.GetValue<string>('ClassificaçãoPO', '');
@@ -668,8 +672,6 @@ begin
         qry.ParamByName('escopo').AsString := jsonObject.GetValue<string>('Escopo', '');
         qry.ParamByName('sigla').AsString := jsonObject.GetValue<string>('Sigla', '');
 
-
-        // 🔹 Executa a inserção
         qry.ExecSQL;
       end;
 
@@ -692,6 +694,7 @@ begin
       end;
     end;
   finally
+    if FConn <> nil then FConn.Free;
     qry.Free;
   end;
 end;
@@ -842,6 +845,7 @@ begin
       end;
     end;
   finally
+    if FConn <> nil then FConn.Free;
     qry.Free;
   end;
 end;
@@ -1048,6 +1052,8 @@ begin
       end;
     end;
   finally
+    qry.Connection := nil;
+    if FConn <> nil then FConn.Free;
     qry.Free;
   end;
 end;
@@ -1954,7 +1960,11 @@ begin
     pmtspararollout;
 
   finally
+  begin
+    FConn.Free;
+    qry.Connection := nil;
     qry.Free;
+  end;
   end;
 end;
 
