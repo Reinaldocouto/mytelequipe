@@ -103,9 +103,7 @@ const Relatoriofechamento = ({ setshow, show }) => {
       align: 'left',
       type: 'string',
       editable: false,
-      renderCell: (parametros) => (
-        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
-      ),
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
       field: 'quantidade',
@@ -130,9 +128,7 @@ const Relatoriofechamento = ({ setshow, show }) => {
       align: 'left',
       type: 'string',
       editable: false,
-      renderCell: (parametros) => (
-        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
-      ),
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
       field: 'valor',
@@ -144,6 +140,41 @@ const Relatoriofechamento = ({ setshow, show }) => {
       valueFormatter: (parametros) => {
         if (parametros.value == null) return ''; // Caso o valor seja nulo
         return parametros.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      },
+    },
+    {
+      field: 'valorpago',
+      headerName: 'VALOR PAGO',
+      width: 150,
+      align: 'right',
+      type: 'number',
+      editable: false,
+      valueFormatter: (parametros) => {
+        if (parametros.value == null) return '';
+        return Number(parametros.value).toLocaleString('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        });
+      },
+    },
+    {
+      field: 'faltapagar',
+      headerName: 'A PAGAR',
+      width: 150,
+      align: 'right',
+      type: 'number',
+      editable: false,
+      valueGetter: (parametros) => {
+        const valor = Number(parametros.row.valor || 0);
+        const pago = Number(parametros.row.valorpago || 0);
+        return valor - pago;
+      },
+      valueFormatter: (parametros) => {
+        if (parametros.value == null) return '';
+        return parametros.value.toLocaleString('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        });
       },
     },
     {
@@ -200,9 +231,7 @@ const Relatoriofechamento = ({ setshow, show }) => {
       align: 'left',
       type: 'string',
       editable: false,
-      renderCell: (parametros) => (
-        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
-      ),
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
 
     {
@@ -214,11 +243,7 @@ const Relatoriofechamento = ({ setshow, show }) => {
       valueFormatter: (param) => {
         if (!param.value) return '';
         const date = new Date(param.value);
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
         return date.toLocaleDateString('pt-BR');
@@ -237,11 +262,7 @@ const Relatoriofechamento = ({ setshow, show }) => {
 
         const date = new Date(parametros.value);
 
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
 
@@ -261,11 +282,7 @@ const Relatoriofechamento = ({ setshow, show }) => {
 
         const date = new Date(parametros.value);
 
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
 
@@ -285,11 +302,7 @@ const Relatoriofechamento = ({ setshow, show }) => {
 
         const date = new Date(parametros.value);
 
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
 
@@ -309,11 +322,7 @@ const Relatoriofechamento = ({ setshow, show }) => {
 
         const date = new Date(parametros.value);
 
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
 
@@ -333,11 +342,7 @@ const Relatoriofechamento = ({ setshow, show }) => {
 
         const date = new Date(parametros.value);
 
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
 
@@ -354,11 +359,7 @@ const Relatoriofechamento = ({ setshow, show }) => {
       valueFormatter: (param) => {
         if (!param.value) return '';
         const date = new Date(param.value);
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
         return date.toLocaleDateString('pt-BR');
@@ -376,11 +377,7 @@ const Relatoriofechamento = ({ setshow, show }) => {
         if (!parametros.value) return '';
 
         const date = new Date(parametros.value);
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
 
@@ -407,7 +404,6 @@ const Relatoriofechamento = ({ setshow, show }) => {
         return `${(parametros.value * 100).toFixed(2)}%`; // Formata como porcentagem
       },
     },
-
   ];
 
   function CustomNoRowsOverlay() {
@@ -482,6 +478,12 @@ const Relatoriofechamento = ({ setshow, show }) => {
         'CODIGO LPU VIVO': item.codigolpuvivo,
         TAREFAS: item.tarefas,
         VALOR: item.valor?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        'VALOR PAGO': item.valorpago?.toLocaleString('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        }),
+        'A PAGAR': (Number(item.valor || 0) - Number(item.valorpago || 0))
+          .toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
         'DATA ACIONAMENTO': formatarData(item.dataacionamento),
         'DATA ENVIO EMAIL': formatarData(item.dataenvioemail),
         COLABORADOR: item.nome,

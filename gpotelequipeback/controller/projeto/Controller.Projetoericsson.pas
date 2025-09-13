@@ -1,4 +1,4 @@
-unit Controller.Projetoericsson;
+ï»¿unit Controller.Projetoericsson;
 
 interface
 
@@ -85,7 +85,7 @@ procedure ericssonRelatorioDespesas(Req: THorseRequest; Res: THorseResponse; Nex
 procedure regionalericsson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure EditarEmMassaFaturamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
+procedure EditarEmMassaRollout(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 implementation
 
@@ -134,6 +134,7 @@ begin
   THorse.get('v1/projetoericsson/relatoriodespesas', ericssonRelatorioDespesas);
   THorse.get('v1/projetoericsson/regionalericsson', regionalericsson);
   THorse.post('v1/projetoericsson/editaremmassa', EditarEmMassaFaturamento);
+  THorse.post('v1/projetoericsson/editaremmassarollout', EditarEmMassaRollout);
 
 end;
 
@@ -481,7 +482,7 @@ begin
               Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
           end
           else
-            Res.Send<TJSONObject>(CreateJsonObj('erro', 'Já existe pagamento nesse periodo')).Status(THTTPStatus.BadRequest);
+            Res.Send<TJSONObject>(CreateJsonObj('erro', 'JÃ¡ existe pagamento nesse periodo')).Status(THTTPStatus.BadRequest);
 
         end;
       end
@@ -548,12 +549,10 @@ begin
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
     exit;
   end;
-  Writeln('Iniciando Atualização ');
   if servico.atualizarlpu(erro) then
     Res.Send<TJSONObject>(CreateJsonObj('Retorno', 'OK')).Status(THTTPStatus.OK)
   else
     Res.Send<TJSONObject>(CreateJsonObj('Retorno', erro)).Status(THTTPStatus.InternalServerError);
-  Writeln('Finalizando Atualização ');
 end;
 
 procedure Salvaatividadeclt(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -835,24 +834,52 @@ begin
   try
     erro := '';
     try
-      body := Req.body<TJSONObject>;
+      body := Req.Body<TJSONObject>;
 
-      servico.numero := body.getvalue<string>('numero', '');
+      // campos principais
+      servico.numero := body.GetValue<string>('numero', '');
+      servico.cliente := body.GetValue<string>('cliente', '');
+      servico.regiona := body.GetValue<string>('regiona', '');
+      servico.site := body.GetValue<string>('site', '');
+      servico.situacaoimplantacao := body.GetValue<string>('situacaoimplantacao', '');
+      servico.situacaodaintegracao := body.GetValue<string>('situacaodaintegracao', '');
 
-      servico.cliente := body.getvalue<string>('cliente', '');
-      servico.regiona := body.getvalue<string>('regiona', '');
-      servico.site := body.getvalue<string>('site', '');
-      servico.situacaoimplantacao := body.getvalue<string>('situacaoimplantacao', '');
-      servico.situacaodaintegracao := body.getvalue<string>('situacaodaintegracao', '');
-      servico.datadacriacaodademandadia := body.getvalue<string>('datadacriacaodademandadia', '');
-      servico.dataaceitedemandadia := body.getvalue<string>('dataaceitedemandadia', '');
-      servico.datainicioentregamosplanejadodia := body.getvalue<string>('datainicioentregamosplanejadodia', '');
-      servico.datarecebimentodositemosreportadodia := body.getvalue<string>('datarecebimentodositemosreportadodia', '');
-      servico.datafiminstalacaoplanejadodia := body.getvalue<string>('datafiminstalacaoplanejadodia', '');
-      servico.dataconclusaoreportadodia := body.getvalue<string>('dataconclusaoreportadodia', '');
-      servico.datavalidacaoinstalacaodia := body.getvalue<string>('datavalidacaoinstalacaodia', '');
-      servico.dataintegracaoplanejadodia := body.getvalue<string>('dataintegracaoplanejadodia', '');
-      servico.datavalidacaoeriboxedia := body.getvalue<string>('datavalidacaoeriboxedia', '');
+      // datas principais
+      servico.datadacriacaodademandadia := body.GetValue<string>('datadacriacaodademandadia', '');
+      servico.dataaceitedemandadia := body.GetValue<string>('dataaceitedemandadia', '');
+      servico.datainicioentregamosplanejadodia := body.GetValue<string>('datainicioentregamosplanejadodia', '');
+      servico.datarecebimentodositemosreportadodia := body.GetValue<string>('datarecebimentodositemosreportadodia', '');
+      servico.datafiminstalacaoplanejadodia := body.GetValue<string>('datafiminstalacaoplanejadodia', '');
+      servico.dataconclusaoreportadodia := body.GetValue<string>('dataconclusaoreportadodia', '');
+      servico.datavalidacaoinstalacaodia := body.GetValue<string>('datavalidacaoinstalacaodia', '');
+      servico.dataintegracaoplanejadodia := body.GetValue<string>('dataintegracaoplanejadodia', '');
+      servico.datavalidacaoeriboxedia := body.GetValue<string>('datavalidacaoeriboxedia', '');
+      servico.dataintegracaoreportadodia := body.GetValue<string>('dataintegracaoreportadodia', '');
+      servico.dataaceitereportadodia := body.GetValue<string>('dataaceitereportadodia', '');
+      servico.dataativacaoplanejadodia := body.GetValue<string>('dataativacaoplanejadodia', '');
+      servico.dataativacaoreportadodia := body.GetValue<string>('dataativacaoreportadodia', '');
+      servico.datavalidacaoativacaodia := body.GetValue<string>('datavalidacaoativacaodia', '');
+      servico.dataaceiteeriboxedia := body.GetValue<string>('dataaceiteeriboxedia', '');
+      servico.dataativacaoeriboxedia := body.GetValue<string>('dataativacaoeriboxedia', '');
+      servico.datainicial := body.GetValue<string>('dataInicial', '');
+      servico.datafinal := body.GetValue<string>('dataFinal', '');
+      servico.datasolicitacao := body.GetValue<string>('dataSolicitacao', '');
+      servico.enderecoSite := body.GetValue<string>('enderecoSite', '');
+      servico.obs := body.GetValue<string>('obs', '');
+
+      // novos campos do ALTER TABLE
+      servico.outros := body.GetValue<string>('outros', '');
+      servico.formadeacesso := body.GetValue<string>('formaAcesso', '');
+      servico.ddd := body.GetValue<string>('ddd', '');
+      servico.municipio := body.GetValue<string>('municipio', '');
+      servico.nomeericsson := body.GetValue<string>('nomeEricsson', '');
+      servico.latitude := body.GetValue<string>('latitude', '');
+      servico.longitude := body.GetValue<string>('longitude', '');
+      servico.obs := body.GetValue<string>('obs', '');
+      servico.solicitacao := body.GetValue<string>('solicitacao', '');
+
+      servico.statusacesso := body.GetValue<string>('statusAcesso', '');
+
 
       if Length(erro) = 0 then
       begin
@@ -865,13 +892,14 @@ begin
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
 
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
     servico.Free;
   end;
 end;
+
 
 procedure Salvaengenharia(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -1518,13 +1546,10 @@ begin
   try
     erro := '';
     try
-      // Obter o corpo da requisição como JSONObject
       body := Req.Body<TJSONObject>;
 
       // Converter o JSONObject para string para passar para EditarEmMassa
       jsonBody := body.ToString;
-
-      // Chamar o método EditarEmMassa passando o JSON como string
       sucesso := servico.EditarEmMassa(jsonBody, erro);
 
       if sucesso then
@@ -1544,6 +1569,86 @@ begin
     servico.Free;
   end;
 end;
+
+
+procedure EditarEmMassaRollout(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  body: TJSONObject;
+  erro: string;
+  sucesso: Boolean;
+  numeros: TArray<string>;
+begin
+  servico := TProjetoericsson.Create;
+  try
+    erro := '';
+    try
+      // Obter o corpo da requisiÃ§Ã£o como JSONObject
+      body := Req.Body<TJSONObject>;
+
+      servico.datadacriacaodademandadia        := body.GetValue<string>('datadacriacaodademandadia', '');
+      servico.dataaceitedemandadia             := body.GetValue<string>('dataaceitedemandadia', '');
+      servico.datainicioentregamosplanejadodia := body.GetValue<string>('datainicioentregamosplanejadodia', '');
+      servico.datarecebimentodositemosreportadodia := body.GetValue<string>('datarecebimentodositemosreportadodia', '');
+      servico.datafiminstalacaoplanejadodia    := body.GetValue<string>('datafiminstalacaoplanejadodia', '');
+      servico.dataconclusaoreportadodia        := body.GetValue<string>('dataconclusaoreportadodia', '');
+      servico.datavalidacaoinstalacaodia       := body.GetValue<string>('datavalidacaoinstalacaodia', '');
+      servico.dataintegracaoplanejadodia       := body.GetValue<string>('dataintegracaoplanejadodia', '');
+      servico.datavalidacaoeriboxedia          := body.GetValue<string>('datavalidacaoeriboxedia', '');
+      servico.dataintegracaoreportadodia       := body.GetValue<string>('dataintegracaoreportadodia', '');
+      servico.dataaceitereportadodia           := body.GetValue<string>('dataaceitereportadodia', '');
+      servico.dataativacaoplanejadodia         := body.GetValue<string>('dataativacaoplanejadodia', '');
+      servico.dataativacaoreportadodia         := body.GetValue<string>('dataativacaoreportadodia', '');
+      servico.datavalidacaoativacaodia         := body.GetValue<string>('datavalidacaoativacaodia', '');
+      servico.dataaceiteeriboxedia             := body.GetValue<string>('dataaceiteeriboxedia', '');
+      servico.dataativacaoeriboxedia           := body.GetValue<string>('dataativacaoeriboxedia', '');
+      servico.datainicial                      := body.GetValue<string>('datainicial', '');
+      servico.datafinal                        := body.GetValue<string>('datafinal', '');
+      servico.datasolicitacao                  := body.GetValue<string>('datasolicitacao', '');
+      servico.enderecoSite                     := body.GetValue<string>('enderecoSite', '');
+      servico.obs                              := body.GetValue<string>('obs', '');
+      servico.situacaoimplantacao              := body.GetValue<string>('situacaoimplantacao', '');
+      servico.situacaodaintegracao             := body.GetValue<string>('situacaodaintegracao', '');
+      servico.outros                           := body.GetValue<string>('outros', '');
+      servico.formadeacesso                    := body.GetValue<string>('formaAcesso', '');
+      servico.ddd                              := body.GetValue<string>('ddd', '');
+      servico.municipio                        := body.GetValue<string>('municipio', '');
+      servico.nomeericsson                     := body.GetValue<string>('nomeericsson', '');
+      servico.latitude                         := body.GetValue<string>('latitude', '');
+      servico.longitude                        := body.GetValue<string>('longitude', '');
+      servico.solicitacao                      := body.GetValue<string>('solicitacao', '');
+      servico.statusacesso                     := body.GetValue<string>('statusacesso', '');
+
+      // Aqui estava o erro -> faltava fechar corretamente e indicar a chave do JSON
+      numeros := body.GetValue<TArray<string>>('numeros', []);
+
+      // Chamar o mÃ©todo EditarEmMassa passando os dados
+      sucesso := servico.EditarEmMassaRollout(numeros, erro);
+
+      if sucesso then
+        Res.Send<TJSONObject>(
+          TJSONObject.Create
+            .AddPair('sucesso', 'true')
+            .AddPair('mensagem', 'Registros atualizados com sucesso')
+        ).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(
+          TJSONObject.Create
+            .AddPair('erro', erro)
+        ).Status(THTTPStatus.InternalServerError);
+
+    except
+      on ex: Exception do
+        Res.Send<TJSONObject>(
+          TJSONObject.Create
+            .AddPair('erro', ex.Message)
+        ).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
 
 end.
 

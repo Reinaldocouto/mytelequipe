@@ -41,6 +41,8 @@ const Relatoriodespesa = ({ setshow, show }) => {
   const [datafinal, setdatafinal] = useState('');
   const [relatorioDespesas, setRelatorioDespesas] = useState([]);
   const [valorTotal, setValorTotal] = useState(0);
+  const [selectionModel, setSelectionModel] = useState([]);
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
 
   const toggle = () => {
     setshow(!show);
@@ -106,13 +108,18 @@ const Relatoriodespesa = ({ setshow, show }) => {
       const dadosFormatados = response?.data.map((item, index) => ({
         ...item,
         id: item.id || `${index}-${Date.now()}`, // ID único mais robusto
-        valor: item.valor ? parseFloat(item.valor) : 0,
+        valor: item.valor ? parseFloat(String(item.valor).replace(',', '.')) : 0,
         dataacionamento: item.dataacionamento || null,
       }));
-      const somaDosValores = dadosFormatados?.reduce((total, item) => total + (item.valor || 0), 0);
-      setValorTotal(somaDosValores || 0);
-      setRelatorioDespesas(dadosFormatados || []);
-      setTotalRegistros(response.data.length || 0);
+      const ids = dadosFormatados.map((item) => item.id);
+      setSelectionModel(ids);
+      const somaDosValores = ids.reduce((total, id) => {
+        const row = dadosFormatados.find((item) => item.id === id);
+        return total + (row?.valor || 0);
+      }, 0);
+      setValorTotal(somaDosValores);
+      setRelatorioDespesas(dadosFormatados);
+      setTotalRegistros(dadosFormatados.length);
       setmensagem('');
     } catch (err) {
       setmensagem(err.response?.data?.message || err.message);
@@ -128,6 +135,14 @@ const Relatoriodespesa = ({ setshow, show }) => {
       despesasrelaotrioericsson();
     }
   }, [show]);
+
+  const handleSelectionChange = (newSelection) => {
+    setSelectionModel(newSelection);
+    const total = relatorioDespesas
+      .filter((row) => newSelection.includes(row.id))
+      .reduce((acc, row) => acc + (row.valor || 0), 0);
+    setValorTotal(total);
+  };
 
   const handleBuscar = () => {
     despesasrelaotrioericsson();
@@ -298,7 +313,12 @@ const Relatoriodespesa = ({ setshow, show }) => {
                 columns={columns}
                 loading={loadingFinanceiro}
                 paginationMode="client"
-                rowCount={totalRegistros}
+                checkboxSelection
+                selectionModel={selectionModel}
+                onSelectionModelChange={handleSelectionChange}
+                paginationModel={paginationModel}
+                onPaginationModelChange={setPaginationModel}
+                pageSizeOptions={[5, 10, 20, 50]}
                 disableSelectionOnClick
                 components={{
                   Pagination: () => <CustomPagination totalRegistros={totalRegistros} />,

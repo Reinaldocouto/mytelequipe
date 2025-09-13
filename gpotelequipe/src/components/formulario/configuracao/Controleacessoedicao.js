@@ -97,6 +97,7 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
   const [ericAdicional, setEricAdicional] = useState('');
   const [ericControleLpu, setEricControleLpu] = useState('');
   const [ericRelatorio, setEricRelatorio] = useState('');
+  const [ericFaturamento, setEricFaturamento] = useState('');
 
   //Huawei
   const [huaAcionamento, setHuaAcionamento] = useState('');
@@ -194,6 +195,7 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
         setEricAdicional(response.data.ericadicional);
         setEricControleLpu(response.data.ericcontrolelpu);
         setEricRelatorio(response.data.ericrelatorio);
+        setEricFaturamento(response.data.ericfaturamento);
 
         //Huawei teste
         setHuaAcionamento(response.data.huaacionamento);
@@ -249,7 +251,6 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
 
     if (!nome) novosErros.nome = 'Por favor, preencha o nome';
     if (!email) novosErros.email = 'Por favor, preencha o e-mail';
-    if (!senha) novosErros.senha = 'Por favor, preencha a senha';
     if (!datacriacao) novosErros.datacriacao = 'Por favor, informe a data de criação';
 
     // Mostra erros via toast e sai da função
@@ -286,6 +287,7 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
       ericAdicional,
       ericControleLpu,
       ericRelatorio,
+      ericFaturamento,
       huaAcionamento,
       huaAdicional,
       huaControleLpu,
@@ -716,6 +718,15 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
                                 checked={ericRelatorio}
                               />
                               <Label check>Relatório</Label>
+                            </FormGroup>
+                            <FormGroup check>
+                              <Input
+                                type="checkbox"
+                                id="check22"
+                                onChange={(e) => setEricFaturamento(e.target.checked)}
+                                checked={ericFaturamento}
+                              />
+                              <Label check>Faturamento</Label>
                             </FormGroup>
                           </div>
                         </div>

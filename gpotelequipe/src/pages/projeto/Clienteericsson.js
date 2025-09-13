@@ -25,6 +25,7 @@ import Ericssonfechamento from '../../components/formulario/projeto/Ericssonfech
 import RelatoriofechamentohistoricoEricsson from '../../components/formulario/relatorio/Relatoriofechamentohistoricoericsson';
 import Relatoriopoxfaturado from '../../components/formulario/relatorio/Relatoriopoxfaturado';
 import Relatoriototalacionamento from '../../components/formulario/relatorio/Relatoriototalacionamento';
+import RelatorioEricssonFaturamento from '../../components/formulario/relatorio/RelatorioEricssonFaturamento';
 import Relatoriodespesa from '../../components/formulario/relatorio/Relatoriodespesa';
 import Demonstrativoview from '../../components/formulario/demonstrativo/Demonstrativoview';
 import api from '../../services/api';
@@ -46,7 +47,13 @@ export default function Clienteericsson() {
   const [site, setSite] = useState('');
   const [optionsregionalselected, setoptionsregionalselected] = useState(['Todos']);
   const currentYear = new Date().getFullYear();
+  const [telafaturamento, settelafaturamento] = useState('');
+  const [permission, setPermission] = useState();
+
   const years = Array.from({ length: 10 }, (_, i) => currentYear - i); // últimos 10 anos
+  function faturamentoericsson() {
+    settelafaturamento(true);
+  }
 
   function rolloutericsson() {
     settelarolloutericsson(true);
@@ -142,6 +149,8 @@ export default function Clienteericsson() {
   useEffect(() => {
     iniciatabelas();
     loadingoptionsregional();
+    const permissionstorage = JSON.parse(localStorage.getItem('permission'));
+    setPermission(permissionstorage);
   }, []);
   useEffect(() => {
     filtertabelas();
@@ -176,6 +185,11 @@ export default function Clienteericsson() {
       {telarelatorio ? (
         <>
           <Relatoriopoxfaturado show={telarelatorio} setshow={settelarelatorio} />
+        </>
+      ) : null}
+      {telafaturamento ? (
+        <>
+          <RelatorioEricssonFaturamento show={telafaturamento} setshow={settelafaturamento} />
         </>
       ) : null}
       {telarelatoriodespesa ? (
@@ -497,6 +511,13 @@ export default function Clienteericsson() {
             <Button color="link" onClick={() => fechamentoericsson()}>
               Fechamento
             </Button>
+            {permission?.ericfaturamento && (
+              <div>
+                <Button color="link" onClick={() => faturamentoericsson()}>
+                  Faturamento
+                </Button>
+              </div>
+            )}
           </CardBody>
         </Box>
 

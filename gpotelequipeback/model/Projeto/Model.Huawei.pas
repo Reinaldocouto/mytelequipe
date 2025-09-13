@@ -3,9 +3,9 @@ unit Model.Huawei;
 interface
 
 uses
-  FireDAC.Comp.Client, System.JSON, Data.DB, System.SysUtils, Model.connection,
-  ComObj, System.DateUtils, System.StrUtils, FireDAC.DApt,
-  System.Generics.Collections, UtFuncao;
+   FireDAC.Comp.Client, Data.DB, System.SysUtils, model.connection, ComObj,
+  System.StrUtils, FireDAC.DApt, System.Generics.Collections, UtFuncao,
+  DateUtils, System.JSON, System.Classes, Model.Email;
 
 type
   THuawei = class
@@ -74,6 +74,7 @@ type
     function Listaacionamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function CriarTarefa(out erro: string): Boolean;
     function Rollouthuawei(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function EditarEmMassa(const AJsonBody: string; out erro: string): Boolean;
 
   end;
 
@@ -1738,8 +1739,15 @@ end;
 function Thuawei.Rollouthuawei(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
+  keys, allowedKeys: TArray<string>;
+  key, value, dbField, whereSQL: string;
+  i: Integer;
+  fieldMap: TDictionary<string, string>;
 begin
   qry := nil;
+  erro := '';
+  whereSQL := '';
+  fieldMap := TDictionary<string, string>.Create;
   try
     if not Assigned(FConn) then
       raise Exception.Create('Conexão não inicializada');
@@ -1747,14 +1755,109 @@ begin
     qry := TFDQuery.Create(nil);
     qry.Connection := FConn;
 
-    with qry do
-    begin
-      SQL.Text := 'SELECT * FROM obraericsson';
-      Open;
+    // Map camelCase -> coluna no banco (snake_case ou com underscore)
+    fieldMap.Add('name', 'Name');
+    fieldMap.Add('projeto', 'Projeto');
+    fieldMap.Add('endSite', 'End_Site');
+    fieldMap.Add('du', 'DU');
+    fieldMap.Add('statusGeral', 'Status_geral');
+    fieldMap.Add('liderResponsavel', 'Lider_responsavel');
+    fieldMap.Add('empresa', 'Empresa');
+    fieldMap.Add('ativoNoPeriodo', 'Ativo_no_periodo');
+    fieldMap.Add('fechamento', 'Fechamento');
+    fieldMap.Add('anoSemanaFechamento', 'Ano_Semana_Fechamento');
+    fieldMap.Add('confirmacaoPagamento', 'Confirmacao_pagamento');
+    fieldMap.Add('descricaoAdd', 'Descricao_add');
+    fieldMap.Add('numeroVo', 'Numero_VO');
+    fieldMap.Add('infra', 'Infra');
+    fieldMap.Add('town', 'Town');
+    fieldMap.Add('latitude', 'Latitude');
+    fieldMap.Add('longitude', 'Longitude');
+    fieldMap.Add('reg', 'Reg');
+    fieldMap.Add('ddd', 'DDD');
+    fieldMap.Add('envioDaDemanda', 'Envio_da_demanda');
+    fieldMap.Add('mosPlanned', 'MOS_Planned');
+    fieldMap.Add('mosReal', 'MOS_Real');
+    fieldMap.Add('semanaMos', 'Semana_MOS');
+    fieldMap.Add('mosStatus', 'MOS_Status');
+    fieldMap.Add('integrationPlanned', 'Integration_Planned');
+    fieldMap.Add('testeTx', 'Teste_TX');
+    fieldMap.Add('integrationReal', 'Integration_Real');
+    fieldMap.Add('semanaIntegration', 'Semana_Integration');
+    fieldMap.Add('statusIntegracao', 'Status_integracao');
+    fieldMap.Add('iti', 'ITI');
+    fieldMap.Add('qcPlanned', 'QC_Planned');
+    fieldMap.Add('qcReal', 'QC_Real');
+    fieldMap.Add('semanaQc', 'Semana_QC');
+    fieldMap.Add('qcStatus', 'QC_Status');
+    fieldMap.Add('observacao', 'Observacao');
+    fieldMap.Add('logisticaReversaStatus', 'Logistica_reversa_Status');
+    fieldMap.Add('detentora', 'Detentora');
+    fieldMap.Add('idDententora', 'ID_Dententora');
+    fieldMap.Add('formaDeAcesso', 'Forma_de_acesso');
+    fieldMap.Add('faturamento', 'Faturamento');
+    fieldMap.Add('faturamentoStatus', 'Faturamento_Status');
+    fieldMap.Add('idOriginal', 'ID_Original');
+    fieldMap.Add('changeHistory', 'Change_History');
+    fieldMap.Add('repOffice', 'Rep_Office');
+    fieldMap.Add('projectCode', 'Project_Code');
+    fieldMap.Add('siteCode', 'Site_Code');
+    fieldMap.Add('siteName', 'Site_Name');
+    fieldMap.Add('siteId', 'Site_ID');
+    fieldMap.Add('subContractNo', 'Sub_Contract_NO');
+    fieldMap.Add('prNo', 'PR_NO');
+    fieldMap.Add('poNo', 'PO_NO');
+    fieldMap.Add('poLineNo', 'PO_Line_NO');
+    fieldMap.Add('shipmentNo', 'Shipment_NO');
+    fieldMap.Add('itemCode', 'Item_Code');
+    fieldMap.Add('itemDescription', 'Item_Description');
+    fieldMap.Add('itemDescriptionLocal', 'Item_Description_Local');
+    fieldMap.Add('unitPrice', 'Unit_Price');
+    fieldMap.Add('requestedQty', 'Requested_Qty');
+    fieldMap.Add('valorTelequipe', 'Valor_Telequipe');
+    fieldMap.Add('valorEquipe', 'Valor_Equipe');
+    fieldMap.Add('billedQuantity', 'Billed_Quantity');
+    fieldMap.Add('quantityCancel', 'Quantity_Cancel');
+    fieldMap.Add('dueQty', 'Due_Qty');
+    fieldMap.Add('noteToReceiver', 'Note_to_Receiver');
+    fieldMap.Add('fobLookupCode', 'Fob_Lookup_Code');
+    fieldMap.Add('acceptanceDate', 'Acceptance_Date');
+    fieldMap.Add('prPoAutomationSolutionOnlyChina', 'PR_PO_Automation_Solution_Only_China');
+    fieldMap.Add('pessoa', 'Pessoa');
+    fieldMap.Add('ultimaAtualizacao', 'Ultima_atualizacao');
 
-      if RecordCount = 0 then
-        erro := 'Nenhum registro ativo encontrado';
+    keys := AQuery.Keys.ToArray;
+    // Monta cláusula WHERE
+    for i := 0 to High(keys) do
+    begin
+      key := keys[i];
+      value := AQuery.Items[key];
+      if (value <> '') and fieldMap.ContainsKey(key) then
+      begin
+        if whereSQL = '' then
+          whereSQL := ' WHERE '
+        else
+          whereSQL := whereSQL + ' AND ';
+        dbField := fieldMap[key];
+        whereSQL := whereSQL + dbField + ' = :' + key;
+      end;
     end;
+
+    qry.SQL.Text := 'SELECT * FROM rollouthuawei' + whereSQL;
+
+    // Aplica parâmetros
+    for i := 0 to High(keys) do
+    begin
+      key := keys[i];
+      value := AQuery.Items[key];
+      if (value <> '') and fieldMap.ContainsKey(key) then
+        qry.ParamByName(key).AsString := value;
+    end;
+
+    qry.Open;
+
+    if qry.RecordCount = 0 then
+      erro := 'Nenhum registro ativo encontrado';
 
     Result := qry;
   except
@@ -1765,7 +1868,230 @@ begin
       Result := nil;
     end;
   end;
+
+  fieldMap.Free;
 end;
+
+
+
+function Thuawei.EditarEmMassa(const AJsonBody: string; out erro: string): Boolean;
+var
+  qry: TFDQuery;
+  jsonParams: TJSONObject;
+  updates, where, idValue, sUpdate: string;
+  updateParts: TStringList;
+  ids: TArray<string>;
+  i, rowsAffected: Integer;
+  key, dbField, colValue: string;
+  fieldMap: TDictionary<string, string>;
+begin
+  Result := False;
+  erro := '';
+  qry := nil;
+  jsonParams := nil;
+  updateParts := TStringList.Create;
+  fieldMap := TDictionary<string, string>.Create;
+  try
+    if AJsonBody.Trim = '' then
+    begin
+      erro := 'body vazio';
+      Exit;
+    end;
+
+    jsonParams := TJSONObject.ParseJSONValue(AJsonBody) as TJSONObject;
+    if jsonParams = nil then
+    begin
+      erro := 'JSON inválido';
+      Exit;
+    end;
+
+    // Mapa camelCase -> nome real no banco
+    fieldMap.Add('name', 'Name');
+    fieldMap.Add('projeto', 'Projeto');
+    fieldMap.Add('endSite', 'End_Site');
+    fieldMap.Add('du', 'DU');
+    fieldMap.Add('statusGeral', 'Status_geral');
+    fieldMap.Add('liderResponsavel', 'Lider_responsavel');
+    fieldMap.Add('empresa', 'Empresa');
+    fieldMap.Add('ativoNoPeriodo', 'Ativo_no_periodo');
+    fieldMap.Add('fechamento', 'Fechamento');
+    fieldMap.Add('anoSemanaFechamento', 'Ano_Semana_Fechamento');
+    fieldMap.Add('confirmacaoPagamento', 'Confirmacao_pagamento');
+    fieldMap.Add('descricaoAdd', 'Descricao_add');
+    fieldMap.Add('numeroVo', 'Numero_VO');
+    fieldMap.Add('infra', 'Infra');
+    fieldMap.Add('town', 'Town');
+    fieldMap.Add('latitude', 'Latitude');
+    fieldMap.Add('longitude', 'Longitude');
+    fieldMap.Add('reg', 'Reg');
+    fieldMap.Add('ddd', 'DDD');
+    fieldMap.Add('envioDaDemanda', 'Envio_da_demanda');
+    fieldMap.Add('mosPlanned', 'MOS_Planned');
+    fieldMap.Add('mosReal', 'MOS_Real');
+    fieldMap.Add('semanaMos', 'Semana_MOS');
+    fieldMap.Add('mosStatus', 'MOS_Status');
+    fieldMap.Add('integrationPlanned', 'Integration_Planned');
+    fieldMap.Add('testeTx', 'Teste_TX');
+    fieldMap.Add('integrationReal', 'Integration_Real');
+    fieldMap.Add('semanaIntegration', 'Semana_Integration');
+    fieldMap.Add('statusIntegracao', 'Status_integracao');
+    fieldMap.Add('iti', 'ITI');
+    fieldMap.Add('qcPlanned', 'QC_Planned');
+    fieldMap.Add('qcReal', 'QC_Real');
+    fieldMap.Add('semanaQc', 'Semana_QC');
+    fieldMap.Add('qcStatus', 'QC_Status');
+    fieldMap.Add('observacao', 'Observacao');
+    fieldMap.Add('logisticaReversaStatus', 'Logistica_reversa_Status');
+    fieldMap.Add('detentora', 'Detentora');
+    fieldMap.Add('idDententora', 'ID_Dententora');
+    fieldMap.Add('formaDeAcesso', 'Forma_de_acesso');
+    fieldMap.Add('faturamento', 'Faturamento');
+    fieldMap.Add('faturamentoStatus', 'Faturamento_Status');
+    fieldMap.Add('idOriginal', 'ID_Original');
+    fieldMap.Add('changeHistory', 'Change_History');
+    fieldMap.Add('repOffice', 'Rep_Office');
+    fieldMap.Add('projectCode', 'Project_Code');
+    fieldMap.Add('siteCode', 'Site_Code');
+    fieldMap.Add('siteName', 'Site_Name');
+    fieldMap.Add('siteId', 'Site_ID');
+    fieldMap.Add('subContractNo', 'Sub_Contract_NO');
+    fieldMap.Add('prNo', 'PR_NO');
+    fieldMap.Add('poNo', 'PO_NO');
+    fieldMap.Add('poLineNo', 'PO_Line_NO');
+    fieldMap.Add('shipmentNo', 'Shipment_NO');
+    fieldMap.Add('itemCode', 'Item_Code');
+    fieldMap.Add('itemDescription', 'Item_Description');
+    fieldMap.Add('itemDescriptionLocal', 'Item_Description_Local');
+    fieldMap.Add('unitPrice', 'Unit_Price');
+    fieldMap.Add('requestedQty', 'Requested_Qty');
+    fieldMap.Add('valorTelequipe', 'Valor_Telequipe');
+    fieldMap.Add('valorEquipe', 'Valor_Equipe');
+    fieldMap.Add('billedQuantity', 'Billed_Quantity');
+    fieldMap.Add('quantityCancel', 'Quantity_Cancel');
+    fieldMap.Add('dueQty', 'Due_Qty');
+    fieldMap.Add('noteToReceiver', 'Note_to_Receiver');
+    fieldMap.Add('fobLookupCode', 'Fob_Lookup_Code');
+    fieldMap.Add('acceptanceDate', 'Acceptance_Date');
+    fieldMap.Add('prPoAutomationSolutionOnlyChina', 'PR_PO_Automation_Solution_Only_China');
+    fieldMap.Add('pessoa', 'Pessoa');
+    fieldMap.Add('ultimaAtualizacao', 'Ultima_atualizacao');
+
+    // Monta updateParts
+    updateParts.Clear;
+    for i := 0 to jsonParams.Count - 1 do
+    begin
+      key := jsonParams.Pairs[i].JsonString.Value;
+      if fieldMap.ContainsKey(key) then
+        updateParts.Add(fieldMap[key] + ' = :' + key);
+    end;
+
+    if updateParts.Count = 0 then
+    begin
+      erro := 'nenhum campo válido para atualizar';
+      Exit;
+    end;
+
+    // campo id
+    if jsonParams.GetValue('id') = nil then
+    begin
+      erro := 'id não informado';
+      Exit;
+    end;
+    idValue := jsonParams.GetValue('id').Value.Trim;
+    if idValue = '' then
+    begin
+      erro := 'id vazio';
+      Exit;
+    end;
+
+    // WHERE
+    if idValue.Contains(',') then
+    begin
+      ids := idValue.Split([',']);
+      where := 'id IN (' + String.Join(',', ids) + ')';
+    end
+    else
+      where := 'id = :id';
+
+    // UPDATE SQL
+    sUpdate := String.Join(', ', updateParts.ToStringArray);
+
+    qry := TFDQuery.Create(nil);
+    try
+      qry.Connection := FConn;
+      qry.SQL.Text := 'UPDATE rollouthuawei SET ' + sUpdate + ' WHERE ' + where;
+
+      // parâmetros
+      for i := 0 to jsonParams.Count - 1 do
+      begin
+        key := jsonParams.Pairs[i].JsonString.Value;
+        if fieldMap.ContainsKey(key) then
+        begin
+          colValue := jsonParams.Pairs[i].JsonValue.Value;
+
+          if colValue = '' then
+            qry.ParamByName(key).Clear
+          else if key.ToLower.Contains('date') or key.ToLower.Contains('fechamento') then
+            qry.ParamByName(key).AsDateTime := ISO8601ToDate(colValue, False)
+          else if (key.ToLower.Contains('valor')) or (key.ToLower.Contains('faturamento')) or
+                  (key.ToLower.Contains('unitprice')) then
+            qry.ParamByName(key).AsFloat := StrToFloatDef(colValue, 0)
+          else if (key.ToLower.Contains('qty')) or (key.ToLower.Contains('quantity')) then
+            qry.ParamByName(key).AsInteger := StrToIntDef(colValue, 0)
+          else
+            qry.ParamByName(key).AsString := colValue;
+        end;
+      end;
+
+      if not idValue.Contains(',') then
+        qry.ParamByName('id').AsInteger := StrToIntDef(idValue, 0);
+
+      if not FConn.InTransaction then
+        FConn.StartTransaction;
+      try
+        qry.ExecSQL;
+        rowsAffected := qry.RowsAffected;
+        FConn.Commit;
+      except
+        on E: Exception do
+        begin
+          if FConn.InTransaction then
+            FConn.Rollback;
+          raise;
+        end;
+      end;
+
+      if rowsAffected > 0 then
+      begin
+        Result := True;
+        erro := '';
+      end
+      else
+      begin
+        Result := False;
+        erro := 'nenhum registro alterado';
+      end;
+
+    finally
+      qry.Free;
+    end;
+
+  except
+    on e: Exception do
+    begin
+      Result := False;
+      erro := 'erro: ' + e.Message;
+      if Assigned(FConn) and FConn.InTransaction then
+        FConn.Rollback;
+    end;
+  end;
+
+  if Assigned(jsonParams) then
+    jsonParams.Free;
+  updateParts.Free;
+  fieldMap.Free;
+end;
+
 
 end.
 

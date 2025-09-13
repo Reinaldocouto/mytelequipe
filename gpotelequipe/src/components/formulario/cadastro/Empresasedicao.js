@@ -24,12 +24,14 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Pagination from '@mui/material/Pagination';
 import EditIcon from '@mui/icons-material/Edit';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import api from '../../../services/api';
 import Loader from '../../../layouts/loader/Loader';
 import Empresasedicaocontrato from './Pessoaedicaocontrato';
 import Veiculosedicao from './Veiculosedicao';
+import DespesasVeiculo from './DespesasVeiculo';
 import modoVisualizador from '../../../services/modovisualizador';
 
 function TabPanel(props) {
@@ -120,6 +122,8 @@ const Empresasedicao = ({ setshow, show, ididentificador, atualiza }) => {
   const [colaborador, setcolaborador] = useState('');
   const [idveiculo, setidveiculo] = useState('');
   const [telacadastroedicaoveiculo, settelacadastroedicaoveiculo] = useState('');
+  const [telalistadespesasveiculo, settelalistadespesasveiculo] = useState('');
+  const [idveiculodespesas, setidveiculodespesas] = useState('');
   const [titulo, settitulo] = useState('');
   const [tipopj, settipopj] = useState('');
   const [statusTelequipe, setStatusTelequipe] = useState('');
@@ -310,6 +314,11 @@ const Empresasedicao = ({ setshow, show, ididentificador, atualiza }) => {
     settitulo('Dados do veiculo');
     setidveiculo(stat);
   }
+  
+  function verDespesasVeiculo(stat) {
+    setidveiculodespesas(stat);
+    settelalistadespesasveiculo(true);
+  }
 
   const colaboradortabela = [
     {
@@ -356,7 +365,7 @@ const Empresasedicao = ({ setshow, show, ididentificador, atualiza }) => {
       field: 'actions',
       headerName: 'Ação',
       type: 'actions',
-      width: 80,
+      width: 100,
       align: 'center',
       getActions: (parametros) => [
         <GridActionsCellItem
@@ -364,6 +373,12 @@ const Empresasedicao = ({ setshow, show, ididentificador, atualiza }) => {
           label="Alterar"
           hint="Alterar"
           onClick={() => alterarUser1(parametros.id)}
+        />,
+        <GridActionsCellItem
+          icon={<AttachMoneyIcon />}
+          label="Despesas"
+          hint="Despesas"
+          onClick={() => verDespesasVeiculo(parametros.id)}
         />,
       ],
     },
@@ -522,6 +537,16 @@ const Empresasedicao = ({ setshow, show, ididentificador, atualiza }) => {
               ididentificador={idveiculo}
               atualiza={listaveiculo}
               titulotopo={titulo}
+            />{' '}
+          </>
+        ) : null}
+        {telalistadespesasveiculo ? (
+          <>
+            {' '}
+            <DespesasVeiculo
+              show={telalistadespesasveiculo}
+              setshow={settelalistadespesasveiculo}
+              idveiculo={idveiculodespesas}
             />{' '}
           </>
         ) : null}

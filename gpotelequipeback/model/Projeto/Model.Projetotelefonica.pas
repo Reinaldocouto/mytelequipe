@@ -105,6 +105,7 @@ type
     FIntegracaoReal: string;
     FAtivacao: string;
     FDocumentacao: string;
+    FInventarioDesinstalacao: string;
     FDTPlan: string;
     FDTReal: string;
     FAprovacaoSSV: string;
@@ -140,6 +141,7 @@ type
     FdataExecucaoDocVDVM: string;
     FdataPostagemDocVDVM: string;
     FobservacaoDocumentacao: string;
+    Fdataimprodutiva: string;
 
 
     procedure AddMultipleFiltersFromJSON(AQuery: TDictionary<string, string>; const KeysAndFields: array of string; SQL: TStrings);
@@ -201,7 +203,7 @@ type
     property historico: string read Fhistorico write Fhistorico;
     property idrollout: Integer read Fidrollout write Fidrollout;
     property idatividade: Integer read Fidatividade write Fidatividade;
-    property idpacote: Integer read Fidpacote write Fidpacote;
+    property idpacote : Integer read Fidpacote write Fidpacote;
     property idcolaborador: Integer read Fidcolaborador write Fidcolaborador;
     property idpmts: string read Fidpmts write Fidpmts;
     property idfuncionario: Integer read Fidfuncionario write Fidfuncionario;
@@ -240,6 +242,7 @@ type
     property IntegracaoReal: string read FIntegracaoReal write FIntegracaoReal;
     property Ativacao: string read FAtivacao write FAtivacao;
     property Documentacao: string read FDocumentacao write FDocumentacao;
+    property InventarioDesinstalacao: string read FInventarioDesinstalacao write FInventarioDesinstalacao;
     property DTPlan: string read FDTPlan write FDTPlan;
     property DTReal: string read FDTReal write FDTReal;
     property AprovacaoSSV: string read FAprovacaoSSV write FAprovacaoSSV;
@@ -277,6 +280,7 @@ type
 
     property regionalocal: string read Fregionalocal write Fregionalocal;
     property brevedescricao: string read Frevedescricao write Frevedescricao;
+    property dataimprodutiva: string read Fdataimprodutiva write Fdataimprodutiva;
 
     property acompanhamentofisicoobservacao: string read Facompanhamentofisicoobservacao write Facompanhamentofisicoobservacao;
     function apagarpagamento(const ABody: TJSONObject; out erro: string): Boolean;
@@ -345,7 +349,6 @@ type
     function SalvarNotaFiscalT4(const ABody: TJSONObject; out erro: string): Boolean;
     function RegistrarCartaTAF(const DadosT2: TDictionary<string, string>; out Erro: string; out NomeArquivo: String): Boolean;
     function UpdateStatusFaturamento(const id: String; const statusFaturamento: String; out Erro: string): Boolean;
-
     function EditarEmMassa(const AJsonBody: string; out erro: string): Boolean;
   end;
 
@@ -716,7 +719,7 @@ var
   qry: TFDQuery;
   id: Integer;
   FS: TFormatSettings;
-  valorp, porcent, valorpg: Real;
+  valorp, porcent, valorpg, valorpgexistente, valorpagamentoexistente, valorpagamentonovo: Real;
 begin
   try
     qry := TFDQuery.Create(nil);
@@ -744,6 +747,7 @@ begin
         ParamByName('id').AsInteger := idgeralfechamento;
         Open;
         valorp := fieldbyname('valor').asfloat;
+        valorpgexistente := FieldByName('Sum_valorpagamento').asfloat;
         if valorp < 0 then
           valorp := 0;
 
@@ -756,6 +760,18 @@ begin
         ParamByName('datapagamento').AsDate := StrToDate(diapagamento, FS);
         ParamByName('tipopagamento').AsString := tipopagamento;
         Open();
+        valorpagamentoexistente := 0;
+        if RecordCount > 0 then
+          valorpagamentoexistente := FieldByName('valorpagamento').asfloat;
+
+        valorpagamentonovo := valorp * (porcentagem / 100);
+        if (valorpgexistente - valorpagamentoexistente + valorpagamentonovo) > valorp then
+        begin
+          FConn.Rollback;
+          erro := 'Pagamento inválido: o valor informado ultrapassa 100% do valor do site.';
+          Result := false;
+          Exit;
+        end;
         if RecordCount = 0 then
         begin
           Close;
@@ -773,7 +789,7 @@ begin
         end;
         ParamByName('mespagamento').AsString := mesfechamento;
         ParamByName('porcentagem').Asfloat := porcentagem / 100;
-        ParamByName('valorpago').AsFloat := valorp * (porcentagem / 100);
+        ParamByName('valorpago').AsFloat := valorpagamentonovo;
         ParamByName('observacao').AsString := observacao;
         ParamByName('datadopagamento').AsDate := StrToDate(diapagamento, FS);
         ParamByName('status').AsString := tipopagamento;
@@ -1016,8 +1032,8 @@ begin
 
         Close;
         SQL.Clear;
-        SQL.Add('update acionamentovivo set porcentagem = porcentagem + :porce, valorpago = valorpago + :vp where id=:id  ');
-        ParamByName('id').asinteger := idgeralfechamento;
+        SQL.Add('update acionamentovivo set porcentagem = :porce, valorpago = :vp where id=:id');
+        ParamByName('id').asinteger := idaciovivo;
         ParamByName('porce').asfloat := porcent;
         ParamByName('vp').asfloat := valorpg;
         ExecSQL;
@@ -1348,6 +1364,7 @@ begin
       Add('  Date_Format( t.datapagamento , "%d/%m/%Y") As datadopagamento, ');
       Add('  t.idgeral as idpagamento, ');
       Add('  t.valorpagamento as valor,');
+      Add('  t.observacao,');
       Add('  acionamentovivo.porcentagem,');
       Add('  rolloutvivo.entregareal,');
       Add('  rolloutvivo.fiminstalacaoreal,');
@@ -1356,6 +1373,7 @@ begin
       Add('  rolloutvivo.vistoriareal,');
       Add('  rolloutvivo.ativacao,');
       Add('  rolloutvivo.documentacao,');
+      Add('  rolloutvivo.inventariodesinstalacao,');
       Add('  gesempresas.email');
       Add(' FROM acionamentovivo');
       Add(' LEFT JOIN telefonicapagamento t ON t.idacionamentovivo = acionamentovivo.id ');
@@ -1718,13 +1736,130 @@ begin
 end;
 
 function TProjetotelefonica.Editar(out erro: string): Boolean;
+function FormatarDataBR(const Data: string): string;
 var
-  qry: TFDQuery;
+  dt: TDateTime;
 begin
+  Result := '';
+  try
+    if Pos('-', Data) > 0 then  // formato ISO
+    begin
+      dt := EncodeDate(
+              StrToInt(Copy(Data, 1, 4)),   // ano
+              StrToInt(Copy(Data, 6, 2)),   // mês
+              StrToInt(Copy(Data, 9, 2))    // dia
+            );
+      Result := FormatDateTime('dd/mm/yyyy', dt);
+    end
+    else if TryStrToDate(Data, dt) then
+      Result := FormatDateTime('dd/mm/yyyy', dt);
+  except
+    Result := '';
+  end;
+end;
+
+function DataValida(const Data: string): Boolean;
+var
+  DataConvertida: TDateTime;
+begin
+  Result := False;
+
+  // Verifica se está vazia ou é data padrão
+  if (Data = '') or (Data = '1899-12-30') or (Data = '30/12/1899') then
+    Exit;
+
+  // Tenta converter tanto formato ISO quanto formato brasileiro
+  try
+    if Pos('-', Data) > 0 then  // Formato ISO (2026-08-10)
+      DataConvertida := ISO8601ToDate(Data)
+    else if Pos('/', Data) > 0 then  // Formato brasileiro (10/08/2025)
+      DataConvertida := StrToDate(Data)
+    else
+      Exit; // Formato desconhecido
+
+    // Verifica se não é data padrão (30/12/1899)
+    if DataConvertida <> EncodeDate(1899, 12, 30) then
+      Result := True;
+
+  except
+    // Se falhar na conversão, data inválida
+    Result := False;
+  end;
+end;
+
+function DatasSaoDiferentes(const Data1, Data2: string): Boolean;
+var
+  Data1Convertida, Data2Convertida: TDateTime;
+begin
+  Result := True;
+
+  // Se ambas forem inválidas, são iguais
+  if not DataValida(Data1) and not DataValida(Data2) then
+    Exit(False);
+
+  // Se uma é válida e outra não, são diferentes
+  if DataValida(Data1) <> DataValida(Data2) then
+    Exit(True);
+
+  // Se ambas são válidas, converte e compara
+  try
+    if Pos('-', Data1) > 0 then
+      Data1Convertida := ISO8601ToDate(Data1)
+    else
+      Data1Convertida := StrToDate(Data1);
+
+    if Pos('-', Data2) > 0 then
+      Data2Convertida := ISO8601ToDate(Data2)
+    else
+      Data2Convertida := StrToDate(Data2);
+
+    Result := Data1Convertida <> Data2Convertida;
+  except
+    Result := True; // Se falhar na conversão, assume que são diferentes
+  end;
+end;
+var
+  qry, qryOld: TFDQuery;
+  ufsigla, OldStatusDocumentacao, OLDUIDIDPMTS, OldDTReal, PEDIDO, OldVistoriaReal, OldIntegracaoReal, OldDocVitoriaReal: string;
+  EmailEnviado: Boolean;
+  servicoEmail: TEmail;
+begin
+  Result := False;
+  EmailEnviado := False;
+
   try
     qry := TFDQuery.Create(nil);
-    qry.connection := FConn;
+    qryOld := TFDQuery.Create(nil);
     try
+      qry.connection := FConn;
+      qryOld.connection := FConn;
+
+      // Primeiro, buscar os valores antigos para comparação
+      with qryOld do
+      begin
+        Active := false;
+        sql.Clear;
+        SQL.Add('SELECT statusdocumentacao, DTReal, vistoriareal, IntegracaoReal, docvitoriareal, pedido, ');
+        SQL.Add('ufsigla, UIDIDPMTS ');
+        SQL.Add('FROM rolloutvivo WHERE UIDIDCPOMRF = :UIDIDCPOMRF');
+        ParamByName('UIDIDCPOMRF').AsString := UIDIDCPOMRF;
+        Open;
+
+        if not IsEmpty then
+        begin
+          OldStatusDocumentacao := FieldByName('statusdocumentacao').AsString;
+          OldDTReal := FieldByName('DTReal').AsString;
+          OldVistoriaReal := FieldByName('vistoriareal').AsString;
+          OldIntegracaoReal := FieldByName('IntegracaoReal').AsString;
+          OldDocVitoriaReal := FieldByName('docvitoriareal').AsString;
+          OLDUIDIDPMTS := FieldByName('UIDIDPMTS').AsString;
+          PEDIDO := FieldByName('pedido').AsString;
+          ufsigla := FieldByName('ufsigla').AsString;
+        end;
+        Close;
+      end;
+
+      // Agora fazer o update
       with qry do
       begin
         Active := false;
@@ -1748,6 +1883,7 @@ begin
         SQL.Add('acessodatasolicitacao=:acessodatasolicitacao,  ');
         SQL.Add('acessosolicitacao=:acessosolicitacao,  ');
         SQL.Add('acessostatus=:acessostatus,  ');
+        SQL.Add('dataimprodutiva=:dataimprodutiva,  ');
         SQL.Add('EntregaPlan=:EntregaPlan,  ');
         SQL.Add('EntregaReal=:EntregaReal,  ');
         SQL.Add('FimInstalacaoPlan=:FimInstalacaoPlan,  ');
@@ -1756,6 +1892,7 @@ begin
         SQL.Add('IntegracaoReal=:IntegracaoReal,  ');
         SQL.Add('Ativacao=:Ativacao,  ');
         SQL.Add('Documentacao=:Documentacao,  ');
+        SQL.Add('InventarioDesinstalacao=:InventarioDesinstalacao,  ');
         SQL.Add('DTPlan=:DTPlan,  ');
         SQL.Add('DTReal=:DTReal,  ');
         SQL.Add('AprovacaoSSV=:AprovacaoSSV,  ');
@@ -1827,6 +1964,12 @@ begin
         ParamByName('acessosolicitacao').AsString := acessosolicitacao;
 
         try
+          ParamByName('dataimprodutiva').AsDateTime := ISO8601ToDate(dataimprodutiva);
+        except
+          ParamByName('dataimprodutiva').AsString := '1899-12-30';
+        end;
+
+        try
           ParamByName('EntregaPlan').AsDateTime := ISO8601ToDate(EntregaPlan);
         except
           ParamByName('EntregaPlan').asstring := '1899-12-30';
@@ -1873,6 +2016,11 @@ begin
         except
           ParamByName('Documentacao').asstring := '1899-12-30';
 
+        end;
+        try
+          ParamByName('InventarioDesinstalacao').AsDateTime := ISO8601ToDate(InventarioDesinstalacao);
+        except
+          ParamByName('InventarioDesinstalacao').asstring := '1899-12-30';
         end;
         try
           ParamByName('DTPlan').AsDateTime := ISO8601ToDate(DTPlan);
@@ -1932,7 +2080,7 @@ begin
           ParamByName('req').asstring := '1899-12-30';
 
         end;
-        
+
         try
           ParamByName('dataexecucaodoc').AsDateTime := ISO8601ToDate(dataexecucaodoc);
         except
@@ -1978,26 +2126,54 @@ begin
         end;
 
         ExecSQL;
-     end;
+      end;
+      servicoEmail := TEmail.Create();
 
-      erro := '';
-      FConn.Commit;
-      result := true;
+      // Na função Editar, modifique as verificações:
+
+      if (selectedOptionStatusDocumentacao = 'Aprovado') and
+         (OldStatusDocumentacao <> 'Aprovado') then
+      begin
+        servicoEmail.EnviarEmailInstalacao(ufsigla, PEDIDO, OLDUIDIDPMTS);
+        EmailEnviado := True;
+      end;
+
+      // DRIVE TEST - Quando DTReal for preenchido e for diferente do anterior
+      if DataValida(DTReal) and DatasSaoDiferentes(DTReal, OldDTReal) then
+      begin
+        servicoEmail.EnviarEmailDriveTest(ufsigla, PEDIDO, OLDUIDIDPMTS, FormatarDataBR(DTReal));
+        EmailEnviado := True;
+      end;
+
+      // VISTORIA (SURVEY) - Quando vistoriareal for preenchido e for diferente do anterior
+      if DataValida(DocVitoriaReal) and DatasSaoDiferentes(DocVitoriaReal, OldDocVitoriaReal) then
+      begin
+        servicoEmail.EnviarEmailSurvey(ufsigla, PEDIDO, OLDUIDIDPMTS, FormatarDataBR(DocVitoriaReal));
+        EmailEnviado := True;
+      end;
+
+      // LEGADO - Quando IntegracaoReal for preenchido e for diferente do anterior
+      if DataValida(IntegracaoReal)  and DatasSaoDiferentes(IntegracaoReal, OldIntegracaoReal)  then
+      begin
+        servicoEmail.EnviarEmailLegado(ufsigla, PEDIDO, OLDUIDIDPMTS, FormatarDataBR(IntegracaoReal));
+        EmailEnviado := True;
+      end;
+
     except
       on ex: exception do
       begin
         FConn.Rollback;
         erro := 'Erro ao salvar projeto TELEFONICA: ' + ex.Message;
+        Writeln(ex.Message);
         Result := false;
       end;
     end;
 
   finally
     qry.Free;
+    qryOld.Free;
   end;
 end;
-
-
 
 function TProjetotelefonica.EditarEmMassa(const AJsonBody: string; out erro: string): Boolean;
 var
@@ -2132,6 +2308,8 @@ begin
     if Assigned(jsonParams.GetValue('acessostatus')) then
       updateParts.Add('acessostatus = :acessostatus');
 
+    if Assigned(jsonParams.GetValue('dataimprodutiva')) then
+      updateParts.Add('dataimprodutiva = :dataimprodutiva');
 
     if Assigned(jsonParams.GetValue('endereco')) then
       updateParts.Add('endereco = :endereco');
@@ -2347,6 +2525,12 @@ begin
         qry.ParamByName('acessostatus').AsString := jsonParams.GetValue('acessostatus').Value;
 
       // Campos do tipo data
+      if Assigned(jsonParams.GetValue('dataimprodutiva')) then
+        try
+          qry.ParamByName('dataimprodutiva').AsDateTime := ISO8601ToDate(jsonParams.GetValue('dataimprodutiva').Value);
+        except
+          qry.ParamByName('dataimprodutiva').Clear;
+        end;
       if Assigned(jsonParams.GetValue('acessodatasolicitacao')) then
         try
           qry.ParamByName('acessodatasolicitacao').AsDateTime := ISO8601ToDate(jsonParams.GetValue('acessodatasolicitacao').Value);
@@ -2489,10 +2673,10 @@ begin
         SQL.Clear;
         SQL.Add('insert into telefonicacontrolet2(empresa, regional, site,itemt2,codfornecedor,fabricante,numerodocontrato,t2codmatservsw,t2descricaocod,vlrunitarioliqliq, ');
         SQL.Add('vlrunitarioliq,quant,unid,vlrunitariocimposto,vlrcimpsicms,vlrtotalcimpostos,itemt4,t4codeqmatswserv,t4descricaocod, ');
-        SQL.Add('pepnivel2,idlocalidade,pepnivel3,descricaoobra,idobra,enlace,gestor,tipo,responsavel,categoria,tecnologia) ');
+        SQL.Add('pepnivel2,idlocalidade,pepnivel3,descricaoobra,idobra,enlace,gestor,tipo,responsavel,categoria,tecnologia,datainclusao) ');
         SQL.Add('                         values(:empresa,:regional, :site,:itemt2,:codfornecedor,:fabricante,:numerodocontrato,:t2codmatservsw,:t2descricaocod,:vlrunitarioliqliq, ');
         SQL.Add(':vlrunitarioliq,:quant,:unid,:vlrunitariocimposto,:vlrcimpsicms,:vlrtotalcimpostos,:itemt4,:t4codeqmatswserv,:t4descricaocod, ');
-        SQL.Add(':pepnivel2,:idlocalidade,:pepnivel3,:descricaoobra,:idobra,:enlace,:gestor,:tipo,:responsavel,:categoria,:tecnologia) ');
+        SQL.Add(':pepnivel2,:idlocalidade,:pepnivel3,:descricaoobra,:idobra,:enlace,:gestor,:tipo,:responsavel,:categoria,:tecnologia,:datainclusao) ');
         ParamByName('empresa').AsString := qry.fieldbyname('empresa').asstring;
         ParamByName('site').AsString := qry1.fieldbyname('PMO_sigla').asstring;
         ParamByName('itemt2').AsString := '0';
@@ -2525,6 +2709,7 @@ begin
         ParamByName('responsavel').AsString := '';
         ParamByName('categoria').AsString := '';
         ParamByName('tecnologia').AsString := qry1.fieldbyname('PMO_TECN_EQUIP').asstring;
+        ParamByName('datainclusao').AsDateTime := Now;
         ExecSQL;
 
         cont := 0;
@@ -2819,6 +3004,9 @@ begin
         ParamByName('totaldehoras').AsFloat := totalhorasclt;
 
         ExecSQL;
+        if qry.RowsAffected = 0 then
+          raise Exception.Create('Nenhuma linha inserida');
+
       end;
 
       FConn.Commit;
@@ -2828,6 +3016,7 @@ begin
       begin
         FConn.Rollback;
         erro := 'Erro ao fazer lançamento: ' + ex.Message;
+        Writeln(erro);
         Result := False;
       end;
     end;
@@ -3955,10 +4144,10 @@ begin
     begin
       Active := false;
       SQL.Clear;
-      SQL.Add('Select ');
-      SQL.Add('* ');
-      SQL.Add('From ');
-      SQL.Add('telefonicacontrolet2 where IDObra=:idpmts ');
+      SQL.Add('Select');
+      SQL.Add('  telefonicacontrolet2.*');
+      SQL.Add('From');
+      SQL.Add('  telefonicacontrolet2 where IDObra=:idpmts');
       ParamByName('idpmts').asstring := AQuery.Items['idpmts'];
       Active := true;
     end;
@@ -4119,11 +4308,12 @@ begin
       SQL.Add('EAPAUTOMATICA, REGIONALEAPINFRA, STATUSMENSALTX, MASTEROBRASTATUSROLLOUT, REGIONALLIBSITEP, REGIONALLIBSITER,');
       SQL.Add('EQUIPAMENTOENTREGAP, REGIONALCARIMBO, RSORSASCI, RSORSASCISTATUS, REGIONALOFENSORDETALHE, VENDORVISTORIA,');
       SQL.Add('VENDORPROJETO, VENDORINSTALADOR, VENDORINTEGRADOR, PMOTECNEQUIP, PMOFREQEQUIP, UIDIDCPOMRF, StatusObra,');
+      SQL.Add('PMOACEITACAO,');
       SQL.Add('EntregaRequest, EntregaPlan, EntregaReal, FimInstalacaoPlan, FimInstalacaoReal, IntegracaoPlan, IntegracaoReal,');
       SQL.Add('Ativacao, Documentacao, DTPlan, DTReal, Rollout, Acionamento, nomedosite, endereco, RSORSADETENTORA, RSORSAIDDETENTORA,');
       SQL.Add('resumodafase, infravivo, Equipe, docaplan, deliverypolan, OV, ACESSO, t2instalacao, NUMERODAREQ, NUMEROT2, PEDIDO,');
       SQL.Add('T2VISTORIA, NUMERODAREQVISTORIA, NUMEROT2VISTORIA, PEDIDOVISTORIA, id, infra, ddd, LATITUDE, LONGITUDE,');
-      SQL.Add('acessoobs, acessosolicitacao, acessodatasolicitacao, acessodatainicial, acessodatafinal, acessostatus,  acompanhamentofisicoobservacao,');
+      SQL.Add('acessoobs, acessosolicitacao, acessodatasolicitacao, acessodatainicial, acessodatafinal, acessostatus,  acompanhamentofisicoobservacao,');SQL.Add('acessoobs, acessosolicitacao, acessodatasolicitacao, acessodatainicial, acessodatafinal, acessostatus, dataimprodutiva,  acompanhamentofisicoobservacao,');
       SQL.Add('acessoatividade, acessocomentario, acessooutros, acessoformaacesso, vistoriaplan, vistoriareal, docplan, docvitoriareal, req, deletado, rtt, rttdata,');
       SQL.Add('initialtunningplan, initialtunningreal, initialtunnigstatus, InitialTunningRealFinal, AprovacaoSSV, StatusAprovacaoSSV, observacaodocumentacao,datapostagemdocvdvm,dataexecucaodocvdvm,statusdocumentacao,datapostagemdoc    ,dataexecucaodoc    ');
       SQL.Add('FROM rolloutvivo');
@@ -4670,6 +4860,7 @@ begin
       SQL.Add('rolloutvivo.acessodatasolicitacao, ');
       SQL.Add('rolloutvivo.acessodatainicial, ');
       SQL.Add('rolloutvivo.acessodatafinal, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.dataimprodutiva, ''%Y-%m-%d'') as dataimprodutiva, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.EntregaPlan, ''%Y-%m-%d'') as EntregaPlan, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.EntregaReal, ''%Y-%m-%d'') as EntregaReal, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.FimInstalacaoPlan, ''%Y-%m-%d'') as FimInstalacaoPlan, ');
@@ -4678,6 +4869,7 @@ begin
       SQL.Add('DATE_FORMAT(rolloutvivo.IntegracaoReal, ''%Y-%m-%d'') as IntegracaoReal, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.Ativacao, ''%Y-%m-%d'') as Ativacao, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.Documentacao, ''%Y-%m-%d'') as Documentacao, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.InventarioDesinstalacao, ''%Y-%m-%d'') as InventarioDesinstalacao, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.DTPlan, ''%Y-%m-%d'') as DTPlan, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.DTReal, ''%Y-%m-%d'') as DTReal, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.AprovacaoSSV, ''%Y-%m-%d'') as AprovacaoSSV, ');
@@ -4696,6 +4888,7 @@ begin
       SQL.Add('rolloutvivo.acompanhamentofisicoobservacao, ');
       SQL.Add('UPPER(rolloutvivo.StatusObra) as statusobra, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.docaplan, ''%Y-%m-%d'') as docaplan, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAO, ''%Y-%m-%d'') as PMO_ACEITACAO, ');
       SQL.Add('rolloutvivo.OV ');
       SQL.Add(' ');
       SQL.Add('From ');
@@ -4710,6 +4903,7 @@ begin
     on ex: exception do
     begin
       erro := 'Erro ao consultar : ' + ex.Message;
+      Writeln(erro);
       Result := nil;
     end;
   end;
@@ -4757,35 +4951,11 @@ begin
     begin
       Active := false;
       SQL.Clear;
-    {  SQL.Add('select  ');
-      SQL.Add('acionamentovivo.id, ');
-      SQL.Add('gesempresas.nome, ');
-      SQL.Add('consolidadotelefonica.po, ');
-      SQL.Add('consolidadotelefonica.t2codmatservsw, ');
-      SQL.Add('consolidadotelefonica.t2descricaocod, ');
-      SQL.Add('consolidadotelefonica.atividade, ');
-      SQL.Add('consolidadotelefonica.codservico, ');
-      SQL.Add('acionamentovivo.quantidade as qtd, ');
-      SQL.Add('lpuvivo.ts, ');
-      SQL.Add('lpuvivo.brevedescricaoingles, ');
-      SQL.Add('lpuvivo.brevedescricao, ');
-      SQL.Add('lpuvivo.codigolpuvivo, ');
-      SQL.Add('lpuvivo.valorpj, ');
-      SQL.Add('acionamentovivo.dataacionamento, ');
-      SQL.Add('acionamentovivo.observacao, ');
-      SQL.Add('acionamentovivo.dataenvioemail ');
-      SQL.Add('from ');
-      SQL.Add('acionamentovivo inner join ');
-      SQL.Add('gesempresas on gesempresas.idempresa = acionamentovivo.idcolaborador inner join ');
-      SQL.Add('consolidadotelefonica on consolidadotelefonica.id = acionamentovivo.idatividade inner join ');
-      SQL.Add('lpuvivo on acionamentovivo.idpacote = lpuvivo.id where acionamentovivo.idrollout =:idr and  acionamentovivo.deletado = 0  ');
-
-      }
-
-
+    
       SQL.Add('select  ');
       SQL.Add('acionamentovivo.id, ');
       SQL.Add('gesempresas.nome, ');
+      SQL.Add('gesusuario.nome as usuario, ');
       SQL.Add('telefonicacontrolet2.po, ');
       SQL.Add('telefonicacontrolet2.t2codmatservsw, ');
       SQL.Add('telefonicacontrolet2.t2descricaocod, ');
@@ -4803,6 +4973,7 @@ begin
       SQL.Add('from ');
       SQL.Add('acionamentovivo inner join ');
       SQL.Add('gesempresas on gesempresas.idempresa = acionamentovivo.idcolaborador left join ');
+      SQL.Add('gesusuario on gesusuario.idusuario = acionamentovivo.idfuncionario left join ');
       SQL.Add('telefonicacontrolet2 on telefonicacontrolet2.id = acionamentovivo.idatividade inner join ');
       SQL.Add('lpuvivo on acionamentovivo.idpacote = lpuvivo.id where acionamentovivo.idrollout =:idr and  acionamentovivo.deletado = 0 ');
       ParamByName('idr').asstring := AQuery.Items['idrollout'];
@@ -4814,7 +4985,9 @@ begin
   except
     on ex: exception do
     begin
+
       erro := 'Erro ao consultar : ' + ex.Message;
+      Writeln(erro);
       Result := nil;
     end;
   end;
@@ -4855,6 +5028,7 @@ begin
       SQL.Add('rolloutvivo.IntegracaoReal, ');
       SQL.Add('rolloutvivo.Ativacao, ');
       SQL.Add('rolloutvivo.Documentacao, ');
+      SQL.Add('rolloutvivo.InventarioDesinstalacao, ');
       SQL.Add('rolloutvivo.DTPlan, ');
       SQL.Add('rolloutvivo.DTReal, ');
       SQL.Add('rolloutvivo.AprovacaoSSV, ');
@@ -4864,19 +5038,20 @@ begin
       SQL.Add('rolloutvivo.InitialTunningPlan, ');
       SQL.Add('rolloutvivo.InitialTunningReal, ');
       SQL.Add('rolloutvivo.InitialTunningRealFinal, ');
+      SQL.Add('rolloutvivo.initialtunnigstatus, ');
+      SQL.Add('rolloutvivo.dataimprodutiva, ');
       SQL.Add('rolloutvivo.StatusObra, ');
       SQL.Add('lpuvivo.codigolpuvivo, ');
       SQL.Add('acionamentovivo.fechamento, ');
       SQL.Add('acionamentovivo.porcentagem,  ');
-      SQL.Add('rolloutvivo.deletado ');
+      SQL.Add('rolloutvivo.deletado, ');
+      SQL.Add('acionamentovivo.deletado as acionamentovivodeletado ');
       SQL.Add('From ');
       SQL.Add('acionamentovivo left Join ');
       SQL.Add('telefonicacontrolet2 On telefonicacontrolet2.ID = acionamentovivo.idatividade left Join ');
       SQL.Add('lpuvivo On lpuvivo.ID = acionamentovivo.idpacote left Join ');
       SQL.Add('gesempresas On gesempresas.idempresa = acionamentovivo.idcolaborador left Join ');
       SQL.Add('rolloutvivo On rolloutvivo.UIDIDPMTS = acionamentovivo.idpmts ');
-      SQL.Add('Where ');
-      SQL.Add('acionamentovivo.deletado = 0 ');
       Active := true;
     end;
     erro := '';
@@ -4929,6 +5104,7 @@ begin
       Add('rolloutvivo.IntegracaoReal AS IntegracaoReal, ');
       Add('rolloutvivo.Ativacao AS Ativacao, ');
       Add('rolloutvivo.Documentacao AS Documentacao, ');
+      Add('rolloutvivo.InventarioDesinstalacao AS InventarioDesinstalacao, ');
       Add('rolloutvivo.DTPlan AS DTPlan, ');
       Add('rolloutvivo.DTReal AS DTReal, ');
       Add('rolloutvivo.AprovacaoSSV AS AprovacaoSSV, ');
@@ -4941,6 +5117,7 @@ begin
       Add('acionamentovivo.idcolaborador AS idcolaborador, ');
       Add('telefonicapagamento.tipopagamento  AS status, ');
       Add('coalesce(Sum(telefonicapagamento.valorpagamento),0) As valorpago, ');
+      Add('max(telefonicapagamento.observacao) as observacao, ');
       Add('coalesce(Sum(telefonicapagamento.porcentagem),0) As porcentagem ');
       Add('FROM acionamentovivo ');
       Add('LEFT JOIN telefonicapagamento ON telefonicapagamento.idacionamentovivo = acionamentovivo.id ');
@@ -5016,6 +5193,7 @@ begin
       Add('rolloutvivo.integracaoreal,  ');
       Add('rolloutvivo.ativacao,  ');
       Add('rolloutvivo.documentacao,  ');
+      Add('rolloutvivo.inventariodesinstalacao,  ');
       Add('rolloutvivo.dtreal,  ');
       Add('rolloutvivo.aprovacaossv,  ');
       Add('rolloutvivo.statusaprovacaossv,  ');
@@ -5027,6 +5205,7 @@ begin
       Add('telefonicapagamento.porcentagem,  ');
       Add('telefonicapagamento.valorpagamento,  ');
       Add('telefonicapagamento.datapagamento,  ');
+      Add('telefonicapagamento.observacao,  ');
       Add('telefonicapagamento.tipopagamento  ');
       Add('from  ');
       Add('telefonicapagamento left join  ');
@@ -5145,6 +5324,8 @@ begin
       SQL.Add('  telefonicacontrolet2.T2CODMATSERVSW, ');
       SQL.Add('  telefonicacontrolet2.T2DESCRICAOCOD, ');
       SQL.Add('  gespessoa.nome, ');
+      SQL.Add('  gesusuario.nome AS usuario, ');
+      SQL.Add('  acionamentovivoclt.valor, ');
       SQL.Add('  acionamentovivoclt.dataacionamento, ');
       SQL.Add('  acionamentovivoclt.atividade, ');
       SQL.Add('  acionamentovivoclt.dataincio, ');
@@ -5153,6 +5334,7 @@ begin
       SQL.Add('  acionamentovivoclt ');
       SQL.Add('LEFT JOIN telefonicacontrolet2 ON telefonicacontrolet2.id = acionamentovivoclt.idatividade ');
       SQL.Add('LEFT JOIN gespessoa ON gespessoa.idpessoa = acionamentovivoclt.idcolaborador ');
+      SQL.Add('LEFT JOIN gesusuario ON gesusuario.idusuario = acionamentovivoclt.idfuncionario ');
       SQL.Add('WHERE ');
       SQL.Add('  acionamentovivoclt.deletado = 0 ');
 
@@ -5322,6 +5504,11 @@ begin
       SQL.Add('rolloutvivo.VistoriaReal, ');
       SQL.Add('rolloutvivo.InitialTunningPlan, ');
       SQL.Add('rolloutvivo.InitialTunningReal, ');
+      SQL.Add('rolloutvivo.InitialTunningRealFinal, ');
+      SQL.Add('rolloutvivo.initialtunnigstatus, ');
+      SQL.Add('rolloutvivo.AprovacaoSSV, ');
+      SQL.Add('rolloutvivo.StatusAprovacaoSSV, ');
+      SQL.Add('rolloutvivo.DataImprodutiva, ');
       SQL.Add('rolloutvivo.StatusObra, ');
       SQL.Add('lpuvivo.codigolpuvivo, ');
       SQL.Add('acionamentovivo.fechamento, ');

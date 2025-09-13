@@ -20,6 +20,29 @@ const exportExcel = ({ excelData, fileName }) => {
     });
 
     worksheet['!cols'] = colWidths;
+
+    if (
+      Array.isArray(jsonData) &&
+      jsonData.length > 0 &&
+      jsonData.some((row) => 'acionamentovivodeletado' in row)
+    ) {
+      jsonData.forEach((row, rowIndex) => {
+        if (row.acionamentovivodeletado === 'SIM') {
+          columns.forEach((col, colIndex) => {
+            const cellAddress = XLSX.utils.encode_cell({ r: rowIndex + 1, c: colIndex });
+            const cell = worksheet[cellAddress];
+
+            if (cell) {
+              cell.s = {
+                fill: { patternType: 'solid', fgColor: { rgb: 'FFB71C1C' } },
+                font: { color: { rgb: 'FFFFFFFF' }, bold: true },
+              };
+            }
+          });
+        }
+      });
+    }
+
     return worksheet;
   };
 

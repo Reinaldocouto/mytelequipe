@@ -25,7 +25,6 @@ import {
   ptBR,
 } from '@mui/x-data-grid';
 import { debounce } from 'lodash';
-
 import Pagination from '@mui/material/Pagination';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
@@ -84,7 +83,12 @@ const Rollouttelefonicaedicao = ({
   const [pacotes, setpacotes] = useState([]);
   const [pacotesacionadospj, setpacotesacionadospj] = useState([]);
   const [atividades, setatividades] = useState([]);
-  const [paginationModel, setPaginationModel] = useState({ pageSize: 5, page: 0 });
+  const [paginationModelAcompanhamentoFinanceiro, setPaginationModelAcompanhamentoFinanceiro] =
+    useState({ pageSize: 5, page: 0 });
+  const [paginationModelFinanceiro, setPaginationModelFinanceiro] = useState({
+    pageSize: 5,
+    page: 0,
+  });
   const [paginationModelatividade, setPaginationModelatividade] = useState({
     pageSize: 5,
     page: 0,
@@ -109,6 +113,7 @@ const Rollouttelefonicaedicao = ({
   const [rowSelectionModel, setRowSelectionModel] = useState([]);
   const [colaboradorlistapj, setcolaboradorlistapj] = useState([]);
   const [rowSelectionModelpacotepj, setRowSelectionModelpacotepj] = useState([]);
+  const [rowSelectionModelFinanceiro, setRowSelectionModelFinanceiro] = useState([]);
   const [valornegociado, setvalornegociado] = useState(0);
   const [idcolaboradorpj, setidcolaboradorpj] = useState('');
   const [colaboradorpj, setcolaboradorpj] = useState('');
@@ -156,6 +161,7 @@ const Rollouttelefonicaedicao = ({
   const [integracaoreal, setintegracaoreal] = useState('');
   const [ativacao, setativacao] = useState('');
   const [documentacao, setdocumentacao] = useState('');
+  const [inventariodesinstalacao, setinventariodesinstalacao] = useState('');
   const [dtplan, setdtplan] = useState('');
   const [initialtunningstatus, setinitialtunningstatus] = useState('');
   const [initialtunningreal, setinitialtunningreal] = useState('');
@@ -210,7 +216,7 @@ const Rollouttelefonicaedicao = ({
   const [equipe, setequipe] = useState('');
   const [tarefaedicao, settarefaedicao] = useState(false);
   const [usuario, setusuario] = useState('');
-  const [valorTotal, setValorTotal] = useState();
+  const [valorTotal, setValorTotal] = useState(0);
   const [despesas, setdespesas] = useState([]);
   const [telaexclusaosolicitacao, settelaexclusaosolicitacao] = useState('');
   const [observacaoDocumentacao, setObservacaoDocumentacao] = useState('');
@@ -222,6 +228,7 @@ const Rollouttelefonicaedicao = ({
   const [dataPostagemDocVDVM, setDataPostagemDocVDVM] = useState();
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [permissionStorage, setPermssionStorage] = useState();
+  const [selectedRowsPackage, setSelectedRowsPackage] = useState([]);
 
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
@@ -332,7 +339,7 @@ const Rollouttelefonicaedicao = ({
   const handleChangelpu = (stat) => {
     if (stat !== null) {
       if (stat.label === 'NEGOCIADO') {
-        if (usuario !== '33' && usuario !== '35' && usuario !== '78' && usuario !== '51') {
+        if (usuario !== '33' && usuario !== '35' && usuario !== '78') {
           setlpuhistorico('');
           setselectedoptionlpu({ value: null, label: null });
           toast.warning('Você não tem permissão para acionar PJ com valor negociado.');
@@ -395,6 +402,7 @@ const Rollouttelefonicaedicao = ({
         setvistoriareal(trataData(response.data.vistoriareal));
         setativacao(trataData(response.data.ativacao));
         setdocumentacao(trataData(response.data.documentacao));
+        setinventariodesinstalacao(trataData(response.data.inventariodesinstalacao));
         setdocplan(trataData(response.data.docplan));
         setdocvitoriareal(trataData(response.data.docvitoriareal));
         setdtplan(trataData(response.data.dtplan));
@@ -481,7 +489,30 @@ const Rollouttelefonicaedicao = ({
         },
       });
       setdespesas(response.data.dados);
-      setValorTotal(response.data[0].totalsomado);
+      const parseValor = (valor) => {
+        if (typeof valor === 'number') return valor;
+        if (typeof valor === 'string') {
+          const num = parseFloat(
+            valor
+              .replace(/[^0-9,-]/g, '')
+              .replace(/\./g, '')
+              .replace(',', '.'),
+          );
+          return Number.isNaN(num) ? 0 : num;
+        }
+        return 0;
+      };
+      const itensOriginais = response.data.dados || response.data || [];
+      const itens = itensOriginais.map((item) => ({
+        ...item,
+        id: item.id ?? item.iddespesa ?? item.iditem,
+        valor: parseValor(item.valor),
+      }));
+      setdespesas(itens);
+      const ids = itens.map((item) => item.id);
+      setRowSelectionModelFinanceiro(ids);
+      const total = itens.reduce((acc, item) => acc + item.valor, 0);
+      setValorTotal(total);
     } catch (err) {
       console.error(err.message);
     }
@@ -835,10 +866,23 @@ const Rollouttelefonicaedicao = ({
          editable: false,
        }, */
     {
+      field: 'datainclusao',
+      headerName: 'Data de Inclusão',
+      width: 150,
+      align: 'center',
+      editable: false,
+      valueFormatter: ({ value }) => {
+        if (!value) return '';
+        const s = String(value).slice(0, 10);
+        const [y, m, d] = s.split('-');
+        return d && m && y ? `${d}/${m}/${y}` : '';
+      },
+    },
+    {
       field: 'quant',
       headerName: 'QTD',
       width: 80,
-      align: 'left',
+      align: 'center',
       type: 'number',
       editable: true,
     },
@@ -1164,6 +1208,14 @@ const Rollouttelefonicaedicao = ({
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
+      field: 'nome1',
+      headerName: 'ACIONADO POR',
+      width: 200,
+      align: 'left',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
       field: 'po',
       headerName: 'PO',
       width: 120,
@@ -1205,6 +1257,20 @@ const Rollouttelefonicaedicao = ({
       width: 140,
       align: 'left',
       editable: false,
+    },
+    {
+      field: 'valorpj',
+      headerName: 'VALOR',
+      width: 120,
+      align: 'right',
+      editable: false,
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? parametros.value.toLocaleString('pt-BR', {
+              style: 'currency',
+              currency: 'BRL',
+            })
+          : '',
     },
     {
       field: 'dataacionamento',
@@ -1259,6 +1325,14 @@ const Rollouttelefonicaedicao = ({
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
+      field: 'nome1',
+      headerName: 'ACIONADO POR',
+      width: 200,
+      align: 'left',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
       field: 'po',
       headerName: 'PO',
       width: 120,
@@ -1279,6 +1353,20 @@ const Rollouttelefonicaedicao = ({
       align: 'left',
       editable: false,
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'valor',
+      headerName: 'VALOR',
+      width: 120,
+      align: 'right',
+      editable: false,
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? parametros.value.toLocaleString('pt-BR', {
+              style: 'currency',
+              currency: 'BRL',
+            })
+          : '',
     },
     {
       field: 'dataincio',
@@ -1505,12 +1593,15 @@ const Rollouttelefonicaedicao = ({
         return false; // <- retorno consistente
       }
     }
+    const { t2descricaocod } = atividades.find((result) => result.id === atividadeid);
+    const tipoInstalacao = t2descricaocod.split('-').pop().trim();
 
     try {
       const response = await api.post('v1/projetotelefonica/acionamentopj', {
         idrollout: idr,
         idatividade: atividadeid,
         idpacote: pacoteid,
+        tipoInstalacao,
         idcolaborador: idcolaboradorpj,
         idpmts: uididpmts,
         quantidade,
@@ -1544,7 +1635,8 @@ const Rollouttelefonicaedicao = ({
       return;
     }
     console.log(rowSelectionModel);
-    const { po } = atividades.find((result) => result.id === atividadeid);
+    const { po, t2descricaocod } = atividades.find((result) => result.id === atividadeid);
+    const tipoInstalacao = t2descricaocod.split('-').pop().trim();
     api
       .post('v1/projetotelefonica/acionamentoclt', {
         idrollout: idr,
@@ -1558,6 +1650,7 @@ const Rollouttelefonicaedicao = ({
         observacaoclt,
         horanormalclt,
         hora50clt,
+        tipoInstalacao,
         hora100clt,
         po,
         idfuncionario: localStorage.getItem('sessionId'),
@@ -1815,6 +1908,7 @@ const Rollouttelefonicaedicao = ({
           destinatario1: colaboradoremail,
           colaborador: idcolaboradorpj,
           uididpmts,
+          ids: selectedRowsPackage.join(','),
           assunto: `ACIONAMENTO SIRIUS TELEFONICA ${pmoregional} ${colaboradorpj} ${ufsigla} - ${uididpmts}`,
           idusuario: localStorage.getItem('sessionId'),
         })
@@ -2438,7 +2532,6 @@ const Rollouttelefonicaedicao = ({
                     <option value="LIBERADO">LIBERADO</option>
                     <option value="PEDIR">PEDIR</option>
                     <option value="REJEITADO">REJEITADO</option>
-                    <option value="SSV ENTREGUE">SSV ENTREGUE</option>
                   </Input>
                 </div>
               </div>
@@ -2465,9 +2558,8 @@ const Rollouttelefonicaedicao = ({
                       NoRowsOverlay: CustomNoRowsOverlay,
                     }}
                     localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
-                    // Usa estado para controlar a paginação dinamicamente
-                    paginationModel={paginationModel}
-                    onPaginationModelChange={setPaginationModel}
+                    paginationModel={paginationModelAcompanhamentoFinanceiro}
+                    onPaginationModelChange={setPaginationModelAcompanhamentoFinanceiro}
                   />
                 </Box>
               </div>
@@ -2529,6 +2621,14 @@ const Rollouttelefonicaedicao = ({
                       onChange={(e) => setDataPostagemDocVDVM(e.target.value)}
                       value={dataPostagemDocVDVM}
                       placeholder=""
+                    />
+                  </div>
+                  <div className="col-sm-2">
+                    Data Inventário Desinstalação
+                    <Input
+                      type="date"
+                      onChange={(e) => setinventariodesinstalacao(e.target.value)}
+                      value={inventariodesinstalacao}
                     />
                   </div>
                   <div className="col-sm-12 mb-4">
@@ -2725,6 +2825,7 @@ const Rollouttelefonicaedicao = ({
                     value={documentacao}
                   />
                 </div>
+
                 <div className="col-sm-2">
                   Initial Tunning Real Início
                   <Input
@@ -2826,7 +2927,7 @@ const Rollouttelefonicaedicao = ({
                   Status Obra
                   <Input
                     type="select"
-                    name="statusacesso"
+                    name="statusobra"
                     onChange={(e) => setstatusobra(e.target.value)}
                     value={statusobra}
                   >
@@ -2843,6 +2944,7 @@ const Rollouttelefonicaedicao = ({
                     <option value="PARALISADO">PARALISADO</option>
                     <option value="PLANEJAMENTO">PLANEJAMENTO</option>
                     <option value="PROG. INTEGRAÇÃO">PROG. INTEGRAÇÃO</option>
+                    <option value="SSV ENTREGUE">SSV ENTREGUE</option>
                     <option value="VISTORIA">VISTORIA</option>
                   </Input>
                 </div>
@@ -3112,10 +3214,7 @@ const Rollouttelefonicaedicao = ({
 
                 {lpuhistorico === 'NEGOCIADO' && (
                   <>
-                    {(usuario === '33' ||
-                      usuario === '35' ||
-                      usuario === '78' ||
-                      usuario === '51') && (
+                    {(usuario === '33' || usuario === '35' || usuario === '78') && (
                       <div className="col-sm-2">
                         Valor Negociado
                         <NumericFormat
@@ -3207,6 +3306,7 @@ const Rollouttelefonicaedicao = ({
                     rows={pacotesacionadospj}
                     columns={colunaspacotesacionados}
                     loading={loading}
+                    checkboxSelection
                     disableSelectionOnClick
                     experimentalFeatures={{ newEditingApi: true }}
                     components={{
@@ -3218,6 +3318,10 @@ const Rollouttelefonicaedicao = ({
                     // Usa estado para controlar a paginação dinamicamente
                     paginationModel={paginationModelacionados}
                     onPaginationModelChange={setPaginationModelacionados}
+                    onRowSelectionModelChange={(newSelection) => {
+                      setSelectedRowsPackage(newSelection);
+                    }}
+                    rowSelectionModel={selectedRowsPackage}
                   />
                 </Box>
                 <br></br>
@@ -3366,9 +3470,18 @@ const Rollouttelefonicaedicao = ({
           <div>
             <b>Financeiro</b>
             <hr style={{ marginTop: '0px', width: '100%' }} />
-            <div className="col-sm-12 mt-3 mb-3">
+            <div className="col-sm-12 mt-3 mb-3 d-flex justify-content-between">
+              <p className="text-muted text-sm mt-2">
+                {rowSelectionModelFinanceiro.length} linhas selecionadas
+              </p>
               <p className="text-end text-muted text-sm mt-2">
-                Valor total: <strong>R$ {valorTotal ? Number(valorTotal)?.toFixed(2) : 0}</strong>
+                Valor total:{' '}
+                <strong>
+                  {(valorTotal ?? 0).toLocaleString('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL',
+                  })}
+                </strong>
               </p>
             </div>
             <div className="row g-3">
@@ -3379,6 +3492,15 @@ const Rollouttelefonicaedicao = ({
                     columns={colunasFinanceiro}
                     loading={loading}
                     disableSelectionOnClick
+                    checkboxSelection
+                    rowSelectionModel={rowSelectionModelFinanceiro}
+                    onRowSelectionModelChange={(newSelection) => {
+                      setRowSelectionModelFinanceiro(newSelection);
+                      const total = despesas
+                        .filter((row) => newSelection.includes(row.id))
+                        .reduce((acc, row) => acc + (Number(row.valor) || 0), 0);
+                      setValorTotal(total);
+                    }}
                     experimentalFeatures={{ newEditingApi: true }}
                     components={{
                       Pagination: CustomPagination,
@@ -3386,8 +3508,8 @@ const Rollouttelefonicaedicao = ({
                       NoRowsOverlay: CustomNoRowsOverlay,
                     }}
                     localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
-                    paginationModel={paginationModel}
-                    onPaginationModelChange={setPaginationModelmaterialservico}
+                    paginationModel={paginationModelFinanceiro}
+                    onPaginationModelChange={setPaginationModelFinanceiro}
                   />
                 </Box>
               </div>

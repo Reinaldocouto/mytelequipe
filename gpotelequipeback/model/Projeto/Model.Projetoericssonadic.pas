@@ -522,7 +522,14 @@ begin
         Add('AND m.valorafaturar = :valorafaturar');
         TemFiltro := True;
       end;
-
+      if AQuery.ContainsKey('apartirododiadatacriacaopo')
+       and (Trim(AQuery.Items['apartirododiadatacriacaopo']) <> '') then
+      begin
+        Add(' AND m.datacriacaopo BETWEEN '
+          + QuotedStr(AQuery.Items['apartirododiadatacriacaopo'])
+          + ' AND CURRENT_DATE() ');
+        TemFiltro := True;
+      end;
       // Filtros específicos
      if not TemFiltro then
     begin
@@ -618,10 +625,6 @@ begin
 
     if AQuery.ContainsKey('valorafaturar') and (AQuery.Items['valorafaturar'].Trim > '') then
       qry.ParamByName('valorafaturar').AsString := AQuery.Items['valorafaturar'];
-
-
-    Writeln(qry.SQL.Text);
-
     qry.Open;
     erro := '';
     Result := qry;

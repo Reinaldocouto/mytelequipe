@@ -156,10 +156,10 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
     try {
       const response = await api.get('v1/projetotelefonica/listaacionamentosf', {
         params: {
+          ...params,
           fechamento: null,
           diafec: null,
           mespagamento: null,
-          ...params,
         },
       });
 
@@ -224,6 +224,14 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
        lista();
      }, []);  */
 
+  const iniciatabelas = () => {
+    setporcentagemg(100);
+    lista();
+    listahistorico();
+    if (1 === 0) {
+      console.log(setgeralfechamento(0));
+    }
+  };
   useEffect(() => {
     if (datapagamento) {
       Numerosemana();
@@ -240,7 +248,7 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
       editable: false,
     },
     {
-      field: 'regional',
+      field: 'pmoregional',
       headerName: 'REGIONAL',
       width: 100,
       align: 'left',
@@ -298,11 +306,12 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
       editable: false,
     },
     {
-      field: 'tarefas',
+      field: 'brevedescricao',
       headerName: 'TAREFAS',
       width: 350,
-      align: 'left',
       type: 'string',
+      align: 'left',
+
       editable: false,
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
@@ -1374,7 +1383,7 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
         if (response.status === 201) {
           setmensagem('');
           setmensagemsucesso('Registro Salvo');
-          lista();
+          iniciatabelas();
         } else {
           setmensagem(response.status);
           setmensagemsucesso('');
@@ -1407,18 +1416,19 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
       return;
     }
 
+    const selecionados = projeto.filter((row) => selectedIds.includes(row.id));
+    const ultrapassaLimite = selecionados.some(
+      (item) => item.porcentagem * 100 + Number(porcentagemg) > 100,
+    );
+
+    if (ultrapassaLimite) {
+      setmensagem('Pagamento inválido: o valor informado ultrapassa 100% do valor do site.');
+      return;
+    }
+
     selectedIds.forEach((id) => {
       salvapagamento(id);
     });
-  };
-
-  const iniciatabelas = () => {
-    setporcentagemg(100);
-    lista();
-    listahistorico();
-    if (1 === 0) {
-      console.log(setgeralfechamento(0));
-    }
   };
 
   const gerarexcelpag = () => {
@@ -1459,7 +1469,7 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
 
       return {
         IDMPTS: item.idpmts,
-        REGIONAL: item.regional,
+        REGIONAL: item.pmoregional,
         PO: item.po,
         PMOSIGLA: item.pmosigla,
         UFSIGLA: item.ufsigla,

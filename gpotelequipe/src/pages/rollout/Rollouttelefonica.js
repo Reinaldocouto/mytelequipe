@@ -12,7 +12,7 @@ import {
   ptBR,
   useGridApiRef,
 } from '@mui/x-data-grid';
-import JSZip from 'jszip';
+import { ZipReader, BlobReader, BlobWriter } from '@zip.js/zip.js';
 import EditIcon from '@mui/icons-material/Edit';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 //import DeleteIcon from '@mui/icons-material/Delete';
@@ -293,19 +293,32 @@ const Rollouttelefonica = ({ setshow, show }) => {
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
-      field: 'regionaleapinfra',
-      headerName: 'REGIONAL - EAP - INFRA ',
-      width: 300,
-      align: 'left',
-      type: 'string',
-      editable: false,
-      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
-    },
-    {
-      field: 'statusmensaltx',
-      headerName: 'STATUS-MENSAL-TX',
-      width: 300,
-      align: 'left',
+        field: 'regionaleapinfra',
+        headerName: 'REGIONAL - EAP - INFRA ',
+        width: 300,
+        align: 'left',
+        type: 'string',
+        editable: false,
+        renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+      },
+      {
+        field: 'pmoaceitacao',
+        headerName: 'PMO-ACEITACAO',
+        width: 200,
+        align: 'left',
+        type: 'date',
+        valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+        valueFormatter: (parametros) =>
+          parametros.value
+            ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+            : '',
+        editable: false,
+      },
+      {
+        field: 'statusmensaltx',
+        headerName: 'STATUS-MENSAL-TX',
+        width: 300,
+        align: 'left',
       type: 'string',
       editable: false,
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
@@ -698,6 +711,21 @@ const Rollouttelefonica = ({ setshow, show }) => {
           : '',
       editable: true,
     },
+
+    {
+      field: 'inventariodesinstalacao',
+      headerName: 'Data Inventário Desinstalação',
+      width: 220,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: true,
+    },
+
     {
       field: 'initialtunningreal',
       headerName: 'Initial Tunning Real Início',
@@ -716,6 +744,22 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: !modoVisualizador(),
     },
     {
+      field: 'initialtunningrealfinal',
+      headerName: 'Initial Tunning Real Final',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: ({ value }) => {
+        if (!value) return null;
+        const data = new Date(value);
+        data.setDate(data.getDate() + 1);
+        return data;
+      },
+      valueFormatter: ({ value }) =>
+        value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
+      editable: !modoVisualizador(),
+    },
+    {
       field: 'initialtunnigstatus',
       headerName: 'Initial Tunning Status',
       width: 250,
@@ -723,6 +767,31 @@ const Rollouttelefonica = ({ setshow, show }) => {
       type: 'singleSelect', // muda de string para singleSelect
       editable: true,
       valueOptions: ['ABERTA', 'COMPLETADO_COM_PENDENCIAS', 'COMPLETADO'], // opções do dropdown
+    },
+    {
+      field: 'aprovacaossv',
+      headerName: 'Aprovação de SSV',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: ({ value }) => {
+        if (!value) return null;
+        const data = new Date(value);
+        data.setDate(data.getDate() + 1);
+        return data;
+      },
+      valueFormatter: ({ value }) =>
+        value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
+      editable: !modoVisualizador(),
+    },
+    {
+      field: 'statusaprovacaossv',
+      headerName: 'Status Aprovação de SSV',
+      width: 220,
+      align: 'left',
+      type: 'singleSelect',
+      editable: !modoVisualizador(),
+      valueOptions: ['APROVADO', 'REPROVADO'],
     },
     {
       field: 'dtplan',
@@ -750,6 +819,20 @@ const Rollouttelefonica = ({ setshow, show }) => {
           : '',
       editable: true,
     },
+    {
+      field: 'dataimprodutiva',
+      headerName: 'Data Improdutiva',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: true,
+    },
+
     /*    {
       field: 'entregarequest',
       headerName: 'Entrega Request',
@@ -1136,70 +1219,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       align: 'left',
       type: 'singleSelect',
       editable: true,
-      valueOptions: [
-        'AGUARDANDO',
-        'CANCELADO',
-        'CONCLUIDO',
-        'LIBERADO',
-        'PEDIR',
-        'REJEITADO',
-        'SSV ENTREGUE',
-      ],
-    },
-    {
-      field: 'initialtunningrealfinal',
-      headerName: 'Initial Tunning Real Final',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: ({ value }) => {
-        if (!value) return null;
-        const data = new Date(value);
-        data.setDate(data.getDate() + 1);
-        return data;
-      },
-      valueFormatter: ({ value }) =>
-        value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
-      editable: !modoVisualizador(),
-    },
-    {
-      field: 'dataimprodutiva',
-      headerName: 'Data Improdutiva',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: true,
-    },
-
-    {
-      field: 'aprovacaossv',
-      headerName: 'Aprovação de SSV',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: ({ value }) => {
-        if (!value) return null;
-        const data = new Date(value);
-        data.setDate(data.getDate() + 1);
-        return data;
-      },
-      valueFormatter: ({ value }) =>
-        value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
-      editable: !modoVisualizador(),
-    },
-    {
-      field: 'statusaprovacaossv',
-      headerName: 'Status Aprovação de SSV',
-      width: 220,
-      align: 'left',
-      type: 'singleSelect',
-      editable: !modoVisualizador(),
-      valueOptions: ['APROVADO', 'REPROVADO'],
+      valueOptions: ['AGUARDANDO', 'CANCELADO', 'CONCLUIDO', 'LIBERADO', 'PEDIR', 'REJEITADO'],
     },
   ]);
   const handleConfirmSave = async () => {
@@ -1233,9 +1253,9 @@ const Rollouttelefonica = ({ setshow, show }) => {
     } catch (error) {
       console.error('Erro ao salvar alterações em massa:', error);
       // Opcional: mostrar feedback visual ao usuário
-      setLoading(false);
       toast.error('Falha ao salvar alterações.');
     } finally {
+      setLoading(false);
       setConfirmOpen(false);
     }
   };
@@ -1452,7 +1472,12 @@ const Rollouttelefonica = ({ setshow, show }) => {
         INTEGRACAO_REAL: item.integracaoreal,
         ATIVACAO_REAL: item.ativacao,
         DOCUMENTACAO: item.documentacao,
+        DATA_INVENTARIO_DESINSTALACAO: item.inventariodesinstalacao,
+        DATA_IMPRODUTIVA: item.dataimprodutiva,
         INITIAL_TUNNING_REAL: item.initialtunningreal,
+        INITIAL_TUNNING_REAL_FINAL: item.initialtunningrealfinal,
+        APROVACAO_SSV: item.aprovacaossv,
+        STATUS_APROVACAO_SSV: item.statusaprovacaossv,
         INITIAL_TUNNING_STATUS: item.initialtunningstatus,
         DT_PLAN: item.dtplan,
         DT_REAL: item.dtreal,
@@ -1479,10 +1504,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
         NUMERO_T2_VISTORIA: item.numerot2vistoria,
         PEDIDO_VISTORIA: item.pedidovistoria,
         DELETADO: item.deletado === 1 ? 'SIM' : 'NÃO',
-        INITIAL_TUNNING_REAL_FINAL: item.initialtunningrealfinal,
-        DATA_IMPRODUTIVA: item.dataimprodutiva,
-        APROVACAO_SSV: item.aprovacaossv,
-        STATUS_APROVACAO_SSV: item.statusaprovacaossv,
       }))
       .map(formatDatesBR) // 1. converte datas / zera 1899-12-xx
       .map(upperStrings); // 2. caixa-alta
@@ -1495,21 +1516,24 @@ const Rollouttelefonica = ({ setshow, show }) => {
     if (!file) return;
 
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const zip = await JSZip.loadAsync(arrayBuffer);
+      const reader = new ZipReader(new BlobReader(file));
+      const entries = await reader.getEntries();
 
-      const filesInsideZip = Object.keys(zip.files);
-      if (!filesInsideZip.length) throw new Error('ZIP está vazio');
+      if (!entries.length) throw new Error('ZIP está vazio');
 
       await Promise.all(
-        filesInsideZip.map(async (fileName) => {
-          const match = fileName.match(/BA\d+/);
+        entries.map(async (entry) => {
+          // Regex para BA\d+ ou SP\d+
+          const match = entry.filename.match(/(?:-|_)(BA\d+|[A-Z]{2}\d+)/);
           if (!match) {
-            console.warn(`Código BA não encontrado em: ${fileName}`);
+            console.warn(`Código não encontrado em: ${entry.filename}`);
             return;
           }
-          const identificador = match[0];
+
+          const identificador = match[1] || match[0];
           const prefix = `telequipe/rollout/${identificador}/`;
+
+          // Lista e remove arquivos existentes no S3
           const existingFiles = await s3Service.listFiles(prefix);
           if (existingFiles.length > 0) {
             await Promise.all(
@@ -1519,50 +1543,56 @@ const Rollouttelefonica = ({ setshow, show }) => {
             );
           }
 
-          const zipContent = await zip.files[fileName].async('blob');
-          const innerFile = new File([zipContent], fileName, { type: 'application/zip' });
-          const key = `${prefix}${fileName}`;
+          const blob = await entry.getData(new BlobWriter());
+          const innerFile = new File([blob], entry.filename);
+          const key = `${prefix}${entry.filename}`;
           await s3Service.uploadFile(innerFile, key);
         }),
       );
 
       setFile(null);
-      toast.success(`Arquivo anexado com sucesso`);
+      toast.success('Arquivo anexado com sucesso!');
+      await reader.close();
     } catch (error) {
+      console.error('Erro ao processar ZIP', error);
       toast.error(`Erro ao subir arquivo: ${error}`);
       setFile(null);
-      console.error('Erro ao processar ZIP', error);
     }
   };
 
   const handleChange = async (event) => {
-    const { files } = event.target;
+    const filelocal = event.target.files[0];
+    if (!filelocal) return;
 
-    if (!files || files.length === 0) {
-      toast.warning('Nenhum arquivo selecionado');
-      return;
-    }
-
-    if (files.length > 1) {
-      toast.error('Por favor, selecione apenas um arquivo');
-      return;
-    }
-
-    const selectedFile = files[0];
     try {
-      const arrayBuffer = await selectedFile.arrayBuffer();
-      const zip = await JSZip.loadAsync(arrayBuffer);
+      const reader = new ZipReader(new BlobReader(filelocal));
+      const entries = await reader.getEntries();
 
-      const filesInsideZip = Object.keys(zip.files);
-      const invalidFiles = filesInsideZip.filter((fileName) => !/BA\d+/.test(fileName));
-      if (invalidFiles.length > 0) {
-        toast.warning(`Arquivos sem identificador encontrado: \n${invalidFiles.join('\n')}`);
+      // Pega apenas os nomes dos arquivos
+      const filesInside = entries.map((e) => e.filename);
+
+      const invalidFiles = filesInside.filter((name) => !/([A-Z]{2}\d+)/.test(name));
+      console.log(invalidFiles);
+      if (invalidFiles.length > 1) {
+        toast.warning(`Arquivos sem identificador encontrado:\n${invalidFiles.join('\n')}`);
         return;
       }
-      setFile(selectedFile);
+
+      const sites = filesInside
+        .map((name) => {
+          const match = name.match(/BA\d+|[A-Z]{2}\d+/);
+          return match ? match[0] : null;
+        })
+        .filter(Boolean);
+
+      console.log('Sites extraídos:', sites);
+
+      toast.success('ZIP validado com sucesso!');
+      setFile(filelocal);
+      await reader.close();
     } catch (error) {
       console.error('Erro ao validar ZIP', error);
-      toast.warning('Erro ao processar o arquivo ZIP');
+      toast.error('Erro ao processar arquivo ZIP grande');
     }
   };
 
@@ -2031,6 +2061,10 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       color: 'white',
                     },
                     "& .MuiDataGrid-columnHeader[data-field='documentacao']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='inventariodesinstalacao']": {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
                     },

@@ -3,18 +3,19 @@ import { Card, CardBody, CardTitle, Button, Input, Spinner } from 'reactstrap';
 import { toast, ToastContainer } from 'react-toastify';
 import api from '../../services/api';
 
-const normalizeEmails = (valor) =>
+const normalizeEmails = (valor = '') =>
   valor
     .split(/[;,]+/)
     .map((item) => item.trim())
     .filter((item) => item.length > 0)
     .join(';');
 
-
 const ConfiguracaoDeAvisosEmail = () => {
   const [emailsSolicitacaoDiariaAviso, setEmailsSolicitacaoDiariaAviso] = useState('');
   const [emailmaterial, setemailmaterial] = useState('');
+  const [emailservico, setemailservico] = useState('');
   const [emailfaturamento, setemailfaturamento] = useState('');
+  const [emailFaturamentoTelefonica, setemailFaturamentoTelefonica] = useState('');
 
   const [loading, setLoading] = useState(false);
 
@@ -22,11 +23,11 @@ const ConfiguracaoDeAvisosEmail = () => {
     setLoading(true);
     try {
       await api.post('v1/emails/aviso', {
-         emailsSolicitacaoDiariaAviso: normalizeEmails(
-          emailsSolicitacaoDiariaAviso
-        ),
+        emailsSolicitacaoDiariaAviso: normalizeEmails(emailsSolicitacaoDiariaAviso),
         emailmaterial: normalizeEmails(emailmaterial),
+        emailservico: normalizeEmails(emailservico),
         emailfaturamento: normalizeEmails(emailfaturamento),
+        emailFaturamentoTelefonica: normalizeEmails(emailFaturamentoTelefonica),
       });
 
       toast.success('Salvo com sucesso');
@@ -43,11 +44,10 @@ const ConfiguracaoDeAvisosEmail = () => {
 
   async function loadingTable() {
     const response = await api.get('v1/emails/aviso');
-     setEmailsSolicitacaoDiariaAviso(
-      normalizeEmails(response.data.emaildiaria)
-    );
+    setEmailsSolicitacaoDiariaAviso(normalizeEmails(response.data.emaildiaria));
     setemailmaterial(normalizeEmails(response.data.emailmaterial));
     setemailfaturamento(normalizeEmails(response.data.emailfaturamento));
+    setemailFaturamentoTelefonica(normalizeEmails(response.data.emailfaturamentotelefonica));
   }
   useEffect(() => {
     loadingTable();
@@ -88,9 +88,7 @@ const ConfiguracaoDeAvisosEmail = () => {
                   value={emailsSolicitacaoDiariaAviso}
                 />
               </div>
-
               <br />
-
               <div className="col-sm-12">
                 E-mails de Notificação de Material/Serviço
                 <Input
@@ -103,6 +101,20 @@ const ConfiguracaoDeAvisosEmail = () => {
                   value={emailmaterial}
                 />
               </div>
+              <br />
+              <div className="col-sm-12">
+                E-mails de Notificação de Ordem/Serviço
+                <Input
+                  id="email"
+                  type="text"
+                  placeholder="Digite os e-mails separados por ponto e vírgula"
+                  onChange={(e) => {
+                    setemailservico(e.target.value);
+                  }}
+                  value={emailservico}
+                />
+              </div>
+              <br />
               <div className="col-sm-12">
                 E-mails de Faturamento
                 <Input
@@ -117,6 +129,18 @@ const ConfiguracaoDeAvisosEmail = () => {
               </div>
 
               <br />
+              <div className="col-sm-12">
+                E-mails de Liberação para Faturamento Telefonica
+                <Input
+                  id="email"
+                  type="text"
+                  placeholder="Digite os e-mails separados por ponto e vírgula"
+                  onChange={(e) => {
+                    setemailFaturamentoTelefonica(e.target.value);
+                  }}
+                  value={emailFaturamentoTelefonica}
+                />
+              </div>
               <br />
               {/*  handleSalvar(EmailTipoConst.Diaria, emailsSolicitacaoDiariaAviso)} */}
               <Button color="primary" onClick={ProcessaCadastro} disabled={loading}>

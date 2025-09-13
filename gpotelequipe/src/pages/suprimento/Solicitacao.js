@@ -42,7 +42,7 @@ export default function Solicitacao() {
   const [statussolicitacao, setstatussolicitacao] = useState('');
   const [mensagemsucesso, setmensagemsucesso] = useState('');
 
-  // Parâmetros
+  // Parâmetros para listagem
   const params = {
     busca: pesqgeral,
     status: statussolicitacao,
@@ -52,6 +52,7 @@ export default function Solicitacao() {
     deletado: 0,
   };
 
+  // Paginação personalizada
   function CustomPagination() {
     const apiRef = useGridApiContext();
     const page = useGridSelector(apiRef, gridPageSelector);
@@ -67,6 +68,7 @@ export default function Solicitacao() {
     );
   }
 
+  // Overlay para grid sem dados
   function CustomNoRowsOverlay() {
     return (
       <GridOverlay>
@@ -75,6 +77,7 @@ export default function Solicitacao() {
     );
   }
 
+  // Carrega lista de solicitações
   const listasolicitacao = async () => {
     try {
       setLoading(true);
@@ -88,9 +91,9 @@ export default function Solicitacao() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-
+  // Atender solicitação de material
   const atender = async (stat, qty, produto) => {
     try {
       await api
@@ -126,16 +129,20 @@ export default function Solicitacao() {
     }
   };
 
+  // Abre detalhes
   function detalhesproduto(stat) {
     setteladetalhe(true);
     setididentificador(stat);
     settitulo('Controle de Estoque - Lançamento');
   }
+
+  // Ajusta permissões
   function userpermission() {
     const permissionstorage = JSON.parse(localStorage.getItem('permission'));
     setpermission(permissionstorage.solicitacao === 1);
   }
 
+  // Colunas da tabela
   const columns = [
     {
       field: 'actions',
@@ -160,7 +167,6 @@ export default function Solicitacao() {
         />,
       ],
     },
-    // { field: 'id', headerName: 'Cod', width: 80, align: 'center' },
     { field: 'idsolicitacao', headerName: 'Solicitação', width: 90, align: 'center' },
     {
       field: 'data',
@@ -189,7 +195,9 @@ export default function Solicitacao() {
       width: 200,
       align: 'left',
       editable: false,
-      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+      renderCell: (parametros) => (
+        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
+      ),
     },
     {
       field: 'projeto',
@@ -214,7 +222,9 @@ export default function Solicitacao() {
       width: 250,
       align: 'left',
       editable: false,
-      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+      renderCell: (parametros) => (
+        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
+      ),
     },
     {
       field: 'unidade',
@@ -264,6 +274,7 @@ export default function Solicitacao() {
     },
   ];
 
+  // Insere itens na ordem de compra
   const lancaritens = async (idcompra, idprod, idcompraitem, qntd) => {
     await api
       .post('v1/ordemcompra/itenssolicitacao', {
@@ -295,6 +306,7 @@ export default function Solicitacao() {
       });
   };
 
+  // Novo cadastro de itens
   const novocadastroitens = (idcompra, idprod) => {
     api
       .post('v1/ordemcompra/novocadastroitens', {
@@ -318,16 +330,20 @@ export default function Solicitacao() {
       });
   };
 
+  // Salva a lista selecionada
   const svlista = async (idcompra) => {
     try {
-      await Promise.all(rowSelectionModel.map((id) => novocadastroitens(idcompra, id)));
+      await Promise.all(
+        rowSelectionModel.map((id) => novocadastroitens(idcompra, id))
+      );
     } catch (err) {
       setmensagem(err.message);
     } finally {
-      settelacadastro(true); // Atualiza o estado para mostrar a tela
+      settelacadastro(true);
     }
   };
 
+  // Novo cadastro
   const novocadastro = async () => {
     try {
       await api
@@ -357,10 +373,12 @@ export default function Solicitacao() {
     }
   };
 
+  // Limpar filtro
   function limparfiltro() {
     listasolicitacao();
   }
 
+  // Gera Excel básico
   const gerarexcel = () => {
     const excelData = solicitacao.map((item) => {
       return {
@@ -380,46 +398,83 @@ export default function Solicitacao() {
     exportExcel({ excelData, fileName: 'solicitacao' });
   };
 
+  // Relatório de custo completo – chamado uma vez e filtrado no front
   const gerarexcelRelatorioCustoCompleto = async () => {
-    const selectedRow = solicitacao.find(
-      (item) => String(item.id) === String(rowSelectionModel[0]),
+    // Define obras selecionadas
+    const selectedIds = new Set(rowSelectionModel.map(String));
+    const rowsParaExportar = solicitacao.filter((r) =>
+      selectedIds.size ? selectedIds.has(String(r.id ?? r.idsolicitacao ?? r.idproduto)) : true
     );
-    const obra = String(selectedRow?.obra ?? '').trim();
+    const obras = [
+      ...new Set(
+        rowsParaExportar
+          .map((r) => String(r.obra || '').trim())
+          .filter(Boolean)
+      ),
+    ];
 
-    await api
-      .post('v1/controleestoque/relatorioCustoSolicitacao', {
-        idcliente: localStorage.getItem('sessionCodidcliente'),
+    if (obras.length === 0) {
+      setmensagem('Selecione ao menos uma linha com Obra/OS válida para exportar.');
+      return;
+    }
+
+    try {
+      setmensagem('');
+      setLoading(true);
+
+      // Usa o idcliente da sessão – se 0, alguns back-ends rejeitam
+      const payloadBase = {
+        idcliente: Number(localStorage.getItem('sessionCodidcliente') || 0),
         idusuario: localStorage.getItem('sessionId'),
         idloja: localStorage.getItem('sessionloja'),
-        obra,
-      })
-      .then((response) => {
-        const totalData = response.data;
-        const excelData = totalData.map((item) => {
-          const bruto =
-            Number(item?.valor_total ?? item?.valorTotal ?? 0);
-          const custoFormatado = bruto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-          return {
-            'Obra/OS': item.obra,
-            Projeto: item.projeto,
-            Entrada: item.entrada,
-            Saída: item.saida,
-            'Custo Total': custoFormatado,
-          };
-        });
-        exportExcel({ excelData, fileName: 'relatorio_custo_completo' });
+        obra: '',
+      };
+
+      // Faz uma única chamada sem filtrar por obra
+      const response = await api.post(
+        'v1/controleestoque/relatorioCustoSolicitacao',
+        payloadBase
+      );
+      const totalData = Array.isArray(response.data) ? response.data : [];
+
+      // Filtra apenas pelas obras selecionadas
+      const filteredData = totalData.filter((item) =>
+        obras.includes(String(item.obra || '').trim())
+      );
+
+      const excelData = filteredData.map((item) => {
+        const bruto = Number(item?.valor_total ?? item?.valorTotal ?? 0);
+        return {
+          'Obra/OS': item.obra ?? '',
+          Projeto: item.projeto ?? '',
+          Status: item.status ?? item.situacao ?? '',
+          Entrada: Number(item.entrada ?? 0),
+          Saída: Number(item.saida ?? 0),
+          'Custo Total (R$)': bruto.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+          }),
+        };
       });
+
+      exportExcel({ excelData, fileName: 'relatorio_custo_completo' });
+    } catch (err) {
+      setmensagem(err?.response?.data?.erro || err.message || 'Erro ao gerar relatório.');
+    } finally {
+      setLoading(false);
+      setRowSelectionModel([]);
+    }
   };
+
+  // Efeito inicial
   useEffect(() => {
     setstatussolicitacao('AGUARDANDO');
     listasolicitacao();
     userpermission();
-
   }, []);
 
   return (
     <div>
-      {/**filtro */}
       {permission && (
         <div>
           <Card>
@@ -489,9 +544,8 @@ export default function Solicitacao() {
               </div>
             </CardBody>
 
-            {/**tabela*/}
+            {/** tabela */}
             <CardBody style={{ backgroundColor: 'white' }}>
-              {/* BOTÃO PARA EXPORTAR EXCEL */}
               <Button color="link" onClick={() => gerarexcel()}>
                 Exportar Excel
               </Button>
@@ -506,6 +560,7 @@ export default function Solicitacao() {
                 }}
               >
                 <DataGrid
+                  getRowId={(row) => row.id ?? row.idsolicitacao}
                   rows={solicitacao}
                   columns={columns}
                   loading={loading}
@@ -522,9 +577,7 @@ export default function Solicitacao() {
                     LoadingOverlay: LinearProgress,
                     NoRowsOverlay: CustomNoRowsOverlay,
                   }}
-                  //opções traduzidas da tabela
                   localeText={{
-                    // Column menu text
                     columnMenuShowColumns: 'Mostra Colunas',
                     columnMenuManageColumns: 'Gerencia Colunas',
                     columnMenuFilter: 'Filtro',

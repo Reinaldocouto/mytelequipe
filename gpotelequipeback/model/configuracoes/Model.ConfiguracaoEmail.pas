@@ -15,6 +15,7 @@ type
     Femail: string;
     Femailmaterial: string;
     Femailfaturamento: string;
+    FemailFaturamentoTelefonica: string;
   public
     constructor Create;
     destructor Destroy; override;
@@ -22,6 +23,7 @@ type
     property email: string read Femail write Femail;
     property emailmaterial: string read Femailmaterial write Femailmaterial;
     property emailfaturamento: string read Femailfaturamento write Femailfaturamento;
+    property emailFaturamentoTelefonica: string read FemailFaturamentoTelefonica write FemailFaturamentoTelefonica;
     function Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Editar(out erro: string): Boolean;
   end;
@@ -61,21 +63,22 @@ begin
         begin
           Close;
           SQL.Clear;
-          SQL.Add('INSERT INTO gesemailconfiguracao ( emaildiaria, emailmaterial, emailfaturamento, criadoem, atualizadoem)');
-          SQL.Add('VALUES ( :emails, :emailmaterial, :emailfaturamento, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)');
+          SQL.Add('INSERT INTO gesemailconfiguracao ( emaildiaria, emailmaterial, emailfaturamento, emailFaturamentoTelefonica,  criadoem, atualizadoem)');
+          SQL.Add('VALUES ( :emails, :emailmaterial, :emailfaturamento,  :emailFaturamentoTelefonica, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)');
         end
         else
         begin
           Close;
           SQL.Clear;
           SQL.Add('UPDATE gesemailconfiguracao');
-          SQL.Add('SET emaildiaria = :emails, emailmaterial= :emailmaterial, emailfaturamento = :emailfaturamento,  ');
+          SQL.Add('SET emaildiaria = :emails, emailmaterial= :emailmaterial, emailFaturamentoTelefonica=:emailFaturamentoTelefonica, emailfaturamento = :emailfaturamento,  ');
           SQL.Add('    atualizadoem = CURRENT_TIMESTAMP ');
         end;
 
         ParamByName('emails').AsString := email;
         ParamByName('emailmaterial').AsString := emailmaterial;
         ParamByName('emailfaturamento').AsString := emailfaturamento;
+        ParamByName('emailFaturamentoTelefonica').AsString := emailFaturamentoTelefonica;
         ExecSQL;
       end;
 
@@ -105,7 +108,7 @@ begin
     begin
       Active := False;
       SQL.Clear;
-      SQL.Add('SELECT tipo, emaildiaria, emailfaturamento, emailmaterial FROM gesemailconfiguracao ');
+      SQL.Add('SELECT tipo, emaildiaria, emailfaturamento, emailmaterial, emailFaturamentoTelefonica FROM gesemailconfiguracao ');
       Active := True;
     end;
     erro := '';

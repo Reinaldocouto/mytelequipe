@@ -364,6 +364,14 @@ begin
           ParamByName('idloja').Value := 0;
         end;
       end;
+      if AQuery.ContainsKey('idveiculo') then
+      begin
+        if Length(AQuery.Items['idveiculo']) > 0 then
+        begin
+          SQL.Add('AND gesdespesas.idveiculo = :idveiculo');
+          ParamByName('idveiculo').Value := AQuery.Items['idveiculo'].ToInteger;
+        end;
+      end;
       SQL.Add('order by id ');
       Active := true;
     end;

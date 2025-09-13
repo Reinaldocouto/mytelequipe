@@ -438,7 +438,11 @@ export default function Solicitacao() {
 
             {/* BOTÃO PARA EXPORTAR EXCEL */}
             <CardBody style={{ backgroundColor: 'white' }}>
-              <Button color="link" onClick={() => gerarexcel()}>
+              <Button
+                color="link"
+                onClick={() => gerarexcel()}
+                disabled={solicitacao?.length === 0}
+              >
                 Exportar Excel
               </Button>
               <Box

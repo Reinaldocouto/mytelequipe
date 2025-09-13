@@ -65,6 +65,7 @@ begin
       servico.email := body.GetValue<string>('emailsSolicitacaoDiariaAviso', '');
       servico.emailmaterial := body.GetValue<string>('emailmaterial', '');
       servico.emailfaturamento := body.GetValue<string>('emailfaturamento', '');
+      servico.emailFaturamentoTelefonica := body.GetValue<string>('emailFaturamentoTelefonica', '');
 
       if Length(erro) = 0 then
       begin

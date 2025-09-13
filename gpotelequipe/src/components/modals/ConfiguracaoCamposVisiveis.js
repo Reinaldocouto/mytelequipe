@@ -5,9 +5,13 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import Switch from '@mui/material/Switch';
 
-const LOCAL_STORAGE_KEY = 'userFieldVisibility';
-
-const ConfiguracaoCamposVisiveis = ({ isOpen, toggle, fieldVisibility, setFieldVisibility }) => {
+const ConfiguracaoCamposVisiveis = ({
+  isOpen,
+  toggle,
+  fieldVisibility,
+  setFieldVisibility,
+  LOCAL_STORAGE_KEY,
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -123,6 +127,7 @@ ConfiguracaoCamposVisiveis.propTypes = {
   toggle: PropTypes.func.isRequired,
   fieldVisibility: PropTypes.object.isRequired,
   setFieldVisibility: PropTypes.func.isRequired,
+  LOCAL_STORAGE_KEY: PropTypes.string.isRequired,
 };
 
 export default ConfiguracaoCamposVisiveis;

@@ -1,11 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Button,
-  Modal,
-  ModalBody,
-  ModalHeader,
-  ModalFooter,
-} from 'reactstrap';
+import { useState, useEffect } from 'react';
+import { Button, Modal, ModalBody, ModalHeader, ModalFooter } from 'reactstrap';
 import { Box } from '@mui/material';
 import {
   DataGrid,
@@ -25,11 +19,11 @@ import api from '../../../services/api';
 import exportExcel from '../../../data/exportexcel/Excelexport';
 
 const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(15);
   const [loading, setLoading] = useState(false);
   const [totalacionamento, settotalacionamento] = useState([]);
   const [mensagem, setmensagem] = useState('');
-  const [paginationModel, setPaginationModel] = useState({ pageSize: 10, page: 0 });
+  const [paginationModel, setPaginationModel] = useState({ pageSize: 15, page: 0 });
 
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
@@ -100,9 +94,7 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
       align: 'left',
       type: 'string',
       editable: false,
-      renderCell: (parametros) => (
-        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
-      ),
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
       field: 'quantidade',
@@ -127,9 +119,7 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
       align: 'left',
       type: 'string',
       editable: false,
-      renderCell: (parametros) => (
-        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
-      ),
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
       field: 'valor',
@@ -197,25 +187,19 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
       align: 'left',
       type: 'string',
       editable: false,
-      renderCell: (parametros) => (
-        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
-      ),
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
 
     {
       field: 'vistoriareal',
-      headerName: 'VISTORIA REAL',
+      headerName: 'VISTORIA',
       width: 150,
       align: 'center',
       type: 'date',
       valueFormatter: (param) => {
         if (!param.value) return '';
         const date = new Date(param.value);
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
         return date.toLocaleDateString('pt-BR');
@@ -234,11 +218,7 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
 
         const date = new Date(parametros.value);
 
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
 
@@ -258,11 +238,7 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
 
         const date = new Date(parametros.value);
 
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
 
@@ -282,11 +258,7 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
 
         const date = new Date(parametros.value);
 
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
 
@@ -306,11 +278,7 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
 
         const date = new Date(parametros.value);
 
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
 
@@ -330,11 +298,7 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
 
         const date = new Date(parametros.value);
 
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
 
@@ -344,7 +308,53 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
 
     {
       field: 'initialtunningreal',
-      headerName: 'INITIAL TUNNING REAL',
+      headerName: 'INITIAL TUNNING REAL INÍCIO',
+      width: 220,
+      align: 'center',
+      type: 'date',
+      valueFormatter: (param) => {
+        if (!param.value) return '';
+        const date = new Date(param.value);
+        if (
+          date.getDate() === 30 &&
+          date.getMonth() === 11 &&
+          date.getFullYear() === 1899
+        ) {
+          return '';
+        }
+        return date.toLocaleDateString('pt-BR');
+      },
+    },
+    {
+      field: 'initialtunningrealfinal',
+      headerName: 'INITIAL TUNNING REAL FINAL',
+      width: 220,
+      align: 'center',
+      type: 'date',
+      valueFormatter: (param) => {
+        if (!param.value) return '';
+        const date = new Date(param.value);
+        if (
+          date.getDate() === 30 &&
+          date.getMonth() === 11 &&
+          date.getFullYear() === 1899
+        ) {
+          return '';
+        }
+        return date.toLocaleDateString('pt-BR');
+      },
+    },
+    {
+      field: 'initialtunnigstatus',
+      headerName: 'INITIAL TUNNING STATUS',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'aprovacaossv',
+      headerName: 'APROVAÇÃO DE SSV',
       width: 150,
       align: 'center',
       type: 'date',
@@ -356,6 +366,29 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
           date.getMonth() === 11 &&
           date.getFullYear() === 1899
         ) {
+          return '';
+        }
+        return date.toLocaleDateString('pt-BR');
+      },
+    },
+    {
+      field: 'statusaprovacaossv',
+      headerName: 'STATUS APROVAÇÃO DE SSV',
+      width: 210,
+      align: 'center',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'dataimprodutiva',
+      headerName: 'DATA IMPRODUTIVA',
+      width: 150,
+      align: 'center',
+      type: 'date',
+      valueFormatter: (param) => {
+        if (!param.value) return '';
+        const date = new Date(param.value);
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
         return date.toLocaleDateString('pt-BR');
@@ -373,11 +406,7 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
         if (!parametros.value) return '';
 
         const date = new Date(parametros.value);
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
 
@@ -388,7 +417,7 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
       field: 'statusobra',
       headerName: 'STATUS OBRA',
       width: 150,
-      align: 'left',
+      align: 'center',
       type: 'string',
       editable: false,
     },
@@ -404,7 +433,6 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
         return `${(parametros.value * 100).toFixed(2)}%`; // Formata como porcentagem
       },
     },
-
   ];
 
   function CustomNoRowsOverlay() {
@@ -459,11 +487,7 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
       const formatarData = (data) => {
         if (!data) return '';
         const d = new Date(data);
-        if (
-          d.getFullYear() === 1899 &&
-          d.getMonth() === 11 &&
-          d.getDate() === 30
-        ) {
+        if (d.getFullYear() === 1899 && d.getMonth() === 11 && d.getDate() === 30) {
           return '';
         }
         return d.toLocaleDateString('pt-BR');
@@ -483,12 +507,18 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
         'DATA ACIONAMENTO': formatarData(item.dataacionamento),
         'DATA ENVIO EMAIL': formatarData(item.dataenvioemail),
         COLABORADOR: item.nome,
+        VISTORIA: formatarData(item.vistoriareal),
         'ENTREGA REAL': formatarData(item.entregareal),
         'FIM INSTALACAO REAL': formatarData(item.fiminstalacaoreal),
         'INTEGRACAO REAL': formatarData(item.integracaoreal),
         ATIVACAO: formatarData(item.ativacao),
         DOCUMENTACAO: formatarData(item.documentacao),
-        'INITIAL TUNNING REAL': formatarData(item.initialtunningreal),
+        'INITIAL TUNNING REAL INÍCIO': formatarData(item.initialtunningreal),
+        'INITIAL TUNNING REAL FINAL': formatarData(item.initialtunningrealfinal),
+        'INITIAL TUNNING STATUS': item.initialtunnigstatus,
+        'APROVAÇÃO DE SSV': formatarData(item.aprovacaossv),
+        'STATUS APROVAÇÃO DE SSV': item.statusaprovacaossv,
+        'DATA IMPRODUTIVA': formatarData(item.dataimprodutiva),
         'DT REAL': formatarData(item.dtreal),
         'STATUS OBRA': item.statusobra,
         '%': item.porcentagem ? `${(item.porcentagem * 100).toFixed(2)}%` : '0%',
@@ -539,15 +569,17 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
                   localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                   paginationModel={paginationModel}
                   onPaginationModelChange={setPaginationModel}
-                  getRowClassName={(parametros) =>
-                    parametros.row.deletado === 1 ? 'linha-diferente' : '' // troque a lógica conforme necessário
+                  getRowClassName={(item) =>
+                    item.row.acionamentovivodeletado === 1 ? 'linha-diferente' : ''
                   }
                   sx={{
-                    '& .MuiDataGrid-row.linha-diferente .MuiDataGrid-cell': {
-                      backgroundColor: '#ffe0b2 !important',
+                    '& .MuiDataGrid-row.linha-diferente': {
+                      backgroundColor: '#ffcccc', // vermelho claro
+                      color: '#b71c1c',
+                      fontWeight: 'bold',
                     },
-                    '& .MuiDataGrid-row.linha-diferente .MuiDataGrid-cell:hover': {
-                      backgroundColor: '#ffcc80 !important',
+                    '& .MuiDataGrid-row.linha-diferente:hover': {
+                      backgroundColor: '#ff9999', // vermelho mais forte ao passar o mouse
                     },
                   }}
                 />

@@ -36,6 +36,8 @@ procedure criartarefa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure rollouthuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
+procedure EditarEmMassa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
 implementation
 
 procedure Registry;
@@ -51,6 +53,7 @@ begin
   THorse.post('v1/projetohuawei/listaatividadepj/salva', Salvaatividadepj);
   THorse.Post('v1/projetohuawei/criartarefa', criartarefa);
   THorse.Get('v1/rollouthuawei', rollouthuawei);
+  THorse.post('v1/rollouthuawei/editaremmassa', EditarEmMassa);
 end;
 
 
@@ -616,6 +619,63 @@ begin
     servico.Free;
   end;
 end;
+
+procedure EditarEmMassa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: Thuawei;
+  erro: string;
+  sucesso: Boolean;
+  body: string;
+
+begin
+  try
+    servico := Thuawei.Create;
+    try
+      body := Req.Body;
+
+      if body.Trim = '' then
+      begin
+        erro := 'body vazio';
+        Exit;
+      end;
+
+      sucesso := servico.EditarEmMassa(body, erro);
+
+      if sucesso then
+      begin
+
+        Res.Send<TJSONObject>(
+          TJSONObject.Create
+            .AddPair('sucesso', 'true')
+            .AddPair('mensagem', 'Registros atualizados com sucesso')
+        ).Status(THTTPStatus.OK);
+      end
+      else
+      begin
+        // Retorna erro específico da operação
+        Res.Send<TJSONObject>(
+          TJSONObject.Create
+            .AddPair('sucesso', 'false')
+            .AddPair('erro', erro)
+        ).Status(THTTPStatus.BadRequest);
+      end;
+    except
+      on E: Exception do
+      begin
+        // Retorna erro inesperado
+        Res.Send<TJSONObject>(
+          TJSONObject.Create
+            .AddPair('sucesso', 'false')
+            .AddPair('erro', 'Erro inesperado: ' + E.Message)
+        ).Status(THTTPStatus.InternalServerError);
+      end;
+    end;
+  finally
+    if Assigned(servico) then
+      servico.Free;
+  end;
+end;
+
 
 end.
 

@@ -194,14 +194,24 @@ const Rolloutericssonedicao = ({
   const [documentacaocivilwork, setdocumentacaocivilwork] = useState([]);
   const [ericFechamento, setEricFechamento] = useState(0); // Armazena apenas o valor de ericfechamento
 
-  const [enderecoSite, setEnderecoSite] = useState('');
-  const [municipio, setMunicipio] = useState('');
-  const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
   const [totalfinanceiro, setTotalFinanceiro] = useState();
   const [loadingFinanceiro, setloadingFinanceiro] = useState(false);
   const [relatorioDespesas, setRelatorioDespesas] = useState([]);
   const [identificadorsolicitacaodiaria, setidentificadorsolicitacaodiaria] = useState('');
+  const [outros, setOutros] = useState('');
+  const [formaAcesso, setFormaAcesso] = useState('');
+  const [ddd, setDdd] = useState('');
+  const [municipio, setMunicipio] = useState('');
+  const [nomeEricsson, setNomeEricsson] = useState('');
+  const [enderecoSite, setEnderecoSite] = useState('');
+  const [latitude, setLatitude] = useState('');
+  const [obs, setObs] = useState('');
+  const [solicitacao, setSolicitacao] = useState('');
+  const [dataSolicitacao, setDataSolicitacao] = useState('');
+  const [dataInicial, setDataInicial] = useState('');
+  const [dataFinal, setDataFinal] = useState('');
+  const [statusAcesso, setStatusAcesso] = useState('');
 
   //Parametros
   const params = {
@@ -318,58 +328,55 @@ const Rolloutericssonedicao = ({
   const listaid = async () => {
     try {
       setloading(true);
-      console.log(ididentificador);
-      await api.get('v1/projetoericssonid', { params }).then((response) => {
-        setNumero(ididentificador);
-        setCliente(response.data.cliente);
-        setRegiona(response.data.regiona);
-        setSite(response.data.site);
-        setsituacaoimplantacao(response.data.situacaoimplantacao);
-        setsituacaodaintegracao(response.data.situacaodaintegracao);
-        setdatadacriacaodademandadia(response.data.datadacriacaodademandadia);
-        //setdatalimiteaceitedia(response.data.datalimiteaceitedia)
-        setdataaceitedemandadia(response.data.dataaceitedemandadia);
-        //setdatainicioprevistasolicitantebaselinemosdia(response.data.datainicioprevistasolicitantebaselinemosdia)
-        setdatainicioentregamosplanejadodia(response.data.datainicioentregamosplanejadodia);
-        setdatarecebimentodositemosreportadodia(response.data.datarecebimentodositemosreportadodia);
-        //setdatafimprevistabaselinefiminstalacaodia(response.data.datafimprevistabaselinefiminstalacaodia)
-        setdatafiminstalacaoplanejadodia(response.data.datafiminstalacaoplanejadodia);
-        setdataconclusaoreportadodia(response.data.dataconclusaoreportadodia);
-        setdatavalidacaoinstalacaodia(response.data.datavalidacaoinstalacaodia);
-        //setdataintegracaobaselinedia(response.data.dataintegracaobaselinedia)
-        setdataintegracaoplanejadodia(response.data.dataintegracaoplanejadodia);
-        setdatavalidacaoeriboxedia(response.data.datavalidacaoeriboxedia);
-        setemailadcional(response.data.emailacionamento);
-        //setlistadepos(response.data.listadepos)
-        //setgestordeimplantacaonome(response.data.gestordeimplantacaonome)
-        //setstatusrsa(response.data.statusrsa)
-        //setrsarsa(response.data.rsarsa)
-        //etstatusaceitacao(response.data.statusaceitacao)
-        //setdatadefimdaaceitacaosydledia(response.data.datadefimdaaceitacaosydledia)
-        //setordemdevenda(response.data.ordemdevenda)
-        //setcoordenadoaspnome(response.data.coordenadoaspnome)
-        //setrsavalidacaorsanrotrackerdatafimdia(response.data.rsavalidacaorsanrotrackerdatafimdia)
-        //setfimdeobraplandia(response.data.fimdeobraplandia)
-        //setfimdeobrarealdia(response.data.fimdeobrarealdia)
-        //settipoatualizacaofam(response.data.tipoatualizacaofam)
-        //setsinergia(response.data.sinergia)
-        //setsinergia5g(response.data.sinergia5g)
-        //setescoponome(response.data.escoponome)
-        //setslapadraoescopodias(response.data.slapadraoescopodias)
-        //settempoparalisacaoinstalacaodias(response.data.tempoparalisacaoinstalacaodias)
-        //setlocalizacaositeendereco(response.data.localizacaositeendereco)
-        //setlocalizacaositecidade(response.data.localizacaositecidade)
-        //setdocumentacaosituacao(response.data.documentacaosituacao)
-        //setsitepossuirisco(response.data.sitepossuirisco)
-        setaceitacao(response.data.aceitacaofical);
-        setpendencia(response.data.pendenciasobra);
-        setEnderecoSite(response.data.localizacaositeendereco || '');
-        setMunicipio(response.data.localizacaositecidade || '');
-        setLatitude(response.data.latitude || '');
-        setLongitude(response.data.longitude || '');
 
-        // setSelectedOptionfornecedor({ value: response.data.idfornecedor, label: response.data.nomefornecedor }); // Criar  logica de olhar na configuração se vai usar nome razão social ou nome fantasia
-      });
+      const response = await api.get('v1/projetoericssonid', { params });
+
+      const { data } = response;
+      console.log(data);
+      console.log(data.ddd);
+      setNumero(ididentificador);
+      setCliente(data.cliente);
+      setRegiona(data.regiona);
+      setSite(data.site);
+
+      // Situações
+      setsituacaoimplantacao(data.situacaoimplantacao);
+      setsituacaodaintegracao(data.situacaodaintegracao);
+
+      // Datas principais
+      setdatadacriacaodademandadia(data.datadacriacaodademandadia || '');
+      setdataaceitedemandadia(data.dataaceitedemandadia || '');
+      setdatainicioentregamosplanejadodia(data.datainicioentregamosplanejadodia || '');
+      setdatarecebimentodositemosreportadodia(data.datarecebimentodositemosreportadodia || '');
+      setdatafiminstalacaoplanejadodia(data.datafiminstalacaoplanejadodia || '');
+      setdataconclusaoreportadodia(data.dataconclusaoreportadodia || '');
+      setdatavalidacaoinstalacaodia(data.datavalidacaoinstalacaodia || '');
+      setdataintegracaoplanejadodia(data.dataintegracaoplanejadodia || '');
+      setdatavalidacaoeriboxedia(data.datavalidacaoeriboxedia || '');
+
+      // Datas extras
+      setDataInicial(data.datainicial || ''); // corresponde ao campo `datainicial` no banco
+      setDataFinal(data.datafinal || ''); // corresponde ao campo `datafinal`
+      setDataSolicitacao(data.datasolicitacao || '');
+      setDdd(data.ddd);
+
+      // Localização
+      setEnderecoSite(data.localizacaositeendereco || '');
+      setMunicipio(data.municipio || data.localizacaositecidade || '');
+      setLatitude(data.latitude || '');
+      setLongitude(data.longitude || '');
+
+      // Outros campos
+      setFormaAcesso(data.formadeacesso || '');
+      setOutros(data.outros || '');
+      setNomeEricsson(data.nomeericsson || '');
+      setObs(data.obs || '');
+      setSolicitacao(data.solicitacao || '');
+      setStatusAcesso(data.statusacesso || '');
+
+      // Campos opcionais de aceite/pendência
+      setaceitacao(data.aceitacaofical || '');
+      setpendencia(data.pendenciasobra || '');
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -1492,6 +1499,60 @@ const Rolloutericssonedicao = ({
     settelaexclusaosolicitacao(true);
     setidentificadorsolicitacao(stat);
   }
+  const handleSalvar = async () => {
+    try {
+      setloading(true);
+
+      const payload = {
+        numero,
+        cliente,
+        regiona,
+        site,
+        situacaoimplantacao,
+        situacaodaintegracao,
+        datadacriacaodademandadia,
+        dataaceitedemandadia,
+        datainicioentregamosplanejadodia,
+        datarecebimentodositemosreportadodia,
+        datafiminstalacaoplanejadodia,
+        dataconclusaoreportadodia,
+        datavalidacaoinstalacaodia,
+        dataintegracaoplanejadodia,
+        datavalidacaoeriboxedia,
+        dataInicial,
+        dataFinal,
+        dataSolicitacao,
+        obs,
+        // aceitacao,
+        // pendencia,
+        outros,
+        formaAcesso,
+        ddd,
+        municipio,
+        nomeEricsson,
+        enderecoSite,
+        latitude,
+        solicitacao,
+        longitude,
+        statusAcesso,
+      };
+
+      const response = await api.post('/v1/projetoericsson', payload);
+
+      const result = await response.json();
+
+      if (response.ok) {
+        console.log('Salvo com sucesso:', result);
+        // Aqui você pode resetar campos ou mostrar notificação
+      } else {
+        console.error('Erro ao salvar:', result);
+      }
+    } catch (error) {
+      console.error('Erro na requisição:', error);
+    } finally {
+      setloading(false);
+    }
+  };
 
   const columnsdespesa = [
     {
@@ -1809,69 +1870,104 @@ const Rolloutericssonedicao = ({
         {/*ACESSO*/}
         <b>Acesso</b>
         <hr style={{ marginTop: '0px', width: '100%' }} />
-        <CardBody className="px-4 , pb-2">
+        <CardBody className="px-4 pb-2">
           <div className="row g-3">
             <div className="col-sm-2">
               OUTROS
-              <Input type="text" onChange={(e) => e.target.value} value={null} />
+              <Input type="text" value={outros} onChange={(e) => setOutros(e.target.value)} />
             </div>
+
             <div className="col-sm-4">
               FORMA DE ACESSO
-              <Input type="text" onChange={(e) => e.target.value} value={null} />
+              <Input
+                type="text"
+                value={formaAcesso}
+                onChange={(e) => setFormaAcesso(e.target.value)}
+              />
             </div>
+
             <div className="col-sm-1">
               DDD
-              <Input type="text" onChange={(e) => e.target.value} value={null} />
+              <Input type="text" value={ddd} onChange={(e) => setDdd(e.target.value)} />
             </div>
+
             <div className="col-sm-2">
               MUNICÍPIO
-              <Input type="text" onChange={(e) => e.target.value} value={municipio} />
+              <Input type="text" value={municipio} onChange={(e) => setMunicipio(e.target.value)} />
             </div>
+
             <div className="col-sm-3">
               NOME ERICSSON
-              <Input type="text" onChange={(e) => e.target.value} value={null} />
+              <Input
+                type="text"
+                value={nomeEricsson}
+                onChange={(e) => setNomeEricsson(e.target.value)}
+              />
             </div>
 
             <div className="col-sm-6">
               ENDEREÇO
-              <Input type="text" onChange={(e) => e.target.value} value={enderecoSite} />
+              <Input
+                type="text"
+                value={enderecoSite}
+                onChange={(e) => setEnderecoSite(e.target.value)}
+              />
             </div>
+
             <div className="col-sm-2">
               LATITUDE
-              <Input type="text" onChange={(e) => e.target.value} value={latitude} />
+              <Input type="text" value={latitude} onChange={(e) => setLatitude(e.target.value)} />
             </div>
+
             <div className="col-sm-2">
               LONGITUDE
-              <Input type="text" onChange={(e) => e.target.value} value={longitude} />
+              <Input type="text" value={longitude} onChange={(e) => setLongitude(e.target.value)} />
             </div>
+
             <div className="col-sm-2">
               OBS
-              <Input type="text" onChange={(e) => e.target.value} value={null} />
+              <Input type="text" value={obs} onChange={(e) => setObs(e.target.value)} />
             </div>
 
             <div className="col-sm-4">
               SOLICITAÇÃO
-              <Input type="text" onChange={(e) => e.target.value} value={null} />
+              <Input
+                type="text"
+                value={solicitacao}
+                onChange={(e) => setSolicitacao(e.target.value)}
+              />
             </div>
+
             <div className="col-sm-2">
               DATA-SOLICITAÇÃO
-              <Input type="date" onChange={(e) => e.target.value} value={null} />
+              <Input
+                type="date"
+                value={dataSolicitacao}
+                onChange={(e) => setDataSolicitacao(e.target.value)}
+              />
             </div>
+
             <div className="col-sm-2">
               DATA-INICIAL
-              <Input type="date" onChange={(e) => e.target.value} value={null} />
+              <Input
+                type="date"
+                value={dataInicial}
+                onChange={(e) => setDataInicial(e.target.value)}
+              />
             </div>
+
             <div className="col-sm-2">
               DATA-FINAL
-              <Input type="date" onChange={(e) => e.target.value} value={null} />
+              <Input type="date" value={dataFinal} onChange={(e) => setDataFinal(e.target.value)} />
             </div>
+
             <div className="col-sm-2">
               STATUS
               <Input
                 type="select"
                 name="statusacesso"
-                onChange={(e) => e.target.value}
-                value={null}
+                value={statusAcesso}
+                onChange={(e) => setStatusAcesso(e.target.value)}
               >
                 <option value="">Selecione</option>
                 <option value="AGUARDANDO">AGUARDANDO</option>
@@ -1898,20 +1994,26 @@ const Rolloutericssonedicao = ({
                 value={situacaoimplantacao}
                 name="Tipo Pessoa"
               >
-                <option>Selecione</option>
-                <option>Aguardando aceite do ASP</option>
-                <option>Aguardando agendamento Bluebee</option>
-                <option>Aguardando definição de Equipe</option>
-                <option>Cancelado</option>
-                <option>Concluída</option>
-                <option>Em Aceitação</option>
-                <option>Fim do Período de Garantia</option>
-                <option>Iniciando cancelamento da Obra</option>
-                <option>Obra em Andamento</option>
-                <option>Paralisada por HSE</option>
-                <option>Período de Garantia</option>
-                <option>Retomada planejada</option>
-                <option>Revisar Finalização da Obra</option>
+                <option value="">Selecione</option>
+                <option value="Aguardando aceite do ASP">Aguardando aceite do ASP</option>
+                <option value="Aguardando agendamento Bluebee">
+                  Aguardando agendamento Bluebee
+                </option>
+                <option value="Aguardando definição de Equipe">
+                  Aguardando definição de Equipe
+                </option>
+                <option value="Cancelado">Cancelado</option>
+                <option value="Concluída">Concluída</option>
+                <option value="Em Aceitação">Em Aceitação</option>
+                <option value="Fim do Período de Garantia">Fim do Período de Garantia</option>
+                <option value="Iniciando cancelamento da Obra">
+                  Iniciando cancelamento da Obra
+                </option>
+                <option value="Obra em Andamento">Obra em Andamento</option>
+                <option value="Paralisada por HSE">Paralisada por HSE</option>
+                <option value="Período de Garantia">Período de Garantia</option>
+                <option value="Retomada planejada">Retomada planejada</option>
+                <option value="Revisar Finalização da Obra">Revisar Finalização da Obra</option>
               </Input>
             </div>
             <div className="col-sm-4">
@@ -1922,10 +2024,10 @@ const Rolloutericssonedicao = ({
                 value={situacaodaintegracao}
                 name="Tipo Pessoa"
               >
-                <option>Selecione</option>
-                <option>Completa</option>
-                <option>Em Andamento</option>
-                <option>Não Iniciou</option>
+                <option value="">Selecione</option>
+                <option value="Completa">Completa</option>
+                <option value="Em Andamento">Em Andamento</option>
+                <option value="Não Iniciou">Não Iniciou</option>
               </Input>
             </div>
           </div>
@@ -1938,7 +2040,7 @@ const Rolloutericssonedicao = ({
                   type="date"
                   onChange={(e) => setdatadacriacaodademandadia(e.target.value)}
                   value={datadacriacaodademandadia}
-                  placeholder="Descrição completa"
+                  placeholder=""
                   disabled
                 />
               </div>
@@ -1962,7 +2064,7 @@ const Rolloutericssonedicao = ({
                   type="date"
                   onChange={(e) => setdatainicioentregamosplanejadodia(e.target.value)}
                   value={datainicioentregamosplanejadodia}
-                  placeholder="Descrição completa"
+                  placeholder=""
                 />
               </div>
 
@@ -1972,7 +2074,7 @@ const Rolloutericssonedicao = ({
                   type="date"
                   onChange={(e) => setdatarecebimentodositemosreportadodia(e.target.value)}
                   value={datarecebimentodositemosreportadodia}
-                  placeholder="Código SKU ou referência"
+                  placeholder=""
                   disabled
                 />
               </div>
@@ -2577,10 +2679,10 @@ const Rolloutericssonedicao = ({
           color="success"
           onClick={() => {
             atualiza();
-            setshow(false);
+            handleSalvar();
           }}
         >
-          Salvar
+          {loading ? 'Carregando...' : 'Salvar'}
         </Button>{' '}
         <Button color="secondary" onClick={() => setshow(false)}>
           Sair

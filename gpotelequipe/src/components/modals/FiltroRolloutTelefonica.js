@@ -1236,6 +1236,7 @@ const FiltroRolloutTelefonica = ({ toggle, atualiza, filter, setFilter }) => {
           toggle={toggleConfigModal}
           fieldVisibility={fieldVisibility}
           setFieldVisibility={setFieldVisibility}
+          LOCAL_STORAGE_KEY="rollouttelefonica"
         />
       </ModalBody>
       <ModalFooter className="d-flex justify-content-between">

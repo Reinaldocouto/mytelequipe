@@ -24,7 +24,8 @@ uses
 
 
 type
-  TDiariaDTO = record
+    TEmailModelo = (emInstalacao, emDriveTest, emSurvey, emLegado);
+    TDiariaDTO = record
     Numero: string;
     DataSolicitacao: TDateTime;
     Colaborador: string;
@@ -40,7 +41,9 @@ type
     Diarias: Double;
     ValorTotal: Double;
     Solicitante: string;
+
   end;
+
 type
   Temail = class
   private
@@ -59,6 +62,7 @@ type
     Fos: string;
     Fdatapagamento: string;
     Fstatus: string;
+    Fids: string;
 
   public
     assinaturamontada: string;
@@ -79,7 +83,7 @@ type
     property retanexo: string read Fretanexo write Fretanexo;
     property observacao: string read Fobservacao write Fobservacao;
     property os: string read Fos write Fos;
-
+    property ids: string read Fids write Fids;
     function Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Editar(out erro: string): Boolean;
     function GerarTokenRecuperacaoSenha(email: string; out erro: string): Boolean;
@@ -99,10 +103,16 @@ type
     function ExecuteOrdemServico(AOrdemID: Integer;
       const ADest1, ADest2, AAssunto: string): Boolean;
 
+
     function EnviarEmailDiaria(dadosDiaria: TDiariaDTO; out erro: string): Boolean;
     function IsValidEmail(const Email: string): Boolean;
     function HtmlEncode(const Value: string): string;
     function EnviarEmailConfirmacaoCartaTAF(const AOrdemID: string): Boolean;
+    procedure EnviarEmailDriveTest(const NomeSite, PO, IDPMTS, DataExecucao: string);
+    procedure EnviarEmailLegado(const NomeSite, PO, IDPMTS, DataIntegracao: string);
+    procedure EnviarEmailSurvey(const NomeSite, PO, IDPMTS, DataExecucao: string);
+    procedure EnviarEmailInstalacao(const NomeSite, PO, IDPMTS: string);
+    function ObterEmailsFaturamento: string;
   end;
 
 const
@@ -376,6 +386,8 @@ begin
       Query.Next();
     end;
     html2 := html2 + '<tr> ';
+    html2 := html2 + '<td></td> ';
+    html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
@@ -739,6 +751,8 @@ begin
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
+    html2 := html2 + '<td></td> ';
+    html2 := html2 + '<td></td> ';
     html2 := html2 + '<td><b> Total: ' + floattostrf(total, ffCurrency, 18, 2) + '</b></td> ';
     html2 := html2 + '</tr> ';
     html2 := html2 + '</tbody> ';
@@ -811,7 +825,9 @@ begin
     Query.SQL.Add('obraericssonmigo On obraericssonmigo.po = obraericssonatividadepj.po ');
     Query.SQL.Add('And obraericssonmigo.poritem = obraericssonatividadepj.poitem ');
     Query.SQL.Add('And obraericssonmigo.codigoservico = obraericssonatividadepj.codigoservico where obraericssonatividadepj.email = 0 and ');
-    Query.SQL.Add('obraericssonatividadepj.deletado = 0  and idcolaboradorpj=:idcpj and obraericssonatividadepj.numero=:numero  order by descricaoservico ');
+    Query.SQL.Add('obraericssonatividadepj.deletado = 0  and idcolaboradorpj=:idcpj and obraericssonatividadepj.numero=:numero');
+    Query.SQL.Add(' ');
+    Query.SQL.Add('order by descricaoservico ');
     Query.parambyname('idcpj').asstring := idpessoa;
     Query.parambyname('numero').asstring := numero;
     Query.Open;
@@ -860,6 +876,8 @@ begin
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
+    html2 := html2 + '<td></td> ';
+    html2 := html2 + '<td></td> ';
     html2 := html2 + '<td><b> Total: ' + floattostrf(total, ffCurrency, 18, 2) + '</b></td> ';
     html2 := html2 + '</tr> ';
     html2 := html2 + '</tbody> ';
@@ -889,7 +907,7 @@ begin
   html2 := '';
   html3 := '';
   html1 := html1 + '<!DOCTYPE html> ';
-  html1 := html1 + '<html lang="en"> ';
+  html1 := html1 + '<html lang="pt-BR"> ';
   html1 := html1 + '<head> ';
   html1 := html1 + '<meta charset="UTF-8"> ';
   html1 := html1 + '<meta name="viewport" content="width=device-width, initial-scale=1.0"> ';
@@ -936,7 +954,10 @@ begin
     Query.SQL.Add('rolloutvivo On rolloutvivo.id = acionamentovivo.idrollout Inner Join ');
     Query.SQL.Add('telefonicacontrolet2 On telefonicacontrolet2.id = acionamentovivo.idatividade Inner Join ');
     Query.SQL.Add('lpuvivo On lpuvivo.ID = acionamentovivo.idpacote Inner Join ');
-    Query.SQL.Add('gesempresas On gesempresas.idempresa = acionamentovivo.idcolaborador where rolloutvivo.UIDIDPMTS=:UIDIDPMTS and rolloutvivo.deletado = 0 and acionamentovivo.deletado = 0 and acionamentovivo.dataenvioemail is null   ');
+    Query.SQL.Add('gesempresas On gesempresas.idempresa = acionamentovivo.idcolaborador where rolloutvivo.UIDIDPMTS=:UIDIDPMTS and rolloutvivo.deletado = 0 and acionamentovivo.deletado = 0');
+    if Trim(ids) <> '' then
+      Query.SQL.Add('  and acionamentovivo.id in (' + ids + ') ');
+
     Query.parambyname('UIDIDPMTS').asstring := os;
 
     Query.Open;
@@ -949,9 +970,11 @@ begin
       html1 := html1 + '</head> ';
       html1 := html1 + '<body> ';
       html1 := html1 + '<h4> Senhores, </h4> ';
-      html1 := html1 + '<h4> Segue acionamento para atividades no projeto SIRIUS�-�Telefonica:</h4> ';
+      html1 := html1 + '<h4>Segue acionamento para atividades no projeto SIRIUS - Telefônica:</h4>';
       html1 := html1 + '<h2> </h2> ';
-      html1 := html1 + '<h4>' + Query.FieldByName('observacao').AsString + '</h4> ';
+      html1 := html1 + '<div style="font-size:14px; line-height:1.6; color:#333; margin:12px 0; white-space: pre-wrap;">' +
+                Query.FieldByName('observacao').AsString +
+                '</div>';
       html1 := html1 + '<h2> </h2> ';
       html1 := html1 + '<table> ';
       html1 := html1 + '    <thead> ';
@@ -961,9 +984,10 @@ begin
       html1 := html1 + '<th>SIGLA</th> ';
       html1 := html1 + '<th>Atividade</th> ';
       html1 := html1 + '<th>Reg</th> ';
-      html1 := html1 + '<th>Descri��o Atividade</th> ';
+      html1 := html1 + UTF8Encode('<th>Descrição Atividade</th>');
+
       html1 := html1 + '<th>Qtd.</th> ';
-      html1 := html1 + '<th>C�digo LPU VIVO</th> ';
+      html1 := html1 + '<th>C&oacute;digo LPU VIVO</th>';
       html1 := html1 + '<th>Valor Acionamento</th> ';
       html1 := html1 + '<th>Empresa</th> ';
       html1 := html1 + '</tr> ';
@@ -998,6 +1022,8 @@ begin
       end;
       FConn.Commit;
       html2 := html2 + '<tr> ';
+      html2 := html2 + '<td></td> ';
+      html2 := html2 + '<td></td> ';
       html2 := html2 + '<td></td> ';
       html2 := html2 + '<td></td> ';
       html2 := html2 + '<td></td> ';
@@ -1490,6 +1516,7 @@ begin
   html1 := html1 + '<th>MES PAGAMENTO</th> ';
   html1 := html1 + '<th>%</th> ';
   html1 := html1 + '<th>VALOR PAGAMENTO</th> ';
+  html1 := html1 + '<th>Observacao</th> ';
   html1 := html1 + '</tr> ';
   html1 := html1 + '</thead> ';
   html1 := html1 + '<tbody> ';
@@ -1551,6 +1578,7 @@ begin
     Query.SQL.Add('  Date_Format( t.datapagamento , "%d/%m/%Y") As datapagamento, ');
     Query.SQL.Add('  acionamentovivo.valor as valorpj,');
     Query.SQL.Add('  t.valorpagamento,');
+    Query.SQL.Add('  t.observacao,');
     Query.SQL.Add('  CONCAT(ROUND(t.porcentagem * 100, 2), "%") AS porcentagem,');
     Query.SQL.Add('  rolloutvivo.entregareal,');
     Query.SQL.Add('  rolloutvivo.fiminstalacaoreal,');
@@ -1615,6 +1643,7 @@ begin
       html2 := html2 + '<td>' + Query.FieldByName('mespagamento').AsString + '</td>';
       html2 := html2 + '<td>' + Query.FieldByName('porcentagem').AsString + '</td>';
       html2 := html2 + '<td>' + FloatToStrF(Query.FieldByName('valorpagamento').AsFloat, ffCurrency, 18, 2) + '</td>';
+      html2 := html2 + '<td>' + Query.FieldByName('observacao').AsString + '</td>';
       html2 := html2 + '</tr>';
 
       total := total + Query.FieldByName('valorpagamento').AsFloat;
@@ -1666,6 +1695,8 @@ begin
     html2 := html2 + '<td><b> Desconto: ' + floattostrf(desconto, ffCurrency, 18, 2) + '</b></td> ';
     html2 := html2 + '</tr> ';
     html2 := html2 + '<tr> ';
+    html2 := html2 + '<td></td> ';
+    html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
     html2 := html2 + '<td></td> ';
@@ -1850,6 +1881,216 @@ begin
   finally
     FDQuery.Free;
   end;
+end;
+
+function TEmail.ObterEmailsFaturamento: string;
+var
+  qry: TFDQuery;
+begin
+  Result := '';
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConn;
+    qry.SQL.Text := 'SELECT emailFaturamentoTelefonica FROM gesemailconfiguracao';
+    qry.Open;
+
+    if not qry.IsEmpty then
+    begin
+      Result := qry.FieldByName('emailFaturamentoTelefonica').AsString;
+    end;
+  finally
+    qry.Free;
+  end;
+end;
+
+
+// Função para enviar e-mail de Instalação
+// Função para enviar e-mail de Instalação
+procedure TEmail.EnviarEmailInstalacao(const NomeSite, PO, IDPMTS: string);
+var
+  Assunto, Corpo, Destinatarios: string;
+begin
+  Destinatarios := ObterEmailsFaturamento;
+  if Destinatarios = '' then Exit;
+
+  Assunto := 'Liberação para Faturamento – ' + NomeSite + ' | IDPMTS ' + IDPMTS;
+
+  Corpo := '<!DOCTYPE html>' +
+           '<html>' +
+           '<head>' +
+           '  <style>' +
+           '    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }' +
+           '    .container { max-width: 600px; margin: 0 auto; padding: 20px; }' +
+           '    .header { background-color: #0066cc; color: white; padding: 15px; text-align: center; border-radius: 5px 5px 0 0; }' +
+           '    .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; border-top: none; }' +
+           '    .info-item { margin-bottom: 10px; }' +
+           '    .label { font-weight: bold; color: #0066cc; }' +
+           '    .status { background-color: #4CAF50; color: white; padding: 5px 10px; border-radius: 3px; display: inline-block; }' +
+           '    .footer { margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }' +
+           '  </style>' +
+           '</head>' +
+           '<body>' +
+           '  <div class="container">' +
+           '    <div class="header">' +
+           '      <h2>Liberação para Faturamento</h2>' +
+           '    </div>' +
+           '    <div class="content">' +
+           '      <div class="info-item"><span class="label">PO:</span> ' + PO + '</div>' +
+           '      <div class="info-item"><span class="label">IDPMTS:</span> ' + IDPMTS + '</div>' +
+           '      <div class="info-item"><span class="label">Site:</span> ' + NomeSite + '</div>' +
+           '      <div class="info-item"><span class="label">Status:</span> <span class="status">Aprovado</span></div>' +
+           '      <br>' +
+           '      <p>Documentação aprovada. Liberado para faturamento.</p>' +
+           '    </div>' +
+           '    <div class="footer">' +
+           '      E-mail automático - Sistema de Gestão de Projetos' +
+           '    </div>' +
+           '  </div>' +
+           '</body>' +
+           '</html>';
+
+  SendEmail(Destinatarios, Assunto, Corpo);
+end;
+
+// Função para enviar e-mail de Drive Test
+procedure TEmail.EnviarEmailDriveTest(const NomeSite, PO, IDPMTS, DataExecucao: string);
+var
+  Assunto, Corpo, Destinatarios: string;
+begin
+  Destinatarios := ObterEmailsFaturamento;
+  if Destinatarios = '' then Exit;
+
+  Assunto := 'Liberação para Faturamento – ' + NomeSite + ' | IDPMTS ' + IDPMTS;
+
+  Corpo := '<!DOCTYPE html>' +
+           '<html>' +
+           '<head>' +
+           '  <style>' +
+           '    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }' +
+           '    .container { max-width: 600px; margin: 0 auto; padding: 20px; }' +
+           '    .header { background-color: #0066cc; color: white; padding: 15px; text-align: center; border-radius: 5px 5px 0 0; }' +
+           '    .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; border-top: none; }' +
+           '    .info-item { margin-bottom: 10px; }' +
+           '    .label { font-weight: bold; color: #0066cc; }' +
+           '    .date { background-color: #FF9800; color: white; padding: 5px 10px; border-radius: 3px; display: inline-block; }' +
+           '    .footer { margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }' +
+           '  </style>' +
+           '</head>' +
+           '<body>' +
+           '  <div class="container">' +
+           '    <div class="header">' +
+           '      <h2>Liberação para Faturamento</h2>' +
+           '    </div>' +
+           '    <div class="content">' +
+           '      <div class="info-item"><span class="label">PO:</span> ' + PO + '</div>' +
+           '      <div class="info-item"><span class="label">IDPMTS:</span> ' + IDPMTS + '</div>' +
+           '      <div class="info-item"><span class="label">Site:</span> ' + NomeSite + '</div>' +
+           '      <div class="info-item"><span class="label">Data de Execução:</span> <span class="date">' + DataExecucao + '</span></div>' +
+           '      <br>' +
+           '      <p>Drive Test executado. Liberado para faturamento.</p>' +
+           '    </div>' +
+           '    <div class="footer">' +
+           '      E-mail automático - Sistema de Gestão de Projetos' +
+           '    </div>' +
+           '  </div>' +
+           '</body>' +
+           '</html>';
+
+  SendEmail(Destinatarios, Assunto, Corpo);
+end;
+
+// Função para enviar e-mail de Survey
+procedure TEmail.EnviarEmailSurvey(const NomeSite, PO, IDPMTS, DataExecucao: string);
+var
+  Assunto, Corpo, Destinatarios: string;
+begin
+  Destinatarios := ObterEmailsFaturamento;
+  if Destinatarios = '' then Exit;
+
+  Assunto := 'Liberação para Faturamento – ' + NomeSite + ' | IDPMTS ' + IDPMTS;
+
+  Corpo := '<!DOCTYPE html>' +
+           '<html>' +
+           '<head>' +
+           '  <style>' +
+           '    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }' +
+           '    .container { max-width: 600px; margin: 0 auto; padding: 20px; }' +
+           '    .header { background-color: #0066cc; color: white; padding: 15px; text-align: center; border-radius: 5px 5px 0 0; }' +
+           '    .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; border-top: none; }' +
+           '    .info-item { margin-bottom: 10px; }' +
+           '    .label { font-weight: bold; color: #0066cc; }' +
+           '    .date { background-color: #9C27B0; color: white; padding: 5px 10px; border-radius: 3px; display: inline-block; }' +
+           '    .footer { margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }' +
+           '  </style>' +
+           '</head>' +
+           '<body>' +
+           '  <div class="container">' +
+           '    <div class="header">' +
+           '      <h2>Liberação para Faturamento</h2>' +
+           '    </div>' +
+           '    <div class="content">' +
+           '      <div class="info-item"><span class="label">PO:</span> ' + PO + '</div>' +
+           '      <div class="info-item"><span class="label">IDPMTS:</span> ' + IDPMTS + '</div>' +
+           '      <div class="info-item"><span class="label">Site:</span> ' + NomeSite + '</div>' +
+           '      <div class="info-item"><span class="label">Data de Execução:</span> <span class="date">' + DataExecucao + '</span></div>' +
+           '      <br>' +
+           '      <p>Vistoria executada. Liberado para faturamento.</p>' +
+           '    </div>' +
+           '    <div class="footer">' +
+           '      E-mail automático - Sistema de Gestão de Projetos' +
+           '    </div>' +
+           '  </div>' +
+           '</body>' +
+           '</html>';
+
+  SendEmail(Destinatarios, Assunto, Corpo);
+end;
+
+// Função para enviar e-mail de Legado
+procedure TEmail.EnviarEmailLegado(const NomeSite, PO, IDPMTS, DataIntegracao: string);
+var
+  Assunto, Corpo, Destinatarios: string;
+begin
+  Destinatarios := ObterEmailsFaturamento;
+  if Destinatarios = '' then Exit;
+
+  Assunto := 'Liberação para Faturamento – ' + NomeSite + ' | IDPMTS ' + IDPMTS;
+
+  Corpo := '<!DOCTYPE html>' +
+           '<html>' +
+           '<head>' +
+           '  <style>' +
+           '    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }' +
+           '    .container { max-width: 600px; margin: 0 auto; padding: 20px; }' +
+           '    .header { background-color: #0066cc; color: white; padding: 15px; text-align: center; border-radius: 5px 5px 0 0; }' +
+           '    .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; border-top: none; }' +
+           '    .info-item { margin-bottom: 10px; }' +
+           '    .label { font-weight: bold; color: #0066cc; }' +
+           '    .date { background-color: #607D8B; color: white; padding: 5px 10px; border-radius: 3px; display: inline-block; }' +
+           '    .footer { margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }' +
+           '  </style>' +
+           '</head>' +
+           '<body>' +
+           '  <div class="container">' +
+           '    <div class="header">' +
+           '      <h2>Liberação para Faturamento</h2>' +
+           '    </div>' +
+           '    <div class="content">' +
+           '      <div class="info-item"><span class="label">PO:</span> ' + PO + '</div>' +
+           '      <div class="info-item"><span class="label">IDPMTS:</span> ' + IDPMTS + '</div>' +
+           '      <div class="info-item"><span class="label">Site:</span> ' + NomeSite + '</div>' +
+           '      <div class="info-item"><span class="label">Data de integração:</span> <span class="date">' + DataIntegracao + '</span></div>' +
+           '      <br>' +
+           '      <p>Legado executado. Liberado para faturamento.</p>' +
+           '    </div>' +
+           '    <div class="footer">' +
+           '      E-mail automático - Sistema de Gestão de Projetos' +
+           '    </div>' +
+           '  </div>' +
+           '</body>' +
+           '</html>';
+
+  SendEmail(Destinatarios, Assunto, Corpo);
 end;
 
 end.

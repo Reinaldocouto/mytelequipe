@@ -46,7 +46,7 @@ const Extratofechamentotelefonica = ({
   //    const [valorpago, setvalorpago] = useState('');
   const [loading, setloading] = useState(false);
   const [pageSize, setPageSize] = useState(12);
-  const [emailadcional, setemailadcional] = useState('');    
+  const [emailadcional, setemailadcional] = useState('');
   const [emailpj, setemailpj] = useState('');
   const [mostra, setmostra] = useState('');
   const [motivo, setmotivo] = useState('');
@@ -97,7 +97,7 @@ const Extratofechamentotelefonica = ({
     } catch (err) {
       console.error(err.message);
     }
-  };  
+  };
 
   const formatToTwoDecimalPlaces = (value) => {
     // Converte o valor para número (se já não for) e formata para duas casas decimais
@@ -309,6 +309,7 @@ const Extratofechamentotelefonica = ({
         return parametros.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
       },
     },
+    
     {
       field: 'mespagamento',
       headerName: 'MÊS PAGAMENTO',
@@ -500,6 +501,16 @@ const Extratofechamentotelefonica = ({
         return date.toLocaleDateString('pt-BR');
       },
     },
+    
+    {
+      field: 'observacao',
+      headerName: 'OBSERVAÇÃO',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
   ];
 
   function CustomPagination() {
@@ -574,25 +585,43 @@ const Extratofechamentotelefonica = ({
         }
       });
   };
-
+  const formatarData = (valor) => {
+    if (!valor) return '';
+    const date = new Date(valor);
+    if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
+      return '';
+    }
+    return date.toLocaleDateString('pt-BR');
+  };
   const gerarexcel = () => {
     const excelData = extrato.map((item) => {
-      console.log(item);
       return {
+        IDPMTS: item.idpmts,
         PO: item.po,
-        POITEM: item.poitem,
-        Sigla: item.sigla,
-        IDSydle: item.idsydle,
-        Cliente: item.cliente,
-        Estado: item.estado,
-        Codigo: item.codigo,
-        Descricao: item.descricao,
-        Mespagamento: item.mespagamento,
-        Porcentagem: item.porcentagem,
-        Valorpagamento: item.valorpagamento,
-        Observacao: item.observacao,
+        UFSIGLA: item.ufsigla,
+        SIGLA: item.pmosigla,
+        REGIONAL: item.pmoregional,
+        ESCOPO: item.brevedescricao,
+        QUANT: item.quantidade,
+        CODIGOLPUVIVO: item.codigolpuvivo,
+        VALOR: item.valor?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) ?? '',
+        'MÊS PAGAMENTO': item.mespagamento,
+        '%': item.porcentagem != null ? `${(item.porcentagem * 100).toFixed(2)}%` : '0%',
+        'VALOR PAGAMENTO':
+          item.valorpagamento?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) ??
+          '',
+        'ENTREGA REAL': formatarData(item.entregareal),
+        'INSTALAÇÃO REAL': formatarData(item.fiminstalacaoreal),
+        'DATA DO PAGAMENTO': item.datadopagamento ?? '',
+        STATUS: item.status,
+        'INTEGRAÇÃO REAL': formatarData(item.integracaoreal),
+        ATIVAÇÃO: formatarData(item.ativacao),
+        DOCUMENTAÇÃO: formatarData(item.documentacao),
+        'DT REAL': formatarData(item.dtreal),
+        Observação: item.observacao,
       };
     });
+
     exportExcel({ excelData, fileName: 'extrato' });
   };
 

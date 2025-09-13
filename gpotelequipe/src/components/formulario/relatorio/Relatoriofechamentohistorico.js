@@ -1,11 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Button,
-  Modal,
-  ModalBody,
-  ModalHeader,
-  ModalFooter,
-} from 'reactstrap';
+import { useState, useEffect } from 'react';
+import { Button, Modal, ModalBody, ModalHeader, ModalFooter } from 'reactstrap';
 import { Box } from '@mui/material';
 import {
   DataGrid,
@@ -50,8 +44,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
     }
   };
 
-    const columns = [
-            
+  const columns = [
     {
       field: 'idpmts',
       headerName: 'IDMPTS',
@@ -61,7 +54,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       editable: false,
     },
     {
-      field: 'regional',
+      field: 'pmoregional',
       headerName: 'REGIONAL',
       width: 100,
       align: 'left',
@@ -119,7 +112,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       editable: false,
     },
     {
-      field: 'tarefas',
+      field: 'brevedescricao',
       headerName: 'TAREFAS',
       width: 350,
       align: 'left',
@@ -132,7 +125,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       headerName: 'VALOR PJ',
       width: 150,
       align: 'right',
-      type: 'number', 
+      type: 'number',
       editable: false,
       valueFormatter: (parametros) => {
         if (parametros.value == null) return ''; // Caso o valor seja nulo
@@ -144,13 +137,13 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       headerName: 'DATA ACIONAMENTO',
       width: 150,
       align: 'center',
-      type: 'date', 
+      type: 'date',
       editable: false,
       valueFormatter: (parametros) => {
-        if (!parametros.value) return ''; 
+        if (!parametros.value) return '';
 
         const date = new Date(parametros.value);
-        
+
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -171,7 +164,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       type: 'date',
       editable: false,
       valueFormatter: (parametros) => {
-        if (!parametros.value) return ''; 
+        if (!parametros.value) return '';
 
         const date = new Date(parametros.value);
 
@@ -204,15 +197,11 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       type: 'date',
       editable: false,
       valueFormatter: (parametros) => {
-        if (!parametros.value) return ''; 
+        if (!parametros.value) return '';
 
         const date = new Date(parametros.value);
 
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 && 
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
 
@@ -225,37 +214,33 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       headerName: 'ENTREGA REAL',
       width: 150,
       align: 'center',
-      type: 'date', 
+      type: 'date',
       editable: false,
       valueFormatter: (parametros) => {
-        if (!parametros.value) return ''; 
+        if (!parametros.value) return '';
 
         const date = new Date(parametros.value);
 
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 && 
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
 
         return date.toLocaleDateString('pt-BR');
       },
     },
-    
+
     {
       field: 'fiminstalacaoreal',
       headerName: 'FIM INSTALACAO REAL',
       width: 150,
       align: 'center',
-      type: 'date', 
+      type: 'date',
       editable: false,
       valueFormatter: (parametros) => {
         if (!parametros.value) return '';
 
         const date = new Date(parametros.value);
-       
+
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -279,7 +264,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
-        
+
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -302,7 +287,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
-       
+
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -325,7 +310,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
-       
+
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -349,7 +334,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
-   
+
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -373,7 +358,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
- 
+
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -400,7 +385,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       align: 'left',
       type: 'string',
       editable: false,
-    },    
+    },
     {
       field: 'datapagamento',
       headerName: 'DATA PAGAMENTO',
@@ -411,7 +396,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
         const date = new Date(parametros.value);
-  
+
         if (
           date.getDate() === 30 &&
           date.getMonth() === 11 && // Dezembro (0-based)
@@ -423,18 +408,7 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
         return date.toLocaleDateString('pt-BR');
       },
     },
-    {
-      field: 'valorpagamento',
-      headerName: 'VALOR PAGO',
-      width: 150,
-      align: 'right',
-      type: 'number',
-      editable: false,
-      valueFormatter: (parametros) => {
-        if (parametros.value == null) return ''; // Caso o valor seja nulo
-        return parametros.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-      },
-    },
+    
     {
       field: 'porcentagem',
       headerName: '% PAGO',
@@ -450,15 +424,34 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       },
     },
     {
+      field: 'valorpagamento',
+      headerName: 'VALOR PAGO',
+      width: 150,
+      align: 'right',
+      type: 'number',
+      editable: false,
+      valueFormatter: (parametros) => {
+        if (parametros.value == null) return ''; // Caso o valor seja nulo
+        return parametros.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      },
+    },
+    {
+      field: 'brevedescricao',
+      headerName: 'BREVE DESCRICAO',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
       field: 'tipopagamento',
       headerName: 'TIPO PAGAENTO',
       width: 180,
       align: 'left',
       type: 'string',
       editable: false,
-    },      
+    },
   ];
-
 
   function CustomNoRowsOverlay() {
     return (
@@ -467,32 +460,32 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
       </GridOverlay>
     );
   }
-    function CustomPagination() {
-        const apiRef = useGridApiContext();
-        const page = useGridSelector(apiRef, gridPageSelector);
-        const pageCount = useGridSelector(apiRef, gridPageCountSelector);
-        const rowCount = apiRef.current.getRowsCount(); // Obtém total de itens
-        return (
-            <Box
-                sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    width: '100%',
-                    padding: '10px',
-                }}
-            >
-                <Typography variant="body2">Total de itens: {rowCount}</Typography>
+  function CustomPagination() {
+    const apiRef = useGridApiContext();
+    const page = useGridSelector(apiRef, gridPageSelector);
+    const pageCount = useGridSelector(apiRef, gridPageCountSelector);
+    const rowCount = apiRef.current.getRowsCount(); // Obtém total de itens
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          padding: '10px',
+        }}
+      >
+        <Typography variant="body2">Total de itens: {rowCount}</Typography>
 
-                <Pagination
-                    color="primary"
-                    count={pageCount}
-                    page={page + 1}
-                    onChange={(event, value1) => apiRef.current.setPage(value1 - 1)}
-                />
-            </Box>
-        );
-    }
+        <Pagination
+          color="primary"
+          count={pageCount}
+          page={page + 1}
+          onChange={(event, value1) => apiRef.current.setPage(value1 - 1)}
+        />
+      </Box>
+    );
+  }
 
   const toggle = () => {
     setshow(!show);
@@ -506,54 +499,53 @@ const Relatoriofechamentohistorico = ({ setshow, show }) => {
     iniciatabelas();
   }, []);
 
-    const gerarexcel = () => {
-        const excelData = totalacionamento.map((item) => {
-            const formatarData = (data) => {
-                if (!data) return '';
-                const d = new Date(data);
-                if (
-                    d.getFullYear() === 1899 &&
-                    d.getMonth() === 11 &&
-                    d.getDate() === 30
-                ) {
-                    return '';
-                }
-                return d.toLocaleDateString('pt-BR');
-            };
-    
-            return {
-            IDMPTS: item.idpmts,
-            REGIONAL: item.regional,
-            PO: item.po,
-            PMOSIGLA: item.pmosigla,
-            UFSIGLA: item.ufsigla,
-            ATIVIDADE: item.atividade,
-            QUANTIDADE: item.quantidade,
-            'CODIGO LPU VIVO': item.codigolpuvivo,
-            TAREFAS: item.tarefas,
-            VALOR:  item.valor?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-            'DATA ACIONAMENTO': formatarData(item.dataacionamento),
-            'DATA ENVIO EMAIL': formatarData(item.dataenvioemail),
-            COLABORADOR: item.nome,
-            'VISTORIA REAL': formatarData(item.vistoriareal),
-            'ENTREGA REAL': formatarData(item.entregareal),
-            'FIM INSTALACAO REAL': formatarData(item.fiminstalacaoreal),
-            'INTEGRACAO REAL': formatarData(item.integracaoreal),
-            ATIVACAO: formatarData(item.ativacao),
-            DOCUMENTACAO: formatarData(item.documentacao),
-            'INITIAL TUNNING REAL': formatarData(item.initialtunningreal),
-            'DT REAL': formatarData(item.dtreal),
-            'STATUS OBRA': item.statusobra,
-            'MES PAGAMENTO': item.mespagamento,
-            'DATA PAGAMENTO': formatarData(item.datapagamento),
-            'VALOR PAGO': item.valorpagamento?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-            '% PAGO': item.porcentagem ? `${(item.porcentagem * 100).toFixed(2)}%` : '0%', 
-            'TIPO PAGAENTO': item.tipopagamento,
-        };
+  const gerarexcel = () => {
+    const excelData = totalacionamento.map((item) => {
+      const formatarData = (data) => {
+        if (!data) return '';
+        const d = new Date(data);
+        if (d.getFullYear() === 1899 && d.getMonth() === 11 && d.getDate() === 30) {
+          return '';
+        }
+        return d.toLocaleDateString('pt-BR');
+      };
+
+      return {
+        IDMPTS: item.idpmts,
+        REGIONAL: item.pmoregional,
+        PO: item.po,
+        PMOSIGLA: item.pmosigla,
+        UFSIGLA: item.ufsigla,
+        ATIVIDADE: item.atividade,
+        QUANTIDADE: item.quantidade,
+        'CODIGO LPU VIVO': item.codigolpuvivo,
+        TAREFAS: item.brevedescricao,
+        VALOR: item.valor?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        'DATA ACIONAMENTO': formatarData(item.dataacionamento),
+        'DATA ENVIO EMAIL': formatarData(item.dataenvioemail),
+        COLABORADOR: item.nome,
+        'VISTORIA REAL': formatarData(item.vistoriareal),
+        'ENTREGA REAL': formatarData(item.entregareal),
+        'FIM INSTALACAO REAL': formatarData(item.fiminstalacaoreal),
+        'INTEGRACAO REAL': formatarData(item.integracaoreal),
+        ATIVACAO: formatarData(item.ativacao),
+        DOCUMENTACAO: formatarData(item.documentacao),
+        'INITIAL TUNNING REAL': formatarData(item.initialtunningreal),
+        'DT REAL': formatarData(item.dtreal),
+        'STATUS OBRA': item.statusobra,
+        'MES PAGAMENTO': item.mespagamento,
+        'DATA PAGAMENTO': formatarData(item.datapagamento),
+        'VALOR PAGO': item.valorpagamento?.toLocaleString('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        }),
+        '% PAGO': item.porcentagem ? `${(item.porcentagem * 100).toFixed(2)}%` : '0%',
+        'TIPO PAGAENTO': item.tipopagamento,
+      };
     });
 
     exportExcel({ excelData, fileName: 'Relatório - Historico Fechamento' });
-};
+  };
 
   return (
     <>

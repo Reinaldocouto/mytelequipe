@@ -425,6 +425,7 @@ begin
       sql.add('relatoriolinha.FAM_Panoramicas_Status, ');
       sql.add('relatoriolinha.FCI_Status, ');
       sql.add('relatoriolinha.Inventario_Desinstalacao_Status, ');
+      sql.add('relatoriolinha.Data_Inventario_Desinstalacao, ');
       sql.add('relatoriolinha.Inventario_de_instalação_Status, ');
       sql.add('relatoriolinha.Inventário_Logico_Status, ');
       sql.add('relatoriolinha.Log_de_Antes_do_Site_Status, ');

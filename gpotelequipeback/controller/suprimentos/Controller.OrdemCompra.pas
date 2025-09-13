@@ -96,6 +96,7 @@ begin
       servico.idordemcompra := body.getvalue<integer>('idordemcompra', 0);
       servico.idcliente := body.getvalue<integer>('idcliente', 0);
       servico.idloja := body.getvalue<integer>('idloja', 0);
+      servico.idusuario := body.getvalue<integer>('idusuario', 0);
       if servico.lancarestoque(erro) then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idordemcompra)).Status(THTTPStatus.Created)
       else
@@ -123,6 +124,7 @@ begin
       servico.idordemcompra := body.getvalue<integer>('idordemcompra', 0);
       servico.idcliente := body.getvalue<integer>('idcliente', 0);
       servico.idloja := body.getvalue<integer>('idloja', 0);
+      servico.idusuario := body.getvalue<integer>('idusuario', 0);
       if servico.cancelarlancarestoque(erro) then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idordemcompra)).Status(THTTPStatus.Created)
       else
@@ -372,6 +374,10 @@ begin
         servico.idproduto := body.getvalue<integer>('idproduto', 0)
       else
         servico.idproduto := 0;
+      if strisint(body.getvalue<string>('idsolicitacaoitens', '')) then
+        servico.idsolicitacaoitens := body.getvalue<integer>('idsolicitacaoitens', 0)
+      else
+        servico.idsolicitacaoitens := 0;
 
       if strisint(body.getvalue<string>('idordemcompra', '')) then
         servico.idordemcompra := body.getvalue<integer>('idordemcompra', 0)
@@ -391,6 +397,7 @@ begin
       servico.idusuario := body.getvalue<integer>('idusuario', 0);
       servico.idcliente := body.getvalue<integer>('idcliente', 0);
       servico.idloja := body.getvalue<integer>('idloja', 0);
+      servico.item := body.getvalue<integer>('item', 0);
 
       if Length(erro) = 0 then
       begin
@@ -446,6 +453,7 @@ begin
       servico.idusuario := body.getvalue<integer>('idusuario', 0);
       servico.idcliente := body.getvalue<integer>('idcliente', 0);
       servico.idloja := body.getvalue<integer>('idloja', 0);
+      servico.item := body.getvalue<integer>('item', 0);
 
       if Length(erro) = 0 then
       begin
@@ -546,10 +554,18 @@ begin
       servico.datacompra := body.getvalue<string>('datacompra', '');
       servico.dataprevista := body.getvalue<string>('dataprevista', '');
       servico.observacao := body.getvalue<string>('observacao', '');
+      servico.idtransportadora := body.getvalue<integer>('idtransportadora', 0);
+      servico.observacaointerna := body.getvalue<string>('observacoesinterna', '');
 
       servico.idusuario := body.getvalue<integer>('idusuario', 0);
       servico.idcliente := body.getvalue<integer>('idcliente', 0);
       servico.idloja := body.getvalue<integer>('idloja', 0);
+      var sDest: string;
+      if body is TJSONObject then
+      begin
+        if TJSONObject(body).TryGetValue<string>('destinatarios', sDest) then
+          servico.destinatarios := sDest;
+      end;
 
       if servico.idfornecedor = 0 then
         erro := 'Campo Fornecedor é Obrigatório';
@@ -557,7 +573,8 @@ begin
       if Length(erro) = 0 then
       begin
         if servico.Editar(erro) then
-          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idordemcompraitens)).Status(THTTPStatus.Created)
+
+          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idordemcompra)).Status(THTTPStatus.Created)
         else
           Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
       end

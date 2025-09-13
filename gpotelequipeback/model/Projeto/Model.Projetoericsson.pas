@@ -8,7 +8,7 @@ uses
 
 type
   TProjetoericsson = class
-  private
+   private
     FConn: TFDConnection;
     Fnumero: string;
     Fcliente: string;
@@ -36,9 +36,9 @@ type
     Fdatafim: string;
     Fvalorhora: Double;
     Fhoranormalclt: Double;
-    fhora50clt: Double;
-    fhora100clt: Double;
-    fvalornegociado: Double;
+    Fhora50clt: Double;
+    Fhora100clt: Double;
+    Fvalornegociado: Double;
 
     Fescopo: string;
     Fpo: string;
@@ -64,10 +64,31 @@ type
     Fempresapagamento: string;
     Flpuhistorico: string;
     Flpucr: string;
+    Fdataintegracaoreportadodia: string;
+    Fdataaceitereportadodia: string;
+    Fdataativacaoplanejadodia: string;
+    Fdataativacaoreportadodia: string;
+    Fdatavalidacaoativacaodia: string;
+    Fdataaceiteeriboxedia: string;
+    Fdataativacaoeriboxedia: string;
     Fidtarefamigo: Integer;
     Fdatatarefa: string;
-    Fgeralfechamento: integer;
+    Fgeralfechamento: Integer;
     Frepostaalteracao: Integer;
+    Foutros: string;
+    Fformadeacesso: string;
+    Fddd: string;
+    Fmunicipio: string;
+    Fnomeericsson: string;
+    Flatitude: String;
+    Flongitude: String;
+    Fobs: string;
+    Fsolicitacao: string;
+    Fdatasolicitacao: string;
+    Fdatainicial: string;
+    Fdatafinal: string;
+    Fstatusacesso: string;
+    FenderecoSite: string;
 
   public
     constructor Create;
@@ -114,13 +135,15 @@ type
 
     property horanormalclt: Double read Fhoranormalclt write Fhoranormalclt;
     property hora50clt: Double read Fhora50clt write Fhora50clt;
-    property hora100clt: Double read Fvalorhora write Fhora100clt;
+    property hora100clt: Double read Fhora100clt write Fhora100clt;
 
     property idgeralfechamento: Integer read Fidgeralfechamento write Fidgeralfechamento;
+    property geralfechamento: Integer read Fgeralfechamento write Fgeralfechamento;
     property repostaalteracao: Integer read Frepostaalteracao write Frepostaalteracao;
     property mespagamento: string read Fmespagamento write Fmespagamento;
     property porcentagem: Double read Fporcentagem write Fporcentagem;
     property valorpagamento: Double read Fvalorpagamento write Fvalorpagamento;
+    property desconto: Double read Fdesconto write Fdesconto;
     property observacaopagamento: string read Fobservacaopagamento write Fobservacaopagamento;
     property observacaopagamentointerna: string read Fobservacaopagamentointerna write Fobservacaopagamentointerna;
     property descricaopagamento: string read Fdescricaopagamento write Fdescricaopagamento;
@@ -130,8 +153,30 @@ type
     property lpucr: string read Flpucr write Flpucr;
     property idtarefamigo: Integer read Fidtarefamigo write Fidtarefamigo;
     property datatarefa: string read Fdatatarefa write Fdatatarefa;
+    property outros: string read Foutros write Foutros;
+    property formadeacesso: string read Fformadeacesso write Fformadeacesso;
+    property ddd: string read Fddd write Fddd;
+    property municipio: string read Fmunicipio write Fmunicipio;
+    property nomeericsson: string read Fnomeericsson write Fnomeericsson;
+    property latitude: String read Flatitude write Flatitude;
+    property longitude: String read Flongitude write Flongitude;
+    property obs: string read Fobs write Fobs;
+    property solicitacao: string read Fsolicitacao write Fsolicitacao;
+    property datasolicitacao: string read Fdatasolicitacao write Fdatasolicitacao;
+    property datainicial: string read Fdatainicial write Fdatainicial;
+    property datafinal: string read Fdatafinal write Fdatafinal;
+    property statusacesso: string read Fstatusacesso write Fstatusacesso;
+    property enderecoSite: string read FenderecoSite write FenderecoSite;
 
-    property desconto: Double read Fdesconto write Fdesconto;
+    property dataintegracaoreportadodia: string read Fdataintegracaoreportadodia write Fdataintegracaoreportadodia;
+    property dataaceitereportadodia: string read Fdataaceitereportadodia write Fdataaceitereportadodia;
+    property dataativacaoplanejadodia: string read Fdataativacaoplanejadodia write Fdataativacaoplanejadodia;
+    property dataativacaoreportadodia: string read Fdataativacaoreportadodia write Fdataativacaoreportadodia;
+    property datavalidacaoativacaodia: string read Fdatavalidacaoativacaodia write Fdatavalidacaoativacaodia;
+    property dataaceiteeriboxedia: string read Fdataaceiteeriboxedia write Fdataaceiteeriboxedia;
+    property dataativacaoeriboxedia: string read Fdataativacaoeriboxedia write Fdataativacaoeriboxedia;
+
+
 
     function Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
@@ -184,6 +229,8 @@ type
     function regionalericsson(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function diaria(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function EditarEmMassa(const AJsonBody: string; out erro: string): Boolean;
+    function EditarEmMassaRollout(const Numeros: TArray<string>; out erro: string): Boolean;
+    procedure SetDateParamExplicit(qry: TFDQuery; const paramName: string; const dateValue: string);
   end;
 
 implementation
@@ -482,8 +529,8 @@ end;
 function TProjetoericsson.Editaratividadepj(out erro: string): Boolean;
 var
   qry, qry1, qry2: TFDQuery;
-  id, demanda: Integer;
-  polocal, cliente, empresa, site: string;
+  id: Integer;
+  demanda, polocal, cliente, empresa, site: string;
 begin
   try
     erro := '';
@@ -533,9 +580,9 @@ begin
         SQL.Add('obraericsson ');
         SQL.Add('Where ');
         SQL.Add('obraericsson.numero=:numero ');
-        ParamByName('numero').asstring := numero;
+        ParamByName('numero').AsString := numero;
         open;
-        demanda := fieldbyname('rfp').AsInteger;
+        demanda := fieldbyname('rfp').asstring;
         cliente := fieldbyname('cliente').asstring;
         site := fieldbyname('site').asstring;
 
@@ -616,7 +663,7 @@ begin
             if lpuhistorico = 'NEGOCIADO' then
               ParamByName('valorservico').asfloat := valornegociado
             else
-              ParamByName('valorservico').asfloat := qry.FieldByName('Valor').AsFloat * qry.FieldByName('qtyordered').asfloat;
+              ParamByName('valorservico').asfloat := qry.FieldByName('Valor').AsFloat * qry.FieldByName('qtyordered').asInteger;
             ;
             ParamByName('observacaopj').asstring := observacaopj;
             ParamByName('descricaoservico').asstring := descricaoservico;
@@ -631,7 +678,7 @@ begin
             SQL.Add('Descricao,VALORPJ,Quant,EMPRESA,DATADEENVIO,idcolaboradorpj,MOSREAL,INSTALREAL,INTEGREAL) ');
             sql.Add('                            values(:Demanda,:PO,:POITEM,:Item,:Sigla,:IDSydle,:Cliente,:Estado,:Codigo,');
             sql.Add(':Descricao,:VALORPJ,:Quant,:EMPRESA,:DATADEENVIO,:idcolaboradorpj,:MOSREAL,:INSTALREAL,:INTEGREAL) ');
-            ParamByName('Demanda').AsInteger := demanda;
+            ParamByName('Demanda').AsString := demanda;
             ParamByName('PO').Asstring := polocal;
             ParamByName('POITEM').AsString := qry.FieldByName('poritem').AsString;
             if qry.FieldByName('sigla').asstring = 'T' then
@@ -1530,98 +1577,359 @@ end;
 function TProjetoericsson.Editar(out erro: string): Boolean;
 var
   qry: TFDQuery;
-  id: Integer;
 begin
- { try
-    qry := TFDQuery.Create(nil);
-    qry.connection := FConn;
+  Result := False;
+  erro := '';
+  qry := TFDQuery.Create(nil);
+
+  try
+    qry.Connection := FConn;
+    FConn.StartTransaction;
+
     try
-      FConn.StartTransaction;
       with qry do
       begin
-        Active := false;
-        sql.Clear;
-        sql.add('select numero from obraericsson where numero=:numero ');
-        ParamByName('numero').Value := numero;
+        // Verifica se o registro já existe
+        Active := False;
+        SQL.Clear;
+        SQL.Add('SELECT numero FROM obraericsson WHERE numero = :numero');
+        ParamByName('numero').DataType := ftString;
+        ParamByName('numero').AsString := numero;
         Open;
+
         if RecordCount = 0 then
         begin
-          Active := false;
-          sql.Clear;
-          SQL.Add('INSERT INTO obraericsson(numero,cliente,regiona,site,situacaoimplantacao,');
-          SQL.Add('situacaodaintegracao,datadacriacaodademandadia,dataaceitedemandadia,');
-          SQL.Add('datainicioentregamosplanejadodia,datarecebimentodositemosreportadodia,');
-          SQL.Add('datafiminstalacaoplanejadodia,dataconclusaoreportadodia,datavalidacaoinstalacaodia');
-          SQL.Add('dataintegracaoplanejadodia,datavalidacaoeriboxedia)');
-          SQL.Add('               VALUES(:numero,:cliente,:regiona,:site,:situacaoimplantacao,');
-          SQL.Add(':situacaodaintegracao,:datadacriacaodademandadia,:dataaceitedemandadia,');
-          SQL.Add(':datainicioentregamosplanejadodia,:datarecebimentodositemosreportadodia,');
-          SQL.Add(':datafiminstalacaoplanejadodia,:dataconclusaoreportadodia,:datavalidacaoinstalacaodia');
-          SQL.Add(':dataintegracaoplanejadodia,:datavalidacaoeriboxedia)');
+          // INSERT
+          Active := False;
+          SQL.Clear;
+          SQL.Add('INSERT INTO obraericsson(');
+          SQL.Add('numero, cliente, regiona, site, situacaoimplantacao, localizacaositeendereco, ');
+          SQL.Add('situacaodaintegracao, datadacriacaodademandadia, dataaceitedemandadia,');
+          SQL.Add('datainicioentregamosplanejadodia, datarecebimentodositemosreportadodia,');
+          SQL.Add('datafiminstalacaoplanejadodia, dataconclusaoreportadodia, datavalidacaoinstalacaodia,');
+          SQL.Add('dataintegracaoplanejadodia, datavalidacaoeriboxedia,');
+          SQL.Add('datainicial, datafinal,datasolicitacao,');
+          SQL.Add('outros, formadeacesso, ddd, municipio, nomeericsson, solicitacao, statusacesso,');
+          SQL.Add('latitude, longitude, obs ');
+          SQL.Add(')');
+          SQL.Add('VALUES(');
+          SQL.Add(':numero, :cliente, :regiona, :site, :situacaoimplantacao,:localizacaositeendereco, ');
+          SQL.Add(':situacaodaintegracao, :datadacriacaodademandadia, :dataaceitedemandadia,');
+          SQL.Add(':datainicioentregamosplanejadodia, :datarecebimentodositemosreportadodia,');
+          SQL.Add(':datafiminstalacaoplanejadodia, :dataconclusaoreportadodia, :datavalidacaoinstalacaodia,');
+          SQL.Add(':dataintegracaoplanejadodia, :datavalidacaoeriboxedia,');
+          SQL.Add(':datainicial, :datafinal, :datasolicitacao, ');
+          SQL.Add(':outros, :formadeacesso, :ddd, :municipio, :nomeericsson, :solicitacao, :statusacesso,');
+          SQL.Add(':latitude, :longitude, :obs');
+          SQL.Add(')');
         end
         else
         begin
-          Active := false;
-          sql.Clear;
-          SQL.Add('update obraericsson set ');
-          SQL.Add('numero                              =:numero,');
-          SQL.Add('cliente                             =:cliente,');
-          SQL.Add('regiona                             =:regiona,');
-          SQL.Add('site                                =:site,');
-          SQL.Add('situacaoimplantacao                 =:situacaoimplantacao,');
-          SQL.Add('situacaodaintegracao                =:situacaodaintegracao,');
-          SQL.Add('datadacriacaodademandadia           =:datadacriacaodademandadia,');
-          SQL.Add('dataaceitedemandadia                =:dataaceitedemandadia,');
-          SQL.Add('datainicioentregamosplanejadodia    =:datainicioentregamosplanejadodia,');
-          SQL.Add('datarecebimentodositemosreportadodia=:datarecebimentodositemosreportadodia,');
-          SQL.Add('datafiminstalacaoplanejadodia       =:datafiminstalacaoplanejadodia,');
-          SQL.Add('dataconclusaoreportadodia           =:dataconclusaoreportadodia,');
-          SQL.Add('datavalidacaoinstalacaodia          =:datavalidacaoinstalacaodia,');
-          SQL.Add('dataintegracaoplanejadodia          =:dataintegracaoplanejadodia,');
-          SQL.Add('datavalidacaoeriboxedia             =:datavalidacaoeriboxedia');
-          SQL.Add('where numero=:numero ');
+          // UPDATE
+          Active := False;
+          SQL.Clear;
+          SQL.Add('UPDATE obraericsson SET ');
+          SQL.Add('cliente                              = :cliente,');
+          SQL.Add('regiona                              = :regiona,');
+          SQL.Add('site                                 = :site,');
+          SQL.Add('situacaoimplantacao                  = :situacaoimplantacao,');
+          SQL.Add('situacaodaintegracao                 = :situacaodaintegracao,');
+          SQL.Add('datadacriacaodademandadia            = :datadacriacaodademandadia,');
+          SQL.Add('dataaceitedemandadia                 = :dataaceitedemandadia,');
+          SQL.Add('datainicioentregamosplanejadodia     = :datainicioentregamosplanejadodia,');
+          SQL.Add('datarecebimentodositemosreportadodia = :datarecebimentodositemosreportadodia,');
+          SQL.Add('datafiminstalacaoplanejadodia        = :datafiminstalacaoplanejadodia,');
+          SQL.Add('dataconclusaoreportadodia            = :dataconclusaoreportadodia,');
+          SQL.Add('datavalidacaoinstalacaodia           = :datavalidacaoinstalacaodia,');
+          SQL.Add('dataintegracaoplanejadodia           = :dataintegracaoplanejadodia,');
+          SQL.Add('datavalidacaoeriboxedia              = :datavalidacaoeriboxedia,');
+          SQL.Add('datainicial                          = :datainicial,');
+          SQL.Add('datafinal                            = :datafinal,');
+          SQL.Add('datasolicitacao                            = :datasolicitacao,');
+          SQL.Add('outros                               = :outros,');
+          SQL.Add('formadeacesso                        = :formadeacesso,');
+          SQL.Add('ddd                                  = :ddd,');
+          SQL.Add('municipio                            = :municipio,');
+          SQL.Add('nomeericsson                         = :nomeericsson,');
+          SQL.Add('latitude                             = :latitude,');
+          SQL.Add('longitude                            = :longitude,');
+          SQL.Add('statusacesso                         = :statusacesso,');
+          SQL.Add('localizacaositeendereco              = :localizacaositeendereco,');
+          SQL.Add('solicitacao              = :solicitacao,');
+          SQL.Add('obs                                  = :obs');
+          SQL.Add('WHERE numero = :numero');
         end;
-        ParamByName('numero').asinteger := numero;
+
+        // PREPARE obrigatório para definir os parâmetros
+        Prepare;
+
+        // Parametrização comum
+        ParamByName('numero').DataType := ftString;
+        ParamByName('numero').AsString := numero;
+
+        ParamByName('cliente').DataType := ftString;
         ParamByName('cliente').AsString := cliente;
+
+        ParamByName('regiona').DataType := ftString;
         ParamByName('regiona').AsString := regiona;
+
+        ParamByName('site').DataType := ftString;
         ParamByName('site').AsString := site;
+
+        ParamByName('situacaoimplantacao').DataType := ftString;
         ParamByName('situacaoimplantacao').AsString := situacaoimplantacao;
+
+        ParamByName('situacaodaintegracao').DataType := ftString;
         ParamByName('situacaodaintegracao').AsString := situacaodaintegracao;
-        ParamByName('datadacriacaodademandadia').AsString := datadacriacaodademandadia;
-        ParamByName('dataaceitedemandadia').AsString := dataaceitedemandadia;
-        ParamByName('datainicioentregamosplanejadodia').AsString := datainicioentregamosplanejadodia;
-        ParamByName('datarecebimentodositemosreportadodia').AsString := datarecebimentodositemosreportadodia;
-        ParamByName('datafiminstalacaoplanejadodia').AsString := datafiminstalacaoplanejadodia;
-        ParamByName('dataconclusaoreportadodia').AsString := dataconclusaoreportadodia;
-        ParamByName('datavalidacaoinstalacaodia').AsString := datavalidacaoinstalacaodia;
-        ParamByName('dataintegracaoplanejadodia').AsString := dataintegracaoplanejadodia;
-        ParamByName('datavalidacaoeriboxedia').AsString := datavalidacaoeriboxedia;
-        execsql;
+        ParamByName('statusacesso').DataType := ftString;
+        ParamByName('statusacesso').AsString := statusacesso;
+
+        SetDateParamExplicit(qry, 'datadacriacaodademandadia', datadacriacaodademandadia);
+        SetDateParamExplicit(qry, 'dataaceitedemandadia', dataaceitedemandadia);
+        SetDateParamExplicit(qry, 'datainicioentregamosplanejadodia', datainicioentregamosplanejadodia);
+        SetDateParamExplicit(qry, 'datarecebimentodositemosreportadodia', datarecebimentodositemosreportadodia);
+        SetDateParamExplicit(qry, 'datafiminstalacaoplanejadodia', datafiminstalacaoplanejadodia);
+        SetDateParamExplicit(qry, 'dataconclusaoreportadodia', dataconclusaoreportadodia);
+        SetDateParamExplicit(qry, 'datavalidacaoinstalacaodia', datavalidacaoinstalacaodia);
+        SetDateParamExplicit(qry, 'dataintegracaoplanejadodia', dataintegracaoplanejadodia);
+        SetDateParamExplicit(qry, 'datavalidacaoeriboxedia', datavalidacaoeriboxedia);
+        SetDateParamExplicit(qry, 'datasolicitacao', dataSolicitacao);
+        SetDateParamExplicit(qry, 'datainicial', datainicial);
+        SetDateParamExplicit(qry, 'datafinal', datafinal);
+
+        ParamByName('outros').DataType := ftString;
+        ParamByName('outros').AsString := outros;
+
+        ParamByName('formadeacesso').DataType := ftString;
+        ParamByName('formadeacesso').AsString := formadeacesso;
+
+        ParamByName('ddd').DataType := ftString;
+        ParamByName('ddd').AsString := ddd;
+
+        ParamByName('municipio').DataType := ftString;
+        ParamByName('municipio').AsString := municipio;
+
+        ParamByName('nomeericsson').DataType := ftString;
+        ParamByName('nomeericsson').AsString := nomeericsson;
+
+        ParamByName('localizacaositeendereco').DataType := ftString;
+        ParamByName('localizacaositeendereco').AsString := enderecoSite;
+
+        ParamByName('solicitacao').DataType := ftString;
+        ParamByName('solicitacao').AsString := solicitacao;
+
+        ParamByName('latitude').DataType := ftString;
+        ParamByName('latitude').AsString := latitude;
+
+        ParamByName('longitude').DataType := ftString;
+        ParamByName('longitude').AsString := longitude;
+
+        ParamByName('obs').DataType := ftString;
+        ParamByName('obs').AsString := obs;
+        ExecSQL;
       end;
-      erro := '';
+
       FConn.Commit;
-      result := true;
+      Result := True;
+
     except
-      on ex: exception do
+      on ex: Exception do
       begin
         FConn.Rollback;
-        erro := 'Erro ao cadastrar cliente: ' + ex.Message;
-        Result := false;
+        erro := 'Erro ao editar registro: ' + ex.Message;
+        Writeln(erro);
+        Result := False;
+      end;
+    end;
+
+  finally
+    qry.Free;
+  end;
+
+end;
+
+function TProjetoericsson.EditarEmMassaRollout(const Numeros: TArray<string>; out erro: string): Boolean;
+
+  function ValidStatusAcesso(const Value: string): Boolean;
+  const
+    StatusValidos: array[0..5] of string = ('AGUARDANDO','CANCELADO','CONCLUIDO','LIBERADO','PEDIR','REJEITADO');
+  var
+    S: string;
+  begin
+    Result := False;
+    S := UpperCase(Value);
+    for var i := Low(StatusValidos) to High(StatusValidos) do
+      if StatusValidos[i] = S then
+        Exit(True);
+  end;
+
+  procedure SetDateParamSQL(SQLText: TStringList; const ParamName: string; const Data: string);
+  begin
+    if Data <> '' then
+      SQLText.Add('  ' + ParamName + ' = :' + ParamName + ',');
+  end;
+
+var
+  qry: TFDQuery;
+  SQLText: TStringList;
+  i: Integer;
+begin
+  Result := False;
+  erro := '';
+
+  if Length(Numeros) = 0 then
+  begin
+    erro := 'Nenhum número informado para atualização.';
+    Exit;
+  end;
+
+  qry := TFDQuery.Create(nil);
+  SQLText := TStringList.Create;
+  try
+    qry.Connection := FConn;
+    FConn.StartTransaction;
+    try
+      SQLText.Add('UPDATE obraericsson SET');
+
+      // Campos de texto opcionais
+      if cliente <> '' then SQLText.Add('  cliente = :cliente,');
+      if regiona <> '' then SQLText.Add('  regiona = :regiona,');
+      if site <> '' then SQLText.Add('  site = :site,');
+      if situacaoimplantacao <> '' then SQLText.Add('  situacaoimplantacao = :situacaoimplantacao,');
+      if situacaodaintegracao <> '' then SQLText.Add('  situacaodaintegracao = :situacaodaintegracao,');
+      if (statusacesso <> '') and ValidStatusAcesso(statusacesso) then
+        SQLText.Add('  statusacesso = :statusacesso,');
+      if formadeacesso <> '' then SQLText.Add('  formadeacesso = :formadeacesso,');
+      if outros <> '' then SQLText.Add('  outros = :outros,');
+      if ddd <> '' then SQLText.Add('  ddd = :ddd,');
+      if municipio <> '' then SQLText.Add('  municipio = :municipio,');
+      if nomeericsson <> '' then SQLText.Add('  nomeericsson = :nomeericsson,');
+      if enderecoSite <> '' then SQLText.Add('  localizacaositeendereco = :localizacaositeendereco,');
+      if solicitacao <> '' then SQLText.Add('  solicitacao = :solicitacao,');
+      if latitude <> '' then SQLText.Add('  latitude = :latitude,');
+      if longitude <> '' then SQLText.Add('  longitude = :longitude,');
+      if obs <> '' then SQLText.Add('  obs = :obs,');
+
+      // Campos de datas opcionais
+      if datadacriacaodademandadia <> '' then SetDateParamSQL(SQLText, 'datadacriacaodademandadia', datadacriacaodademandadia);
+      if dataaceitedemandadia <> '' then SetDateParamSQL(SQLText, 'dataaceitedemandadia', dataaceitedemandadia);
+      if datainicioentregamosplanejadodia <> '' then SetDateParamSQL(SQLText, 'datainicioentregamosplanejadodia', datainicioentregamosplanejadodia);
+      if datafiminstalacaoplanejadodia <> '' then SetDateParamSQL(SQLText, 'datafiminstalacaoplanejadodia', datafiminstalacaoplanejadodia);
+      if dataintegracaoplanejadodia <> '' then SetDateParamSQL(SQLText, 'dataintegracaoplanejadodia', dataintegracaoplanejadodia);
+      if datainicial <> '' then SetDateParamSQL(SQLText, 'datainicial', datainicial);
+      if datafinal <> '' then SetDateParamSQL(SQLText, 'datafinal', datafinal);
+      if dataconclusaoreportadodia <> '' then SetDateParamSQL(SQLText, 'dataconclusaoreportadodia', dataconclusaoreportadodia);
+      if datavalidacaoinstalacaodia <> '' then SetDateParamSQL(SQLText, 'datavalidacaoinstalacaodia', datavalidacaoinstalacaodia);
+      if datavalidacaoeriboxedia <> '' then SetDateParamSQL(SQLText, 'datavalidacaoeriboxedia', datavalidacaoeriboxedia);
+      if datasolicitacao <> '' then SetDateParamSQL(SQLText, 'datasolicitacao', datasolicitacao);
+
+      // Remove vírgula final
+      if SQLText.Count > 0 then
+        SQLText[SQLText.Count-1] := SQLText[SQLText.Count-1].TrimRight([',']);
+
+      // WHERE IN
+      SQLText.Add('WHERE numero IN (' + QuotedStr(Numeros[0]));
+      for i := 1 to High(Numeros) do
+        SQLText[SQLText.Count-1] := SQLText[SQLText.Count-1] + ',' + QuotedStr(Numeros[i]);
+      SQLText[SQLText.Count-1] := SQLText[SQLText.Count-1] + ')';
+
+      qry.SQL.Text := SQLText.Text;
+
+      // Parametrização campos de texto
+      if cliente <> '' then qry.ParamByName('cliente').AsString := cliente;
+      if regiona <> '' then qry.ParamByName('regiona').AsString := regiona;
+      if site <> '' then qry.ParamByName('site').AsString := site;
+      if situacaoimplantacao <> '' then qry.ParamByName('situacaoimplantacao').AsString := situacaoimplantacao;
+      if situacaodaintegracao <> '' then qry.ParamByName('situacaodaintegracao').AsString := situacaodaintegracao;
+      if (statusacesso <> '') and ValidStatusAcesso(statusacesso) then
+        qry.ParamByName('statusacesso').AsString := statusacesso;
+      if formadeacesso <> '' then qry.ParamByName('formadeacesso').AsString := formadeacesso;
+      if outros <> '' then qry.ParamByName('outros').AsString := outros;
+      if ddd <> '' then qry.ParamByName('ddd').AsString := ddd;
+      if municipio <> '' then qry.ParamByName('municipio').AsString := municipio;
+      if nomeericsson <> '' then qry.ParamByName('nomeericsson').AsString := nomeericsson;
+      if enderecoSite <> '' then qry.ParamByName('localizacaositeendereco').AsString := enderecoSite;
+      if solicitacao <> '' then qry.ParamByName('solicitacao').AsString := solicitacao;
+      if latitude <> '' then qry.ParamByName('latitude').AsString := latitude;
+      if longitude <> '' then qry.ParamByName('longitude').AsString := longitude;
+      if obs <> '' then qry.ParamByName('obs').AsString := obs;
+      Writeln(datafinal);
+      // Parametrização explícita de datas
+      if datadacriacaodademandadia <> '' then SetDateParamExplicit(qry, 'datadacriacaodademandadia', datadacriacaodademandadia);
+      if dataaceitedemandadia <> '' then SetDateParamExplicit(qry, 'dataaceitedemandadia', dataaceitedemandadia);
+      if datainicioentregamosplanejadodia <> '' then SetDateParamExplicit(qry, 'datainicioentregamosplanejadodia', datainicioentregamosplanejadodia);
+      if datafiminstalacaoplanejadodia <> '' then SetDateParamExplicit(qry, 'datafiminstalacaoplanejadodia', datafiminstalacaoplanejadodia);
+      if dataintegracaoplanejadodia <> '' then SetDateParamExplicit(qry, 'dataintegracaoplanejadodia', dataintegracaoplanejadodia);
+      if datainicial <> '' then SetDateParamExplicit(qry, 'datainicial', datainicial);
+      if datafinal <> '' then SetDateParamExplicit(qry, 'datafinal', datafinal);
+      if dataconclusaoreportadodia <> '' then SetDateParamExplicit(qry, 'dataconclusaoreportadodia', dataconclusaoreportadodia);
+      if datavalidacaoinstalacaodia <> '' then SetDateParamExplicit(qry, 'datavalidacaoinstalacaodia', datavalidacaoinstalacaodia);
+      if datavalidacaoeriboxedia <> '' then SetDateParamExplicit(qry, 'datavalidacaoeriboxedia', datavalidacaoeriboxedia);
+      if datasolicitacao <> '' then SetDateParamExplicit(qry, 'datasolicitacao', datasolicitacao);
+      Writeln(SQLText.text);
+      // Executa
+      qry.ExecSQL;
+      FConn.Commit;
+      Result := True;
+    except
+      on ex: Exception do
+      begin
+        FConn.Rollback;
+        erro := 'Erro ao editar registro: ' + ex.Message;
       end;
     end;
   finally
     qry.Free;
-  end; }
-  result := true;
+    SQLText.Free;
+  end;
 end;
 
-function TProjetoericsson.Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+
+
+
+// Nova procedure com definição explícita de tipo
+procedure TProjetoericsson.SetDateParamExplicit(qry: TFDQuery; const paramName: string; const dateValue: string);
+var
+  dt: TDate;
+  year, month, day: Integer;
+  sDate: string;
+begin
+  qry.ParamByName(paramName).DataType := ftDate;
+
+  if dateValue <> '' then
+  begin
+    // Pega somente os 10 primeiros caracteres (YYYY-MM-DD)
+    sDate := Copy(dateValue, 1, 10);
+
+    if (Length(sDate) = 10) and (sDate[5] = '-') and (sDate[8] = '-') then
+    begin
+      try
+        year := StrToInt(Copy(sDate, 1, 4));
+        month := StrToInt(Copy(sDate, 6, 2));
+        day := StrToInt(Copy(sDate, 9, 2));
+
+        dt := EncodeDate(year, month, day);
+        qry.ParamByName(paramName).AsDate := dt;
+      except
+        qry.ParamByName(paramName).Clear;
+      end;
+    end
+    else
+      qry.ParamByName(paramName).Clear;
+  end
+  else
+    qry.ParamByName(paramName).Clear;
+end;
+
+  function TProjetoericsson.Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
+  busca: string;
 begin
   try
     qry := TFDQuery.Create(nil);
-    qry.connection := FConn;
+    qry.Connection := FConn;
+
     with qry do
     begin
       Active := false;
@@ -1668,33 +1976,184 @@ begin
       SQL.Add('obraericsson.localizacaositeendereco, ');
       SQL.Add('obraericsson.localizacaositecidade, ');
       SQL.Add('obraericsson.documentacaosituacao, ');
-      SQL.Add('obraericsson.sitepossuirisco ');
+      SQL.Add('obraericsson.statusdoc, ');
+      SQL.Add('obraericsson.aprovacaotodosdocs, ');
+      SQL.Add('obraericsson.sitepossuirisco, ');
+      SQL.Add('  obraericsson.outros,');
+      SQL.Add('  obraericsson.formadeacesso,');
+      SQL.Add('  obraericsson.ddd,');
+      SQL.Add('  obraericsson.municipio,');
+      SQL.Add('  obraericsson.nomeericsson,');
+      SQL.Add('  obraericsson.latitude,');
+      SQL.Add('  obraericsson.longitude,');
+      SQL.Add('  obraericsson.obs,');
+      SQL.Add('  obraericsson.solicitacao,');
+      SQL.Add('  obraericsson.datasolicitacao,');
+      SQL.Add('  obraericsson.datainicial,');
+      SQL.Add('  obraericsson.datafinal,');
+      SQL.Add('  obraericsson.statusacesso');
       SQL.Add('From ');
       SQL.Add('obraericsson ');
-      SQL.Add(' WHERE obraericsson.Numero is not null ');
-      //pesquisar
-      if AQuery.ContainsKey('busca') then
+      SQL.Add('WHERE obraericsson.Numero is not null ');
+
+      // Filtros individuais por campo
+      if AQuery.ContainsKey('rfp') and (Trim(AQuery.Items['rfp']) <> '') then
+        SQL.Add('AND obraericsson.rfp = ''' + Trim(AQuery.Items['rfp']) + ''' ');
+
+      if AQuery.ContainsKey('numero') and (Trim(AQuery.Items['numero']) <> '') then
+        SQL.Add('AND obraericsson.numero = ''' + Trim(AQuery.Items['numero']) + ''' ');
+
+      if AQuery.ContainsKey('cliente') and (Trim(AQuery.Items['cliente']) <> '') then
+        SQL.Add('AND obraericsson.cliente = ''' + Trim(AQuery.Items['cliente']) + ''' ');
+
+      if AQuery.ContainsKey('regional') and (Trim(AQuery.Items['regional']) <> '') then
+        SQL.Add('AND obraericsson.regiona = ''' + Trim(AQuery.Items['regional']) + ''' ');
+
+      if AQuery.ContainsKey('site') and (Trim(AQuery.Items['site']) <> '') then
+        SQL.Add('AND obraericsson.site = ''' + Trim(AQuery.Items['site']) + ''' ');
+
+      if AQuery.ContainsKey('fornecedor') and (Trim(AQuery.Items['fornecedor']) <> '') then
+        SQL.Add('AND obraericsson.fornecedor = ''' + Trim(AQuery.Items['fornecedor']) + ''' ');
+
+      if AQuery.ContainsKey('situacaoimplantacao') and (Trim(AQuery.Items['situacaoimplantacao']) <> '') then
+        SQL.Add('AND obraericsson.situacaoimplantacao = ''' + Trim(AQuery.Items['situacaoimplantacao']) + ''' ');
+
+      if AQuery.ContainsKey('situacaodaintegracao') and (Trim(AQuery.Items['situacaodaintegracao']) <> '') then
+        SQL.Add('AND obraericsson.situacaodaintegracao = ''' + Trim(AQuery.Items['situacaodaintegracao']) + ''' ');
+
+      // Filtros de data
+      if AQuery.ContainsKey('datadacriacaodademandadia') and (Trim(AQuery.Items['datadacriacaodademandadia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.datadacriacaodademandadia AS DATE) = ''' + Trim(AQuery.Items['datadacriacaodademandadia']) + ''' ');
+
+      if AQuery.ContainsKey('datalimiteaceitedia') and (Trim(AQuery.Items['datalimiteaceitedia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.datalimiteaceitedia AS DATE) = ''' + Trim(AQuery.Items['datalimiteaceitedia']) + ''' ');
+
+      if AQuery.ContainsKey('dataaceitedemandadia') and (Trim(AQuery.Items['dataaceitedemandadia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.dataaceitedemandadia AS DATE) = ''' + Trim(AQuery.Items['dataaceitedemandadia']) + ''' ');
+
+      if AQuery.ContainsKey('datainicioprevistasolicitantebaselinemosdia') and (Trim(AQuery.Items['datainicioprevistasolicitantebaselinemosdia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.datainicioprevistasolicitantebaselinemosdia AS DATE) = ''' + Trim(AQuery.Items['datainicioprevistasolicitantebaselinemosdia']) + ''' ');
+
+      if AQuery.ContainsKey('datainicioentregamosplanejadodia') and (Trim(AQuery.Items['datainicioentregamosplanejadodia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.datainicioentregamosplanejadodia AS DATE) = ''' + Trim(AQuery.Items['datainicioentregamosplanejadodia']) + ''' ');
+
+      if AQuery.ContainsKey('datarecebimentodositemosreportadodia') and (Trim(AQuery.Items['datarecebimentodositemosreportadodia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.datarecebimentodositemosreportadodia AS DATE) = ''' + Trim(AQuery.Items['datarecebimentodositemosreportadodia']) + ''' ');
+
+      if AQuery.ContainsKey('datafimprevistabaselinefiminstalacaodia') and (Trim(AQuery.Items['datafimprevistabaselinefiminstalacaodia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.datafimprevistabaselinefiminstalacaodia AS DATE) = ''' + Trim(AQuery.Items['datafimprevistabaselinefiminstalacaodia']) + ''' ');
+
+      if AQuery.ContainsKey('datafiminstalacaoplanejadodia') and (Trim(AQuery.Items['datafiminstalacaoplanejadodia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.datafiminstalacaoplanejadodia AS DATE) = ''' + Trim(AQuery.Items['datafiminstalacaoplanejadodia']) + ''' ');
+
+      if AQuery.ContainsKey('dataconclusaoreportadodia') and (Trim(AQuery.Items['dataconclusaoreportadodia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.dataconclusaoreportadodia AS DATE) = ''' + Trim(AQuery.Items['dataconclusaoreportadodia']) + ''' ');
+
+      if AQuery.ContainsKey('datavalidacaoinstalacaodia') and (Trim(AQuery.Items['datavalidacaoinstalacaodia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.datavalidacaoinstalacaodia AS DATE) = ''' + Trim(AQuery.Items['datavalidacaoinstalacaodia']) + ''' ');
+
+      if AQuery.ContainsKey('dataintegracaobaselinedia') and (Trim(AQuery.Items['dataintegracaobaselinedia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.dataintegracaobaselinedia AS DATE) = ''' + Trim(AQuery.Items['dataintegracaobaselinedia']) + ''' ');
+
+      if AQuery.ContainsKey('dataintegracaoplanejadodia') and (Trim(AQuery.Items['dataintegracaoplanejadodia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.dataintegracaoplanejadodia AS DATE) = ''' + Trim(AQuery.Items['dataintegracaoplanejadodia']) + ''' ');
+
+      if AQuery.ContainsKey('datavalidacaoeriboxedia') and (Trim(AQuery.Items['datavalidacaoeriboxedia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.datavalidacaoeriboxedia AS DATE) = ''' + Trim(AQuery.Items['datavalidacaoeriboxedia']) + ''' ');
+
+      if AQuery.ContainsKey('datadefimdaaceitacaosydledia') and (Trim(AQuery.Items['datadefimdaaceitacaosydledia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.datadefimdaaceitacaosydledia AS DATE) = ''' + Trim(AQuery.Items['datadefimdaaceitacaosydledia']) + ''' ');
+
+      if AQuery.ContainsKey('rsavalidacaorsanrotrackerdatafimdia') and (Trim(AQuery.Items['rsavalidacaorsanrotrackerdatafimdia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.rsavalidacaorsanrotrackerdatafimdia AS DATE) = ''' + Trim(AQuery.Items['rsavalidacaorsanrotrackerdatafimdia']) + ''' ');
+
+      if AQuery.ContainsKey('fimdeobraplandia') and (Trim(AQuery.Items['fimdeobraplandia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.fimdeobraplandia AS DATE) = ''' + Trim(AQuery.Items['fimdeobraplandia']) + ''' ');
+
+      if AQuery.ContainsKey('fimdeobrarealdia') and (Trim(AQuery.Items['fimdeobrarealdia']) <> '') then
+        SQL.Add('AND CAST(obraericsson.fimdeobrarealdia AS DATE) = ''' + Trim(AQuery.Items['fimdeobrarealdia']) + ''' ');
+
+      // Filtros de texto
+      if AQuery.ContainsKey('listadepos') and (Trim(AQuery.Items['listadepos']) <> '') then
+        SQL.Add('AND obraericsson.listadepos = ''' + Trim(AQuery.Items['listadepos']) + ''' ');
+
+      if AQuery.ContainsKey('gestordeimplantacaonome') and (Trim(AQuery.Items['gestordeimplantacaonome']) <> '') then
+        SQL.Add('AND obraericsson.gestordeimplantacaonome = ''' + Trim(AQuery.Items['gestordeimplantacaonome']) + ''' ');
+
+      if AQuery.ContainsKey('statusrsa') and (Trim(AQuery.Items['statusrsa']) <> '') then
+        SQL.Add('AND obraericsson.statusrsa = ''' + Trim(AQuery.Items['statusrsa']) + ''' ');
+
+      if AQuery.ContainsKey('rsarsa') and (Trim(AQuery.Items['rsarsa']) <> '') then
+        SQL.Add('AND obraericsson.rsarsa = ''' + Trim(AQuery.Items['rsarsa']) + ''' ');
+
+      if AQuery.ContainsKey('arqsvalidadapelocliente') and (Trim(AQuery.Items['arqsvalidadapelocliente']) <> '') then
+        SQL.Add('AND obraericsson.arqsvalidadapelocliente = ''' + Trim(AQuery.Items['arqsvalidadapelocliente']) + ''' ');
+
+      if AQuery.ContainsKey('statusaceitacao') and (Trim(AQuery.Items['statusaceitacao']) <> '') then
+        SQL.Add('AND obraericsson.statusaceitacao = ''' + Trim(AQuery.Items['statusaceitacao']) + ''' ');
+
+      if AQuery.ContainsKey('ordemdevenda') and (Trim(AQuery.Items['ordemdevenda']) <> '') then
+        SQL.Add('AND obraericsson.ordemdevenda = ''' + Trim(AQuery.Items['ordemdevenda']) + ''' ');
+
+      if AQuery.ContainsKey('coordenadoaspnome') and (Trim(AQuery.Items['coordenadoaspnome']) <> '') then
+        SQL.Add('AND obraericsson.coordenadoaspnome = ''' + Trim(AQuery.Items['coordenadoaspnome']) + ''' ');
+
+      if AQuery.ContainsKey('tipoatualizacaofam') and (Trim(AQuery.Items['tipoatualizacaofam']) <> '') then
+        SQL.Add('AND obraericsson.tipoatualizacaofam = ''' + Trim(AQuery.Items['tipoatualizacaofam']) + ''' ');
+
+      if AQuery.ContainsKey('sinergia') and (Trim(AQuery.Items['sinergia']) <> '') then
+        SQL.Add('AND obraericsson.sinergia = ''' + Trim(AQuery.Items['sinergia']) + ''' ');
+
+      if AQuery.ContainsKey('sinergia5g') and (Trim(AQuery.Items['sinergia5g']) <> '') then
+        SQL.Add('AND obraericsson.sinergia5g = ''' + Trim(AQuery.Items['sinergia5g']) + ''' ');
+
+      if AQuery.ContainsKey('escoponome') and (Trim(AQuery.Items['escoponome']) <> '') then
+        SQL.Add('AND obraericsson.escoponome = ''' + Trim(AQuery.Items['escoponome']) + ''' ');
+
+      if AQuery.ContainsKey('slapadraoescopodias') and (Trim(AQuery.Items['slapadraoescopodias']) <> '') then
+        SQL.Add('AND obraericsson.slapadraoescopodias = ' + Trim(AQuery.Items['slapadraoescopodias']) + ' ');
+
+      if AQuery.ContainsKey('tempoparalisacaoinstalacaodias') and (Trim(AQuery.Items['tempoparalisacaoinstalacaodias']) <> '') then
+        SQL.Add('AND obraericsson.tempoparalisacaoinstalacaodias = ' + Trim(AQuery.Items['tempoparalisacaoinstalacaodias']) + ' ');
+
+      if AQuery.ContainsKey('localizacaositeendereco') and (Trim(AQuery.Items['localizacaositeendereco']) <> '') then
+        SQL.Add('AND obraericsson.localizacaositeendereco = ''' + Trim(AQuery.Items['localizacaositeendereco']) + ''' ');
+
+      if AQuery.ContainsKey('localizacaositecidade') and (Trim(AQuery.Items['localizacaositecidade']) <> '') then
+        SQL.Add('AND obraericsson.localizacaositecidade = ''' + Trim(AQuery.Items['localizacaositecidade']) + ''' ');
+
+      if AQuery.ContainsKey('documentacaosituacao') and (Trim(AQuery.Items['documentacaosituacao']) <> '') then
+        SQL.Add('AND obraericsson.documentacaosituacao = ''' + Trim(AQuery.Items['documentacaosituacao']) + ''' ');
+
+      if AQuery.ContainsKey('sitepossuirisco') and (Trim(AQuery.Items['sitepossuirisco']) <> '') then
+        SQL.Add('AND obraericsson.sitepossuirisco = ''' + Trim(AQuery.Items['sitepossuirisco']) + ''' ');
+
+      // Filtro de busca geral (mantido para compatibilidade)
+      if AQuery.ContainsKey('busca') and (Trim(AQuery.Items['busca']) <> '') then
       begin
-        if Length(AQuery.Items['busca']) > 0 then
-        begin
-          SQL.Add('AND ((obraericsson.numero like ''%' + AQuery.Items['busca'] + '%'') ');
-          SQL.Add('or  (obraericsson.site like ''%' + AQuery.Items['busca'] + '%'')) ');
-        end;
+        busca := Trim(AQuery.Items['busca']);
+        SQL.Add('AND (obraericsson.numero = ''' + busca + ''' ');
+        SQL.Add('OR obraericsson.site = ''' + busca + ''' ');
+        SQL.Add('OR obraericsson.cliente = ''' + busca + ''' ');
+        SQL.Add('OR obraericsson.rfp = ''' + busca + ''') ');
       end;
-      SQL.Add('order by  obraericsson.id desc ');
+
+      SQL.Add('ORDER BY obraericsson.id DESC ');
       Active := true;
     end;
+
     erro := '';
     Result := qry;
+
   except
-    on ex: exception do
+    on ex: Exception do
     begin
-      erro := 'Erro ao consultar : ' + ex.Message;
+      erro := 'Erro ao consultar: ' + ex.Message;
+      Writeln(erro);
       Result := nil;
     end;
   end;
 end;
-
 function TProjetoericsson.Listadocumentacaofinal(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
@@ -2105,70 +2564,86 @@ var
 begin
   try
     qry := TFDQuery.Create(nil);
-    qry.connection := FConn;
+    qry.Connection := FConn;
     with qry do
     begin
-      Active := false;
+      Active := False;
       SQL.Clear;
-      SQL.Add('Select ');
-      SQL.Add('obraericsson.numero,');
-      SQL.Add('obraericsson.rfp,');
-      SQL.Add('obraericsson.cliente,');
-      SQL.Add('obraericsson.regiona,');
-      SQL.Add('obraericsson.site,');
-      SQL.Add('obraericsson.fornecedor,');
-      SQL.Add('obraericsson.situacaoimplantacao,');
-      SQL.Add('obraericsson.situacaodaintegracao,');
-      SQL.Add('obraericsson.datadacriacaodademandadia,');
-      SQL.Add('obraericsson.datalimiteaceitedia,');
-      SQL.Add('obraericsson.dataaceitedemandadia,');
-      SQL.Add('obraericsson.datainicioprevistasolicitantebaselinemosdia,');
-      SQL.Add('obraericsson.datainicioentregamosplanejadodia,');
-      SQL.Add('obraericsson.datarecebimentodositemosreportadodia,');
-      SQL.Add('obraericsson.datafimprevistabaselinefiminstalacaodia,');
-      SQL.Add('obraericsson.datafiminstalacaoplanejadodia,');
-      SQL.Add('obraericsson.dataconclusaoreportadodia,');
-      SQL.Add('obraericsson.datavalidacaoinstalacaodia,');
-      SQL.Add('obraericsson.dataintegracaobaselinedia,');
-      SQL.Add('obraericsson.dataintegracaoplanejadodia,');
-      SQL.Add('obraericsson.datavalidacaoeriboxedia,');
-      SQL.Add('obraericsson.listadepos,');
-      SQL.Add('obraericsson.gestordeimplantacaonome,');
-      SQL.Add('obraericsson.statusrsa,');
-      SQL.Add('obraericsson.rsarsa,');
-      SQL.Add('obraericsson.statusaceitacao,');
-      SQL.Add('obraericsson.datadefimdaaceitacaosydledia,');
-      SQL.Add('obraericsson.ordemdevenda,');
-      SQL.Add('obraericsson.coordenadoaspnome,');
-      SQL.Add('obraericsson.rsavalidacaorsanrotrackerdatafimdia,');
-      SQL.Add('obraericsson.fimdeobraplandia,');
-      SQL.Add('obraericsson.fimdeobrarealdia,');
-      SQL.Add('obraericsson.tipoatualizacaofam,');
-      SQL.Add('obraericsson.sinergia,');
-      SQL.Add('obraericsson.sinergia5g,');
-      SQL.Add('obraericsson.escoponome,');
-      SQL.Add('obraericsson.slapadraoescopodias,');
-      SQL.Add('obraericsson.tempoparalisacaoinstalacaodias,');
-      SQL.Add('obraericsson.localizacaositeendereco,');
-      SQL.Add('obraericsson.localizacaositeCidade,');
-      SQL.Add('obraericsson.documentacaosituacao,');
-      SQL.Add('obraericsson.sitepossuirisco, ');
-      SQL.Add('obrasericssonlistasites.aceitacaofinal as aceitacaofical, ');
-      SQL.Add('obrasericssonlistasites.PendenciasObra,emailregional.emailacionamento ');
-      SQL.Add('From ');
-      SQL.Add('obraericsson left Join  ');
-      SQL.Add('obrasericssonlistasites On obrasericssonlistasites.SEED = obraericsson.numero left Join ');
-      SQL.Add('emailregional On emailregional.regional = obraericsson.regiona ');
-      SQL.Add(' WHERE obraericsson.Numero is not null and numero=:numero ');
-      ParamByName('numero').asstring := AQuery.Items['idprojetoericsson'];
-      Active := true;
+      SQL.Add('SELECT ');
+      SQL.Add('  obraericsson.numero AS id,');
+      SQL.Add('  obraericsson.rfp,');
+      SQL.Add('  obraericsson.cliente,');
+      SQL.Add('  obraericsson.regiona,');
+      SQL.Add('  obraericsson.site,');
+      SQL.Add('  obraericsson.fornecedor,');
+      SQL.Add('  obraericsson.situacaoimplantacao,');
+      SQL.Add('  obraericsson.situacaodaintegracao,');
+      SQL.Add('  obraericsson.datadacriacaodademandadia,');
+      SQL.Add('  obraericsson.datalimiteaceitedia,');
+      SQL.Add('  obraericsson.dataaceitedemandadia,');
+      SQL.Add('  obraericsson.datainicioprevistasolicitantebaselinemosdia,');
+      SQL.Add('  obraericsson.datainicioentregamosplanejadodia,');
+      SQL.Add('  obraericsson.datarecebimentodositemosreportadodia,');
+      SQL.Add('  obraericsson.datafimprevistabaselinefiminstalacaodia,');
+      SQL.Add('  obraericsson.datafiminstalacaoplanejadodia,');
+      SQL.Add('  obraericsson.dataconclusaoreportadodia,');
+      SQL.Add('  obraericsson.datavalidacaoinstalacaodia,');
+      SQL.Add('  obraericsson.dataintegracaobaselinedia,');
+      SQL.Add('  obraericsson.dataintegracaoplanejadodia,');
+      SQL.Add('  obraericsson.datavalidacaoeriboxedia,');
+      SQL.Add('  obraericsson.listadepos,');
+      SQL.Add('  obraericsson.gestordeimplantacaonome,');
+      SQL.Add('  obraericsson.statusrsa,');
+      SQL.Add('  obraericsson.rsarsa,');
+      SQL.Add('  obraericsson.statusaceitacao,');
+      SQL.Add('  obraericsson.datadefimdaaceitacaosydledia,');
+      SQL.Add('  obraericsson.ordemdevenda,');
+      SQL.Add('  obraericsson.coordenadoaspnome,');
+      SQL.Add('  obraericsson.rsavalidacaorsanrotrackerdatafimdia,');
+      SQL.Add('  obraericsson.fimdeobraplandia,');
+      SQL.Add('  obraericsson.fimdeobrarealdia,');
+      SQL.Add('  obraericsson.tipoatualizacaofam,');
+      SQL.Add('  obraericsson.sinergia,');
+      SQL.Add('  obraericsson.sinergia5g,');
+      SQL.Add('  obraericsson.escoponome,');
+      SQL.Add('  obraericsson.slapadraoescopodias,');
+      SQL.Add('  obraericsson.tempoparalisacaoinstalacaodias,');
+      SQL.Add('  obraericsson.localizacaositeendereco,');
+      SQL.Add('  obraericsson.localizacaositeCidade,');
+      SQL.Add('  obraericsson.documentacaosituacao,');
+      SQL.Add('obraericsson.statusdoc,');
+      SQL.Add('obraericsson.aprovacaotodosdocs,');
+      SQL.Add('  obraericsson.sitepossuirisco,');
+      SQL.Add('  obraericsson.formadeacesso,');
+      SQL.Add('  obraericsson.outros,');
+      SQL.Add('  obraericsson.ddd,');
+      SQL.Add('  obraericsson.municipio,');
+      SQL.Add('  obraericsson.nomeericsson,');
+      SQL.Add('  obraericsson.latitude,');
+      SQL.Add('  obraericsson.longitude,');
+      SQL.Add('  obraericsson.obs,');
+      SQL.Add('  obraericsson.solicitacao,');
+      SQL.Add('  obraericsson.datasolicitacao,');
+      SQL.Add('  obraericsson.datainicial,');
+      SQL.Add('  obraericsson.datafinal,');
+      SQL.Add('  obraericsson.statusacesso,');
+      SQL.Add('  obrasericssonlistasites.aceitacaofinal AS aceitacaofical,');
+      SQL.Add('  obrasericssonlistasites.PendenciasObra,');
+      SQL.Add('  emailregional.emailacionamento');
+      SQL.Add('FROM obraericsson');
+      SQL.Add('LEFT JOIN obrasericssonlistasites ON obrasericssonlistasites.SEED = obraericsson.numero');
+      SQL.Add('LEFT JOIN emailregional ON emailregional.regional = obraericsson.regiona');
+      SQL.Add('WHERE obraericsson.numero IS NOT NULL AND obraericsson.numero = :numero');
+
+      ParamByName('numero').AsString := AQuery.Items['idprojetoericsson'];
+      Active := True;
     end;
     erro := '';
     Result := qry;
   except
-    on ex: exception do
+    on ex: Exception do
     begin
-      erro := 'Erro ao consultar : ' + ex.Message;
+      erro := 'Erro ao consultar: ' + ex.Message;
       Result := nil;
     end;
   end;

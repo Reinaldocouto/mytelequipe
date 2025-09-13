@@ -1015,6 +1015,7 @@ begin
       servico.valor := body.getvalue<double>('valor', 0);
       servico.tipopagamento := body.getvalue<string>('tipopagamento', '');
       servico.diapagamento := body.getvalue<string>('diapagamento', '');
+      servico.observacao := body.getvalue<string>('observacao', '');
       if Length(servico.mesfechamento) = 0 then
         erro := 'Falta selecionar o mes de pagamento!';
       if Length(servico.diapagamento) = 0 then
@@ -2042,6 +2043,7 @@ begin
       servico.docplan := body.getvalue<string>('docplan', '');
       servico.docvitoriareal := body.getvalue<string>('docvitoriareal', '');
       servico.req := body.getvalue<string>('req', '');
+      servico.dataimprodutiva := body.getvalue<string>('dataimprodutiva', '');
       servico.acompanhamentofisicoobservacao := body.getvalue<string>('acompanhamentofisicoobservacao', '');
       servico.equipe := body.getvalue<string>('equipe', '');
       servico.initialtunningstatus := body.getvalue<string>('initialtunningstatus', '');
@@ -2167,6 +2169,11 @@ begin
         servico.atividade := tempStr
       else
         servico.atividade := '';
+
+      if body.TryGetValue<string>('idrollout', tempStr) then
+        servico.rollout := tempStr
+      else
+        servico.rollout := '';
 
 
       jsonValue := body.GetValue('datainicioclt');

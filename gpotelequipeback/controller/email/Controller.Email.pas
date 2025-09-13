@@ -18,7 +18,7 @@ procedure EnviarEmailpjextrato(Req: THorseRequest; Res: THorseResponse; Next: TP
 procedure EnviarEmailpjextratocosmx(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure EnviarEmailpjextratotelefonica(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
-// + Nova rota para envio de e-mail ao gerar Ordem de Serviço
+// + Nova rota para envio de e-mail ao gerar Ordem de Serviï¿½o
 procedure EnviarEmailOrdemServico(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 implementation
@@ -35,7 +35,7 @@ begin
   THorse.post('v1/email/acionamentopj/extratocosmx',    EnviarEmailpjextratocosmx);
   THorse.post('v1/email/acionamentopj/extratotelefonica', EnviarEmailpjextratotelefonica);
 
-  // + Registro da nova rota para Ordem de Serviço
+  // + Registro da nova rota para Ordem de Serviï¿½o
   THorse.post('v1/email/ordemservico',                  EnviarEmailOrdemServico);
 end;
 
@@ -80,7 +80,7 @@ begin
 
       if destinatario = '' then
       begin
-        Res.Send('E-mail não fornecido.').Status(400);
+        Res.Send('E-mail nï¿½o fornecido.').Status(400);
         Exit;
       end;
 
@@ -149,6 +149,7 @@ begin
       servico.idusuario := body.GetValue<string>('idusuario','');
       retanexo     := 'C:\servidorgpo\anexo\' + body.GetValue<string>('retanexo','');
       assunto      := body.GetValue<string>('assunto','');
+      servico.ids  := body.GetValue<string>('ids','');
       texto := servico.Executeacionamentotelefonica;
       servico.SendEmail(destinatario, assunto, texto, retanexo);
 
@@ -354,7 +355,7 @@ begin
   end;
 end;
 
-// + Implementação da rotina de envio de e-mail para Ordem de Serviço
+// + Implementaï¿½ï¿½o da rotina de envio de e-mail para Ordem de Serviï¿½o
 procedure EnviarEmailOrdemServico(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TEmail;
@@ -373,7 +374,7 @@ begin
 
       // monta HTML simples da OS
       bodyHTML := Format(
-        '<h3>Solicitação de material criada da OBRA/OS '+osId+' </h3>' +
+        '<h3>Solicitaï¿½ï¿½o de material criada da OBRA/OS '+osId+' </h3>' +
         '<p>Verifique os detalhes no sistema.</p>',
         [osId]
       );

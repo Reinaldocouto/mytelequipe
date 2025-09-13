@@ -451,6 +451,20 @@ begin
         Open;
         if RecordCount = 0 then
         begin
+          Close;
+          Active := False;
+          SQL.Clear;
+          SQL.Add('select 1 from gesempresas where cnpj = :cnpj');
+          ParamByName('cnpj').Value := cnpj;
+          Open;
+          if not EOF then
+          begin
+            erro := 'Já existe uma empresa cadastrada com este Documento. Verifique antes de prosseguir.';
+            FConn.Rollback;
+            Result := False;
+            Exit;
+          end;
+          Close;
           Active := false;
           sql.Clear;
 
@@ -467,6 +481,21 @@ begin
         end
         else
         begin
+          Close;
+          Active := False;
+          SQL.Clear;
+          SQL.Add('select 1 from gesempresas where cnpj = :cnpj and idempresa <> :idempresa');
+          ParamByName('cnpj').Value := cnpj;
+          ParamByName('idempresa').Value := idempresa;
+          Open;
+          if not EOF then
+          begin
+            erro := 'Já existe uma empresa cadastrada com este Documento. Verifique antes de prosseguir.';
+            FConn.Rollback;
+            Result := False;
+            Exit;
+          end;
+          Close;
           Active := false;
           sql.Clear;
 
