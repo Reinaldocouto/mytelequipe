@@ -315,11 +315,7 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
       valueFormatter: (param) => {
         if (!param.value) return '';
         const date = new Date(param.value);
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
         return date.toLocaleDateString('pt-BR');
@@ -334,11 +330,7 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
       valueFormatter: (param) => {
         if (!param.value) return '';
         const date = new Date(param.value);
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
         return date.toLocaleDateString('pt-BR');
@@ -361,11 +353,7 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
       valueFormatter: (param) => {
         if (!param.value) return '';
         const date = new Date(param.value);
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 &&
-          date.getFullYear() === 1899
-        ) {
+        if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
           return '';
         }
         return date.toLocaleDateString('pt-BR');
@@ -569,9 +557,7 @@ const Relatoriototalacionamentotelefonica = ({ setshow, show }) => {
                   localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                   paginationModel={paginationModel}
                   onPaginationModelChange={setPaginationModel}
-                  getRowClassName={(item) =>
-                    item.row.acionamentovivodeletado === 1 ? 'linha-diferente' : ''
-                  }
+                  getRowClassName={(item) => (item.row.deletado === 1 ? 'linha-diferente' : '')}
                   sx={{
                     '& .MuiDataGrid-row.linha-diferente': {
                       backgroundColor: '#ffcccc', // vermelho claro

@@ -147,10 +147,10 @@ begin
       SQL.Add('SELECT ');
       SQL.Add('  s.obra,');
       SQL.Add('  s.projeto,');
-      SQL.Add('  SUM(mov.entrada) AS entrada,');
-      SQL.Add('  SUM(mov.saida) AS saida,');
-      SQL.Add('  SUM(mov.valor) AS valor_total,');
-      SQL.Add('  CONCAT(''R$ '', REPLACE(FORMAT(SUM(mov.valor), 2), ''.'', '','')) AS valor_total_formatado');
+      SQL.Add('  COALESCE(SUM(mov.entrada), 0) AS entrada,');
+      SQL.Add('  COALESCE(SUM(mov.saida), 0) AS saida,');
+      SQL.Add('  COALESCE(SUM(mov.valor), 0) AS valor_total,');
+      SQL.Add('  CONCAT(''R$ '', REPLACE(FORMAT(COALESCE(SUM(mov.valor), 0), 2), ''.'', '','')) AS valor_total_formatado');
       SQL.Add('FROM');
       SQL.Add('  (SELECT');
       SQL.Add('     si.idsolicitacao,');

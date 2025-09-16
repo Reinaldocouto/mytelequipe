@@ -220,20 +220,21 @@ begin
     exit;
   end;
   body := Req.Body<TJSONObject>;
-  if not body.TryGetValue<string>('obra', obra) or (obra = '') or
-     not body.TryGetValue<string>('idcliente', idcliente) or (idcliente = '') or
+  if not body.TryGetValue<string>('idcliente', idcliente) or (idcliente = '') or
      not body.TryGetValue<string>('idloja', idloja) or (idloja = '') then
   begin
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Campos obra, idcliente e idloja são obrigatórios')).Status(THTTPStatus.BadRequest);
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Campos idcliente e idloja são obrigatórios')).Status(THTTPStatus.BadRequest);
     servico.Free;
     exit;
   end;
+  body.TryGetValue<string>('obra', obra);
 
   params := TDictionary<string, string>.Create;
   try
-    params.Add('obra', obra);
     params.Add('idcliente', idcliente);
     params.Add('idloja', idloja);
+    if obra <> '' then
+      params.Add('obra', obra);
 
     qry := servico.RelatorioCustoSolicitacao(params, erro);
     try

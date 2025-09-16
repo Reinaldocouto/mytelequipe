@@ -151,24 +151,19 @@ const Relatoriofechamento = ({ setshow, show }) => {
       editable: false,
       valueFormatter: (parametros) => {
         if (parametros.value == null) return '';
-        return Number(parametros.value).toLocaleString('pt-BR', {
+        return parametros.value.toLocaleString('pt-BR', {
           style: 'currency',
           currency: 'BRL',
         });
       },
     },
     {
-      field: 'faltapagar',
-      headerName: 'A PAGAR',
+      field: 'valorapagar',
+      headerName: 'VALOR A PAGAR',
       width: 150,
       align: 'right',
       type: 'number',
       editable: false,
-      valueGetter: (parametros) => {
-        const valor = Number(parametros.row.valor || 0);
-        const pago = Number(parametros.row.valorpago || 0);
-        return valor - pago;
-      },
       valueFormatter: (parametros) => {
         if (parametros.value == null) return '';
         return parametros.value.toLocaleString('pt-BR', {
@@ -482,8 +477,10 @@ const Relatoriofechamento = ({ setshow, show }) => {
           style: 'currency',
           currency: 'BRL',
         }),
-        'A PAGAR': (Number(item.valor || 0) - Number(item.valorpago || 0))
-          .toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        'VALOR A PAGAR': item.valorapagar?.toLocaleString('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        }),
         'DATA ACIONAMENTO': formatarData(item.dataacionamento),
         'DATA ENVIO EMAIL': formatarData(item.dataenvioemail),
         COLABORADOR: item.nome,

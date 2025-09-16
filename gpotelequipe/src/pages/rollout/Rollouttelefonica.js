@@ -302,6 +302,28 @@ const Rollouttelefonica = ({ setshow, show }) => {
         renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
       },
       {
+      field: 'regionalpreaceiteeap',
+      headerName: 'REGIONAL-PRE-ACEITE-EAP',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'regionalpreaceiteresponsavel',
+      headerName: 'REGIONAL-PRE-ACEITE-RESPONSAVEL',
+      width: 300,
+      align: 'left',
+      type: 'string',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+      {
         field: 'pmoaceitacao',
         headerName: 'PMO-ACEITACAO',
         width: 200,
@@ -322,6 +344,54 @@ const Rollouttelefonica = ({ setshow, show }) => {
       type: 'string',
       editable: false,
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'validrsopoligono',
+      headerName: 'VALID-RSO-POLIGONO',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'validrsodisparo',
+      headerName: 'VALID-RSO-DISPARO',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'validrsodefmodalidade',
+      headerName: 'VALID-RSO-DEF-MODALIDADE',
+      width: 230,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'validrsosar',
+      headerName: 'VALID-RSO-SAR',
+      width: 180,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'validrsoqualificacao',
+      headerName: 'VALID-RSO-QUALIFICACAO',
+      width: 220,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'validrsocontratacao',
+      headerName: 'VALID-RSO-CONTRATACAO',
+      width: 220,
+      align: 'left',
+      type: 'string',
+      editable: false,
     },
     {
       field: 'masterobrastatusrollout',
@@ -711,10 +781,9 @@ const Rollouttelefonica = ({ setshow, show }) => {
           : '',
       editable: true,
     },
-
     {
-      field: 'inventariodesinstalacao',
-      headerName: 'Data Inventário Desinstalação',
+      field: 'datainventariodesinstalacao',
+      headerName: 'Inventário Desinstalação',
       width: 220,
       align: 'left',
       type: 'date',
@@ -1238,10 +1307,19 @@ const Rollouttelefonica = ({ setshow, show }) => {
         .join(',');
 
       // Espera a resposta da API
+      const field = rowToUpdate?.changedFields?.[0];
+      if (!field) {
+        throw new Error('Campo de atualização não identificado');
+      }
+      let value = rowToUpdate?.newRow?.[field];
+      if (field === 'dataimprodutiva' && value) {
+        const date = new Date(value);
+        value = !Number.isNaN(date.getTime()) ? date.toISOString().split('T')[0] : null;
+      }
       const response = await api.post('v1/projetotelefonica/editaremmassa', {
         ...params,
         uuidps: atividadeSelecionada,
-        [rowToUpdate.changedFields[0]]: rowToUpdate.newRow[rowToUpdate.changedFields[0]],
+        [rowToUpdate.changedFields[0]]: value,
       });
 
       // Opcional: log de sucesso
@@ -1383,6 +1461,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
     'REGIONAL_LIB_SITE_R',
     'EQUIPAMENTO_ENTREGA_P',
     'REGIONAL_CARIMBO',
+    'PMO_ACEITACAO',
+    'REGIONAL_PRE_ACEITE_EAP',
     'ATIVACAO_REAL',
     'DOCUMENTACAO',
     'INITIAL_TUNNING_REAL',
@@ -1442,7 +1522,16 @@ const Rollouttelefonica = ({ setshow, show }) => {
         CIDADE: item.cidade,
         EAPAUTOMATICA: item.eapautomatica,
         REGIONAL_EAP_INFRA: item.regionaleapinfra,
+        REGIONAL_PRE_ACEITE_EAP: item.regionalpreaceiteeap,
+        REGIONAL_PRE_ACEITE_RESPONSAVEL: item.regionalpreaceiteresponsavel,
+        PMO_ACEITACAO: item.pmoaceitacao,
         STATUS_MENSAL_TX: item.statusmensaltx,
+        VALID_RSO_POLIGONO: item.validrsopoligono,
+        VALID_RSO_DISPARO: item.validrsodisparo,
+        VALID_RSO_DEF_MODALIDADE: item.validrsodefmodalidade,
+        VALID_RSO_SAR: item.validrsosar,
+        VALID_RSO_QUALIFICACAO: item.validrsoqualificacao,
+        VALID_RSO_CONTRATACAO: item.validrsocontratacao,
         MASTEROBR_STATUS_ROLLOUT: item.masterobrastatusrollout,
         REGIONAL_LIB_SITE_P: item.regionallibsitep,
         REGIONAL_LIB_SITE_R: item.regionallibsiter,
@@ -1472,7 +1561,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
         INTEGRACAO_REAL: item.integracaoreal,
         ATIVACAO_REAL: item.ativacao,
         DOCUMENTACAO: item.documentacao,
-        DATA_INVENTARIO_DESINSTALACAO: item.inventariodesinstalacao,
+        INVENTARIO_DESINSTALACAO: item.datainventariodesinstalacao,
         DATA_IMPRODUTIVA: item.dataimprodutiva,
         INITIAL_TUNNING_REAL: item.initialtunningreal,
         INITIAL_TUNNING_REAL_FINAL: item.initialtunningrealfinal,
@@ -1602,13 +1691,20 @@ const Rollouttelefonica = ({ setshow, show }) => {
       return oldRow;
     }
 
-    // Find all changed fields (more robust than just finding the first one)
-    const changedFields = Object.keys(newRow).filter(
-      (key) => newRow[key] !== oldRow[key] && key !== 'id', // Exclude ID field from changes if needed
-    );
+    const isEqual = (a, b) => {
+      if (a instanceof Date && b instanceof Date) {
+        return a.getTime() === b.getTime();
+      }
+      return a === b;
+    };
+
+    const changedFields = Object.keys(newRow).filter((key) => {
+      if (key === 'id') return false;
+      return !isEqual(newRow[key], oldRow[key]);
+    });
 
     if (changedFields.length === 0) {
-      return oldRow; // No actual changes detected
+      return oldRow; 
     }
 
     React.startTransition(() => {

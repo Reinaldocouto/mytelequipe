@@ -105,7 +105,7 @@ type
     FIntegracaoReal: string;
     FAtivacao: string;
     FDocumentacao: string;
-    FInventarioDesinstalacao: string;
+    Fdatainventariodesinstalacao: string;
     FDTPlan: string;
     FDTReal: string;
     FAprovacaoSSV: string;
@@ -242,7 +242,7 @@ type
     property IntegracaoReal: string read FIntegracaoReal write FIntegracaoReal;
     property Ativacao: string read FAtivacao write FAtivacao;
     property Documentacao: string read FDocumentacao write FDocumentacao;
-    property InventarioDesinstalacao: string read FInventarioDesinstalacao write FInventarioDesinstalacao;
+    property datainventariodesinstalacao: string read Fdatainventariodesinstalacao write Fdatainventariodesinstalacao;
     property DTPlan: string read FDTPlan write FDTPlan;
     property DTReal: string read FDTReal write FDTReal;
     property AprovacaoSSV: string read FAprovacaoSSV write FAprovacaoSSV;
@@ -1892,7 +1892,7 @@ begin
         SQL.Add('IntegracaoReal=:IntegracaoReal,  ');
         SQL.Add('Ativacao=:Ativacao,  ');
         SQL.Add('Documentacao=:Documentacao,  ');
-        SQL.Add('InventarioDesinstalacao=:InventarioDesinstalacao,  ');
+        SQL.Add('datainventariodesinstalacao=:datainventariodesinstalacao,  ');
         SQL.Add('DTPlan=:DTPlan,  ');
         SQL.Add('DTReal=:DTReal,  ');
         SQL.Add('AprovacaoSSV=:AprovacaoSSV,  ');
@@ -2018,9 +2018,9 @@ begin
 
         end;
         try
-          ParamByName('InventarioDesinstalacao').AsDateTime := ISO8601ToDate(InventarioDesinstalacao);
+          ParamByName('datainventariodesinstalacao').AsDateTime := ISO8601ToDate(datainventariodesinstalacao);
         except
-          ParamByName('InventarioDesinstalacao').asstring := '1899-12-30';
+          ParamByName('datainventariodesinstalacao').asstring := '1899-12-30';
         end;
         try
           ParamByName('DTPlan').AsDateTime := ISO8601ToDate(DTPlan);
@@ -2236,6 +2236,8 @@ begin
       updateParts.Add('Ativacao = :ativacao');
     if Assigned(jsonParams.GetValue('documentacao')) then
       updateParts.Add('Documentacao = :documentacao');
+    if Assigned(jsonParams.GetValue('datainventariodesinstalacao')) then
+      updateParts.Add('datainventariodesinstalacao = :datainventariodesinstalacao');
     if Assigned(jsonParams.GetValue('initialtunningreal')) then
       updateParts.Add('initialtunningreal = :initialtunningreal');
     if Assigned(jsonParams.GetValue('initialtunningrealfinal')) then
@@ -2411,6 +2413,9 @@ begin
 
       if Assigned(jsonParams.GetValue('documentacao')) then
         qry.ParamByName('documentacao').AsDate := ISO8601ToDate(jsonParams.GetValue('documentacao').Value);
+
+      if Assigned(jsonParams.GetValue('datainventariodesinstalacao')) then
+        qry.ParamByName('datainventariodesinstalacao').AsDate := ISO8601ToDate(jsonParams.GetValue('datainventariodesinstalacao').Value);
 
       if Assigned(jsonParams.GetValue('initialtunningreal')) then
         try
@@ -4308,12 +4313,13 @@ begin
       SQL.Add('EAPAUTOMATICA, REGIONALEAPINFRA, STATUSMENSALTX, MASTEROBRASTATUSROLLOUT, REGIONALLIBSITEP, REGIONALLIBSITER,');
       SQL.Add('EQUIPAMENTOENTREGAP, REGIONALCARIMBO, RSORSASCI, RSORSASCISTATUS, REGIONALOFENSORDETALHE, VENDORVISTORIA,');
       SQL.Add('VENDORPROJETO, VENDORINSTALADOR, VENDORINTEGRADOR, PMOTECNEQUIP, PMOFREQEQUIP, UIDIDCPOMRF, StatusObra,');
-      SQL.Add('PMOACEITACAO,');
+      SQL.Add('PMOACEITACAO,');SQL.Add('PMOACEITACAO, REGIONALPREACEITEEAP, REGIONALPREACEITERESPONSAVEL,');
+      SQL.Add('VALIDRSOPOLIGONO, VALIDRSODISPARO, VALIDRSODEFMODALIDADE, VALIDRSOSAR, VALIDRSOQUALIFICACAO, VALIDRSOCONTRATACAO,');
       SQL.Add('EntregaRequest, EntregaPlan, EntregaReal, FimInstalacaoPlan, FimInstalacaoReal, IntegracaoPlan, IntegracaoReal,');
-      SQL.Add('Ativacao, Documentacao, DTPlan, DTReal, Rollout, Acionamento, nomedosite, endereco, RSORSADETENTORA, RSORSAIDDETENTORA,');
+      SQL.Add('Ativacao, Documentacao, datainventariodesinstalacao, DTPlan, DTReal, Rollout, Acionamento, nomedosite, endereco, RSORSADETENTORA, RSORSAIDDETENTORA,');SQL.Add('Ativacao, Documentacao, DTPlan, DTReal, Rollout, Acionamento, nomedosite, endereco, RSORSADETENTORA, RSORSAIDDETENTORA,');
       SQL.Add('resumodafase, infravivo, Equipe, docaplan, deliverypolan, OV, ACESSO, t2instalacao, NUMERODAREQ, NUMEROT2, PEDIDO,');
       SQL.Add('T2VISTORIA, NUMERODAREQVISTORIA, NUMEROT2VISTORIA, PEDIDOVISTORIA, id, infra, ddd, LATITUDE, LONGITUDE,');
-      SQL.Add('acessoobs, acessosolicitacao, acessodatasolicitacao, acessodatainicial, acessodatafinal, acessostatus,  acompanhamentofisicoobservacao,');SQL.Add('acessoobs, acessosolicitacao, acessodatasolicitacao, acessodatainicial, acessodatafinal, acessostatus, dataimprodutiva,  acompanhamentofisicoobservacao,');
+      SQL.Add('acessoobs, acessosolicitacao, acessodatasolicitacao, acessodatainicial, acessodatafinal, acessostatus, dataimprodutiva, acompanhamentofisicoobservacao,');
       SQL.Add('acessoatividade, acessocomentario, acessooutros, acessoformaacesso, vistoriaplan, vistoriareal, docplan, docvitoriareal, req, deletado, rtt, rttdata,');
       SQL.Add('initialtunningplan, initialtunningreal, initialtunnigstatus, InitialTunningRealFinal, AprovacaoSSV, StatusAprovacaoSSV, observacaodocumentacao,datapostagemdocvdvm,dataexecucaodocvdvm,statusdocumentacao,datapostagemdoc    ,dataexecucaodoc    ');
       SQL.Add('FROM rolloutvivo');
@@ -4411,6 +4417,17 @@ begin
         else
         begin
           SQL.Add(' WHERE Documentacao = :documentacao');
+          hasWhere := True;
+        end;
+      end;
+
+      if AQuery.ContainsKey('datainventariodesinstalacao') and (AQuery['datainventariodesinstalacao'] <> '') then
+      begin
+        if hasWhere then
+          SQL.Add(' AND datainventariodesinstalacao = :datainventariodesinstalacao')
+        else
+        begin
+          SQL.Add(' WHERE datainventariodesinstalacao = :datainventariodesinstalacao');
           hasWhere := True;
         end;
       end;
@@ -4729,6 +4746,9 @@ begin
       if AQuery.ContainsKey('documentacao') and (AQuery['documentacao'] <> '') then
         ParamByName('documentacao').Value := AQuery['documentacao'];
 
+      if AQuery.ContainsKey('datainventariodesinstalacao') and (AQuery['datainventariodesinstalacao'] <> '') then
+        ParamByName('datainventariodesinstalacao').Value := AQuery['datainventariodesinstalacao'];
+
       if AQuery.ContainsKey('initialTunningReal') and (AQuery['initialTunningReal'] <> '') then
         ParamByName('initialTunningReal').Value := AQuery['initialTunningReal'];
 
@@ -4869,7 +4889,7 @@ begin
       SQL.Add('DATE_FORMAT(rolloutvivo.IntegracaoReal, ''%Y-%m-%d'') as IntegracaoReal, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.Ativacao, ''%Y-%m-%d'') as Ativacao, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.Documentacao, ''%Y-%m-%d'') as Documentacao, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.InventarioDesinstalacao, ''%Y-%m-%d'') as InventarioDesinstalacao, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.datainventariodesinstalacao, ''%Y-%m-%d'') as datainventariodesinstalacao, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.DTPlan, ''%Y-%m-%d'') as DTPlan, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.DTReal, ''%Y-%m-%d'') as DTReal, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.AprovacaoSSV, ''%Y-%m-%d'') as AprovacaoSSV, ');
@@ -5028,7 +5048,7 @@ begin
       SQL.Add('rolloutvivo.IntegracaoReal, ');
       SQL.Add('rolloutvivo.Ativacao, ');
       SQL.Add('rolloutvivo.Documentacao, ');
-      SQL.Add('rolloutvivo.InventarioDesinstalacao, ');
+      SQL.Add('rolloutvivo.datainventariodesinstalacao, ');
       SQL.Add('rolloutvivo.DTPlan, ');
       SQL.Add('rolloutvivo.DTReal, ');
       SQL.Add('rolloutvivo.AprovacaoSSV, ');
@@ -5104,7 +5124,7 @@ begin
       Add('rolloutvivo.IntegracaoReal AS IntegracaoReal, ');
       Add('rolloutvivo.Ativacao AS Ativacao, ');
       Add('rolloutvivo.Documentacao AS Documentacao, ');
-      Add('rolloutvivo.InventarioDesinstalacao AS InventarioDesinstalacao, ');
+      Add('rolloutvivo.datainventariodesinstalacao AS datainventariodesinstalacao, ');
       Add('rolloutvivo.DTPlan AS DTPlan, ');
       Add('rolloutvivo.DTReal AS DTReal, ');
       Add('rolloutvivo.AprovacaoSSV AS AprovacaoSSV, ');
@@ -5484,6 +5504,8 @@ begin
       SQL.Add('acionamentovivo.quantidade, ');
       SQL.Add('lpuvivo.BREVEDESCRICAO As tarefas, ');
       SQL.Add('acionamentovivo.valor, ');
+      SQL.Add('COALESCE(SUM(telefonicapagamento.valorpagamento),0) AS valorpago, ');
+      SQL.Add('(acionamentovivo.valor - COALESCE(SUM(telefonicapagamento.valorpagamento),0)) AS valorapagar, ');
       SQL.Add('acionamentovivo.dataacionamento, ');
       SQL.Add('acionamentovivo.dataenvioemail, ');
       SQL.Add('gesempresas.nome, ');
@@ -5498,6 +5520,7 @@ begin
       SQL.Add('rolloutvivo.IntegracaoReal, ');
       SQL.Add('rolloutvivo.Ativacao, ');
       SQL.Add('rolloutvivo.Documentacao, ');
+      SQL.Add('rolloutvivo.datainventariodesinstalacao, ');
       SQL.Add('rolloutvivo.DTPlan, ');
       SQL.Add('rolloutvivo.DTReal, ');
       SQL.Add('rolloutvivo.VistoriaPlan, ');
@@ -5518,7 +5541,8 @@ begin
       SQL.Add('telefonicacontrolet2 On telefonicacontrolet2.ID = acionamentovivo.idatividade left Join ');
       SQL.Add('lpuvivo On lpuvivo.ID = acionamentovivo.idpacote left Join ');
       SQL.Add('gesempresas On gesempresas.idempresa = acionamentovivo.idcolaborador left Join ');
-      SQL.Add('rolloutvivo On rolloutvivo.UIDIDPMTS = acionamentovivo.idpmts ');
+      SQL.Add('rolloutvivo On rolloutvivo.UIDIDPMTS = acionamentovivo.idpmts left join ');
+      SQL.Add('telefonicapagamento on telefonicapagamento.idacionamentovivo = acionamentovivo.id ');
       SQL.Add('Where ');
       SQL.Add('acionamentovivo.deletado = 0 and (');
       SQL.Add('(rolloutvivo.FimInstalacaoReal is not null and rolloutvivo.FimInstalacaoReal <> "1899-12-30") or');
@@ -5526,6 +5550,16 @@ begin
       SQL.Add('(rolloutvivo.DTReal is not null and rolloutvivo.DTReal <> "1899-12-30") or');
       SQL.Add('(rolloutvivo.VistoriaReal is not null and rolloutvivo.VistoriaReal <> "1899-12-30")');
       SQL.Add(') and acionamentovivo.porcentagem < 1');
+      SQL.Add('group by ');
+      SQL.Add('acionamentovivo.id, acionamentovivo.idpmts, lpuvivo.UF, acionamentovivo.po, ');
+      SQL.Add('telefonicacontrolet2.T2DESCRICAOCOD, acionamentovivo.quantidade, lpuvivo.BREVEDESCRICAO, ');
+      SQL.Add('acionamentovivo.valor, acionamentovivo.dataacionamento, acionamentovivo.dataenvioemail, ');
+      SQL.Add('gesempresas.nome, rolloutvivo.pmosigla, rolloutvivo.ufsigla, rolloutvivo.EntregaRequest, ');
+      SQL.Add('rolloutvivo.EntregaPlan, rolloutvivo.EntregaReal, rolloutvivo.FimInstalacaoPlan, rolloutvivo.FimInstalacaoReal, ');
+      SQL.Add('rolloutvivo.IntegracaoPlan, rolloutvivo.IntegracaoReal, rolloutvivo.Ativacao, rolloutvivo.Documentacao, ');
+      SQL.Add('rolloutvivo.DTPlan, rolloutvivo.DTReal, rolloutvivo.VistoriaPlan, rolloutvivo.VistoriaReal, ');
+      SQL.Add('rolloutvivo.InitialTunningPlan, rolloutvivo.InitialTunningReal, rolloutvivo.StatusObra, lpuvivo.codigolpuvivo, ');
+      SQL.Add('acionamentovivo.fechamento, acionamentovivo.porcentagem, rolloutvivo.deletado');
       Active := true;
     end;
     erro := '';

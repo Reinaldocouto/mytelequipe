@@ -27,6 +27,7 @@ export default function ConfirmaModal({ open, quantity, onConfirm, onCancel, cam
     integracaoreal: 'Integração Real',
     ativacao: 'Ativação Real',
     documentacao: 'Documentação',
+    datainventariodesinstalacao: 'Inventário Desinstalação',
     initialtunningreal: 'Initial Tunning Real Início',
     initialtunningrealfinal: 'Initial Tunning Real Final',
     initialtunnigstatus: 'Initial Tunning Status',

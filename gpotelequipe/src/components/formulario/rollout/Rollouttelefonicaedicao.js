@@ -160,7 +160,7 @@ const Rollouttelefonicaedicao = ({
   const [integracaoplan, setintegracaoplan] = useState('');
   const [integracaoreal, setintegracaoreal] = useState('');
   const [ativacao, setativacao] = useState('');
-  const [documentacao, setdocumentacao] = useState('');
+  //const [documentacao, setdocumentacao] = useState('');
   const [inventariodesinstalacao, setinventariodesinstalacao] = useState('');
   const [dtplan, setdtplan] = useState('');
   const [initialtunningstatus, setinitialtunningstatus] = useState('');
@@ -226,6 +226,7 @@ const Rollouttelefonicaedicao = ({
   const [dataExecucaoDoc, setDataExecucaoDoc] = useState();
   const [dataExecucaoDocVDVM, setDataExecucaoDocVDVM] = useState();
   const [dataPostagemDocVDVM, setDataPostagemDocVDVM] = useState();
+  const [dataInventarioDesinstalacao, setDataInventarioDesinstalacao] = useState();
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [permissionStorage, setPermssionStorage] = useState();
   const [selectedRowsPackage, setSelectedRowsPackage] = useState([]);
@@ -401,10 +402,11 @@ const Rollouttelefonicaedicao = ({
         setvistoriaplan(trataData(response.data.vistoriaplan));
         setvistoriareal(trataData(response.data.vistoriareal));
         setativacao(trataData(response.data.ativacao));
-        setdocumentacao(trataData(response.data.documentacao));
+        //setdocumentacao(trataData(response.data.documentacao));
         setinventariodesinstalacao(trataData(response.data.inventariodesinstalacao));
         setdocplan(trataData(response.data.docplan));
         setdocvitoriareal(trataData(response.data.docvitoriareal));
+        setDataInventarioDesinstalacao(trataData(response.data.datainventariodesinstalacao));
         setdtplan(trataData(response.data.dtplan));
         setdtreal(trataData(response.data.dtreal));
         setaprovacaossv(trataData(response.data.aprovacaossv));
@@ -518,24 +520,12 @@ const Rollouttelefonicaedicao = ({
     }
   }
   const handleChangeStatusRelatorioFotografico = (stat) => {
-    const trataData = (data) => {
-      const dataFormatada =
-        data instanceof Date
-          ? data.toISOString().split('T')[0] // Formata para "YYYY-MM-DD"
-          : data;
-
-      return !data || dataFormatada === '1899-12-30' ? '1899-12-30' : dataFormatada;
-    };
-    const data = trataData(new Date());
+    
 
     if (stat !== null) {
       console.log(stat);
       console.log(stat.value);
-      if (stat.value === 'Aprovado') {
-        setdocumentacao(data);
-      } else {
-        setdocumentacao('');
-      }
+     
       setSelectedStatusDocumentacao({ value: stat.value, label: stat.label });
     } else {
       setSelectedStatusDocumentacao({ value: null, label: null });
@@ -1208,12 +1198,14 @@ const Rollouttelefonicaedicao = ({
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
-      field: 'nome1',
+      field: 'usuario',
       headerName: 'ACIONADO POR',
       width: 200,
       align: 'left',
       editable: false,
-      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+      renderCell: (parametros) => (
+        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
+      ),
     },
     {
       field: 'po',
@@ -1325,12 +1317,14 @@ const Rollouttelefonicaedicao = ({
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
-      field: 'nome1',
+      field: 'usuario',
       headerName: 'ACIONADO POR',
       width: 200,
       align: 'left',
       editable: false,
-      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+      renderCell: (parametros) => (
+        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
+      ),
     },
     {
       field: 'po',
@@ -1681,6 +1675,7 @@ const Rollouttelefonicaedicao = ({
   function ProcessaCadastro(e) {
     e.preventDefault();
     const valueselectedOptionStatusDocumentacao = selectedOptionStatusDocumentacao?.value;
+    const formatDate = (date) => (date ? new Date(date).toISOString().split('T')[0] : '');
     api
       .post('v1/projetotelefonica', {
         infra,
@@ -1708,14 +1703,14 @@ const Rollouttelefonicaedicao = ({
         integracaoplan,
         integracaoreal,
         ativacao,
-        documentacao,
+        //documentacao,
         initialtunningstatus,
         initialtunningreal,
         initialtunningrealfinal,
         dtplan,
         dtreal,
         aprovacaossv,
-        dataimprodutiva,
+        dataimprodutiva: formatDate(dataimprodutiva),
         statusaprovacaossv,
         statusobra,
         vistoriaplan,
@@ -1734,6 +1729,7 @@ const Rollouttelefonicaedicao = ({
         dataExecucaoDoc,
         dataExecucaoDocVDVM,
         dataPostagemDocVDVM,
+        dataInventarioDesinstalacao,
         observacaoDocumentacao,
         selectedOptionStatusDocumentacao: valueselectedOptionStatusDocumentacao,
       })
@@ -2605,6 +2601,41 @@ const Rollouttelefonicaedicao = ({
                 </div>
 
                 <div className="row g-3 mt-3">
+                  <div className="col-sm-2">
+                    Documentação Vistoria Plan
+                    <Input
+                      type="date"
+                      onChange={(e) => setdocplan(e.target.value)}
+                      value={docplan}
+                    />
+                  </div>
+                  <div className="col-sm-2">
+                    Documentação Vistoria Real
+                    <Input
+                      type="date"
+                      onChange={(e) => setdocvitoriareal(e.target.value)}
+                      value={docvitoriareal}
+                    />
+                  </div>
+                  <div className="col-sm-2">
+                    Documentação Instalação
+                    <Input
+                      type="date"
+                      onChange={(e) => setdocumentacao(e.target.value)}
+                      value={documentacao}
+                    />
+                  </div>
+                  <div className="col-sm-2">
+                    Data Inventário Desinstalação
+                    <Input
+                      type="date"
+                      onChange={(e) => setDataInventarioDesinstalacao(e.target.value)}
+                      value={dataInventarioDesinstalacao}
+                    />
+                  </div>
+                </div>
+
+                <div className="row g-3 mt-3">
                   <div className="col-sm-4">
                     Data da Execução Doc. VD/VM.
                     <Input
@@ -2724,18 +2755,7 @@ const Rollouttelefonicaedicao = ({
                     value={vistoriareal}
                   />
                 </div>
-                <div className="col-sm-2">
-                  Documentação Vistoria Plan
-                  <Input type="date" onChange={(e) => setdocplan(e.target.value)} value={docplan} />
-                </div>
-                <div className="col-sm-2">
-                  Documentação Vistoria Real
-                  <Input
-                    type="date"
-                    onChange={(e) => setdocvitoriareal(e.target.value)}
-                    value={docvitoriareal}
-                  />
-                </div>
+                
                 <div className="col-sm-2">
                   REQ
                   <Input type="date" onChange={(e) => setreq(e.target.value)} value={req} />
@@ -2816,16 +2836,7 @@ const Rollouttelefonicaedicao = ({
                     value={ativacao}
                   />
                 </div>
-                <div className="col-sm-2">
-                  Documentação Instalação
-                  <Input
-                    type="date"
-                    disabled
-                    onChange={(e) => setdocumentacao(e.target.value)}
-                    value={documentacao}
-                  />
-                </div>
-
+                
                 <div className="col-sm-2">
                   Initial Tunning Real Início
                   <Input

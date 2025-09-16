@@ -383,6 +383,17 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
       editable: false,
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
+    {
+      field: 'observacao',
+      headerName: 'OBSERVAÇÃO',
+      width: 250,
+      align: 'left',
+      type: 'string',
+      editable: false,
+      renderCell: (parametros) => (
+        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
+      ),
+    },
     /*  {
         field: 'entregarequest',
         headerName: 'ENTREGA REQUEST',
@@ -791,11 +802,22 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
     },
     {
       field: 'tipopagamento',
-      headerName: 'TIPO PAGAENTO',
+      headerName: 'TIPO PAGAMENTO',
       width: 180,
       align: 'left',
       type: 'string',
       editable: false,
+    },
+    {
+      field: 'observacao',
+      headerName: 'OBSERVAÇÃO',
+      width: 250,
+      align: 'left',
+      type: 'string',
+      editable: false,
+      renderCell: (parametros) => (
+        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
+      ),
     },
   ];
 
@@ -815,6 +837,7 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
       align: 'left',
       type: 'string',
       editable: false,
+      valueGetter: (parametros) => parametros.row.regional || parametros.row.pmoregional,
     },
     {
       field: 'po',
@@ -1440,17 +1463,17 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
 
     const excelData = projeto.map((item) => {
       return {
-        'SITE ID': item.siteid,
-        'SITE(PARA)': item.sitefromto,
-        UF: item.uf,
-        REGIAO: item.region,
-        QTY: item.qty,
-        'Inicio Atividade Real': item.inicioatividadereal,
-        'DATA IMPRODUTIVA': item.dataimprodutiva,
-        'APROVAÇÃO SSV': item.aprovacaossv,
-        'STATUS APROVAÇÃO SSV': item.statusaprovacaossv,
-        'APROVAÇÃO COSMX': item.aprovacaocosmx,
-        'VALOR LPU': item.valorlpu,
+        IDMPTS: item.idpmts,
+        REGIONAL: item.pmoregional || item.regional,
+        PO: item.po,
+        PMOSIGLA: item.pmosigla,
+        UFSIGLA: item.ufsigla,
+        ATIVIDADE: item.atividade,
+        QUANTIDADE: item.quantidade,
+        'CODIGO LPU VIVO': item.codigolpuvivo,
+        TAREFAS: item.tarefas,
+        VALOR: item.valor?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        OBSERVAÇÃO: item.observacao,
       };
     });
     exportExcel({ excelData, fileName: 'Fechamento_aguardando_pagamento' });
@@ -1500,7 +1523,8 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
           currency: 'BRL',
         }),
         '% PAGO': item.porcentagem ? `${(item.porcentagem * 100).toFixed(2)}%` : '0%',
-        'TIPO PAGAENTO': item.tipopagamento,
+        'TIPO PAGAMENTO': item.tipopagamento,
+        OBSERVAÇÃO: item.observacao,
       };
     });
 
