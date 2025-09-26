@@ -160,7 +160,7 @@ const Rollouttelefonicaedicao = ({
   const [integracaoplan, setintegracaoplan] = useState('');
   const [integracaoreal, setintegracaoreal] = useState('');
   const [ativacao, setativacao] = useState('');
-  //const [documentacao, setdocumentacao] = useState('');
+  const [documentacao, setdocumentacao] = useState('');
   const [inventariodesinstalacao, setinventariodesinstalacao] = useState('');
   const [dtplan, setdtplan] = useState('');
   const [initialtunningstatus, setinitialtunningstatus] = useState('');
@@ -230,7 +230,6 @@ const Rollouttelefonicaedicao = ({
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [permissionStorage, setPermssionStorage] = useState();
   const [selectedRowsPackage, setSelectedRowsPackage] = useState([]);
-
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
     idusuario: localStorage.getItem('sessionId'),
@@ -402,7 +401,7 @@ const Rollouttelefonicaedicao = ({
         setvistoriaplan(trataData(response.data.vistoriaplan));
         setvistoriareal(trataData(response.data.vistoriareal));
         setativacao(trataData(response.data.ativacao));
-        //setdocumentacao(trataData(response.data.documentacao));
+        setdocumentacao(trataData(response.data.documentacao));
         setinventariodesinstalacao(trataData(response.data.inventariodesinstalacao));
         setdocplan(trataData(response.data.docplan));
         setdocvitoriareal(trataData(response.data.docvitoriareal));
@@ -520,12 +519,10 @@ const Rollouttelefonicaedicao = ({
     }
   }
   const handleChangeStatusRelatorioFotografico = (stat) => {
-    
-
     if (stat !== null) {
       console.log(stat);
       console.log(stat.value);
-     
+
       setSelectedStatusDocumentacao({ value: stat.value, label: stat.label });
     } else {
       setSelectedStatusDocumentacao({ value: null, label: null });
@@ -548,11 +545,11 @@ const Rollouttelefonicaedicao = ({
       }
     }
   };
-  const handleGenerateDownloadLink = async (fileName) => {
+  const handleGenerateDownloadLink = async (fileKey) => {
     try {
-      const key = `telequipe/rollout/${uididpmts}/${fileName}`;
-
-      const url = await s3Service.getFileUrl(key);
+      // Usar a chave completa do arquivo diretamente
+      const fileName = fileKey.split('/').pop(); // Extrair apenas o nome do arquivo para exibição
+      const url = await s3Service.getFileUrl(fileKey);
 
       if (!url) {
         throw new Error('URL não gerado corretamente');
@@ -564,8 +561,26 @@ const Rollouttelefonicaedicao = ({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
+      toast.success(`Download de "${fileName}" iniciado com sucesso!`);
     } catch (error) {
       console.error('Falha ao gerar o link de download', error);
+      
+      // Extrair nome do arquivo para mensagens de erro
+      const fileName = fileKey ? fileKey.split('/').pop() : 'arquivo';
+      
+      // Tratamento específico para diferentes tipos de erro
+      if (error.name === 'NoSuchKey' || error.message?.includes('NoSuchKey')) {
+        toast.error(
+          `Arquivo "${fileName}" não encontrado no servidor. Verifique se o arquivo ainda existe.`,
+        );
+      } else if (error.name === 'AccessDenied') {
+        toast.error('Acesso negado. Você não tem permissão para baixar este arquivo.');
+      } else if (error.message?.includes('Network')) {
+        toast.error('Erro de conexão. Verifique sua internet e tente novamente.');
+      } else {
+        toast.error(`Erro ao baixar arquivo: ${error.message || 'Erro desconhecido'}`);
+      }
     }
   };
   const handleDeleteFile = async (fileKey) => {
@@ -1203,9 +1218,7 @@ const Rollouttelefonicaedicao = ({
       width: 200,
       align: 'left',
       editable: false,
-      renderCell: (parametros) => (
-        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
-      ),
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
       field: 'po',
@@ -1322,9 +1335,7 @@ const Rollouttelefonicaedicao = ({
       width: 200,
       align: 'left',
       editable: false,
-      renderCell: (parametros) => (
-        <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>
-      ),
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
       field: 'po',
@@ -1703,7 +1714,7 @@ const Rollouttelefonicaedicao = ({
         integracaoplan,
         integracaoreal,
         ativacao,
-        //documentacao,
+        documentacao,
         initialtunningstatus,
         initialtunningreal,
         initialtunningrealfinal,
@@ -2105,9 +2116,15 @@ const Rollouttelefonicaedicao = ({
     setloading(false);
   };
   const handleFileUpload = async () => {
+    if (!fileDocumentacao) {
+      toast.error('Por favor, selecione um arquivo para fazer upload.');
+      return;
+    }
+
     const prefix = `telequipe/rollout/${uididpmts}/`;
 
     try {
+      // Limpar arquivos existentes antes do upload
       const files = await s3Service.listFiles(prefix);
       if (files.length > 0) {
         await Promise.all(
@@ -2117,17 +2134,43 @@ const Rollouttelefonicaedicao = ({
         );
       }
 
-      if (fileDocumentacao) {
-        const key = `${prefix}${fileDocumentacao.name}`; // sem barra extra
-        await s3Service.uploadFile(fileDocumentacao, key);
+      // Fazer upload do novo arquivo
+      const key = `${prefix}${fileDocumentacao.name}`; // sem barra extra
+      await s3Service.uploadFile(fileDocumentacao, key);
 
-        const url = await s3Service.getFileUrl(key);
-        setUploadedFiles((prev) => [...prev, { name: fileDocumentacao.name, url }]);
+      // Obter URL do arquivo e atualizar lista
+      const url = await s3Service.getFileUrl(key);
+      
+      // Atualizar a lista de arquivos com a estrutura correta (incluindo key)
+      const newFile = { 
+        name: fileDocumentacao.name, 
+        url, 
+        key 
+      };
+      
+      setUploadedFiles([newFile]); // Substituir lista com o novo arquivo
 
-        listFilesFromS3();
-      }
+      // Recarregar lista do S3 para garantir consistência
+      await listFilesFromS3();
+
+      toast.success(`Arquivo "${fileDocumentacao.name}" enviado com sucesso!`);
+      
+      // Limpar o input de arquivo
+      setFileDocumentacao(null);
+      
     } catch (error) {
       console.error('File upload failed', error);
+      
+      // Tratamento específico de erros
+      if (error.name === 'AccessDenied') {
+        toast.error('Acesso negado. Você não tem permissão para fazer upload de arquivos.');
+      } else if (error.message?.includes('Network')) {
+        toast.error('Erro de conexão. Verifique sua internet e tente novamente.');
+      } else if (error.message?.includes('file size')) {
+        toast.error('Arquivo muito grande. Tente um arquivo menor.');
+      } else {
+        toast.error(`Erro ao enviar arquivo: ${error.message || 'Erro desconhecido'}`);
+      }
     }
   };
 
@@ -2708,7 +2751,7 @@ const Rollouttelefonicaedicao = ({
                                   <td>
                                     <Button
                                       color="primary"
-                                      onClick={() => handleGenerateDownloadLink(uploadedFile.name)}
+                                      onClick={() => handleGenerateDownloadLink(uploadedFile.key)}
                                     >
                                       Download
                                     </Button>
@@ -2755,7 +2798,7 @@ const Rollouttelefonicaedicao = ({
                     value={vistoriareal}
                   />
                 </div>
-                
+
                 <div className="col-sm-2">
                   REQ
                   <Input type="date" onChange={(e) => setreq(e.target.value)} value={req} />
@@ -2836,7 +2879,7 @@ const Rollouttelefonicaedicao = ({
                     value={ativacao}
                   />
                 </div>
-                
+
                 <div className="col-sm-2">
                   Initial Tunning Real Início
                   <Input

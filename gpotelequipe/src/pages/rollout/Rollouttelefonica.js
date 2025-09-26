@@ -31,6 +31,7 @@ import Telat2editar from '../../components/formulario/projeto/Telat2editar';
 import ConfirmaModal from '../../components/modals/ConfirmacaoModal';
 import modoVisualizador from '../../services/modovisualizador';
 import S3Service from '../../services/s3Service';
+import createLocalDate from '../../services/data';
 
 let s3Service;
 
@@ -201,10 +202,10 @@ const Rollouttelefonica = ({ setshow, show }) => {
       ],
     },
     // { field: 'id', headerName: 'ID', width: 80, align: 'center' },
-    /* {
+     {
        field: 'pmts',
        headerName: 'PMTS',
-       width: 80,
+       width: 110,
        align: 'center',
        type: 'string',
        editable: false,
@@ -212,11 +213,11 @@ const Rollouttelefonica = ({ setshow, show }) => {
      {
        field: 'sytex',
        headerName: 'SYTEX',
-       width: 130,
+       width: 150,
        align: 'left',
        type: 'string',
        editable: false,
-     },*/
+     },
     {
       field: 'pmoref',
       headerName: 'PMO - REF',
@@ -324,10 +325,36 @@ const Rollouttelefonica = ({ setshow, show }) => {
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
       {
-        field: 'pmoaceitacao',
-        headerName: 'PMO-ACEITACAO',
-        width: 200,
-        align: 'left',
+      field: 'pmoaceitacaop',
+      headerName: 'PMO - ACEITACAO P',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'pmoaceitacaor',
+      headerName: 'PMO - ACEITACAO R',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'pmoaceitacao',
+      headerName: 'PMO-ACEITACAO',
+      width: 200,
+      align: 'left',
         type: 'date',
         valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
         valueFormatter: (parametros) =>
@@ -346,51 +373,29 @@ const Rollouttelefonica = ({ setshow, show }) => {
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
-      field: 'validrsopoligono',
-      headerName: 'VALID-RSO-POLIGONO',
+      field: 'pmoaceitacaop',
+      headerName: 'PMO Aceitação Plan',
       width: 200,
       align: 'left',
-      type: 'string',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
       editable: false,
     },
     {
-      field: 'validrsodisparo',
-      headerName: 'VALID-RSO-DISPARO',
+      field: 'pmoaceitacaor',
+      headerName: 'PMO Aceitação Real',
       width: 200,
       align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'validrsodefmodalidade',
-      headerName: 'VALID-RSO-DEF-MODALIDADE',
-      width: 230,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'validrsosar',
-      headerName: 'VALID-RSO-SAR',
-      width: 180,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'validrsoqualificacao',
-      headerName: 'VALID-RSO-QUALIFICACAO',
-      width: 220,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'validrsocontratacao',
-      headerName: 'VALID-RSO-CONTRATACAO',
-      width: 220,
-      align: 'left',
-      type: 'string',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
       editable: false,
     },
     {
@@ -407,7 +412,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -420,7 +425,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -433,7 +438,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -446,7 +451,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -566,7 +571,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -579,7 +584,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -596,7 +601,9 @@ const Rollouttelefonica = ({ setshow, show }) => {
       valueFormatter: (parametros) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
-        const date = new Date(parametros.value);
+        const date = createLocalDate(parametros.value);
+        if (!date) return '';
+
         // Verifica se a data é 30/12/1899
         if (
           date.getDate() === 30 &&
@@ -626,7 +633,9 @@ const Rollouttelefonica = ({ setshow, show }) => {
       valueFormatter: (parametros) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
-        const date = new Date(parametros.value);
+        const date = createLocalDate(parametros.value);
+        if (!date) return '';
+
         // Verifica se a data é 30/12/1899
         if (
           date.getDate() === 30 &&
@@ -656,7 +665,9 @@ const Rollouttelefonica = ({ setshow, show }) => {
       valueFormatter: (parametros) => {
         if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
 
-        const date = new Date(parametros.value);
+        const date = createLocalDate(parametros.value);
+        if (!date) return '';
+
         // Verifica se a data é 30/12/1899
         if (
           date.getDate() === 30 &&
@@ -682,7 +693,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -695,7 +706,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -708,7 +719,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -721,7 +732,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -734,7 +745,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -747,7 +758,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -761,7 +772,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -774,7 +785,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -803,7 +814,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
       type: 'date',
       valueGetter: ({ value }) => {
         if (!value) return null;
-        const data = new Date(value);
+        const data = createLocalDate(value);
+        if (!data) return null;
         data.setDate(data.getDate() + 1); // Corrige o deslocamento
         return data;
       },
@@ -868,7 +880,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -881,7 +893,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -908,7 +920,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -1032,77 +1044,14 @@ const Rollouttelefonica = ({ setshow, show }) => {
       type: 'string',
       editable: false,
     },
-    {
-      field: 't2instalacao',
-      headerName: 'T2 INSTALAÇÃO',
-      width: 200,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'numerodareq',
-      headerName: 'NUMERO DA REQ',
-      width: 200,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'numerot2',
-      headerName: 'NUMERO T2',
-      width: 200,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'pedido',
-      headerName: 'PEDIDO',
-      width: 200,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 't2vistoria',
-      headerName: 'T2 VISTORIA',
-      width: 200,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'numerodareqvistoria',
-      headerName: 'NUMERO DA REQ',
-      width: 200,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'numerot2vistoria',
-      headerName: 'NUMERO T2',
-      width: 200,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'pedidovistoria',
-      headerName: 'PEDIDO',
-      width: 200,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
+    
     {
       field: 'datapostagemdoc',
       headerName: 'Data de Postagem Doc.',
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -1115,7 +1064,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -1128,7 +1077,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -1141,7 +1090,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -1245,7 +1194,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       align: 'left',
       type: 'date',
       valueGetter: (acessoDataSolicitacao) =>
-        acessoDataSolicitacao.value ? new Date(acessoDataSolicitacao.value) : null,
+        acessoDataSolicitacao.value ? createLocalDate(acessoDataSolicitacao.value) : null,
       valueFormatter: (acessoDataSolicitacao) =>
         acessoDataSolicitacao.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(
@@ -1260,7 +1209,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 150,
       align: 'left',
       type: 'date',
-      valueGetter: (acessodatainicial) => (acessodatainicial.value ? new Date(params.value) : null),
+      valueGetter: (acessodatainicial) => (acessodatainicial.value ? createLocalDate(acessodatainicial.value) : null),
       valueFormatter: (acessodatainicial) =>
         acessodatainicial.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(params.value)
@@ -1274,7 +1223,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       align: 'left',
       type: 'date',
       valueGetter: (acessodatafinal) =>
-        acessodatafinal.value ? new Date(acessodatafinal.value) : null,
+        acessodatafinal.value ? createLocalDate(acessodatafinal.value) : null,
       valueFormatter: (acessodatafinal) =>
         acessodatafinal.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(acessodatafinal.value)
@@ -1288,7 +1237,66 @@ const Rollouttelefonica = ({ setshow, show }) => {
       align: 'left',
       type: 'singleSelect',
       editable: true,
-      valueOptions: ['AGUARDANDO', 'CANCELADO', 'CONCLUIDO', 'LIBERADO', 'PEDIR', 'REJEITADO'],
+      valueOptions: [
+        'AGUARDANDO',
+        'CANCELADO',
+        'CONCLUIDO',
+        'LIBERADO',
+        'PEDIR',
+        'REJEITADO',
+        'SSV ENTREGUE',
+      ],
+    },
+    {
+      field: 'initialtunningrealfinal',
+      headerName: 'Initial Tunning Real Final',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: ({ value }) => createLocalDate(value),
+      valueFormatter: ({ value }) =>
+        value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
+      editable: !modoVisualizador(),
+    },
+    {
+      field: 'dataimprodutiva',
+      headerName: 'Data Improdutiva',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => createLocalDate(parametros.value),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: true,
+    },
+
+    {
+      field: 'aprovacaossv',
+      headerName: 'Aprovação de SSV',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: ({ value }) => {
+        if (!value) return null;
+        const data = createLocalDate(value);
+        if (!data) return null;
+        data.setDate(data.getDate() + 1);
+        return data;
+      },
+      valueFormatter: ({ value }) =>
+        value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
+      editable: !modoVisualizador(),
+    },
+    {
+      field: 'statusaprovacaossv',
+      headerName: 'Status Aprovação de SSV',
+      width: 220,
+      align: 'left',
+      type: 'singleSelect',
+      editable: !modoVisualizador(),
+      valueOptions: ['APROVADO', 'REPROVADO'],
     },
   ]);
   const handleConfirmSave = async () => {
@@ -1462,6 +1470,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
     'EQUIPAMENTO_ENTREGA_P',
     'REGIONAL_CARIMBO',
     'PMO_ACEITACAO',
+    'PMO_ACEITACAO_P',
+    'PMO_ACEITACAO_R',
     'REGIONAL_PRE_ACEITE_EAP',
     'ATIVACAO_REAL',
     'DOCUMENTACAO',
@@ -1481,11 +1491,9 @@ const Rollouttelefonica = ({ setshow, show }) => {
     // “datas nulas” → vazio
     if (/^(1899-12-(30|31)|0000-00-00)/.test(v)) return '';
 
-    // "YYYY-MM-DD HH:MM:SS" ⇒ "YYYY-MM-DDTHH:MM:SS"
-    const spaced = typeof v === 'string' && v.includes(' ') ? v.replace(' ', 'T') : v;
-
-    const d = spaced instanceof Date ? spaced : new Date(spaced);
-    if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('pt-BR'); // 28/04/2025
+    // Usar createLocalDate para criar a data corretamente
+    const d = createLocalDate(v);
+    if (d && !Number.isNaN(d.getTime())) return d.toLocaleDateString('pt-BR'); // 28/04/2025
 
     // dd/mm/aaaa ou dd-mm-aaaa
     const br = typeof v === 'string' && v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
@@ -1512,8 +1520,10 @@ const Rollouttelefonica = ({ setshow, show }) => {
   const gerarexcel = () => {
     const excelData = totalacionamento
       .map((item) => ({
-        PMOREF: item.pmoref,
-        PMOCATEGORIA: item.pmocategoria,
+        PMTS: item.pmts,
+        SYTEX: item.sytex,
+        'PMO - REF': item.pmoref,
+        'PMO - CATEGORIA': item.pmocategoria,
         UIDIDPMTS: item.uididpmts,
         UFSIGLA: item.ufsigla,
         PMOSIGLA: item.pmosigla,
@@ -1524,14 +1534,10 @@ const Rollouttelefonica = ({ setshow, show }) => {
         REGIONAL_EAP_INFRA: item.regionaleapinfra,
         REGIONAL_PRE_ACEITE_EAP: item.regionalpreaceiteeap,
         REGIONAL_PRE_ACEITE_RESPONSAVEL: item.regionalpreaceiteresponsavel,
+        PMO_ACEITACAO_P: item.pmoaceitacaop,
+        PMO_ACEITACAO_R: item.pmoaceitacaor,
         PMO_ACEITACAO: item.pmoaceitacao,
         STATUS_MENSAL_TX: item.statusmensaltx,
-        VALID_RSO_POLIGONO: item.validrsopoligono,
-        VALID_RSO_DISPARO: item.validrsodisparo,
-        VALID_RSO_DEF_MODALIDADE: item.validrsodefmodalidade,
-        VALID_RSO_SAR: item.validrsosar,
-        VALID_RSO_QUALIFICACAO: item.validrsoqualificacao,
-        VALID_RSO_CONTRATACAO: item.validrsocontratacao,
         MASTEROBR_STATUS_ROLLOUT: item.masterobrastatusrollout,
         REGIONAL_LIB_SITE_P: item.regionallibsitep,
         REGIONAL_LIB_SITE_R: item.regionallibsiter,
@@ -1584,14 +1590,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
         DELIVERY_PLAN: item.deliverypolan,
         OV: item.ov,
         ACESSO: item.acesso,
-        T2_INSTALACAO: item.t2instalacao,
-        NUMERO_DA_REQ: item.numerodareq,
-        NUMERO_T2: item.numerot2,
-        PEDIDO: item.pedido,
-        T2_VISTORIA: item.t2vistoria,
-        NUMERO_DA_REQ_VISTORIA: item.numerodareqvistoria,
-        NUMERO_T2_VISTORIA: item.numerot2vistoria,
-        PEDIDO_VISTORIA: item.pedidovistoria,
+        
         DELETADO: item.deletado === 1 ? 'SIM' : 'NÃO',
       }))
       .map(formatDatesBR) // 1. converte datas / zera 1899-12-xx
@@ -1599,7 +1598,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
 
     exportExcel({ excelData, fileName: 'ROLLOUT TELEFONICA' });
   };
-  const [changedField, setChangedField] = useState();
+  const [changedField, setChangedField] = useState(null);
 
   const handleFileUpload = async () => {
     if (!file) return;
@@ -2208,38 +2207,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       backgroundColor: '#2196f3', // Azul
                       color: 'white',
                     },
-                    "& .MuiDataGrid-columnHeader[data-field='t2instalacao']": {
-                      backgroundColor: '#2196f3', // Azul
-                      color: 'white',
-                    },
-                    "& .MuiDataGrid-columnHeader[data-field='numerodareq']": {
-                      backgroundColor: '#2196f3', // Azul
-                      color: 'white',
-                    },
-                    "& .MuiDataGrid-columnHeader[data-field='numerot2']": {
-                      backgroundColor: '#2196f3', // Azul
-                      color: 'white',
-                    },
-                    "& .MuiDataGrid-columnHeader[data-field='pedido']": {
-                      backgroundColor: '#2196f3', // Azul
-                      color: 'white',
-                    },
-                    "& .MuiDataGrid-columnHeader[data-field='t2vistoria']": {
-                      backgroundColor: '#2196f3', // Azul
-                      color: 'white',
-                    },
-                    "& .MuiDataGrid-columnHeader[data-field='numerodareqvistoria']": {
-                      backgroundColor: '#2196f3', // Azul
-                      color: 'white',
-                    },
-                    "& .MuiDataGrid-columnHeader[data-field='numerot2vistoria']": {
-                      backgroundColor: '#2196f3', // Azul
-                      color: 'white',
-                    },
-                    "& .MuiDataGrid-columnHeader[data-field='pedidovistoria']": {
-                      backgroundColor: '#2196f3', // Azul
-                      color: 'white',
-                    },
+                    
                     "& .MuiDataGrid-columnHeader[data-field='infra']": {
                       backgroundColor: '#9c27b0',
                       color: 'white',

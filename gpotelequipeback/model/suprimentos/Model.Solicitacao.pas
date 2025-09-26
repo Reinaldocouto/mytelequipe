@@ -443,6 +443,24 @@ const
   xlWorkbookDefault = 51; // XLSX
 var
   Excel, WorkBook, Sheet: OleVariant;
+  projetoFormatado: string;
+
+  function FormatProjectName(const Projeto, Regional: string): string;
+  var
+    trimmedProjeto, trimmedRegional: string;
+  begin
+    trimmedProjeto := Trim(Projeto);
+    trimmedRegional := Trim(Regional);
+    Result := trimmedProjeto;
+
+    if trimmedRegional <> '' then
+    begin
+      if trimmedProjeto = '' then
+        Result := trimmedRegional
+      else if not ContainsText(trimmedProjeto, ' - ' + trimmedRegional) then
+        Result := trimmedProjeto + ' - ' + trimmedRegional;
+    end;
+  end;
 begin
   CoInitialize(nil); // <-- inicializa COM (STA)
   try
@@ -455,14 +473,14 @@ begin
     // Cabeçalhos
     Sheet.Cells[4, 1] := 'DATA';
     Sheet.Cells[4, 2] := 'NOME COLABORADOR';
-    Sheet.Cells[4, 3] := 'PROJETO';
+    Sheet.Cells[4, 3] := 'CLIENTE';
     Sheet.Cells[4, 4] := 'SITE ID ';
     Sheet.Cells[4, 5] := 'ID';
     Sheet.Cells[4, 6] := 'SIGLA SITE';
     Sheet.Cells[4, 7] := 'PO';
     Sheet.Cells[4, 8] := 'LOCAL';
     Sheet.Cells[4, 9] := 'DESCRIÇÃO';
-    Sheet.Cells[4, 10] := 'CLIENTE';
+    Sheet.Cells[4, 10] := 'PROJETO';
     Sheet.Cells[4, 11] := 'VALOR OUTRAS SOLICITAÇÕES';
     Sheet.Cells[4, 12] := 'QTDE  DIÁRIAS';
     Sheet.Cells[4, 13] := 'VALOR TOTAL';
@@ -472,14 +490,14 @@ begin
     // Dados
     Sheet.Cells[5, 1] := StrToDateTime(datasolicitacao);
     Sheet.Cells[5, 2] := nomecolaborador;
-    Sheet.Cells[5, 3] := projeto;
+    Sheet.Cells[5, 3] := cliente;
     Sheet.Cells[5, 4] := siteid;
     Sheet.Cells[5, 5] := '';
     Sheet.Cells[5, 6] := siglasite;
     Sheet.Cells[5, 7] := podiaria;
     Sheet.Cells[5, 8] := local;
     Sheet.Cells[5, 9] := descricao;
-    Sheet.Cells[5, 10] := cliente;
+    Sheet.Cells[5, 10] := projetoFormatado;
     Sheet.Cells[5, 11] := FloatToStrF(valoroutrassolicitacoes, ffCurrency, 18, 2);
     Sheet.Cells[5, 12] := diarias;
     Sheet.Cells[5, 13] := FloatToStrF(valortotal, ffCurrency, 18, 2);

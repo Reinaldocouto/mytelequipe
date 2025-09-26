@@ -56,6 +56,8 @@ procedure listaacompanhamentofinanceiro(Req: THorseRequest; Res: THorseResponse;
 
 procedure listaatividade(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
+procedure listaacionamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
 procedure listaacionamentopj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure listaacionamentoclt(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -141,6 +143,7 @@ begin
   THorse.post('v1/projetotelefonica', editar);
   THorse.get('v1/projetotelefonica/listaatividadepj', Listaatividadepj);
   THorse.get('v1/projetotelefonica/listalpu', listalpu);
+  THorse.get('v1/projetotelefonica/listaacionamento', listaacionamento);
   THorse.get('v1/projetotelefonica/listaacionamentopj', listaacionamentopj);
   THorse.get('v1/projetotelefonica/listaacionamentoclt', listaacionamentoclt);
   THorse.get('v1/projetotelefonica/fechamento', Listafechamento);
@@ -1412,6 +1415,38 @@ begin
   end;
 end;
 
+procedure Listaacionamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetotelefonica;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetotelefonica.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.Listaacionamento(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
 procedure Listaacionamentopj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TProjetotelefonica;
@@ -2029,6 +2064,7 @@ begin
       servico.documentacao := body.getvalue<string>('documentacao', '');
       servico.dtplan := body.getvalue<string>('dtplan', '');
       servico.dtreal := body.getvalue<string>('dtreal', '');
+      servico.dataInventarioDesinstalacao := body.getvalue<string>('dataInventarioDesinstalacao', '');
       servico.aprovacaossv := body.getvalue<string>('aprovacaossv', '');
       servico.statusaprovacaossv := body.getvalue<string>('statusaprovacaossv', '');
       servico.initialtunningrealfinal := body.getvalue<string>('initialtunningrealfinal', '');
@@ -2743,21 +2779,44 @@ begin
         if Req.Query.TryGetValue('empresa', ParamValue) then
           Sheet.Cells[7, 11].Value := ParamValue;
 
+        // Campo Estação/Lote - corrigindo para usar o SITE correto
+        ErrorStage := 'Filling Estação/Lote field';
+        if Req.Query.TryGetValue('site', ParamValue) then
+          Sheet.Cells[17, 3].Value := ParamValue; // Assumindo coluna C (3) para Estação/Lote
+
+        // Campo Operação - incluindo prefixo 'S' e número do elemento PEP
+        ErrorStage := 'Filling Operação field';
+        if Req.Query.TryGetValue('pepnivel3', ParamValue) then
+        begin
+          // Extrair o número do elemento PEP (assumindo formato como "IJE2" -> "S2")
+          var operacao: string := 'S';
+          if Length(ParamValue) > 3 then
+            operacao := operacao + Copy(ParamValue, 4, Length(ParamValue) - 3);
+          Sheet.Cells[17, 4].Value := operacao; // Assumindo coluna D (4) para Operação
+        end;
+
         ErrorStage := 'Filling cell D16';
-        if Req.Query.TryGetValue('t2descricaocod', ParamValue) then
-          Sheet.Cells[17, 5].Value := ParamValue;
+        // Campo Descrição - padronizando para 'M_REDE ACESSO RÁDIO-RAN-SERV-NAC'
+        Sheet.Cells[17, 5].Value := 'M_REDE ACESSO RÁDIO-RAN-SERV-NAC';
 
         ErrorStage := 'Filling cell E16';
         if Req.Query.TryGetValue('t2codmatservsw', ParamValue) then
           Sheet.Cells[17, 6].Value := ParamValue;
 
         ErrorStage := 'Filling cell J16';
-        if Req.Query.TryGetValue('quantidade', ParamValue) then
+        if Req.Query.TryGetValue('quant', ParamValue) then
+          Sheet.Cells[17, 14].Value := ParamValue
+        else if Req.Query.TryGetValue('quantidade', ParamValue) then
           Sheet.Cells[17, 14].Value := ParamValue;
 
         ErrorStage := 'Filling cell M16';
         if Req.Query.TryGetValue('valor', ParamValue) then
           Sheet.Cells[17, 15].Value := ParamValue;
+
+        // Campo Data Base - emissão T4 + 30 dias
+        ErrorStage := 'Filling Data Base field';
+        var dataBase := Now + 30; // Data atual + 30 dias
+        Sheet.Cells[17, 16].Value := FormatDateTime('dd/mm/yyyy', dataBase); // Assumindo coluna P (16) para Data Base
 
        if Req.Query.TryGetValue('tid', ParamValue) then
           id := ParamValue;

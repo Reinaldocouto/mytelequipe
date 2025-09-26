@@ -490,7 +490,11 @@ begin
           else
             ParamByName('inativacao').value := StrToDate(inativacao);
         except
-          ParamByName('inativacao').AsDateTime := ISO8601ToDate(inativacao);
+          try
+            ParamByName('inativacao').AsDateTime := ISO8601ToDate(inativacao);
+          except
+            ParamByName('inativacao').value := StrToDate('30/12/1899');
+          end;
         end;
 
         try
@@ -499,7 +503,11 @@ begin
           else
             ParamByName('reativacao').value := StrToDate(reativacao);
         except
-          ParamByName('reativacao').AsDateTime := ISO8601ToDate(reativacao);
+          try
+            ParamByName('reativacao').AsDateTime := ISO8601ToDate(reativacao);
+          except
+            ParamByName('reativacao').value := StrToDate('30/12/1899');
+          end;
         end;
 
         ParamByName('idericsson').AsString := idericsson;
@@ -520,7 +528,15 @@ begin
           else
             ParamByName('dataadmissao').Value := StrToDate(dataadmissao);
         except
-          ParamByName('dataadmissao').AsDateTime := ISO8601ToDate(dataadmissao);
+          try
+            ParamByName('dataadmissao').AsDateTime := ISO8601ToDate(dataadmissao);
+          except
+            try
+              ParamByName('dataadmissao').AsDateTime := ISO8601ToDate(dataadmissao);
+            except
+              ParamByName('dataadmissao').value := StrToDate('30/12/1899');
+            end;
+          end;
         end;
         try
           if ((datademissao = '') or (datademissao = '-') or (datademissao = '1899-12-30T00:00:00.000Z')) then
@@ -528,7 +544,11 @@ begin
           else
             ParamByName('datademissao').Value := StrToDate(datademissao);
         except
-          ParamByName('datademissao').AsDateTime := ISO8601ToDate(datademissao);
+          try
+            ParamByName('datademissao').AsDateTime := ISO8601ToDate(datademissao);
+          except
+            ParamByName('datademissao').value := StrToDate('30/12/1899');
+          end;
         end;
 
         try
@@ -537,7 +557,11 @@ begin
           else
             ParamByName('reset90').value := StrToDate(reset90);
         except
-          ParamByName('reset90').AsDateTime := ISO8601ToDate(reset90);
+          try
+            ParamByName('reset90').AsDateTime := ISO8601ToDate(reset90);
+          except
+            ParamByName('reset90').value := StrToDate('30/12/1899');
+          end;
         end;
 
         ParamByName('matriculaesocial').Value := matriculaesocial;
@@ -556,7 +580,11 @@ begin
           else
             ParamByName('datanascimento').Value := StrToDate(datanascimento);
         except
-          ParamByName('datanascimento').AsDateTime := ISO8601ToDate(datanascimento);
+         try
+            ParamByName('datanascimento').AsDateTime := ISO8601ToDate(datanascimento);
+          except
+            ParamByName('datanascimento').value := StrToDate('30/12/1899');
+          end;
         end;
 
         ParamByName('estadocivil').Value := estadocivil;
@@ -581,7 +609,11 @@ begin
           else
             ParamByName('dataemissao').Value := StrToDate(dataemissao);
         except
-          ParamByName('dataemissao').AsDateTime := ISO8601ToDate(dataemissao);
+          try
+            ParamByName('dataemissao').AsDateTime := ISO8601ToDate(dataemissao);
+          except
+            ParamByName('dataemissao').value := StrToDate('30/12/1899');
+          end;
         end;
 
         ParamByName('cpf').Value := cpf;
@@ -594,7 +626,11 @@ begin
           else
             ParamByName('datactps').Value := StrToDate(datactps);
         except
-          ParamByName('datactps').AsDateTime := ISO8601ToDate(datactps);
+          try
+            ParamByName('datactps').AsDateTime := ISO8601ToDate(datactps);
+          except
+            ParamByName('datactps').value := StrToDate('30/12/1899');
+          end;
         end;
         ParamByName('reservista').Value := reservista;
         ParamByName('cnh').Value := cnh;
@@ -605,7 +641,11 @@ begin
           else
             ParamByName('datavalidadecnh').Value := StrToDate(datavalidadecnh);
         except
-          ParamByName('datavalidadecnh').AsDateTime := ISO8601ToDate(datavalidadecnh);
+          try
+            ParamByName('datavalidadecnh').AsDateTime := ISO8601ToDate(datavalidadecnh);
+          except
+            ParamByName('datavalidadecnh').value := StrToDate('30/12/1899');
+          end;
         end;
 
         ParamByName('categoriacnh').Value := categoriacnh;
@@ -616,7 +656,11 @@ begin
           else
             ParamByName('primhabilitacao').Value := StrToDate(primhabilitacao);
         except
-          ParamByName('primhabilitacao').AsDateTime := ISO8601ToDate(primhabilitacao);
+          try
+            ParamByName('primhabilitacao').AsDateTime := ISO8601ToDate(primhabilitacao);
+          except
+            ParamByName('primhabilitacao').value := StrToDate('30/12/1899');
+          end;
         end;
         ParamByName('escolaridade').Value := escolaridade;
         ParamByName('tipocurso').Value := tipocurso;

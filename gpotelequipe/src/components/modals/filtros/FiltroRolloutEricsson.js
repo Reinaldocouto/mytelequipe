@@ -746,6 +746,40 @@ const FiltroRolloutEricsson = ({
             </FormGroup>
           )}
 
+          {fieldVisibility.statusdoc && (
+            <FormGroup>
+              <Label for="statusdoc" className="fw-bold">
+                STATUS DOC
+              </Label>
+              <Input
+                type="text"
+                className="form-control"
+                placeholder="Digite Status Doc"
+                id="statusdoc"
+                name="statusdoc"
+                value={formValues.statusdoc || ''}
+                onChange={handleInputChange}
+              />
+            </FormGroup>
+          )}
+
+          {fieldVisibility.aprovacaotodosdocs && (
+            <FormGroup>
+              <Label for="aprovacaotodosdocs" className="fw-bold">
+                APROVAÇÃO TODOS DOCS
+              </Label>
+              <Input
+                type="text"
+                className="form-control"
+                placeholder="Digite Aprovação Todos Docs"
+                id="aprovacaotodosdocs"
+                name="aprovacaotodosdocs"
+                value={formValues.aprovacaotodosdocs || ''}
+                onChange={handleInputChange}
+              />
+            </FormGroup>
+          )}
+
           {fieldVisibility.sitepossuirisco && (
             <FormGroup>
               <Label for="sitepossuirisco" className="fw-bold">

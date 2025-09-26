@@ -104,6 +104,7 @@ begin
 
               primaryKey := Item.GetValue<string>('primaryKey');
               Controller.Projetohuawei.InserirSeNaoExistir(primaryKey, Item);
+              Controller.Projetohuawei.InserirSeNaoExistirRollout(primaryKey, Item);
             end;
           end
           else

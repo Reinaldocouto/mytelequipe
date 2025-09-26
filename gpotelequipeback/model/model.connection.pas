@@ -39,16 +39,38 @@ class function TConnection.CreateConnection: TFDConnection;
 var
   Conn: TFDConnection;
 begin
-  Conn := TFDConnection.Create(nil);
-  CarregarConfig(Conn);
-  Conn.TxOptions.AutoCommit := False;
-  Result := Conn;
+  try
+    Conn := TFDConnection.Create(nil);
+    if not Assigned(Conn) then
+    begin
+      Result := nil;
+      Exit;
+    end;
+
+    CarregarConfig(Conn);
+    Conn.TxOptions.AutoCommit := False;
+    Result := Conn;
+  except
+    on E: Exception do
+    begin
+      if Assigned(Conn) then
+      begin
+        Conn.Free;
+        Conn := nil;
+      end;
+      Result := nil;
+      raise Exception.Create('Erro ao criar conexão: ' + E.Message);
+    end;
+  end;
 end;
 
 class procedure TConnection.CarregarConfig(connection: TFDConnection);
 var
   ini: TIniFile;
 begin
+  if not Assigned(connection) then
+    Exit;
+
   // Instanciar arquivo INI...
   ini := TIniFile.Create(GetCurrentDir + '\configserver.ini');
   try
@@ -67,6 +89,7 @@ begin
       end;
     except
       on ex: exception do
+        // Log do erro se necessário, mas não propague a exceção
     end;
 
   finally
@@ -76,3 +99,4 @@ begin
 end;
 
 end.
+

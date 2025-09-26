@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { Button, Input, Modal, ModalBody, ModalHeader, ModalFooter, InputGroup } from 'reactstrap';
 import {
@@ -10,6 +10,7 @@ import {
   useGridSelector,
   GridOverlay,
   ptBR,
+  useGridApiRef,
 } from '@mui/x-data-grid';
 import Pagination from '@mui/material/Pagination';
 import { Box } from '@mui/material';
@@ -55,6 +56,8 @@ const Extratofechamentotelefonica = ({
   const [mespagamentol, setmespagamentol] = useState('');
   const [observacao, setobservacao] = useState('');
   const [observacaointerna, setobservacaointerna] = useState('');
+  const apiRef = useGridApiRef();
+  const [columnVisibilityModel, setColumnVisibilityModel] = useState({});
 
   //Parametros
   const params = {
@@ -77,8 +80,10 @@ const Extratofechamentotelefonica = ({
     try {
       setloading(true);
       await api.get('v1/projetotelefonicaid/extrato', { params }).then((response) => {
-        setextrato(response.data);
-        setemailpj(response.data[0].email);
+        const dados = Array.isArray(response.data) ? response.data : [];
+        setextrato(dados);
+        const primeiroRegistro = dados.length > 0 ? dados[0] : null;
+        setemailpj(primeiroRegistro?.email ?? email ?? '');
         setobservacaointerna('');
         setmensagem('');
       });
@@ -93,9 +98,10 @@ const Extratofechamentotelefonica = ({
     try {
       console.log('emailadicional', params);
       const response = await api.get('v1/projetotelefonica/emailadicional', { params });
-      setemailadcional(response.data.emailextrato);
+      setemailadcional(response.data?.emailextrato ?? '');
     } catch (err) {
       console.error(err.message);
+      setemailadcional('');
     }
   };
 
@@ -133,13 +139,12 @@ const Extratofechamentotelefonica = ({
     }
   };
 
-  function apagar(idacionamentovivo, mespagamento, idPagamento) {
-    //correigir e colocar o numero pra não excluir coisa errada
+  const apagar = useCallback((idacionamentovivo, mespagamento, idPagamento) => {
     setmensagemmostrardel(true);
     setpo(idacionamentovivo);
     setmespagamentol(mespagamento);
     setidpagamento(idPagamento);
-  }
+  }, []);
 
   const apagarpagamento = () => {
     setmensagem('');
@@ -213,311 +218,342 @@ const Extratofechamentotelefonica = ({
   }
 
   //tabela de itens
-  const columns = [
-    //{ field: 'id', headerName: 'ID', width: 80, align: 'center', },
-    {
-      field: 'actions',
-      headerName: 'Ação',
-      type: 'actions',
-      width: 80,
-      align: 'center',
-      getActions: (parametros) => [
-        <GridActionsCellItem
-          disabled={modoVisualizador()}
-          icon={<DeleteIcon />}
-          label="Apagar"
-          onClick={() =>
-            apagar(parametros.id, parametros.row.mespagamento, parametros.row.idpagamento)
+  const columns = useMemo(
+    () => [
+      {
+        field: 'actions',
+        headerName: 'Ação',
+        type: 'actions',
+        width: 80,
+        align: 'center',
+        getActions: (parametros) => [
+          <GridActionsCellItem
+            disabled={modoVisualizador()}
+            icon={<DeleteIcon />}
+            label="Apagar"
+            onClick={() =>
+              apagar(parametros.id, parametros.row.mespagamento, parametros.row.idpagamento)
+            }
+          />,
+        ],
+      },
+      {
+        field: 'idpmts',
+        headerName: 'IDPMTS',
+        width: 120,
+        align: 'left',
+        type: 'string',
+        editable: false,
+      },
+      {
+        field: 'po',
+        headerName: 'PO',
+        width: 120,
+        align: 'left',
+        type: 'string',
+        editable: false,
+      },
+      {
+        field: 'ufsigla',
+        headerName: 'UFSIGLA',
+        width: 120,
+        align: 'left',
+        type: 'string',
+        editable: false,
+      },
+      {
+        field: 'pmosigla',
+        headerName: 'SIGLA',
+        width: 100,
+        align: 'left',
+        type: 'string',
+        editable: false,
+      },
+      {
+        field: 'pmoregional',
+        headerName: 'REGIONAL',
+        width: 100,
+        align: 'left',
+        type: 'string',
+        editable: false,
+      },
+      {
+        field: 'brevedescricao',
+        headerName: 'ESCOPO',
+        width: 350,
+        align: 'left',
+        type: 'string',
+        editable: false,
+        renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+      },
+      {
+        field: 'quantidade',
+        headerName: 'QUANT',
+        width: 80,
+        align: 'center',
+        type: 'number',
+        editable: false,
+      },
+      {
+        field: 'codigolpuvivo',
+        headerName: 'CODIGOLPUVIVO',
+        width: 200,
+        align: 'left',
+        type: 'string',
+        editable: false,
+      },
+      {
+        field: 'valor',
+        headerName: 'VALOR',
+        width: 140,
+        align: 'right',
+        type: 'string',
+        editable: false,
+        valueFormatter: (parametros) => {
+          if (parametros.value == null) return '';
+          return parametros.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        },
+      },
+      {
+        field: 'mespagamento',
+        headerName: 'MÊS PAGAMENTO',
+        width: 140,
+        align: 'center',
+        type: 'string',
+        editable: false,
+      },
+      {
+        field: 'porcentagem',
+        headerName: '%',
+        width: 100,
+        align: 'left',
+        type: 'numero',
+        editable: false,
+        valueFormatter: (parametros) => {
+          if (parametros.value == null) {
+            return '0%';
           }
-        />,
-      ],
-    },
-    {
-      field: 'idpmts',
-      headerName: 'IDPMTS',
-      width: 120,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'po',
-      headerName: 'PO',
-      width: 120,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'ufsigla',
-      headerName: 'UFSIGLA',
-      width: 120,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'pmosigla',
-      headerName: 'SIGLA',
-      width: 100,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'pmoregional',
-      headerName: 'REGIONAL',
-      width: 100,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'brevedescricao',
-      headerName: 'ESCOPO',
-      width: 350,
-      align: 'left',
-      type: 'string',
-      editable: false,
-      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
-    },
-    {
-      field: 'quantidade',
-      headerName: 'QUANT',
-      width: 80,
-      align: 'center',
-      type: 'number',
-      editable: false,
-    },
-    {
-      field: 'codigolpuvivo',
-      headerName: 'CODIGOLPUVIVO',
-      width: 200,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'valor',
-      headerName: 'VALOR',
-      width: 140,
-      align: 'right',
-      type: 'string',
-      editable: false,
-      valueFormatter: (parametros) => {
-        if (parametros.value == null) return ''; // Caso o valor seja nulo
-        return parametros.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+return `${(parametros.value * 100).toFixed(2)}%`;
+        },
       },
-    },
-    
-    {
-      field: 'mespagamento',
-      headerName: 'MÊS PAGAMENTO',
-      width: 140,
-      align: 'center',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'porcentagem',
-      headerName: '%',
-      width: 100,
-      align: 'left',
-      type: 'numero',
-      editable: false,
-      valueFormatter: (parametros) => {
-        if (parametros.value == null) {
-          return '0%';
-        }
-        return `${(parametros.value * 100).toFixed(2)}%`;
+{
+        field: 'valorpagamento',
+        headerName: 'VALOR PAGAMENTO',
+        width: 150,
+        align: 'right',
+        type: 'string',
+        editable: false,
+        valueFormatter: (parametros) => {
+          if (parametros.value == null) return '';
+          return parametros.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        },
       },
-    },
-    {
-      field: 'valorpagamento',
-      headerName: 'VALOR PAGAMENTO',
-      width: 150,
-      align: 'right',
-      type: 'string',
-      editable: false,
-      valueFormatter: (parametros) => {
-        if (parametros.value == null) return ''; // Caso o valor seja nulo
-        return parametros.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-      },
-    },
-    {
-      field: 'entregareal',
-      headerName: 'ENTREGA REAL',
-      width: 150,
-      align: 'center',
-      type: 'date', // Use 'date' para o DataGrid entender o tipo
-      editable: false,
-      valueFormatter: (parametros) => {
-        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
+{
+        field: 'entregareal',
+        headerName: 'ENTREGA REAL',
+        width: 150,
+        align: 'center',
+        type: 'date',
+        editable: false,
+        valueFormatter: (parametros) => {
+          if (!parametros.value) return '';
 
-        const date = new Date(parametros.value);
-        // Verifica se a data é 30/12/1899
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 && // Dezembro (0-based)
-          date.getFullYear() === 1899
-        ) {
-          return '';
-        }
+          const date = new Date(parametros.value);
+          if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
+            return '';
+          }
+
+          return date.toLocaleDateString('pt-BR');
+        },
+      },
+{
+        field: 'fiminstalacaoreal',
+        headerName: 'INSTALAÇÃO REAL',
+        width: 150,
+        align: 'center',
+        type: 'date',
+        editable: false,
+        valueFormatter: (parametros) => {
+          if (!parametros.value) return '';
+
+          const date = new Date(parametros.value);
+          if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
+            return '';
+          }
+
+         return date.toLocaleDateString('pt-BR');
+        },
+      },
+{
+        field: 'datadopagamento',
+        headerName: 'DATA DO PAGAMENTO',
+        width: 150,
+        align: 'left',
+        type: 'string',
+        editable: false,
+      },
+      {
+        field: 'status',
+        headerName: 'STATUS',
+        width: 120,
+        align: 'left',
+        type: 'string',
+        editable: false,
+      },
+      {
+        field: 'integracaoreal',
+        headerName: 'INTEGRAÇÃO REAL',
+        width: 150,
+        align: 'center',
+        type: 'date',
+        editable: false,
+        valueFormatter: (parametros) => {
+          if (!parametros.value) return '';
+
+          const date = new Date(parametros.value);
+          if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
+            return '';
+          }
 
         return date.toLocaleDateString('pt-BR');
+        },
       },
-    },
-    {
-      field: 'fiminstalacaoreal',
-      headerName: 'INSTALAÇÃO REAL',
-      width: 150,
-      align: 'center',
-      type: 'date', // Use 'date' para o DataGrid entender o tipo
-      editable: false,
-      valueFormatter: (parametros) => {
-        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
+{
+        field: 'ativacao',
+        headerName: 'ATIVAÇÃO',
+        width: 150,
+        align: 'center',
+        type: 'date',
+        editable: false,
+        valueFormatter: (parametros) => {
+          if (!parametros.value) return '';
 
-        const date = new Date(parametros.value);
-        // Verifica se a data é 30/12/1899
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 && // Dezembro (0-based)
-          date.getFullYear() === 1899
-        ) {
-          return '';
-        }
+          const date = new Date(parametros.value);
+          if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
+            return '';
+          }
 
         return date.toLocaleDateString('pt-BR');
+        },
       },
-    },
-    {
-      field: 'datadopagamento',
-      headerName: 'DATA DO PAGAMENTO',
-      width: 150,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'status',
-      headerName: 'STATUS',
-      width: 120,
-      align: 'left',
-      type: 'string',
-      editable: false,
-    },
-    {
-      field: 'integracaoreal',
-      headerName: 'INTEGRAÇÃO REAL',
-      width: 150,
-      align: 'center',
-      type: 'date', // Use 'date' para o DataGrid entender o tipo
-      editable: false,
-      valueFormatter: (parametros) => {
-        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
+{
+        field: 'documentacao',
+        headerName: 'DOCUMENTAÇÃO',
+        width: 150,
+        align: 'center',
+        type: 'date',
+        editable: false,
+        valueFormatter: (parametros) => {
+          if (!parametros.value) return '';
 
-        const date = new Date(parametros.value);
-        // Verifica se a data é 30/12/1899
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 && // Dezembro (0-based)
-          date.getFullYear() === 1899
-        ) {
-          return '';
-        }
+          const date = new Date(parametros.value);
+          if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
+            return '';
+          }
+
+    return date.toLocaleDateString('pt-BR');
+        },
+      },
+      {
+        field: 'dtreal',
+        headerName: 'DT REAL',
+        width: 150,
+        align: 'center',
+        type: 'date',
+        editable: false,
+        valueFormatter: (parametros) => {
+          if (!parametros.value) return '';
+
+          const date = new Date(parametros.value);
+          if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
+            return '';
+          }
 
         return date.toLocaleDateString('pt-BR');
+        },
       },
-    },
+{
+        field: 'observacao',
+        headerName: 'OBSERVAÇÃO',
+        width: 200,
+        align: 'left',
+        type: 'string',
+        editable: false,
+        renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+      },
+    ],
+    [apagar],
+  );
 
-    {
-      field: 'ativacao',
-      headerName: 'ATIVAÇÃO',
-      width: 150,
-      align: 'center',
-      type: 'date', // Use 'date' para o DataGrid entender o tipo
-      editable: false,
-      valueFormatter: (parametros) => {
-        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
+    const columnLookup = useMemo(() => {
+    const lookup = {};
+    columns.forEach((column) => {
+      lookup[column.field] = column;
+    });
+    return lookup;
+  }, [columns]);
 
-        const date = new Date(parametros.value);
-        // Verifica se a data é 30/12/1899
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 && // Dezembro (0-based)
-          date.getFullYear() === 1899
-        ) {
-          return '';
+  const getFormattedValue = useCallback(
+    (column, row) => {
+      if (!column || column.field === 'actions') {
+        return '';
+      }
+
+      let value = row?.[column.field];
+
+      if (column.valueGetter) {
+        try {
+          value = column.valueGetter({
+            id: row?.id,
+            field: column.field,
+            value,
+            row,
+            api: apiRef.current,
+            colDef: column,
+          });
+        } catch (error) {
+          // mantém o valor original caso ocorra algum erro
         }
+      }
 
-        return date.toLocaleDateString('pt-BR');
-      },
-    },
 
-    {
-      field: 'documentacao',
-      headerName: 'DOCUMENTAÇÃO',
-      width: 150,
-      align: 'center',
-      type: 'date', // Use 'date' para o DataGrid entender o tipo
-      editable: false,
-      valueFormatter: (parametros) => {
-        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
+      if (column.valueFormatter) {
+        try {
+          const formatted = column.valueFormatter({
+            id: row?.id,
+            field: column.field,
+            value,
+            api: apiRef.current,
+            row,
+            colDef: column,
+          });
 
-        const date = new Date(parametros.value);
-        // Verifica se a data é 30/12/1899
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 && // Dezembro (0-based)
-          date.getFullYear() === 1899
-        ) {
-          return '';
+          if (formatted !== undefined) {
+            return formatted;
+          }
+        } catch (error) {
+          // caso ocorra erro no formatter, retorna o valor bruto
         }
+      }
 
-        return date.toLocaleDateString('pt-BR');
-      },
+       if (value === null || value === undefined) {
+        return '';
+      }
+
+    if (value instanceof Date) {
+        return value.toLocaleDateString('pt-BR');
+      }
+
+        return value;
     },
-
-    {
-      field: 'dtreal',
-      headerName: 'DT REAL',
-      width: 150,
-      align: 'center',
-      type: 'date', // Use 'date' para o DataGrid entender o tipo
-      editable: false,
-      valueFormatter: (parametros) => {
-        if (!parametros.value) return ''; // Caso o valor seja nulo ou undefined
-
-        const date = new Date(parametros.value);
-        // Verifica se a data é 30/12/1899
-        if (
-          date.getDate() === 30 &&
-          date.getMonth() === 11 && // Dezembro (0-based)
-          date.getFullYear() === 1899
-        ) {
-          return '';
-        }
-
-        return date.toLocaleDateString('pt-BR');
-      },
-    },
-    
-    {
-      field: 'observacao',
-      headerName: 'OBSERVAÇÃO',
-      width: 200,
-      align: 'left',
-      type: 'string',
-      editable: false,
-      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
-    },
-  ];
+[apiRef],
+  );
 
   function CustomPagination() {
-    const apiRef = useGridApiContext();
-    const page = useGridSelector(apiRef, gridPageSelector);
-    const pageCount = useGridSelector(apiRef, gridPageCountSelector);
-    const rowCount = apiRef.current.getRowsCount(); // Obtém total de itens
+    const apiRefPage = useGridApiContext();
+    const page = useGridSelector(apiRefPage, gridPageSelector);
+    const pageCount = useGridSelector(apiRefPage, gridPageCountSelector);
+    const rowCount = apiRefPage.current.getRowsCount(); // Obtém total de itens
     return (
       <Box
         sx={{
@@ -534,7 +570,7 @@ const Extratofechamentotelefonica = ({
           color="primary"
           count={pageCount}
           page={page + 1}
-          onChange={(event, value1) => apiRef.current.setPage(value1 - 1)}
+          onChange={(event, value1) => apiRefPage.current.setPage(value1 - 1)}
         />
       </Box>
     );
@@ -585,48 +621,52 @@ const Extratofechamentotelefonica = ({
         }
       });
   };
-  const formatarData = (valor) => {
-    if (!valor) return '';
-    const date = new Date(valor);
-    if (date.getDate() === 30 && date.getMonth() === 11 && date.getFullYear() === 1899) {
-      return '';
-    }
-    return date.toLocaleDateString('pt-BR');
-  };
+  
   const gerarexcel = () => {
-    const excelData = extrato.map((item) => {
-      return {
-        IDPMTS: item.idpmts,
-        PO: item.po,
-        UFSIGLA: item.ufsigla,
-        SIGLA: item.pmosigla,
-        REGIONAL: item.pmoregional,
-        ESCOPO: item.brevedescricao,
-        QUANT: item.quantidade,
-        CODIGOLPUVIVO: item.codigolpuvivo,
-        VALOR: item.valor?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) ?? '',
-        'MÊS PAGAMENTO': item.mespagamento,
-        '%': item.porcentagem != null ? `${(item.porcentagem * 100).toFixed(2)}%` : '0%',
-        'VALOR PAGAMENTO':
-          item.valorpagamento?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) ??
-          '',
-        'ENTREGA REAL': formatarData(item.entregareal),
-        'INSTALAÇÃO REAL': formatarData(item.fiminstalacaoreal),
-        'DATA DO PAGAMENTO': item.datadopagamento ?? '',
-        STATUS: item.status,
-        'INTEGRAÇÃO REAL': formatarData(item.integracaoreal),
-        ATIVAÇÃO: formatarData(item.ativacao),
-        DOCUMENTAÇÃO: formatarData(item.documentacao),
-        'DT REAL': formatarData(item.dtreal),
-        Observação: item.observacao,
-      };
+     setmensagem('');
+
+    if (!extrato || extrato.length === 0) {
+      setmensagem('Sem dados para exportar.');
+      return;
+    }
+
+    const columnState = apiRef.current?.state?.columns;
+    const orderedFields =
+      columnState?.orderedFields && columnState.orderedFields.length > 0
+        ? columnState.orderedFields
+        : columns.map((column) => column.field);
+
+    const visibilityModel = columnState?.visibilityModel ?? columnVisibilityModel;
+
+    const visibleColumns = orderedFields
+      .map((field) => columnLookup[field])
+      .filter((column) => {
+        if (!column) {
+          return false;
+        }
+        const isVisible = visibilityModel?.[column.field];
+        return isVisible === undefined || isVisible !== false;
+      });
+
+    if (visibleColumns.length === 0) {
+      setmensagem('Nenhuma coluna visível para exportar.');
+      return;
+    }
+
+    const excelData = extrato.map((row) => {
+      const linha = {};
+      visibleColumns.forEach((column) => {
+        const header = column.headerName || column.field.toUpperCase();
+        linha[header] = getFormattedValue(column, row);
+      });
+      return linha;
     });
 
     exportExcel({ excelData, fileName: 'extrato' });
   };
 
   const iniciatabelas = () => {
-    setemailpj(email);
+    setemailpj(email ?? '');
     lista();
     emailadicional();
     //listatotal();
@@ -705,6 +745,7 @@ const Extratofechamentotelefonica = ({
             <br />
             <Box sx={{ height: 460, width: '100%' }}>
               <DataGrid
+                apiRef={apiRef}
                 rows={extrato}
                 columns={columns}
                 loading={loading}
@@ -712,6 +753,8 @@ const Extratofechamentotelefonica = ({
                 onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
                 disableSelectionOnClick
                 experimentalFeatures={{ newEditingApi: true }}
+                columnVisibilityModel={columnVisibilityModel}
+                onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
                 components={{
                   Pagination: CustomPagination,
                   LoadingOverlay: LinearProgress,

@@ -1327,6 +1327,14 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
       },
     },
     {
+      field: 'observacao',
+      headerName: 'Observação',
+      width: 300,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
       field: 'porcentagem',
       headerName: '% PAGO',
       width: 80,

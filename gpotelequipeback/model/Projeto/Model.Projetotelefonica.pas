@@ -298,6 +298,7 @@ type
     function NovoCadastro(out erro: string): string;
     function Listaatividadepj(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listalpu(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function Listaacionamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listaacionamentopj(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listaacionamentoclt(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function salvaacionamentopj(out erro: string): Boolean;
@@ -817,7 +818,7 @@ begin
         ParamByName('porce').asfloat := porcent;
         ParamByName('vp').asfloat := valorpg;
         ExecSQL;
-
+        FConn.Commit;
       end;
 
       erro := '';
@@ -1736,6 +1737,29 @@ begin
 end;
 
 function TProjetotelefonica.Editar(out erro: string): Boolean;
+
+function TryConvertToDateTime(const DateStr: string; out DateTime: TDateTime): Boolean;
+begin
+  Result := False;
+  DateTime := 0;
+  
+  if (DateStr = '') or (DateStr = '1899-12-30') then
+    Exit;
+    
+  try
+    if Pos('-', DateStr) > 0 then
+      DateTime := ISO8601ToDate(DateStr)
+    else if Pos('/', DateStr) > 0 then
+      DateTime := StrToDate(DateStr)
+    else
+      Exit;
+      
+    Result := True;
+  except
+    Result := False;
+  end;
+end;
+
 function FormatarDataBR(const Data: string): string;
 var
   dt: TDateTime;
@@ -1830,11 +1854,9 @@ begin
   try
     qry := TFDQuery.Create(nil);
     qryOld := TFDQuery.Create(nil);
+    qry.connection := FConn;
+    qryOld.connection := FConn;
     try
-      qry.connection := FConn;
-      qryOld.connection := FConn;
-
-      // Primeiro, buscar os valores antigos para comparação
       with qryOld do
       begin
         Active := false;
@@ -1858,6 +1880,9 @@ begin
         end;
         Close;
       end;
+
+      // Iniciar transação
+      FConn.StartTransaction;
 
       // Agora fazer o update
       with qry do
@@ -1892,6 +1917,7 @@ begin
         SQL.Add('IntegracaoReal=:IntegracaoReal,  ');
         SQL.Add('Ativacao=:Ativacao,  ');
         SQL.Add('Documentacao=:Documentacao,  ');
+        SQL.Add('dataInventarioDesinstalacao=:dataInventarioDesinstalacao,  ');
         SQL.Add('datainventariodesinstalacao=:datainventariodesinstalacao,  ');
         SQL.Add('DTPlan=:DTPlan,  ');
         SQL.Add('DTReal=:DTReal,  ');
@@ -1910,7 +1936,7 @@ begin
         SQL.Add('initialtunnigstatus=:initialtunnigstatus, ');
         SQL.Add('initialtunningreal=:initialtunningreal, ');
         SQL.Add('InitialTunningRealFinal=:InitialTunningRealFinal, ');
-        SQL.Add('Rollout=:Rollout, equipe=:equipe, ');
+        SQL.Add('Rollout=:Rollout, Equipe=:equipe, ');
         SQL.Add('statusdocumentacao=:statusdocumentacao, observacaodocumentacao=:observacaodocumentacao, ');
         SQL.Add('datapostagemdoc=:datapostagemdoc , dataexecucaodocvdvm=:dataexecucaodocvdvm, ');
         SQL.Add('datapostagemdocvdvm=:datapostagemdocvdvm, dataexecucaodoc=:dataexecucaodoc');
@@ -1930,35 +1956,67 @@ begin
         ParamByName('equipe').asstring := equipe;
         ParamByName('acompanhamentofisicoobservacao').asstring := acompanhamentofisicoobservacao;
 
-        try
-          ParamByName('initialtunningreal').AsDateTime := ISO8601ToDate(initialtunningreal);
-        except
-          ParamByName('initialtunningreal').asstring := '1899-12-30';
+        var
+          dataConvertida: TDateTime;
+        begin
+          // Tratamento robusto de datas
+          if TryConvertToDateTime(initialtunningreal, dataConvertida) then
+            ParamByName('initialtunningreal').AsDateTime := dataConvertida
+          else
+          begin
+            ParamByName('initialtunningreal').DataType := ftDateTime;
+            ParamByName('initialtunningreal').Clear;
+          end;
         end;
 
         ParamByName('initialtunnigstatus').asstring := initialtunningstatus;
-        try
-          ParamByName('InitialTunningRealFinal').AsDateTime := ISO8601ToDate(initialtunningrealfinal);
-        except
-          ParamByName('InitialTunningRealFinal').asstring := '1899-12-30';
+        
+        begin
+          if TryConvertToDateTime(initialtunningrealfinal, dataConvertida) then
+            ParamByName('InitialTunningRealFinal').AsDateTime := dataConvertida
+          else
+          begin
+            ParamByName('InitialTunningRealFinal').DataType := ftDateTime;
+            ParamByName('InitialTunningRealFinal').Clear;
+          end;
         end;
+           begin
+          if TryConvertToDateTime(dataInventarioDesinstalacao, dataConvertida) then
+            ParamByName('dataInventarioDesinstalacao').AsDateTime := dataConvertida
+          else
+          begin
+            ParamByName('dataInventarioDesinstalacao').DataType := ftDateTime;
+            ParamByName('dataInventarioDesinstalacao').Clear;
+          end;
+        end;
+        
         ParamByName('StatusAprovacaoSSV').asstring := statusaprovacaossv;
 
-        try
-          ParamByName('acessodatainicial').AsDateTime := ISO8601ToDate(acessodatainicial);
-        except
-          ParamByName('acessodatainicial').asstring := '1899-12-30';
+        begin
+          if TryConvertToDateTime(acessodatainicial, dataConvertida) then
+            ParamByName('acessodatainicial').AsDateTime := dataConvertida
+          else
+          begin
+            ParamByName('acessodatainicial').DataType := ftDateTime;
+            ParamByName('acessodatainicial').Clear;
+          end;
         end;
-        try
-          ParamByName('acessodatafinal').AsDateTime := ISO8601ToDate(acessodatafinal);
-        except
-          ParamByName('acessodatafinal').asstring := '1899-12-30';
+        
+        begin
+          if TryConvertToDateTime(acessodatafinal, dataConvertida) then
+            ParamByName('acessodatafinal').AsDateTime := dataConvertida
+          else
+          begin
+            ParamByName('acessodatafinal').DataType := ftDateTime;
+            ParamByName('acessodatafinal').Clear;
+          end;
 
         end;
         try
           ParamByName('acessodatasolicitacao').AsDateTime := ISO8601ToDate(acessodatasolicitacao);
         except
-          ParamByName('acessodatasolicitacao').asstring := '1899-12-30';
+          ParamByName('acessodatasolicitacao').DataType := ftDateTime;
+          ParamByName('acessodatasolicitacao').Clear;
         end;
 
         ParamByName('acessosolicitacao').AsString := acessosolicitacao;
@@ -1966,85 +2024,99 @@ begin
         try
           ParamByName('dataimprodutiva').AsDateTime := ISO8601ToDate(dataimprodutiva);
         except
-          ParamByName('dataimprodutiva').AsString := '1899-12-30';
+          ParamByName('dataimprodutiva').DataType := ftDateTime;
+          ParamByName('dataimprodutiva').Clear;
         end;
 
         try
           ParamByName('EntregaPlan').AsDateTime := ISO8601ToDate(EntregaPlan);
         except
-          ParamByName('EntregaPlan').asstring := '1899-12-30';
+          ParamByName('EntregaPlan').DataType := ftDateTime;
+          ParamByName('EntregaPlan').Clear;
 
         end;
         try
           ParamByName('EntregaReal').AsDateTime := ISO8601ToDate(EntregaReal);
         except
-          ParamByName('EntregaReal').asstring := '1899-12-30';
+          ParamByName('EntregaReal').DataType := ftDateTime;
+          ParamByName('EntregaReal').Clear;
 
         end;
         try
           ParamByName('FimInstalacaoPlan').AsDateTime := ISO8601ToDate(FimInstalacaoPlan);
         except
-          ParamByName('FimInstalacaoPlan').asstring := '1899-12-30';
+          ParamByName('FimInstalacaoPlan').DataType := ftDateTime;
+          ParamByName('FimInstalacaoPlan').Clear;
 
         end;
         try
           ParamByName('FimInstalacaoReal').AsDateTime := ISO8601ToDate(FimInstalacaoReal);
         except
-          ParamByName('FimInstalacaoReal').asstring := '1899-12-30';
+          ParamByName('FimInstalacaoReal').DataType := ftDateTime;
+          ParamByName('FimInstalacaoReal').Clear;
 
         end;
         try
           ParamByName('IntegracaoPlan').AsDateTime := ISO8601ToDate(IntegracaoPlan);
         except
-          ParamByName('IntegracaoPlan').asstring := '1899-12-30';
+          ParamByName('IntegracaoPlan').DataType := ftDateTime;
+          ParamByName('IntegracaoPlan').Clear;
 
         end;
         try
           ParamByName('IntegracaoReal').AsDateTime := ISO8601ToDate(IntegracaoReal);
         except
-          ParamByName('IntegracaoReal').asstring := '1899-12-30';
+          ParamByName('IntegracaoReal').DataType := ftDateTime;
+          ParamByName('IntegracaoReal').Clear;
 
         end;
         try
           ParamByName('Ativacao').AsDateTime := ISO8601ToDate(Ativacao);
         except
-          ParamByName('Ativacao').asstring := '1899-12-30';
+          ParamByName('Ativacao').DataType := ftDateTime;
+          ParamByName('Ativacao').Clear;
 
         end;
         try
           ParamByName('Documentacao').AsDateTime := ISO8601ToDate(Documentacao);
         except
-          ParamByName('Documentacao').asstring := '1899-12-30';
+          ParamByName('Documentacao').DataType := ftDateTime;
+          ParamByName('Documentacao').Clear;
 
         end;
         try
           ParamByName('datainventariodesinstalacao').AsDateTime := ISO8601ToDate(datainventariodesinstalacao);
         except
-          ParamByName('datainventariodesinstalacao').asstring := '1899-12-30';
+          ParamByName('datainventariodesinstalacao').DataType := ftDateTime;
+          ParamByName('datainventariodesinstalacao').Clear;
         end;
         try
           ParamByName('DTPlan').AsDateTime := ISO8601ToDate(DTPlan);
         except
-          ParamByName('DTPlan').asstring := '1899-12-30';
+          ParamByName('DTPlan').DataType := ftDateTime;
+          ParamByName('DTPlan').Clear;
 
         end;
         try
           ParamByName('DTReal').AsDateTime := ISO8601ToDate(DTReal);
         except
-          ParamByName('DTReal').asstring := '1899-12-30';
+          ParamByName('DTReal').DataType := ftDateTime;
+          ParamByName('DTReal').Clear;
 
           end;
         try
           ParamByName('AprovacaoSSV').AsDateTime := ISO8601ToDate(AprovacaoSSV);
         except
-          ParamByName('AprovacaoSSV').asstring := '1899-12-30';
+          ParamByName('AprovacaoSSV').DataType := ftDateTime;
+          ParamByName('AprovacaoSSV').Clear;
 
         end;
         ParamByName('StatusObra').asstring := StatusObra;
         try
           ParamByName('docaplan').AsDateTime := ISO8601ToDate(docaplan);
         except
-          ParamByName('docaplan').asstring := '1899-12-30';
+          ParamByName('docaplan').DataType := ftDateTime;
+          ParamByName('docaplan').Clear;
 
         end;
         ParamByName('OV').asstring := OV;
@@ -2054,55 +2126,64 @@ begin
         try
           ParamByName('vistoriaplan').AsDateTime := ISO8601ToDate(vistoriaplan);
         except
-          ParamByName('vistoriaplan').asstring := '1899-12-30';
+          ParamByName('vistoriaplan').DataType := ftDateTime;
+          ParamByName('vistoriaplan').Clear;
         end;
         try
           ParamByName('vistoriareal').AsDateTime := ISO8601ToDate(vistoriareal);
         except
-          ParamByName('vistoriareal').asstring := '1899-12-30';
+          ParamByName('vistoriareal').DataType := ftDateTime;
+          ParamByName('vistoriareal').Clear;
 
         end;
         try
           ParamByName('docplan').AsDateTime := ISO8601ToDate(docplan);
         except
-          ParamByName('docplan').asstring := '1899-12-30';
+          ParamByName('docplan').DataType := ftDateTime;
+          ParamByName('docplan').Clear;
 
         end;
         try
           ParamByName('docvitoriareal').AsDateTime := ISO8601ToDate(docvitoriareal);
         except
-          ParamByName('docvitoriareal').asstring := '1899-12-30';
+          ParamByName('docvitoriareal').DataType := ftDateTime;
+          ParamByName('docvitoriareal').Clear;
 
         end;
         try
           ParamByName('req').AsDateTime := ISO8601ToDate(req);
         except
-          ParamByName('req').asstring := '1899-12-30';
+          ParamByName('req').DataType := ftDateTime;
+          ParamByName('req').Clear;
 
         end;
 
         try
           ParamByName('dataexecucaodoc').AsDateTime := ISO8601ToDate(dataexecucaodoc);
         except
-          ParamByName('dataexecucaodoc').AsString := '1899-12-30';
+          ParamByName('dataexecucaodoc').DataType := ftDateTime;
+          ParamByName('dataexecucaodoc').Clear;
         end;
 
         try
           ParamByName('datapostagemdoc').AsDateTime := ISO8601ToDate(datapostagemdoc);
         except
-          ParamByName('datapostagemdoc').AsString := '1899-12-30';
+          ParamByName('datapostagemdoc').DataType := ftDateTime;
+          ParamByName('datapostagemdoc').Clear;
         end;
 
         try
           ParamByName('dataexecucaodocvdvm').AsDateTime := ISO8601ToDate(dataexecucaodocvdvm);
         except
-          ParamByName('dataexecucaodocvdvm').AsString := '1899-12-30';
+          ParamByName('dataexecucaodocvdvm').DataType := ftDateTime;
+          ParamByName('dataexecucaodocvdvm').Clear;
         end;
 
         try
           ParamByName('datapostagemdocvdvm').AsDateTime := ISO8601ToDate(datapostagemdocvdvm);
         except
-          ParamByName('datapostagemdocvdvm').AsString := '1899-12-30';
+          ParamByName('datapostagemdocvdvm').DataType := ftDateTime;
+          ParamByName('datapostagemdocvdvm').Clear;
         end;
 
         try
@@ -2125,7 +2206,10 @@ begin
           ParamByName('acessostatus').AsString := '';
         end;
 
-        ExecSQL;
+        ExecSQL;        
+        FConn.Commit;
+
+
       end;
       servicoEmail := TEmail.Create();
 
@@ -2158,6 +2242,7 @@ begin
         servicoEmail.EnviarEmailLegado(ufsigla, PEDIDO, OLDUIDIDPMTS, FormatarDataBR(IntegracaoReal));
         EmailEnviado := True;
       end;
+      Result:= true;
 
     except
       on ex: exception do
@@ -4068,7 +4153,7 @@ begin
   end;
 end;
 
-{function TProjetotelefonica.Listaacionamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+function TProjetotelefonica.Listaacionamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
   a, b: string;
@@ -4088,6 +4173,7 @@ begin
       SQL.Add('pmtsvivo.PMO_REGIONAL, ');
       SQL.Add('pmtsvivo.VENDOR_VISTORIA, ');
       SQL.Add('pmtsvivo.VENDOR_INTEGRADOR, ');
+      SQL.Add('consolidadotelefonica.observacao, ');
       SQL.Add('consolidadotelefonica.id ');
       SQL.Add('From ');
       SQL.Add('consolidadotelefonica Inner Join ');
@@ -4105,7 +4191,7 @@ begin
       Result := nil;
     end;
   end;
-end;   }
+end;
 
 function TProjetotelefonica.Listaacompanhamentofinanceiro(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
@@ -4296,13 +4382,20 @@ begin
     qry.Free;
   end;
 end;
-
 function TProjetotelefonica.rollouttelefonica(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
   hasWhere: Boolean;
 begin
   try
+    // Verificar se a conexão está válida
+    if not Assigned(FConn) then
+    begin
+      erro := 'Conexão com banco de dados não inicializada';
+      Result := nil;
+      Exit;
+    end;
+
     qry := TFDQuery.Create(nil);
     qry.Connection := FConn;
     with qry do
@@ -4313,16 +4406,21 @@ begin
       SQL.Add('EAPAUTOMATICA, REGIONALEAPINFRA, STATUSMENSALTX, MASTEROBRASTATUSROLLOUT, REGIONALLIBSITEP, REGIONALLIBSITER,');
       SQL.Add('EQUIPAMENTOENTREGAP, REGIONALCARIMBO, RSORSASCI, RSORSASCISTATUS, REGIONALOFENSORDETALHE, VENDORVISTORIA,');
       SQL.Add('VENDORPROJETO, VENDORINSTALADOR, VENDORINTEGRADOR, PMOTECNEQUIP, PMOFREQEQUIP, UIDIDCPOMRF, StatusObra,');
-      SQL.Add('PMOACEITACAO,');SQL.Add('PMOACEITACAO, REGIONALPREACEITEEAP, REGIONALPREACEITERESPONSAVEL,');
-      SQL.Add('VALIDRSOPOLIGONO, VALIDRSODISPARO, VALIDRSODEFMODALIDADE, VALIDRSOSAR, VALIDRSOQUALIFICACAO, VALIDRSOCONTRATACAO,');
+
+      SQL.Add('PMOACEITACAO, PMOACEITACAOP, PMOACEITACAOR,');
+      SQL.Add('REGIONALPREACEITEEAP, REGIONALPREACEITERESPONSAVEL,');
+
       SQL.Add('EntregaRequest, EntregaPlan, EntregaReal, FimInstalacaoPlan, FimInstalacaoReal, IntegracaoPlan, IntegracaoReal,');
-      SQL.Add('Ativacao, Documentacao, datainventariodesinstalacao, DTPlan, DTReal, Rollout, Acionamento, nomedosite, endereco, RSORSADETENTORA, RSORSAIDDETENTORA,');SQL.Add('Ativacao, Documentacao, DTPlan, DTReal, Rollout, Acionamento, nomedosite, endereco, RSORSADETENTORA, RSORSAIDDETENTORA,');
+      SQL.Add('Ativacao, Documentacao, datainventariodesinstalacao, DTPlan, DTReal, Rollout, Acionamento, nomedosite, endereco, RSORSADETENTORA, RSORSAIDDETENTORA,');
       SQL.Add('resumodafase, infravivo, Equipe, docaplan, deliverypolan, OV, ACESSO, t2instalacao, NUMERODAREQ, NUMEROT2, PEDIDO,');
       SQL.Add('T2VISTORIA, NUMERODAREQVISTORIA, NUMEROT2VISTORIA, PEDIDOVISTORIA, id, infra, ddd, LATITUDE, LONGITUDE,');
       SQL.Add('acessoobs, acessosolicitacao, acessodatasolicitacao, acessodatainicial, acessodatafinal, acessostatus, dataimprodutiva, acompanhamentofisicoobservacao,');
       SQL.Add('acessoatividade, acessocomentario, acessooutros, acessoformaacesso, vistoriaplan, vistoriareal, docplan, docvitoriareal, req, deletado, rtt, rttdata,');
-      SQL.Add('initialtunningplan, initialtunningreal, initialtunnigstatus, InitialTunningRealFinal, AprovacaoSSV, StatusAprovacaoSSV, observacaodocumentacao,datapostagemdocvdvm,dataexecucaodocvdvm,statusdocumentacao,datapostagemdoc    ,dataexecucaodoc    ');
+      SQL.Add('initialtunningplan, initialtunningreal, initialtunnigstatus, InitialTunningRealFinal, AprovacaoSSV, StatusAprovacaoSSV, observacaodocumentacao,');
+      SQL.Add('datapostagemdocvdvm, dataexecucaodocvdvm, statusdocumentacao, datapostagemdoc, dataexecucaodoc');
       SQL.Add('FROM rolloutvivo');
+
+
 
       hasWhere := False;
 
@@ -4419,8 +4517,7 @@ begin
           SQL.Add(' WHERE Documentacao = :documentacao');
           hasWhere := True;
         end;
-      end;
-
+      end;      
       if AQuery.ContainsKey('datainventariodesinstalacao') and (AQuery['datainventariodesinstalacao'] <> '') then
       begin
         if hasWhere then
@@ -4744,31 +4841,77 @@ begin
         ParamByName('statusObra').Value := AQuery['statusObra'];
 
       if AQuery.ContainsKey('documentacao') and (AQuery['documentacao'] <> '') then
-        ParamByName('documentacao').Value := AQuery['documentacao'];
-
-      if AQuery.ContainsKey('datainventariodesinstalacao') and (AQuery['datainventariodesinstalacao'] <> '') then
-        ParamByName('datainventariodesinstalacao').Value := AQuery['datainventariodesinstalacao'];
+      begin
+        try
+          ParamByName('documentacao').AsDateTime := ISO8601ToDate(AQuery['documentacao']);
+        except
+          ParamByName('documentacao').DataType := ftDateTime;
+          ParamByName('documentacao').Clear;
+        end;
+      end;
 
       if AQuery.ContainsKey('initialTunningReal') and (AQuery['initialTunningReal'] <> '') then
-        ParamByName('initialTunningReal').Value := AQuery['initialTunningReal'];
+      begin
+        try
+          ParamByName('initialTunningReal').AsDateTime := ISO8601ToDate(AQuery['initialTunningReal']);
+        except
+          ParamByName('initialTunningReal').DataType := ftDateTime;
+          ParamByName('initialTunningReal').Clear;
+        end;
+      end;
 
       if AQuery.ContainsKey('dtReal') and (AQuery['dtReal'] <> '') then
-        ParamByName('dtReal').Value := AQuery['dtReal'];
+      begin
+        try
+          ParamByName('dtReal').AsDateTime := ISO8601ToDate(AQuery['dtReal']);
+        except
+          ParamByName('dtReal').DataType := ftDateTime;
+          ParamByName('dtReal').Clear;
+        end;
+      end;
 
       if AQuery.ContainsKey('fimInstalacaoPlan') and (AQuery['fimInstalacaoPlan'] <> '') then
-        ParamByName('fimInstalacaoPlan').Value := AQuery['fimInstalacaoPlan'];
+      begin
+        try
+          ParamByName('fimInstalacaoPlan').AsDateTime := ISO8601ToDate(AQuery['fimInstalacaoPlan']);
+        except
+          ParamByName('fimInstalacaoPlan').DataType := ftDateTime;
+          ParamByName('fimInstalacaoPlan').Clear;
+        end;
+      end;
 
       if AQuery.ContainsKey('initialTunningStatus') and (AQuery['initialTunningStatus'] <> '') then
         ParamByName('initialTunningStatus').Value := AQuery['initialTunningStatus'];
 
       if AQuery.ContainsKey('dtPlan') and (AQuery['dtPlan'] <> '') then
-        ParamByName('dtPlan').Value := AQuery['dtPlan'];
+      begin
+        try
+          ParamByName('dtPlan').AsDateTime := ISO8601ToDate(AQuery['dtPlan']);
+        except
+          ParamByName('dtPlan').DataType := ftDateTime;
+          ParamByName('dtPlan').Clear;
+        end;
+      end;
 
       if AQuery.ContainsKey('rollout') and (AQuery['rollout'] <> '') then
-        ParamByName('rollout').Value := AQuery['rollout'];
+      begin
+        try
+          ParamByName('rollout').AsDateTime := ISO8601ToDate(AQuery['rollout']);
+        except
+          ParamByName('rollout').DataType := ftDateTime;
+          ParamByName('rollout').Clear;
+        end;
+      end;
 
       if AQuery.ContainsKey('acionamento') and (AQuery['acionamento'] <> '') then
-        ParamByName('acionamento').Value := AQuery['acionamento'];
+      begin
+        try
+          ParamByName('acionamento').AsDateTime := ISO8601ToDate(AQuery['acionamento']);
+        except
+          ParamByName('acionamento').DataType := ftDateTime;
+          ParamByName('acionamento').Clear;
+        end;
+      end;
 
       if AQuery.ContainsKey('nomeSite') and (AQuery['nomeSite'] <> '') then
         ParamByName('nomeSite').Value := AQuery['nomeSite'];
@@ -4792,10 +4935,24 @@ begin
         ParamByName('equipe').Value := AQuery['equipe'];
 
       if AQuery.ContainsKey('docaPlan') and (AQuery['docaPlan'] <> '') then
-        ParamByName('docaPlan').Value := AQuery['docaPlan'];
+      begin
+        try
+          ParamByName('docaPlan').AsDateTime := ISO8601ToDate(AQuery['docaPlan']);
+        except
+          ParamByName('docaPlan').DataType := ftDateTime;
+          ParamByName('docaPlan').Clear;
+        end;
+      end;
 
       if AQuery.ContainsKey('deliveryPlan') and (AQuery['deliveryPlan'] <> '') then
-        ParamByName('deliveryPlan').Value := AQuery['deliveryPlan'];
+      begin
+        try
+          ParamByName('deliveryPlan').AsDateTime := ISO8601ToDate(AQuery['deliveryPlan']);
+        except
+          ParamByName('deliveryPlan').DataType := ftDateTime;
+          ParamByName('deliveryPlan').Clear;
+        end;
+      end;
 
       if AQuery.ContainsKey('ov') and (AQuery['ov'] <> '') then
         ParamByName('ov').Value := AQuery['ov'];
@@ -4804,7 +4961,14 @@ begin
         ParamByName('acesso').Value := AQuery['acesso'];
 
       if AQuery.ContainsKey('t2Instalacao') and (AQuery['t2Instalacao'] <> '') then
-        ParamByName('t2Instalacao').Value := AQuery['t2Instalacao'];
+      begin
+        try
+          ParamByName('t2Instalacao').AsDateTime := ISO8601ToDate(AQuery['t2Instalacao']);
+        except
+          ParamByName('t2Instalacao').DataType := ftDateTime;
+          ParamByName('t2Instalacao').Clear;
+        end;
+      end;
 
       if AQuery.ContainsKey('numeroReqInst') and (AQuery['numeroReqInst'] <> '') then
         ParamByName('numeroReqInst').Value := AQuery['numeroReqInst'];
@@ -4837,7 +5001,10 @@ begin
     begin
       erro := 'Erro ao consultar: ' + ex.Message;
       if Assigned(qry) then
+      begin
         qry.Free;
+        qry := nil;
+      end;
       Result := nil;
     end;
   end;
@@ -4909,6 +5076,8 @@ begin
       SQL.Add('UPPER(rolloutvivo.StatusObra) as statusobra, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.docaplan, ''%Y-%m-%d'') as docaplan, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAO, ''%Y-%m-%d'') as PMO_ACEITACAO, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAOP, ''%Y-%m-%d'') as PMO_ACEITACAO_P, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAOR, ''%Y-%m-%d'') as PMO_ACEITACAO_R, ');
       SQL.Add('rolloutvivo.OV ');
       SQL.Add(' ');
       SQL.Add('From ');
@@ -5128,6 +5297,7 @@ begin
       Add('rolloutvivo.DTPlan AS DTPlan, ');
       Add('rolloutvivo.DTReal AS DTReal, ');
       Add('rolloutvivo.AprovacaoSSV AS AprovacaoSSV, ');
+      Add('rolloutvivo.dataimprodutiva AS dataimprodutiva, ');
       Add('rolloutvivo.StatusAprovacaoSSV AS StatusAprovacaoSSV, ');
       Add('rolloutvivo.initialtunningreal, ');
       Add('rolloutvivo.InitialTunningRealFinal, ');
@@ -5204,7 +5374,9 @@ begin
       Add('telefonicacontrolet2.t2descricaocod as atividade,  ');
       Add('acionamentovivo.quantidade,  ');
       Add('lpuvivo.codigolpuvivo,  ');
-      Add('lpuvivo.brevedescricao,  ');
+      Add('lpuvivo.brevedescricao as escopo,  ');
+      Add('lpuvivo.brevedescricao as brevedescricao,  ');
+      Add('lpuvivo.brevedescricao as tarefas,  ');
       Add('acionamentovivo.valor,  ');
       Add('acionamentovivo.dataacionamento,  ');
       Add('acionamentovivo.dataenvioemail,  ');
@@ -5225,7 +5397,7 @@ begin
       Add('telefonicapagamento.porcentagem,  ');
       Add('telefonicapagamento.valorpagamento,  ');
       Add('telefonicapagamento.datapagamento,  ');
-      Add('telefonicapagamento.observacao,  ');
+      Add('telefonicapagamento.observacao as observacao,  ');
       Add('telefonicapagamento.tipopagamento  ');
       Add('from  ');
       Add('telefonicapagamento left join  ');
@@ -5281,7 +5453,9 @@ begin
       Add('telefonicacontrolet2.t2descricaocod as atividade,  ');
       Add('acionamentovivo.quantidade,  ');
       Add('lpuvivo.codigolpuvivo,  ');
-      Add('lpuvivo.brevedescricao,  ');
+      Add('lpuvivo.brevedescricao as escopo,  ');
+      Add('lpuvivo.brevedescricao as brevedescricao,  ');
+      Add('lpuvivo.brevedescricao as tarefas,  ');
       Add('acionamentovivo.valor,  ');
       Add('acionamentovivo.dataacionamento,  ');
       Add('acionamentovivo.dataenvioemail,  ');
@@ -5298,6 +5472,7 @@ begin
       Add('telefonicapagamento.porcentagem,  ');
       Add('telefonicapagamento.valorpagamento,  ');
       Add('telefonicapagamento.datapagamento,  ');
+      Add('telefonicapagamento.observacao as observacao,  ');
       Add('telefonicapagamento.tipopagamento  ');
       Add('from  ');
       Add('telefonicapagamento left join  ');

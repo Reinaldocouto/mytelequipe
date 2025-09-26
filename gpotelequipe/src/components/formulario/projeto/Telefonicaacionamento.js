@@ -208,6 +208,13 @@ const Telefonicaacionamento = ({ setshow, show }) => {
             align: 'left',
             editable: false,
         },
+        {
+            field: 'observacao',
+            headerName: 'OBSERVAÇÃO',
+            width: 200,
+            align: 'left',
+            editable: false,
+        },
     ];
 
     const iniciatabelas = () => {
@@ -225,9 +232,10 @@ const Telefonicaacionamento = ({ setshow, show }) => {
                 "SITEID": item.siteid,
                 "SITENAME(DE)": item.sitename,
                 "SITENAME(PARA)": item.sitenamefrom,
+                "OBSERVAÇÃO": item.observacao,
             };
         });
-        exportExcel({ excelData, fileName: 'projeto ZTE' });
+        exportExcel({ excelData, fileName: 'projeto Telefonica' });
     };
 
     useEffect(() => {

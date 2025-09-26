@@ -87,6 +87,8 @@ const Rolloutericsson = ({ setshow, show }) => {
     localizacaositeendereco: true,
     localizacaositecidade: true,
     documentacaosituacao: true,
+    statusdoc: true,
+    aprovacaotodosdocs: true,
     sitepossuirisco: true,
   });
 

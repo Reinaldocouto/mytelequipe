@@ -497,6 +497,24 @@ var
   htmlEmail: string;
   destinatarios: TStringList;
   i: Integer;
+  projetoFormatado: string;
+
+  function FormatProjectName(const Projeto, Regional: string): string;
+  var
+    trimmedProjeto, trimmedRegional: string;
+  begin
+    trimmedProjeto := Trim(Projeto);
+    trimmedRegional := Trim(Regional);
+    Result := trimmedProjeto;
+
+    if trimmedRegional <> '' then
+    begin
+      if trimmedProjeto = '' then
+        Result := trimmedRegional
+      else if not ContainsText(trimmedProjeto, ' - ' + trimmedRegional) then
+        Result := trimmedProjeto + ' - ' + trimmedRegional;
+    end;
+  end;
 begin
   Result := False;
   Query := TFDQuery.Create(nil);
@@ -574,6 +592,7 @@ begin
 
     // 3. Preparar o HTML do e-mail
     try
+      projetoFormatado := FormatProjectName(dadosDiaria.Projeto, dadosDiaria.SiglaSite);
       htmlEmail := '<!DOCTYPE html>' +
                    '<html lang="pt-BR">' +
                    '<head>' +
@@ -599,7 +618,7 @@ begin
                    '      <tr><th>Numero:</th><td>' + HtmlEncode(dadosDiaria.Numero) + '</td></tr>' +
                    '      <tr><th>Data:</th><td>' + FormatDateTime('dd/mm/yyyy', dadosDiaria.DataSolicitacao) + '</td></tr>' +
                    '      <tr><th>Colaborador:</th><td>' + HtmlEncode(dadosDiaria.NomeColaborador) + '</td></tr>' +
-                   '      <tr><th>Projeto:</th><td>' + HtmlEncode(dadosDiaria.Projeto) + '</td></tr>' +
+                   '      <tr><th>Projeto:</th><td>' + HtmlEncode(projetoFormatado) + '</td></tr>' +
                    '      <tr><th>Site ID:</th><td>' + HtmlEncode(dadosDiaria.SiteId) + '</td></tr>' +
                    '      <tr><th>Sigla Site:</th><td>' + HtmlEncode(dadosDiaria.SiglaSite) + '</td></tr>' +
                    '      <tr><th>PO:</th><td>' + HtmlEncode(dadosDiaria.PO) + '</td></tr>' +

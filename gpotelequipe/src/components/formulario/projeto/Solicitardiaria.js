@@ -21,6 +21,13 @@ import Mensagemescolha from '../../Mensagemescolha';
 import Mensagemsimples from '../../Mensagemsimples';
 //import Parcelas from '../parcelamento/Parcela';
 
+const VALOR_DIARIA = 120;
+const VALOR_DIARIA_FORMATADO = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+  minimumFractionDigits: 2,
+}).format(VALOR_DIARIA);
+
 const Solicitardiaria = ({
   setshow,
   show,
@@ -206,9 +213,11 @@ const Solicitardiaria = ({
     }
   }
   const handleDiarias = (valor) => {
+    const quantidade = Number(valor) || 0;
+    const descricaoQuantidade = valor === '' ? '' : quantidade;
     setdiaria(valor);
-    settotal(valor * 100 + valorsolicitacao);
-    setdescricao(`${valor} Diárias R$ 100,00`);
+    settotal(quantidade * VALOR_DIARIA + valorsolicitacao);
+    setdescricao(`${descricaoQuantidade} Diárias ${VALOR_DIARIA_FORMATADO}`);
   };
 
   const iniciatabelas = () => {
@@ -399,9 +408,10 @@ const Solicitardiaria = ({
                 <NumericFormat
                   value={valorsolicitacao}
                   onValueChange={(values) => {
-                    const { floatValue } = values; // Aqui usamos const
+                    const { floatValue = 0 } = values; 
                     setvalorsolicitacao(floatValue);
-                    settotal(diaria * 100 + values.floatValue);
+                    const quantidade = Number(diaria) || 0;
+                    settotal(quantidade * VALOR_DIARIA + floatValue);
                   }}
                   thousandSeparator="."
                   decimalSeparator=","

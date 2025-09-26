@@ -127,111 +127,253 @@ const
   PADRAO_OBRAS_ASP_RFP_2024 = 'obras asp rfp 2024';
   PADRAO_LISTA_SITES = 'lista de sites';
 var
+  vZipFile: TZipFile;
+  i, fileIndex: Integer;
+  fileName, fileExt, lowerFileName: string;
+  fileNameLength: Integer;
+  validFiles: TArray<Integer>;
+  validFileCount: Integer;
   servico: TUpload;
   jsonData: TJSONArray;
-  vZipFile: TZipFile;
   vXLSFile, erro: string;
-  resultado, i: Integer;
+  localZipFile: TZipFile;
+  uniqueFileName, fileNameWithoutExt: string;
+  guid: TGUID;
+  startTime, endTime: TDateTime;
+  elapsedTime: string;
 begin
-  servico := TUpload.Create;
-  try
-    jsonData := TJSONArray.Create;
+  if not FileExists(vDiretorio) then
+  begin
+    Writeln('Erro: Arquivo não encontrado: ' + vDiretorio);
+    Exit;
+  end;
+
+  if LowerCase(ExtractFileExt(vDiretorio)) = '.zip' then
+  begin
+    Writeln('Arquivo ZIP detectado: ' + vDiretorio);
+
+    // Garantir que o diretório base existe
+    if not DirectoryExists(DIRETORIO_BASE) then
+      ForceDirectories(DIRETORIO_BASE);
+
+    vZipFile := TZipFile.Create;
     try
-      if LowerCase(ExtractFileExt(vDiretorio)) = '.zip' then
+      vZipFile.Open(vDiretorio, zmRead);
+
+      // Primeiro, identificar todos os arquivos válidos
+      SetLength(validFiles, vZipFile.FileCount);
+      validFileCount := 0;
+
+      for i := 0 to vZipFile.FileCount - 1 do
       begin
-        Writeln('Arquivo ZIP detectado: ' + vDiretorio);
-        vZipFile := TZipFile.Create;
-        try
-          vZipFile.Open(vDiretorio, zmRead);
-          for i := 0 to vZipFile.FileCount - 1 do
-          begin
-            jsonData := TJSONArray.Create;
-            Writeln(TimeToStr(Now) + ' - Processando: ' + vZipFile.FileNames[i]);
+        fileName := ExtractFileName(vZipFile.FileNames[i]);
+        fileExt := LowerCase(ExtractFileExt(fileName));
+        lowerFileName := LowerCase(fileName);
+        fileNameLength := Length(lowerFileName);
 
-            // --- MIGO ---
-            if (LowerCase(Copy(ExtractFileName(vZipFile.FileNames[i]), 1, 4)) = PADRAO_MIGO)
-              and (LowerCase(ExtractFileExt(vZipFile.FileNames[i])) = '.xlsx')   then
-            begin
-              Writeln('Lendo Excel');
-              vXLSFile := DIRETORIO_BASE + ExtractFileName(vZipFile.FileNames[i]);
-              vZipFile.Extract(vZipFile.FileNames[i], ExtractFilePath(vXLSFile));
-              jsonData.Free;
-              jsonData := LerExcelParaJSON(vXLSFile);
-              Writeln('Inserindo Excel');
-              servico.InserirAtualizarMigo(jsonData, erro);
-              Writeln('Inserido com sucesso '+ PADRAO_MIGO );
-              DeleteFile(vXLSFile);
-            end;
-
-            // --- Lista Sites ---
-            if (LowerCase(Copy(ExtractFileName(vZipFile.FileNames[i]), 1, 14)) = PADRAO_LISTA_SITES)
-               and (LowerCase(ExtractFileExt(vZipFile.FileNames[i])) = '.xlsx') then
-            begin
-                Writeln('Lendo Excel');
-              vXLSFile := DIRETORIO_BASE + ExtractFileName(vZipFile.FileNames[i]);
-              vZipFile.Extract(vZipFile.FileNames[i], ExtractFilePath(vXLSFile));
-              jsonData.Free;
-              jsonData := LerExcelParaJSON(vXLSFile);
-              Writeln('Inserindo Excel');
-              servico.InserirAtualizaObrasSites(jsonData, erro);
-              Writeln('Inserido com sucesso '+PADRAO_LISTA_SITES );
-              DeleteFile(vXLSFile);
-            end;
-
-            // --- Documentação Obra ---
-            if (LowerCase(Copy(ExtractFileName(vZipFile.FileNames[i]), 1, 29)) = PADRAO_DOCUMENTACAO_OBRA)
-               and (LowerCase(ExtractFileExt(vZipFile.FileNames[i])) = '.csv') then
-            begin
-              Writeln('Lendo Excel');
-              vXLSFile := DIRETORIO_BASE + ExtractFileName(vZipFile.FileNames[i]);
-              vZipFile.Extract(vZipFile.FileNames[i], ExtractFilePath(vXLSFile));
-              jsonData.Free;
-              jsonData := LerCSVParaJSON(vXLSFile);
-              Writeln('Inserindo Excel');
-              servico.InserirAtualizaObraDocumentacaoObraFinal(jsonData, erro);
-              Writeln('Inserido com sucesso ' + PADRAO_DOCUMENTACAO_OBRA);
-              DeleteFile(vXLSFile);
-            end;
-
-            // --- Obras ASP 2022 ---
-            if (LowerCase(Copy(ExtractFileName(vZipFile.FileNames[i]), 1, 14)) = PADRAO_OBRAS_ASP_2022)
-               and (LowerCase(ExtractFileExt(vZipFile.FileNames[i])) = '.csv') then
-            begin
-                  Writeln('Lendo Excel');
-              vXLSFile := DIRETORIO_BASE + ExtractFileName(vZipFile.FileNames[i]);
-              vZipFile.Extract(vZipFile.FileNames[i], ExtractFilePath(vXLSFile));
-              jsonData.Free;
-              jsonData := LerCSVParaJSON(vXLSFile);
-              Writeln('Inserindo Excel');
-              servico.InserirAtualizaObras2022(jsonData, erro);
-              Writeln('Inserido com sucesso '+ PADRAO_OBRAS_ASP_2022 );
-              DeleteFile(vXLSFile);
-            end;
-
-            // --- Obras ASP RFP 2024 ---
-            if (LowerCase(Copy(ExtractFileName(vZipFile.FileNames[i]), 1, 18)) = PADRAO_OBRAS_ASP_RFP_2024)
-               and (LowerCase(ExtractFileExt(vZipFile.FileNames[i])) = '.csv') then
-            begin
-              Writeln('Lendo Excel');
-              vXLSFile := DIRETORIO_BASE + ExtractFileName(vZipFile.FileNames[i]);
-              vZipFile.Extract(vZipFile.FileNames[i], ExtractFilePath(vXLSFile));
-              jsonData.Free;
-              jsonData := LerCSVParaJSON(vXLSFile);
-               Writeln('Inserindo Excel');
-              servico.InserirAtualizaObrasAspRFP2024(jsonData, erro);
-              Writeln('Inserido com sucesso '+ PADRAO_OBRAS_ASP_RFP_2024 );
-              DeleteFile(vXLSFile);
-            end;
-          end;
-        finally
-          vZipFile.Free;
+        // Verificar se é um arquivo válido para processamento
+        if ((fileExt = '.xlsx') or (fileExt = '.csv')) and
+           (((fileNameLength >= 4) and (Copy(lowerFileName, 1, 4) = PADRAO_MIGO)) or
+            ((fileNameLength >= 14) and (Copy(lowerFileName, 1, 14) = PADRAO_LISTA_SITES)) or
+            ((fileNameLength >= 29) and (Copy(lowerFileName, 1, 29) = PADRAO_DOCUMENTACAO_OBRA)) or
+            ((fileNameLength >= 14) and (Copy(lowerFileName, 1, 14) = PADRAO_OBRAS_ASP_2022)) or
+            ((fileNameLength >= 18) and (Copy(lowerFileName, 1, 18) = PADRAO_OBRAS_ASP_RFP_2024))) then
+        begin
+          validFiles[validFileCount] := i;
+          Inc(validFileCount);
         end;
       end;
+
+      // Processar cada arquivo válido sequencialmente
+      for i := 0 to validFileCount - 1 do
+      begin
+        fileIndex := validFiles[i];
+        fileName := ExtractFileName(vZipFile.FileNames[fileIndex]);
+        fileExt := LowerCase(ExtractFileExt(fileName));
+        lowerFileName := LowerCase(fileName);
+        fileNameLength := Length(lowerFileName);
+
+        // Processar o arquivo sequencialmente
+        begin
+          try
+
+            // Gerar nome único para evitar conflitos
+            CreateGUID(guid);
+            fileNameWithoutExt := ChangeFileExt(fileName, '');
+            uniqueFileName := fileNameWithoutExt + '_' + StringReplace(GUIDToString(guid), '{', '', [rfReplaceAll]).Substring(0, 8) + fileExt;
+
+            startTime := Now;
+            Writeln('[INÍCIO] Processando arquivo: ' + fileName);
+            Writeln('[INFO] Arquivo temporário: ' + uniqueFileName);
+            Writeln('[INFO] Horário de início: ' + FormatDateTime('hh:nn:ss', startTime));
+
+              servico := TUpload.Create;
+              try
+                localZipFile := TZipFile.Create;
+                try
+                  localZipFile.Open(vDiretorio, zmRead);
+
+                // --- MIGO ---
+                if (fileNameLength >= 4) and (Copy(lowerFileName, 1, 4) = PADRAO_MIGO) and (fileExt = '.xlsx') then
+                begin
+                  Writeln('[PROGRESSO] Processando arquivo MIGO: ' + fileName);
+                  vXLSFile := DIRETORIO_BASE + ExtractFileName(localZipFile.FileNames[fileIndex]);
+                  // Remover arquivo se já existir
+                  if FileExists(vXLSFile) then
+                    DeleteFile(vXLSFile);
+                  Writeln('[EXTRAÇÃO] Extraindo MIGO para: ' + vXLSFile);
+                  localZipFile.Extract(localZipFile.FileNames[fileIndex], DIRETORIO_BASE);
+
+                  // Verificar se o arquivo foi extraído com sucesso
+                  if not FileExists(vXLSFile) then
+                    raise Exception.Create('Falha na extração do arquivo MIGO: ' + vXLSFile);
+
+                  try
+                    Writeln('[CONVERSÃO] Convertendo MIGO para JSON...');
+                    jsonData := LerExcelParaJSON(vXLSFile);
+                    Writeln('[UPLOAD] Enviando dados MIGO...');
+                    servico.InserirAtualizarMigo(jsonData, erro);
+                    Writeln('[SUCESSO] MIGO processado com sucesso: ' + fileName);
+                  finally
+                    if Assigned(jsonData) then jsonData.Free;
+                    DeleteFile(vXLSFile);
+                  end;
+                end
+
+                // --- Lista Sites ---
+                else if (fileNameLength >= 14) and (Copy(lowerFileName, 1, 14) = PADRAO_LISTA_SITES) and (fileExt = '.xlsx') then
+                begin
+                  Writeln('[PROGRESSO] Processando Lista Sites: ' + fileName);
+                  vXLSFile := DIRETORIO_BASE + ExtractFileName(localZipFile.FileNames[fileIndex]);
+                  // Remover arquivo se já existir
+                  if FileExists(vXLSFile) then
+                    DeleteFile(vXLSFile);
+                  Writeln('[EXTRAÇÃO] Extraindo Lista Sites para: ' + vXLSFile);
+                  localZipFile.Extract(localZipFile.FileNames[fileIndex], DIRETORIO_BASE);
+
+                  // Verificar se o arquivo foi extraído com sucesso
+                  if not FileExists(vXLSFile) then
+                    raise Exception.Create('Falha na extração do arquivo Lista Sites: ' + vXLSFile);
+
+                  try
+                    Writeln('[CONVERSÃO] Convertendo Lista Sites para JSON...');
+                    jsonData := LerExcelParaJSON(vXLSFile);
+                    Writeln('[UPLOAD] Enviando dados Lista Sites...');
+                    servico.InserirAtualizaObrasSites(jsonData, erro);
+                    Writeln('[SUCESSO] Lista Sites processada com sucesso: ' + fileName);
+                  finally
+                    if Assigned(jsonData) then jsonData.Free;
+                    DeleteFile(vXLSFile);
+                  end;
+                end
+
+                // --- Documentação Obra ---
+                else if (fileNameLength >= 29) and (Copy(lowerFileName, 1, 29) = PADRAO_DOCUMENTACAO_OBRA) and (fileExt = '.csv') then
+                begin
+                  Writeln('[PROGRESSO] Processando Documentação Obra: ' + fileName);
+                  vXLSFile := DIRETORIO_BASE + ExtractFileName(localZipFile.FileNames[fileIndex]);
+                  // Remover arquivo se já existir
+                  if FileExists(vXLSFile) then
+                    DeleteFile(vXLSFile);
+                  Writeln('[EXTRAÇÃO] Extraindo Documentação Obra para: ' + vXLSFile);
+                  localZipFile.Extract(localZipFile.FileNames[fileIndex], DIRETORIO_BASE);
+
+                  // Verificar se o arquivo foi extraído com sucesso
+                  if not FileExists(vXLSFile) then
+                    raise Exception.Create('Falha na extração do arquivo Documentação Obra: ' + vXLSFile);
+
+                  try
+                    Writeln('[CONVERSÃO] Convertendo Documentação Obra para JSON...');
+                    jsonData := LerCSVParaJSON(vXLSFile);
+                    Writeln('[UPLOAD] Enviando dados Documentação Obra...');
+                    servico.InserirAtualizaObraDocumentacaoObraFinal(jsonData, erro);
+                    Writeln('[SUCESSO] Documentação Obra processada com sucesso: ' + fileName);
+                  finally
+                    if Assigned(jsonData) then jsonData.Free;
+                    DeleteFile(vXLSFile);
+                  end;
+                end
+
+                // --- Obras ASP 2022 ---
+                else if (fileNameLength >= 14) and (Copy(lowerFileName, 1, 14) = PADRAO_OBRAS_ASP_2022) and (fileExt = '.csv') then
+                begin
+                  Writeln('[PROGRESSO] Processando Obras ASP 2022: ' + fileName);
+                  vXLSFile := DIRETORIO_BASE + ExtractFileName(localZipFile.FileNames[fileIndex]);
+                  // Remover arquivo se já existir
+                  if FileExists(vXLSFile) then
+                    DeleteFile(vXLSFile);
+                  Writeln('[EXTRAÇÃO] Extraindo Obras ASP 2022 para: ' + vXLSFile);
+                  localZipFile.Extract(localZipFile.FileNames[fileIndex], DIRETORIO_BASE);
+
+                  // Verificar se o arquivo foi extraído com sucesso
+                  if not FileExists(vXLSFile) then
+                    raise Exception.Create('Falha na extração do arquivo Obras ASP 2022: ' + vXLSFile);
+
+                  try
+                    Writeln('[CONVERSÃO] Convertendo Obras ASP 2022 para JSON...');
+                    jsonData := LerCSVParaJSON(vXLSFile);
+                    Writeln('[UPLOAD] Enviando dados Obras ASP 2022...');
+                    servico.InserirAtualizaObras2022(jsonData, erro);
+                    Writeln('[SUCESSO] Obras ASP 2022 processada com sucesso: ' + fileName);
+                  finally
+                    if Assigned(jsonData) then jsonData.Free;
+                    DeleteFile(vXLSFile);
+                  end;
+                end
+
+                // --- Obras ASP RFP 2024 ---
+                else if (fileNameLength >= 18) and (Copy(lowerFileName, 1, 18) = PADRAO_OBRAS_ASP_RFP_2024) and (fileExt = '.csv') then
+                begin
+                  Writeln('[PROGRESSO] Processando Obras ASP RFP 2024: ' + fileName);
+                  vXLSFile := DIRETORIO_BASE + ExtractFileName(localZipFile.FileNames[fileIndex]);
+                  // Remover arquivo se já existir
+                  if FileExists(vXLSFile) then
+                    DeleteFile(vXLSFile);
+                  Writeln('[EXTRAÇÃO] Extraindo Obras ASP RFP 2024 para: ' + vXLSFile);
+                  localZipFile.Extract(localZipFile.FileNames[fileIndex], DIRETORIO_BASE);
+
+                  // Verificar se o arquivo foi extraído com sucesso
+                  if not FileExists(vXLSFile) then
+                    raise Exception.Create('Falha na extração do arquivo Obras ASP RFP 2024: ' + vXLSFile);
+
+                  try
+                    Writeln('[CONVERSÃO] Convertendo Obras ASP RFP 2024 para JSON...');
+                    jsonData := LerCSVParaJSON(vXLSFile);
+                    Writeln('[UPLOAD] Enviando dados Obras ASP RFP 2024...');
+                    servico.InserirAtualizaObrasAspRFP2024(jsonData, erro);
+                    Writeln('[SUCESSO] Obras ASP RFP 2024 processada com sucesso: ' + fileName);
+                  finally
+                    if Assigned(jsonData) then jsonData.Free;
+                    DeleteFile(vXLSFile);
+                  end;
+                end;
+
+              finally
+                localZipFile.Free;
+              end;
+            finally
+              servico.Free;
+              endTime := Now;
+              elapsedTime := FormatDateTime('hh:nn:ss', endTime - startTime);
+              Writeln('[FINALIZAÇÃO] Processamento concluído para: ' + fileName);
+              Writeln('[TEMPO] Tempo decorrido: ' + elapsedTime);
+              Writeln('[INFO] Horário de término: ' + FormatDateTime('hh:nn:ss', endTime));
+            end;
+          except
+            on E: Exception do
+            begin
+              endTime := Now;
+              elapsedTime := FormatDateTime('hh:nn:ss', endTime - startTime);
+              Writeln('[ERRO] Falha no processamento do arquivo ' + fileName + ': ' + E.Message);
+              Writeln('[TEMPO] Tempo até o erro: ' + elapsedTime);
+            end;
+          end;
+        end;
+       end;
+
     finally
-      jsonData.Free;
+      vZipFile.Free;
     end;
-  finally
-    servico.Free;
   end;
 end;
 

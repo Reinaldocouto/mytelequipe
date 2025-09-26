@@ -39,6 +39,7 @@ function LerExcelParaJSONValeTransporte(const vXLSFile: string): TJSONArray;
 function LerExcelParaJSONSemTotal(const vXLSFile: string): TJSONArray;
 function LerExcelParaJSONMonitoramento(const vXLSFile: string): TJSONArray;
 function LerExcelParaJSONLpuValidar(const vXLSFile: string): TJSONArray;
+function ISO8601ToDate(const ISO8601Str: string): TDateTime;
 
 
 
@@ -350,8 +351,32 @@ begin
       end;
 
     finally
-      vWorkbook.Close(False);
-      vExcelApp.Quit;
+     // Liberação segura de recursos COM
+      try
+        if not VarIsEmpty(vWorkbook) and not VarIsNull(vWorkbook) then
+        begin
+          try
+            vWorkbook.Close(False);
+          except
+            // Ignora erros ao fechar workbook
+          end;
+        end;
+      except
+        // Ignora erros de liberação
+      end;
+
+      try
+        if not VarIsEmpty(vExcelApp) and not VarIsNull(vExcelApp) then
+        begin
+          try
+            vExcelApp.Quit;
+          except
+            // Ignora erros ao fechar Excel
+          end;
+        end;
+      except
+        // Ignora erros de liberação
+      end;
       vWorkbook := Unassigned;
       vSheet := Unassigned;
       vExcelApp := Unassigned;
@@ -827,20 +852,57 @@ var
 
 begin
   jsonArray := TJSONArray.Create;
-  CoInitialize(nil);
+
+  // Verificar se o arquivo existe antes de tentar abrir
+  if not FileExists(vXLSFile) then
+    raise Exception.Create('Arquivo não encontrado: ' + vXLSFile);
+
+  // Inicializar COM com tratamento de erro
+  try
+    CoInitialize(nil);
+  except
+    on E: Exception do
+      raise Exception.Create('Erro ao inicializar COM: ' + E.Message);
+  end;
 
   try
-    // Criar instância do Excel
-    vExcelApp := CreateOleObject('Excel.Application');
+    // Criar instância do Excel com tratamento específico
+    try
+      vExcelApp := CreateOleObject('Excel.Application');
+    except
+      on E: Exception do
+        raise Exception.Create('Erro ao criar instância do Excel. Verifique se o Microsoft Excel está instalado: ' + E.Message);
+    end;
+
     vExcelApp.Visible := False;
     vExcelApp.DisplayAlerts := False;
 
     try
-      vWorkbook := vExcelApp.Workbooks.Open(vXLSFile);
+      // Abrir arquivo Excel com tratamento de erro
+      try
+        vWorkbook := vExcelApp.Workbooks.Open(vXLSFile);
+      except
+        on E: Exception do
+          raise Exception.Create('Erro ao abrir arquivo Excel "' + ExtractFileName(vXLSFile) + '": ' + E.Message + '. Verifique se o arquivo não está corrompido ou sendo usado por outro processo.');
+      end;
+
+      // Verificar se há planilhas no arquivo
+      if vWorkbook.Sheets.Count = 0 then
+        raise Exception.Create('O arquivo Excel não contém planilhas.');
+
       vSheet := vWorkbook.Sheets[1]; // Primeira planilha
+
+      // Verificar se a planilha tem dados
+      if VarIsEmpty(vSheet.UsedRange) then
+        raise Exception.Create('A planilha está vazia ou não contém dados válidos.');
 
       RowCount := vSheet.UsedRange.Rows.Count;
       ColCount := vSheet.UsedRange.Columns.Count;
+
+      // Verificar limites razoáveis
+      if (RowCount > 100000) or (ColCount > 1000) then
+        raise Exception.Create(Format('Arquivo muito grande: %d linhas x %d colunas. Limite: 100.000 linhas x 1.000 colunas.', [RowCount, ColCount]));
+
       SetLength(ColHeaders, ColCount);
 
       // 🔸 Lê os cabeçalhos da primeira linha com verificação de duplicatas
@@ -907,7 +969,6 @@ begin
   CoUninitialize;
   Result := jsonArray;
 end;
-
 
 function LerExcelParaJSONMonitoramento(const vXLSFile: string): TJSONArray;
 var
@@ -1274,6 +1335,9 @@ begin
   jsonArray := TJSONArray.Create;
   ColHeaders := TStringList.Create;
 
+  if not FileExists(vCSVFile) then
+    raise Exception.Create('Arquivo CSV não encontrado: ' + vCSVFile);
+
   AssignFile(CSVFile, vCSVFile);
   Reset(CSVFile);
 
@@ -1323,6 +1387,80 @@ begin
 
   Result := jsonArray;
 end;
+
+
+function ISO8601ToDate(const ISO8601Str: string): TDateTime;
+var
+  DateTimeStr: string;
+  Year, Month, Day, Hour, Minute, Second: Word;
+  DatePart, TimePart: string;
+  TPos: Integer;
+begin
+  Result := 0;
+
+  if Trim(ISO8601Str) = '' then
+    Exit;
+
+  try
+    // Remove o 'Z' do final se existir
+    DateTimeStr := StringReplace(ISO8601Str, 'Z', '', [rfReplaceAll]);
+
+    // Encontra a posição do 'T' que separa data e hora
+    TPos := Pos('T', DateTimeStr);
+
+    if TPos > 0 then
+    begin
+      // Separa data e hora
+      DatePart := Copy(DateTimeStr, 1, TPos - 1);
+      TimePart := Copy(DateTimeStr, TPos + 1, Length(DateTimeStr));
+
+      // Remove milissegundos se existirem
+      if Pos('.', TimePart) > 0 then
+        TimePart := Copy(TimePart, 1, Pos('.', TimePart) - 1);
+    end
+    else
+    begin
+      // Só tem data
+      DatePart := DateTimeStr;
+      TimePart := '00:00:00';
+    end;
+
+    // Parse da data (formato YYYY-MM-DD)
+    if Length(DatePart) >= 10 then
+    begin
+      Year := StrToInt(Copy(DatePart, 1, 4));
+      Month := StrToInt(Copy(DatePart, 6, 2));
+      Day := StrToInt(Copy(DatePart, 9, 2));
+    end
+    else
+      raise Exception.Create('Formato de data inválido');
+
+    // Parse da hora (formato HH:MM:SS)
+    if Length(TimePart) >= 8 then
+    begin
+      Hour := StrToInt(Copy(TimePart, 1, 2));
+      Minute := StrToInt(Copy(TimePart, 4, 2));
+      Second := StrToInt(Copy(TimePart, 7, 2));
+    end
+    else
+    begin
+      Hour := 0;
+      Minute := 0;
+      Second := 0;
+    end;
+
+    // Cria o TDateTime
+    Result := EncodeDate(Year, Month, Day) + EncodeTime(Hour, Minute, Second, 0);
+
+  except
+    on E: Exception do
+    begin
+      // Em caso de erro, retorna uma data padrão
+      Result := EncodeDate(1899, 12, 30);
+    end;
+  end;
+end;
+
 
 end.
 

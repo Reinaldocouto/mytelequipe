@@ -529,8 +529,8 @@ end;
 function TProjetoericsson.Editaratividadepj(out erro: string): Boolean;
 var
   qry, qry1, qry2: TFDQuery;
-  id: Integer;
-  demanda, polocal, cliente, empresa, site: string;
+  id, demanda: Integer;
+  polocal, cliente, empresa, site: string;
 begin
   try
     erro := '';
@@ -547,42 +547,52 @@ begin
         active := false;
         SQL.Clear;
         SQL.Add('Select ');
-        SQL.Add('datarecebimentodositemosreportadodia, ');
-        SQL.Add('datavalidacaoinstalacaodia, ');
-        SQL.Add('datavalidacaoeriboxedia ');
+        SQL.Add('  datarecebimentodositemosreportadodia, ');
+        SQL.Add('  datavalidacaoinstalacaodia, ');
+        SQL.Add('  datavalidacaoeriboxedia ');
         SQL.Add('From ');
-        SQL.Add('obraericsson ');
+        SQL.Add('  obraericsson ');
         SQL.Add('Where ');
-        SQL.Add('obraericsson.numero =:numero ');
+        SQL.Add('  obraericsson.numero =:numero ');
         parambyname('numero').asstring := numero;
         open;
-
       end;
       with qry do
       begin
         active := false;
         SQL.Clear;
         SQL.Add('Select obraericssonmigo.descricaoservico,obraericssonmigo.po From ');
-        SQL.Add('obraericssonmigo  ');
+        SQL.Add('  obraericssonmigo  ');
         SQL.Add('Where ');
-        SQL.Add('obraericssonmigo.poritem=:po ');
+        SQL.Add('  obraericssonmigo.poritem=:po ');
         ParamByName('po').AsString := po;
         Open();
-        descricaoservico := FieldByName('descricaoservico').AsString;
-        polocal := FieldByName('po').AsString;
+
+        // Debug: Verificar se encontrou o registro na primeira query
+        if RecordCount = 0 then
+        begin
+          erro := erro + ' Não foi encontrado registro na tabela obraericssonmigo para poritem: ' + po + '. ';
+          descricaoservico := '';
+          polocal := '';
+        end
+        else
+        begin
+          descricaoservico := FieldByName('descricaoservico').AsString;
+          polocal := FieldByName('po').AsString;
+        end;
         Active := false;
         SQL.Clear;
         SQL.Add('Select ');
-        SQL.Add('obraericsson.rfp, ');
-        SQL.Add('obraericsson.cliente, ');
-        SQL.Add('obraericsson.site ');
+        SQL.Add('  obraericsson.rfp, ');
+        SQL.Add('  obraericsson.cliente, ');
+        SQL.Add('  obraericsson.site ');
         SQL.Add('From ');
-        SQL.Add('obraericsson ');
+        SQL.Add('  obraericsson ');
         SQL.Add('Where ');
-        SQL.Add('obraericsson.numero=:numero ');
-        ParamByName('numero').AsString := numero;
+        SQL.Add('  obraericsson.numero=:numero ');
+        ParamByName('numero').asstring := numero;
         open;
-        demanda := fieldbyname('rfp').asstring;
+        demanda := fieldbyname('rfp').AsInteger;
         cliente := fieldbyname('cliente').asstring;
         site := fieldbyname('site').asstring;
 
@@ -593,23 +603,33 @@ begin
         Open();
         empresa := FieldByName('nome').asstring;
 
+        if (descricaoservico = '') or (polocal = '') then
+        begin
+          erro := erro + ' Parâmetros essenciais vazios. Não é possível continuar. ';
+          FConn.Rollback;
+          Result := false;
+          Exit;
+        end;
+
         if lpuhistorico = 'NEGOCIADO' then
         begin
           Active := false;
           SQL.Clear;
           SQL.Add('Select ');
-          SQL.Add('obraericssonmigo.po, ');
-          SQL.Add('obraericssonmigo.poritem, ');
-          SQL.Add('SUBSTRING(obraericssonmigo.poritem, 11, 12) AS item,');
-          SQL.Add('obraericssonmigo.codigoservico, ');
-          SQL.Add('obraericssonmigo.descricaoservico, ');
-          SQL.Add('obraericssonmigo.estado, ');
-          SQL.Add('obraericssonmigo.sigla, ');
-          SQL.Add('obraericssonmigo.qtyordered ');
+          SQL.Add('  obraericssonmigo.po, ');
+          SQL.Add('  obraericssonmigo.poritem, ');
+          SQL.Add('  SUBSTRING(obraericssonmigo.poritem, 11, 12) AS item,');
+          SQL.Add('  obraericssonmigo.codigoservico, ');
+          SQL.Add('  obraericssonmigo.descricaoservico, ');
+          SQL.Add('  obraericssonmigo.estado, ');
+          SQL.Add('  obraericssonmigo.sigla, ');
+          SQL.Add('  obraericssonmigo.qtyordered ');
           SQL.Add('From ');
-          SQL.Add('obraericssonmigo where descricaoservico =:descricaoservico and po=:po ');
-          ParamByName('descricaoservico').asstring := descricaoservico;
-          ParamByName('po').asstring := polocal;
+          SQL.Add('  obraericssonmigo ');
+          SQL.Add('Where ');
+          SQL.Add('  descricaoservico LIKE :descricaoservico and poritem=:poritem ');
+          ParamByName('descricaoservico').asstring := '%' + descricaoservico + '%';
+          ParamByName('poritem').asstring := poitem;
           Open();
         end
         else
@@ -617,107 +637,121 @@ begin
           Active := false;
           SQL.Clear;
           SQL.Add('Select ');
-          SQL.Add('obraericssonlpu.codigo, ');
-          SQL.Add('obraericssonlpu.Valor, ');
-          SQL.Add('obraericssonmigo.po, ');
-          SQL.Add('obraericssonmigo.poritem, ');
-          SQL.Add('SUBSTRING(obraericssonmigo.poritem, 11, 12) AS item,');
-          SQL.Add('obraericssonmigo.codigoservico, ');
-          SQL.Add('obraericssonmigo.descricaoservico, ');
-          SQL.Add('obraericssonmigo.estado, ');
-          SQL.Add('obraericssonmigo.sigla, ');
-          SQL.Add('obraericssonmigo.qtyordered ');
+          SQL.Add('  obraericssonlpu.codigo, ');
+          SQL.Add('  obraericssonlpu.Valor, ');
+          SQL.Add('  obraericssonmigo.po, ');
+          SQL.Add('  obraericssonmigo.poritem, ');
+          SQL.Add('  SUBSTRING(obraericssonmigo.poritem, 11, 12) AS item,');
+          SQL.Add('  obraericssonmigo.codigoservico, ');
+          SQL.Add('  obraericssonmigo.descricaoservico, ');
+          SQL.Add('  obraericssonmigo.estado, ');
+          SQL.Add('  obraericssonmigo.sigla, ');
+          SQL.Add('  obraericssonmigo.qtyordered ');
           SQL.Add('From ');
-          SQL.Add('obraericssonmigo Inner Join ');
-          SQL.Add('obraericssonlpu On obraericssonlpu.codigo = obraericssonmigo.codigoservico where descricaoservico =:descricaoservico and po=:po and ');
-          SQL.Add('obraericssonlpu.historico =:historico ');
-          ParamByName('descricaoservico').asstring := descricaoservico;
-          ParamByName('po').asstring := polocal;
+          SQL.Add('  obraericssonmigo Inner Join ');
+          SQL.Add('  obraericssonlpu On obraericssonlpu.codigo = obraericssonmigo.codigoservico ');
+          SQL.Add('Where ');
+          SQL.Add('  descricaoservico LIKE :descricaoservico and poritem=:poritem and ');
+          SQL.Add('  obraericssonlpu.historico LIKE :historico ');
+          ParamByName('descricaoservico').asstring := '%' + descricaoservico + '%';
+          ParamByName('poritem').asstring := po;
           ParamByName('historico').asstring := lpuhistorico;
           Open();
         end;
 
-      {  if qry.RecordCount = 0 then
+        if qry.RecordCount = 0 then
         begin
-          erro := erro + ' LPU n�o localizada para o pacote ' + descricaoservico;
-        end ; }
-       // else
-       // begin
-        while not eof do
+          erro := erro + ' LPU não localizada para o pacote ' + descricaoservico +
+                  ' - PORITEM: ' + poitem + ' - Histórico: ' + lpuhistorico;
+          if lpuhistorico <> 'NEGOCIADO' then
+            erro := erro + ', historico="%' + lpuhistorico + '%"';
+          erro := erro + '. ';
+        end
+        else
         begin
-          with qry1 do
+          while not eof do
           begin
-            close;
-            SQL.clear;
-            sql.Add('insert into obraericssonatividadepj(idcolaboradorpj,idposervico,po,lpuhistorico,');
-            sql.Add('poitem,escopo,numero,deletado,valorservico,observacaopj,descricaoservico,codigoservico,dataacionamento)');
-            sql.Add('                             values(:idcolaboradorpj,:idposervico,:po,:lpuhistorico,');
-            sql.Add(':poitem,:escopo,:numero,:deletado,:valorservico,:observacaopj,:descricaoservico,:codigoservico,:dataacionamento)');
-            ParamByName('idcolaboradorpj').asinteger := idcolaboradorpj;
-            ParamByName('idposervico').asstring := idposervico;
-            ParamByName('po').asstring := polocal;
-            ParamByName('poitem').asstring := qry.FieldByName('poritem').AsString;
-            ParamByName('escopo').asstring := escopo;
-            ParamByName('numero').asstring := numero;
-            ParamByName('deletado').asinteger := 0;
-            if lpuhistorico = 'NEGOCIADO' then
-              ParamByName('valorservico').asfloat := valornegociado
-            else
-              ParamByName('valorservico').asfloat := qry.FieldByName('Valor').AsFloat * qry.FieldByName('qtyordered').asInteger;
-            ;
-            ParamByName('observacaopj').asstring := observacaopj;
-            ParamByName('descricaoservico').asstring := descricaoservico;
-            ParamByName('codigoservico').asstring := qry.FieldByName('codigoservico').AsString;
-            ParamByName('lpuhistorico').asstring := lpuhistorico;
-            ParamByName('dataacionamento').AsDate := Date;
-            ExecSQL;
+            with qry1 do
+            begin
+              close;
+              SQL.clear;
+              sql.Add('insert into obraericssonatividadepj(idcolaboradorpj,idposervico,po,lpuhistorico,');
+              sql.Add('  poitem,escopo,numero,deletado,valorservico,observacaopj,descricaoservico,codigoservico,dataacionamento)');
+              sql.Add('values(:idcolaboradorpj,:idposervico,:po,:lpuhistorico,');
+              sql.Add('  :poitem,:escopo,:numero,:deletado,:valorservico,:observacaopj,:descricaoservico,:codigoservico,:dataacionamento)');
+              ParamByName('idcolaboradorpj').asinteger := idcolaboradorpj;
+              ParamByName('idposervico').asstring := idposervico;
+              ParamByName('po').asstring := polocal;
+              ParamByName('poitem').asstring := qry.FieldByName('poritem').AsString;
+              ParamByName('escopo').asstring := escopo;
+              ParamByName('numero').asstring := numero;
+              ParamByName('deletado').asinteger := 0;
+              if lpuhistorico = 'NEGOCIADO' then
+                ParamByName('valorservico').asfloat := valornegociado
+              else
+                ParamByName('valorservico').asfloat := qry.FieldByName('Valor').AsFloat * qry.FieldByName('qtyordered').asfloat;
+              ParamByName('observacaopj').asstring := observacaopj;
+              ParamByName('descricaoservico').asstring := descricaoservico;
+              ParamByName('codigoservico').asstring := qry.FieldByName('codigoservico').AsString;
+              ParamByName('lpuhistorico').asstring := lpuhistorico;
+              ParamByName('dataacionamento').AsDate := Date;
+              ExecSQL;
 
-            close;
-            SQL.clear;
-            SQL.Add('insert into obraericssonfechamento (Demanda,PO,POITEM,Item,Sigla,IDSydle,Cliente,Estado,Codigo,');
-            SQL.Add('Descricao,VALORPJ,Quant,EMPRESA,DATADEENVIO,idcolaboradorpj,MOSREAL,INSTALREAL,INTEGREAL) ');
-            sql.Add('                            values(:Demanda,:PO,:POITEM,:Item,:Sigla,:IDSydle,:Cliente,:Estado,:Codigo,');
-            sql.Add(':Descricao,:VALORPJ,:Quant,:EMPRESA,:DATADEENVIO,:idcolaboradorpj,:MOSREAL,:INSTALREAL,:INTEGREAL) ');
-            ParamByName('Demanda').AsString := demanda;
-            ParamByName('PO').Asstring := polocal;
-            ParamByName('POITEM').AsString := qry.FieldByName('poritem').AsString;
-            if qry.FieldByName('sigla').asstring = 'T' then
-              ParamByName('Item').AsInteger := 0
-            else
-              ParamByName('Item').AsInteger := qry.FieldByName('item').asinteger;
-            ParamByName('Sigla').asstring := site;
-            ParamByName('IDSydle').asstring := numero;
-            ParamByName('Cliente').asstring := cliente;
-            ParamByName('Estado').asstring := qry.FieldByName('estado').AsString;
-            ParamByName('Codigo').asstring := qry.FieldByName('codigoservico').AsString;
-            ParamByName('Descricao').asstring := descricaoservico;
-            if lpuhistorico = 'NEGOCIADO' then
-              ParamByName('VALORPJ').asfloat := valornegociado
-            else
-              ParamByName('VALORPJ').asfloat := qry.FieldByName('Valor').AsFloat * qry.FieldByName('qtyordered').asfloat;
-            ParamByName('Quant').asfloat := qry.FieldByName('qtyordered').asfloat;
-            if qry2.FieldByName('datarecebimentodositemosreportadodia').asstring = '' then
-              ParamByName('MOSREAL').AsDate := StrToDate('30/12/1899')
-            else
-              ParamByName('MOSREAL').AsDate := qry2.FieldByName('datarecebimentodositemosreportadodia').AsDateTime;
+              close;
+              SQL.clear;
+              SQL.Add('insert into obraericssonfechamento (Demanda,PO,POITEM,Item,Sigla,IDSydle,Cliente,Estado,Codigo,');
+              SQL.Add('  Descricao,VALORPJ,Quant,EMPRESA,DATADEENVIO,idcolaboradorpj,MOSREAL,INSTALREAL,INTEGREAL) ');
+              sql.Add('values(:Demanda,:PO,:POITEM,:Item,:Sigla,:IDSydle,:Cliente,:Estado,:Codigo,');
+              sql.Add('  :Descricao,:VALORPJ,:Quant,:EMPRESA,:DATADEENVIO,:idcolaboradorpj,:MOSREAL,:INSTALREAL,:INTEGREAL) ');
+              ParamByName('Demanda').AsInteger := demanda;
+              ParamByName('PO').Asstring := polocal;
+              ParamByName('POITEM').AsString := qry.FieldByName('poritem').AsString;
+              if qry.FieldByName('sigla').asstring = 'T' then
+                ParamByName('Item').AsInteger := 0
+              else
+                ParamByName('Item').AsInteger := qry.FieldByName('item').asinteger;
+              ParamByName('Sigla').asstring := site;
+              ParamByName('IDSydle').asstring := numero;
+              ParamByName('Cliente').asstring := cliente;
+              ParamByName('Estado').asstring := qry.FieldByName('estado').AsString;
+              ParamByName('Codigo').asstring := qry.FieldByName('codigoservico').AsString;
+              ParamByName('Descricao').asstring := descricaoservico;
+              if lpuhistorico = 'NEGOCIADO' then
+                ParamByName('VALORPJ').asfloat := valornegociado
+              else
+                ParamByName('VALORPJ').asfloat := qry.FieldByName('Valor').AsFloat * qry.FieldByName('qtyordered').asfloat;
+              ParamByName('Quant').asfloat := qry.FieldByName('qtyordered').asfloat;
+              if qry2.FieldByName('datarecebimentodositemosreportadodia').asstring = '' then
+               begin
+                 ParamByName('MOSREAL').DataType := ftDate;
+                 ParamByName('MOSREAL').Clear;
+               end
+               else
+                 ParamByName('MOSREAL').AsDate := qry2.FieldByName('datarecebimentodositemosreportadodia').AsDateTime;
 
-            if qry2.FieldByName('datavalidacaoinstalacaodia').asstring = '' then
-              ParamByName('INSTALREAL').AsDate := StrToDate('30/12/1899')
-            else
-              ParamByName('INSTALREAL').AsDate := qry2.FieldByName('datavalidacaoinstalacaodia').AsDateTime;
+               if qry2.FieldByName('datavalidacaoinstalacaodia').asstring = '' then
+               begin
+                 ParamByName('INSTALREAL').DataType := ftDate;
+                 ParamByName('INSTALREAL').Clear;
+               end
+               else
+                 ParamByName('INSTALREAL').AsDate := qry2.FieldByName('datavalidacaoinstalacaodia').AsDateTime;
 
-            if qry2.FieldByName('datavalidacaoeriboxedia').asstring = '' then
-              ParamByName('INTEGREAL').AsDate := StrToDate('30/12/1899')
-            else
-              ParamByName('INTEGREAL').AsDate := qry2.FieldByName('datavalidacaoeriboxedia').AsDateTime;
-            ParamByName('EMPRESA').asstring := empresa;
-            ParamByName('DATADEENVIO').asdate := date;
-            ParamByName('idcolaboradorpj').asinteger := idcolaboradorpj;
-            execsql;
+               if qry2.FieldByName('datavalidacaoeriboxedia').asstring = '' then
+               begin
+                 ParamByName('INTEGREAL').DataType := ftDate;
+                 ParamByName('INTEGREAL').Clear;
+               end
+               else
+                 ParamByName('INTEGREAL').AsDate := qry2.FieldByName('datavalidacaoeriboxedia').AsDateTime;
+              ParamByName('EMPRESA').asstring := empresa;
+              ParamByName('DATADEENVIO').asdate := date;
+              ParamByName('idcolaboradorpj').asinteger := idcolaboradorpj;
+              execsql;
+            end;
+            Next;
           end;
-          Next;
         end;
-        //end;
 
       end;
 
@@ -733,11 +767,14 @@ begin
       begin
         FConn.Rollback;
         erro := 'Erro ao cadastrar cliente: ' + ex.Message;
+        Writeln(erro);
         Result := false;
       end;
     end;
   finally
     qry.Free;
+    qry1.Free;
+    qry2.Free;
   end;
 end;
 
@@ -766,6 +803,25 @@ begin
         Open();
         empresa := FieldByName('nome').asstring;
 
+        // Tratar caracteres especiais na descrição do serviço
+        if Copy(descricaoservico, 1, 2) = '//' then
+        begin
+          descricaoservico := Trim(Copy(descricaoservico, 3, Length(descricaoservico)));
+          erro := erro + ' Caracteres especiais removidos da descrição. ';
+        end;
+
+        // Debug: Verificar valores dos parâmetros antes da query principal
+        erro := erro + ' Parâmetros: descricaoservico=' + descricaoservico + ', poitem=' + poitem + ', lpuhistorico=' + lpuhistorico + '. ';
+
+        // Verificar se os parâmetros essenciais estão preenchidos
+        if (descricaoservico = '') or (poitem = '') then
+        begin
+          erro := erro + ' Parâmetros essenciais vazios. Não é possível continuar. ';
+          FConn.Rollback;
+          Result := false;
+          Exit;
+        end;
+
         if lpuhistorico = 'NEGOCIADO' then
         begin
           Active := false;
@@ -780,8 +836,8 @@ begin
           SQL.Add('obraericssonmigo.sigla, ');
           SQL.Add('obraericssonmigo.qtyordered ');
           SQL.Add('From ');
-          SQL.Add('obraericssonmigo where descricaoservico =:descricaoservico and poritem=:poritem ');
-          ParamByName('descricaoservico').asstring := descricaoservico;
+          SQL.Add('obraericssonmigo where descricaoservico LIKE :descricaoservico and poritem=:poritem ');
+          ParamByName('descricaoservico').asstring := '%' + descricaoservico + '%';
           ParamByName('poritem').asstring := poitem;
           Open();
         end
@@ -802,11 +858,11 @@ begin
           SQL.Add('obraericssonmigo.qtyordered ');
           SQL.Add('From ');
           SQL.Add('obraericssonmigo Inner Join ');
-          SQL.Add('obraericssonlpu On obraericssonlpu.codigo = obraericssonmigo.codigoservico where descricaoservico =:descricaoservico and poritem=:poritem and ');
-          SQL.Add('obraericssonlpu.historico =:historico ');
-          ParamByName('descricaoservico').asstring := descricaoservico;
+          SQL.Add('obraericssonlpu On obraericssonlpu.codigo = obraericssonmigo.codigoservico where descricaoservico LIKE :descricaoservico and poritem=:poritem and ');
+          SQL.Add('obraericssonlpu.historico LIKE :historico ');
+          ParamByName('descricaoservico').asstring := '%' + descricaoservico + '%';
           ParamByName('poritem').asstring := poitem;
-          ParamByName('historico').asstring := lpuhistorico;
+          ParamByName('historico').asstring := '%' + lpuhistorico + '%';
           Open();
           erro := 'Codigo de servi�o n�o localizado na LPU';
         end;
@@ -882,7 +938,11 @@ begin
       on ex: exception do
       begin
         FConn.Rollback;
-        erro := 'Erro ao cadastrar acionamento: ' + ex.Message;
+        erro := 'Erro ao cadastrar acionamento: ' + ex.Message +
+                ' SQL: ' + qry.SQL.Text +
+                ' Parâmetros: descricaoservico=' + descricaoservico +
+                ', poitem=' + poitem +
+                ', lpuhistorico=' + lpuhistorico;
         Result := false;
       end;
     end;
@@ -2123,10 +2183,18 @@ begin
         SQL.Add('AND obraericsson.localizacaositecidade = ''' + Trim(AQuery.Items['localizacaositecidade']) + ''' ');
 
       if AQuery.ContainsKey('documentacaosituacao') and (Trim(AQuery.Items['documentacaosituacao']) <> '') then
+      begin
         SQL.Add('AND obraericsson.documentacaosituacao = ''' + Trim(AQuery.Items['documentacaosituacao']) + ''' ');
+      end;
+
+      if AQuery.ContainsKey('statusdoc') and (Trim(AQuery.Items['statusdoc']) <> '') then
+        SQL.Add('AND obraericsson.statusdoc = ' + QuotedStr(Trim(AQuery.Items['statusdoc'])) + ' ');
+
+      if AQuery.ContainsKey('aprovacaotodosdocs') and (Trim(AQuery.Items['aprovacaotodosdocs']) <> '') then
+        SQL.Add('AND obraericsson.aprovacaotodosdocs = ' + QuotedStr(Trim(AQuery.Items['aprovacaotodosdocs'])) + ' ');
 
       if AQuery.ContainsKey('sitepossuirisco') and (Trim(AQuery.Items['sitepossuirisco']) <> '') then
-        SQL.Add('AND obraericsson.sitepossuirisco = ''' + Trim(AQuery.Items['sitepossuirisco']) + ''' ');
+        SQL.Add('AND obraericsson.sitepossuirisco = ' + QuotedStr(Trim(AQuery.Items['sitepossuirisco'])) + ' ');
 
       // Filtro de busca geral (mantido para compatibilidade)
       if AQuery.ContainsKey('busca') and (Trim(AQuery.Items['busca']) <> '') then

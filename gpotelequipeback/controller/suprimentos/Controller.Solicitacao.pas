@@ -3,7 +3,7 @@ unit Controller.Solicitacao;
 interface
 
 uses
-  Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,
+  Horse, System.JSON, System.SysUtils, System.StrUtils, FireDAC.Comp.Client, Data.DB,
   DataSet.Serialize, Model.Solicitacao, UtFuncao, Controller.Auth, Model.Email;
 
 procedure Registry;
@@ -159,12 +159,32 @@ begin
 end;
 
 procedure Editardiaria(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+const
+  VALOR_DIARIA = 120.00;
 var
   servico: Tsolicitacao;
   servicoEmail: Temail;
   body: TJSONValue;
   diariaDTO: TDiariaDTO;
   erro: string;
+
+  function FormatProjectName(const Projeto, Regional: string): string;
+  var
+    trimmedProjeto, trimmedRegional: string;
+  begin
+    trimmedProjeto := Trim(Projeto);
+    trimmedRegional := Trim(Regional);
+    Result := trimmedProjeto;
+
+    if trimmedRegional <> '' then
+    begin
+      if trimmedProjeto = '' then
+        Result := trimmedRegional
+      else if not ContainsText(trimmedProjeto, ' - ' + trimmedRegional) then
+        Result := trimmedProjeto + ' - ' + trimmedRegional;
+    end;
+  end;
+
 begin
   servico := Tsolicitacao.Create;
   servicoEmail := Temail.Create;
@@ -186,7 +206,7 @@ begin
       servico.cliente := body.GetValue<string>('cliente', '');
       servico.valoroutrassolicitacoes := body.GetValue<Double>('valorsolicitacao', 0);
       servico.diarias := body.GetValue<Integer>('diaria', 0);
-      servico.valortotal := body.GetValue<Double>('total', 0);
+      servico.valortotal := (servico.diarias * VALOR_DIARIA) + servico.valoroutrassolicitacoes;
       servico.solicitante := body.GetValue<string>('solicitante', '');
 
       if servico.Editardiaria(erro) then
@@ -196,7 +216,7 @@ begin
         diariaDTO.DataSolicitacao := StrToDate(servico.datasolicitacao);
         diariaDTO.Colaborador := servico.colaborador;
         diariaDTO.NomeColaborador := servico.nomecolaborador;
-        diariaDTO.Projeto := servico.projeto;
+        diariaDTO.Projeto := FormatProjectName(servico.projeto, servico.siglasite);
         diariaDTO.SiteId := servico.siteid;
         diariaDTO.SiglaSite := servico.siglasite;
         diariaDTO.PO := servico.podiaria;
