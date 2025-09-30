@@ -143,8 +143,25 @@ type
     FobservacaoDocumentacao: string;
     Fdataimprodutiva: string;
 
+    // Campos para sites manuais
+    Fuididpmts: string;
+    Fufsigla: string;
+    Fpmouf: string;
+    Fpmoregional: string;
+    Fidvivo: string;
+    Fdetentora: string;
+    Fiddetentora: string;
+    Ffcu: string;
+    Frsorsascistatus: string;
+    Forigem: string;
+    Fcriadopor: string;
+    Fdatacriacao: TDateTime;
+    Feditadopor: string;
+    Fdataedicao: TDateTime;
+
 
     procedure AddMultipleFiltersFromJSON(AQuery: TDictionary<string, string>; const KeysAndFields: array of string; SQL: TStrings);
+
 
   public
     constructor Create;
@@ -283,6 +300,23 @@ type
     property dataimprodutiva: string read Fdataimprodutiva write Fdataimprodutiva;
 
     property acompanhamentofisicoobservacao: string read Facompanhamentofisicoobservacao write Facompanhamentofisicoobservacao;
+
+    // Propriedades para sites manuais
+    property uididpmts: string read Fuididpmts write Fuididpmts;
+    property ufsigla: string read Fufsigla write Fufsigla;
+    property pmouf: string read Fpmouf write Fpmouf;
+    property pmoregional: string read Fpmoregional write Fpmoregional;
+    property idvivo: string read Fidvivo write Fidvivo;
+    property detentora: string read Fdetentora write Fdetentora;
+    property iddetentora: string read Fiddetentora write Fiddetentora;
+    property fcu: string read Ffcu write Ffcu;
+    property rsorsascistatus: string read Frsorsascistatus write Frsorsascistatus;
+    property origem: string read Forigem write Forigem;
+    property criadopor: string read Fcriadopor write Fcriadopor;
+    property datacriacao: TDateTime read Fdatacriacao write Fdatacriacao;
+    property editadopor: string read Feditadopor write Feditadopor;
+    property dataedicao: TDateTime read Fdataedicao write Fdataedicao;
+
     function apagarpagamento(const ABody: TJSONObject; out erro: string): Boolean;
     function Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listapmts(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
@@ -314,6 +348,10 @@ type
     function extratopagamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function extratopagamentototal(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function rollouttelefonica(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function verificarduplicidaderollout(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function adicionarsitemanual(out erro: string): Boolean;
+    function excluirsitemanual(const idSite: string; out erro: string): Boolean;
+    function marcarComoAvulso(const uuidps: string; out erro: string): Boolean;
     function totalacionamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function listacodt2(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Editart2(out erro: string): Boolean;
@@ -337,6 +375,7 @@ type
     function regionaltelefonicast(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function salvarpagamento(out erro: string): Boolean;
     function salvadesconto(out erro: string): Boolean;
+    function desmarcarComoAvulso(const uuidps: string; out erro: string): Boolean;
 
     function ListPrevisaoFechamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 
@@ -351,6 +390,7 @@ type
     function RegistrarCartaTAF(const DadosT2: TDictionary<string, string>; out Erro: string; out NomeArquivo: String): Boolean;
     function UpdateStatusFaturamento(const id: String; const statusFaturamento: String; out Erro: string): Boolean;
     function EditarEmMassa(const AJsonBody: string; out erro: string): Boolean;
+
   end;
 
 implementation
@@ -4382,6 +4422,7 @@ begin
     qry.Free;
   end;
 end;
+
 function TProjetotelefonica.rollouttelefonica(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
@@ -4417,7 +4458,7 @@ begin
       SQL.Add('acessoobs, acessosolicitacao, acessodatasolicitacao, acessodatainicial, acessodatafinal, acessostatus, dataimprodutiva, acompanhamentofisicoobservacao,');
       SQL.Add('acessoatividade, acessocomentario, acessooutros, acessoformaacesso, vistoriaplan, vistoriareal, docplan, docvitoriareal, req, deletado, rtt, rttdata,');
       SQL.Add('initialtunningplan, initialtunningreal, initialtunnigstatus, InitialTunningRealFinal, AprovacaoSSV, StatusAprovacaoSSV, observacaodocumentacao,');
-      SQL.Add('datapostagemdocvdvm, dataexecucaodocvdvm, statusdocumentacao, datapostagemdoc, dataexecucaodoc');
+      SQL.Add('datapostagemdocvdvm, dataexecucaodocvdvm, statusdocumentacao, datapostagemdoc, dataexecucaodoc, origem, avulso');
       SQL.Add('FROM rolloutvivo');
 
 
@@ -5748,5 +5789,254 @@ begin
   end;
 end;
 
+function TProjetotelefonica.verificarduplicidaderollout(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+begin
+  Result := nil;
+  erro := '';
+  
+  try
+    qry := TFDQuery.Create(nil);
+    qry.Connection := FConn;
+    
+    try
+      qry.SQL.Clear;
+      qry.SQL.Add('SELECT COUNT(*) as total FROM rolloutvivo WHERE 1=1');
+      
+      if AQuery.ContainsKey('uididpmts') and (AQuery['uididpmts'] <> '') then
+      begin
+        qry.SQL.Add(' AND UIDIDPMTS = :uididpmts');
+        qry.ParamByName('uididpmts').AsString := AQuery['uididpmts'];
+      end;
+
+      qry.Open;
+      Result := qry;
+      
+    except
+      on ex: exception do
+      begin
+        erro := ex.Message;
+        if Assigned(qry) then
+          qry.Free;
+      end;
+    end;
+    
+  except
+    on ex: exception do
+    begin
+      erro := ex.Message;
+    end;
+  end;
+end;
+
+function TProjetotelefonica.adicionarsitemanual(out erro: string): Boolean;
+var
+  qry: TFDQuery;
+begin
+  Result := False;
+  erro := '';
+
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConn;
+    try
+      // Monta o SQL
+     qry.SQL.Text :=
+      'INSERT INTO rolloutvivo (' +
+      'UIDIDPMTS, Sytex, UFSIGLA, UIDIDCPOMRF, PMOUF, PMOREGIONAL, ' +
+      'PMOSIGLA, infra, RSORSADETENTORA, RSORSAIDDETENTORA, RSORSASCI, RSORSASCISTATUS, avulso, ' +
+      'origem, deletado) ' +
+      'VALUES (' +
+      ':uididpmts, :sytex, :ufsigla, :uididcpomrf, :pmouf, :pmoregional, ' +
+      ':pmosigla, :infra, :rsorsadetentora, :rsorsaiddetentora, :rsorsasci, :rsorsascistatus, :avulso, ' +
+      ':origem, :deletado)';
+
+      // Preenche os parâmetros
+      qry.ParamByName('uididpmts').AsString := uididpmts;
+      qry.ParamByName('sytex').AsString := uididpmts;
+      qry.ParamByName('ufsigla').AsString := ufsigla;
+      qry.ParamByName('uididcpomrf').AsString := uididcpomrf;
+      qry.ParamByName('pmouf').AsString := pmouf;
+      qry.ParamByName('pmoregional').AsString := pmoregional;
+      qry.ParamByName('pmosigla').AsString := idvivo; // idvivo? ajuste conforme valor correto
+      qry.ParamByName('infra').AsString := infra;
+      qry.ParamByName('rsorsadetentora').AsString := detentora;
+      qry.ParamByName('rsorsaiddetentora').AsString := iddetentora;
+      qry.ParamByName('rsorsasci').AsString := fcu;
+      qry.ParamByName('rsorsascistatus').AsString := rsorsascistatus;
+      qry.ParamByName('avulso').AsInteger := 1;
+      qry.ParamByName('origem').AsString := origem;
+      qry.ParamByName('deletado').AsInteger := 0;
+
+
+      // Executa e comita a transação
+      try
+        FConn.StartTransaction;
+        qry.ExecSQL;
+        FConn.Commit;
+        Result := True;
+      except
+        on ex: Exception do
+        begin
+          FConn.Rollback;
+          erro := ex.Message;
+        end;
+      end;
+
+    except
+      on ex: Exception do
+        erro := ex.Message;
+    end;
+
+  finally
+    qry.Free;
+  end;
+end;
+
+function TProjetotelefonica.excluirsitemanual(const idSite: string; out erro: string): Boolean;
+var
+  qry: TFDQuery;
+begin
+  Result := False;
+  erro := '';
+  qry := TFDQuery.Create(nil);
+  qry.Connection := FConn;
+  
+  try
+    try
+      // Primeiro verifica se o site existe e é manual
+      qry.SQL.Clear;
+      qry.SQL.Add('SELECT origem FROM rolloutvivo WHERE UIDIDPMTS = :id');
+      qry.ParamByName('id').AsString := idSite;
+      qry.Open;
+      
+      if qry.IsEmpty then
+      begin
+        erro := 'Site não encontrado';
+        Exit;
+      end;
+      
+      if qry.FieldByName('origem').AsString <> 'Manual' then
+      begin
+        erro := 'Apenas sites manuais podem ser excluídos';
+        Exit;
+      end;
+      
+      qry.Close;
+      
+      // Exclui o site
+      qry.SQL.Clear;
+      qry.SQL.Add('UPDATE rolloutvivo ');
+      qry.SQL.Add('SET deletado = 1 ');
+      qry.SQL.Add('WHERE UIDIDPMTS = :id ');
+      qry.SQL.Add('  AND origem = ''Manual''');
+      qry.ParamByName('id').AsString := idSite;
+      qry.ExecSQL;
+      
+      Result := True;
+      
+    except
+      on ex: exception do
+      begin
+        erro := ex.Message;
+      end;
+    end;
+    
+  finally
+    if Assigned(qry) then
+      qry.Free;
+  end;
+end;
+
+function TProjetotelefonica.marcarComoAvulso(const uuidps: string; out erro: string): Boolean;
+var
+  qry: TFDQuery;
+  ids: TArray<string>;
+  i: Integer;
+  where: string;
+begin
+  Result := False;
+  erro := '';
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConn;
+
+    // Monta WHERE para múltiplos UIDIDPMTS
+    if Pos(',', uuidps) > 0 then
+    begin
+      ids := uuidps.Split([',']);
+      where := 'UIDIDPMTS IN (';
+      for i := 0 to High(ids) do
+      begin
+        if i > 0 then where := where + ',';
+        where := where + QuotedStr(Trim(ids[i]));
+      end;
+      where := where + ')';
+    end
+    else
+      where := 'UIDIDPMTS = ' + QuotedStr(Trim(uuidps));
+
+    qry.SQL.Text := 'UPDATE rolloutvivo SET deletado = 0, avulso = 1 WHERE ' + where;
+    qry.ExecSQL;
+    FConn.Commit;
+
+    Result := qry.RowsAffected > 0;
+    if not Result then
+      erro := 'Nenhum registro atualizado';
+  except
+    on E: Exception do
+    begin
+      erro := E.Message;
+      Result := False;
+    end;
+  end;
+  qry.Free;
+end;
+
+function TProjetotelefonica.desmarcarComoAvulso(const uuidps: string; out erro: string): Boolean;
+var
+  qry: TFDQuery;
+  ids: TArray<string>;
+  i: Integer;
+  where: string;
+begin
+  Result := False;
+  erro := '';
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConn;
+
+    // Monta WHERE para múltiplos UIDIDPMTS
+    if Pos(',', uuidps) > 0 then
+    begin
+      ids := uuidps.Split([',']);
+      where := 'UIDIDPMTS IN (';
+      for i := 0 to High(ids) do
+      begin
+        if i > 0 then where := where + ',';
+        where := where + QuotedStr(Trim(ids[i]));
+      end;
+      where := where + ')';
+    end
+    else
+      where := 'UIDIDPMTS = ' + QuotedStr(Trim(uuidps));
+
+    qry.SQL.Text := 'UPDATE rolloutvivo SET avulso = 0 WHERE ' + where;
+    qry.ExecSQL;
+    FConn.Commit;
+
+    Result := qry.RowsAffected > 0;
+    if not Result then
+      erro := 'Nenhum registro atualizado';
+  except
+    on E: Exception do
+    begin
+      erro := E.Message;
+      Result := False;
+    end;
+  end;
+  qry.Free;
+end;
 end.
 

@@ -189,6 +189,8 @@ begin
         servico.telefonicaControleLpu := 1;
         servico.telefonicaEdicaoDocumentacao := 1;
         servico.telefonicaT4 := 1;
+        servico.adicionarSiteManualmenteTelefonica := 1;
+        servico.marcarDesmarcarSiteAvulso := 1;
         servico.cosfechamento := 1;
         servico.cosControle := 1;
         servico.cosRelatorio := 1;
@@ -403,6 +405,17 @@ begin
           servico.telefonicafechamento := 1
         else
           servico.telefonicafechamento := 0;
+
+        if body.getvalue<boolean>('adicionarSiteManualmenteTelefonica', false) then
+          servico.adicionarSiteManualmenteTelefonica := 1
+        else
+          servico.adicionarSiteManualmenteTelefonica := 0;
+
+        if body.getvalue<boolean>('marcarDesmarcarSiteAvulsoTelefonica', false) then
+          servico.marcarDesmarcarSiteAvulso := 1
+        else
+          servico.marcarDesmarcarSiteAvulso := 0;
+
       end;
 
 

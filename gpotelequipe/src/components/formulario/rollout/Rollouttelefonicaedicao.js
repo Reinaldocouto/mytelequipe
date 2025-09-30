@@ -161,7 +161,7 @@ const Rollouttelefonicaedicao = ({
   const [integracaoreal, setintegracaoreal] = useState('');
   const [ativacao, setativacao] = useState('');
   const [documentacao, setdocumentacao] = useState('');
-  const [inventariodesinstalacao, setinventariodesinstalacao] = useState('');
+
   const [dtplan, setdtplan] = useState('');
   const [initialtunningstatus, setinitialtunningstatus] = useState('');
   const [initialtunningreal, setinitialtunningreal] = useState('');
@@ -402,7 +402,6 @@ const Rollouttelefonicaedicao = ({
         setvistoriareal(trataData(response.data.vistoriareal));
         setativacao(trataData(response.data.ativacao));
         setdocumentacao(trataData(response.data.documentacao));
-        setinventariodesinstalacao(trataData(response.data.inventariodesinstalacao));
         setdocplan(trataData(response.data.docplan));
         setdocvitoriareal(trataData(response.data.docvitoriareal));
         setDataInventarioDesinstalacao(trataData(response.data.datainventariodesinstalacao));
@@ -565,10 +564,10 @@ const Rollouttelefonicaedicao = ({
       toast.success(`Download de "${fileName}" iniciado com sucesso!`);
     } catch (error) {
       console.error('Falha ao gerar o link de download', error);
-      
+
       // Extrair nome do arquivo para mensagens de erro
       const fileName = fileKey ? fileKey.split('/').pop() : 'arquivo';
-      
+
       // Tratamento específico para diferentes tipos de erro
       if (error.name === 'NoSuchKey' || error.message?.includes('NoSuchKey')) {
         toast.error(
@@ -1193,7 +1192,7 @@ const Rollouttelefonicaedicao = ({
       field: 'actions',
       headerName: 'Ação',
       type: 'actions',
-      width: 80,
+      width: 100,
       align: 'center',
       getActions: (parametros) => [
         <GridActionsCellItem
@@ -2140,27 +2139,26 @@ const Rollouttelefonicaedicao = ({
 
       // Obter URL do arquivo e atualizar lista
       const url = await s3Service.getFileUrl(key);
-      
+
       // Atualizar a lista de arquivos com a estrutura correta (incluindo key)
-      const newFile = { 
-        name: fileDocumentacao.name, 
-        url, 
-        key 
+      const newFile = {
+        name: fileDocumentacao.name,
+        url,
+        key,
       };
-      
+
       setUploadedFiles([newFile]); // Substituir lista com o novo arquivo
 
       // Recarregar lista do S3 para garantir consistência
       await listFilesFromS3();
 
       toast.success(`Arquivo "${fileDocumentacao.name}" enviado com sucesso!`);
-      
+
       // Limpar o input de arquivo
       setFileDocumentacao(null);
-      
     } catch (error) {
       console.error('File upload failed', error);
-      
+
       // Tratamento específico de erros
       if (error.name === 'AccessDenied') {
         toast.error('Acesso negado. Você não tem permissão para fazer upload de arquivos.');
@@ -2672,7 +2670,7 @@ const Rollouttelefonicaedicao = ({
                     Data Inventário Desinstalação
                     <Input
                       type="date"
-                      onChange={(e) => setDataInventarioDesinstalacao(e.target.value)}
+                      onChange={(e) => e.target.value}
                       value={dataInventarioDesinstalacao}
                     />
                   </div>
@@ -2697,14 +2695,7 @@ const Rollouttelefonicaedicao = ({
                       placeholder=""
                     />
                   </div>
-                  <div className="col-sm-2">
-                    Data Inventário Desinstalação
-                    <Input
-                      type="date"
-                      onChange={(e) => setinventariodesinstalacao(e.target.value)}
-                      value={inventariodesinstalacao}
-                    />
-                  </div>
+
                   <div className="col-sm-12 mb-4">
                     Observação
                     <Input

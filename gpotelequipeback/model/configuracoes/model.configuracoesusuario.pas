@@ -59,6 +59,8 @@ type
     Fsolicitacaoavulsa: Integer;
     FtelefonicaEdicaoDocumentacao: Integer;
     FtelefonicaT4: Integer;
+    FadicionarSiteManualmenteTelefonica: Integer;
+    FmarcarDesmarcarSiteAvulso: Integer;
 
     Fmodovisualizador: Integer;
 
@@ -78,6 +80,8 @@ type
     property datacriacao: string read Fdatacriacao write Fdatacriacao;
     property observacao: string read Fobservacao write Fobservacao;
     property selecionarTodos: Integer read FselecionarTodos write FselecionarTodos;
+    property marcarDesmarcarSiteAvulso: Integer read FmarcarDesmarcarSiteAvulso write FmarcarDesmarcarSiteAvulso;
+    property adicionarSiteManualmenteTelefonica: Integer read FadicionarSiteManualmenteTelefonica write FadicionarSiteManualmenteTelefonica;
     property pessoas: Integer read Fpessoas write Fpessoas;
     property produtos: Integer read Fprodutos write Fprodutos;
     property empresas: Integer read Fempresas write Fempresas;
@@ -275,6 +279,8 @@ begin
           SQL.Add('telefonicaControle=:telefonicaControle,');
           SQL.Add('telefonicaRelatorio=:telefonicaRelatorio,');
           SQL.Add('telefonicaControleLpu=:telefonicaControleLpu, ');
+          SQL.Add('marcarDesmarcarSiteAvulso=:marcarDesmarcarSiteAvulso, ');
+          SQL.Add('adicionarSiteManualmenteTelefonica=:adicionarSiteManualmenteTelefonica, ');
           SQL.Add('telefonicaT4=:telefonicaT4, ');
           SQL.Add('demonstrativo=:demonstrativo,');
           SQL.Add('solicitacaoavulsa=:solicitacaoavulsa,');
@@ -329,6 +335,8 @@ begin
         ParamByName('telefonicaRelatorio').Value := telefonicaRelatorio;
         ParamByName('telefonicaControleLpu').Value := telefonicaControleLpu;
         ParamByName('telefonicaEdicaoDocumentacao').Value := telefonicaEdicaoDocumentacao;
+        ParamByName('marcarDesmarcarSiteAvulso').Value := marcarDesmarcarSiteAvulso;
+        ParamByName('adicionarSiteManualmenteTelefonica').Value := adicionarSiteManualmenteTelefonica;
         ParamByName('telefonicaT4').Value := telefonicaT4;
         ParamByName('modovisualizador').Value := modovisualizador;
         ParamByName('demonstrativo').Value := demonstrativo;

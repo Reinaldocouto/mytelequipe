@@ -133,7 +133,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       type: 'string',
       editable: false,
     },
-{
+    {
       field: 'pmoaceitacaop',
       headerName: 'PMO - ACEITACAO P',
       width: 200,
@@ -647,7 +647,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
       type: 'string',
       editable: false,
     },
-    
   ];
 
   function CustomNoRowsOverlay() {
@@ -731,7 +730,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       'LIB SITE P': formatarDataCompleta(item.regionallibsitep),
       'LIB SITE R': formatarDataCompleta(item.regionallibsiter),
       'EQUIPAMENTO ENTREGA P': formatarDataCompleta(item.equipamentoentregap),
-      
+
       DETENTORA: item.rsorsadetentora,
       'CÓDIGO DETENTORA': item.rsorsaiddetentora,
       'RSORSA SCI': item.rsorsasci,
@@ -1100,7 +1099,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       backgroundColor: '#2196f3', // Azul
                       color: 'white',
                     },
-                    
                   }}
                   localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                 />

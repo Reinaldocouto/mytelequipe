@@ -82,6 +82,10 @@ procedure extratopagamentototal(Req: THorseRequest; Res: THorseResponse; Next: T
 
 procedure rollouttelefonica(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
+procedure verificarduplicidaderollout(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+procedure adicionarsitemanual(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
 procedure totalacionamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure Listaacionamentos(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -127,6 +131,9 @@ procedure AtualizarEmFaturamento(Req: THorseRequest; Res: THorseResponse; Next: 
 procedure SalvarNotaFiscal(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure GerarT4Excel(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure GerarT4CSV(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+procedure excluirsitemanual(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+procedure marcaravulso(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+procedure desmarcarComoAvulso(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 implementation
 
@@ -155,6 +162,8 @@ begin
   THorse.get('v1/projetotelefonica/extratodesconto', extratodesconto);
   THorse.get('v1/projetotelefonicaid/extratototal', extratopagamentototal);
   THorse.get('v1/rollouttelefonica', rollouttelefonica);
+  THorse.get('v1/rollouttelefonica/verificarduplicidade', verificarduplicidaderollout);
+  THorse.post('v1/rollouttelefonica/adicionarmanual', adicionarsitemanual);
   THorse.get('v1/projetotelefonica/totalacionamento', totalacionamento);
   THorse.get('v1/projetotelefonica/pmts', Listapmts);
   THorse.get('v1/projetotelefonica/consolidado', Listaconsolidado);
@@ -195,6 +204,45 @@ begin
 
   THorse.get('v1/projetotelefonica/ListaDespesas', Listadespesas);
   THorse.post('v1/projetotelefonica/editaremmassa', EditarEmMassa);
+  THorse.get('v1/projetotelefonica/verificarduplicidaderollout', verificarduplicidaderollout);
+  THorse.post('v1/projetotelefonica/adicionarsitemanual', adicionarsitemanual);
+  THorse.post('v1/projetotelefonica/excluirsitemanual/:id', excluirsitemanual);
+  THorse.post('v1/projetotelefonica/marcaravulso', marcaravulso);
+  THorse.post('v1/projetotelefonica/desmarcarComoAvulso', desmarcarComoAvulso);
+end;
+
+procedure excluirsitemanual(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetotelefonica;
+  erro: string;
+  idSite: string;
+begin
+  try
+    servico := TProjetotelefonica.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  
+  try
+    idSite := Req.Params['UIDIDPMTS'];
+    
+    if idSite = '' then
+    begin
+      Res.Send<TJSONObject>(CreateJsonObj('erro', 'ID do site é obrigatório')).Status(400);
+      exit;
+    end;
+    
+    if servico.excluirsitemanual(idSite, erro) then
+      Res.Send<TJSONObject>(CreateJsonObj('sucesso', 'Site manual excluído com sucesso')).Status(200)
+    else
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(500);
+  except
+    on E: Exception do
+      Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro interno: ' + E.Message)).Status(500);
+  end;
+  
+  servico.Free;
 end;
 
 
@@ -3119,6 +3167,162 @@ begin
   end;
 end;
 
+procedure verificarduplicidaderollout(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetotelefonica;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetotelefonica.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.verificarduplicidaderollout(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
+procedure adicionarsitemanual(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetotelefonica;
+  body: TJSONValue;
+  erro: string;
+  retorno: Boolean;
+begin
+  try
+    servico := TProjetotelefonica.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  
+  try
+    body := TJSONObject.ParseJSONValue(TEncoding.UTF8.GetBytes(Req.Body), 0);
+    if body = nil then
+    begin
+      Res.Send<TJSONObject>(CreateJsonObj('erro', 'JSON inválido')).Status(THTTPStatus.BadRequest);
+      exit;
+    end;
+
+    // Preenche os dados do serviço com os valores do JSON
+    servico.uididpmts := body.getvalue<string>('uididpmts', '');
+    servico.ufsigla := body.getvalue<string>('ufsigla', '');
+    servico.uididcpomrf := body.getvalue<string>('uididcpomrf', '');
+    servico.pmouf := body.getvalue<string>('pmouf', '');
+    servico.pmoregional := body.getvalue<string>('pmoregional', '');
+    servico.idvivo := body.getvalue<string>('idVivo', '');
+    servico.infra := body.getvalue<string>('infra', '');
+    servico.detentora := body.getvalue<string>('detentora', '');
+    servico.iddetentora := body.getvalue<string>('idDetentora', '');
+    servico.fcu := body.getvalue<string>('fcu', '');
+    servico.rsorsascistatus := body.getvalue<string>('rsoRsaSciStatus', '');
+    servico.origem := 'Manual';
+
+    retorno := servico.adicionarsitemanual(erro);
+    
+    if retorno then
+      Res.Send<TJSONObject>(CreateJsonObj('sucesso', 'Site adicionado com sucesso')).Status(THTTPStatus.Created)
+    else
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      
+  except
+    on ex: exception do
+      Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+  end;
+  
+  servico.Free;
+  if Assigned(body) then
+    body.Free;
+end;
+
+procedure marcaravulso(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetotelefonica;
+  body: TJSONObject;
+  erro: string;
+  uuidps: string;
+  sucesso: Boolean;
+begin
+  servico := TProjetotelefonica.Create;
+  try
+    body := TJSONObject.ParseJSONValue(Req.Body) as TJSONObject;
+    if not Assigned(body) then
+    begin
+      Res.Send<TJSONObject>(CreateJsonObj('erro', 'Body inválido')).Status(400);
+      Exit;
+    end;
+
+    uuidps := body.GetValue<string>('uuidps', '');
+    if uuidps = '' then
+    begin
+      Res.Send<TJSONObject>(CreateJsonObj('erro', 'uuidps obrigatório')).Status(400);
+      Exit;
+    end;
+
+    sucesso := servico.marcarComoAvulso(uuidps, erro);
+    if sucesso then
+      Res.Send<TJSONObject>(CreateJsonObj('sucesso', 'Marcado como avulso')).Status(200)
+    else
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(500);
+
+    body.Free;
+  finally
+    servico.Free;
+  end;
+end;
+
+procedure desmarcarComoAvulso(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetotelefonica;
+  body: TJSONObject;
+  erro: string;
+  uuidps: string;
+  sucesso: Boolean;
+begin
+  servico := TProjetotelefonica.Create;
+  try
+    body := TJSONObject.ParseJSONValue(Req.Body) as TJSONObject;
+    if not Assigned(body) then
+    begin
+      Res.Send<TJSONObject>(CreateJsonObj('erro', 'Body inválido')).Status(400);
+      Exit;
+    end;
+
+    uuidps := body.GetValue<string>('uuidps', '');
+    if uuidps = '' then
+    begin
+      Res.Send<TJSONObject>(CreateJsonObj('erro', 'uuidps obrigatório')).Status(400);
+      Exit;
+    end;
+
+    sucesso := servico.desmarcarComoAvulso(uuidps, erro);
+    if sucesso then
+      Res.Send<TJSONObject>(CreateJsonObj('sucesso', 'Marcado como avulso')).Status(200)
+    else
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(500);
+
+    body.Free;
+  finally
+    servico.Free;
+  end;
+end;
 
 end.
 

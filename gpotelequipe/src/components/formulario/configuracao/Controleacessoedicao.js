@@ -121,6 +121,9 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
   const [telefonicaControleLpu, setTelefonicaControleLpu] = useState('');
   const [telefonicaEdicaoDocumentacao, setTelefonicaEdicaoDocumentacao] = useState('');
   const [telefonicaT4, setTelefonicaT4] = useState('');
+  const [adicionarSiteManualmenteTelefonica, setAdicionarSiteManualmenteTelefonica] = useState('');
+  const [marcarDesmarcarSiteAvulsoTelefonica, setMarcarDesmarcarSiteAvulsoTelefonica] =
+    useState('');
 
   //Fechamento
   const [ericfechamento, setericfechamento] = useState('');
@@ -220,6 +223,8 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
         setTelefonicaControleLpu(response.data.telefonicacontrolelpu);
         setTelefonicaEdicaoDocumentacao(response.data.telefonicaedicaodocumentacao);
         setTelefonicaT4(response.data?.telefonicat4);
+        setAdicionarSiteManualmenteTelefonica(response.data?.adicionarsitemanualmentetelefonica);
+        setMarcarDesmarcarSiteAvulsoTelefonica(response.data?.marcardesmarcarsiteavulso);
 
         //Fechamento teste
         setericfechamento(response.data.ericfechamento);
@@ -311,6 +316,8 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
       cosfechamento,
       demonstrativo,
       controleacesso,
+      adicionarSiteManualmenteTelefonica,
+      marcarDesmarcarSiteAvulsoTelefonica,
       idcliente: localStorage.getItem('sessionCodidcliente'),
       idloja: localStorage.getItem('sessionloja'),
     };
@@ -923,6 +930,28 @@ const Controleacessoedicao = ({ setshow, show, atualiza, ididentificador }) => {
                                 checked={telefonicaT4}
                               />
                               <Label check>Faturamento</Label>
+                            </FormGroup>
+                            <FormGroup check>
+                              <Input
+                                type="checkbox"
+                                id="check25"
+                                onChange={(e) =>
+                                  setAdicionarSiteManualmenteTelefonica(e.target.checked)
+                                }
+                                checked={adicionarSiteManualmenteTelefonica}
+                              />
+                              <Label check>Adicionar SITE manualmente</Label>
+                            </FormGroup>
+                            <FormGroup check>
+                              <Input
+                                type="checkbox"
+                                id="check26"
+                                onChange={(e) =>
+                                  setMarcarDesmarcarSiteAvulsoTelefonica(e.target.checked)
+                                }
+                                checked={marcarDesmarcarSiteAvulsoTelefonica}
+                              />
+                              <Label check>Marcação/Desmarcação de site como avulso</Label>
                             </FormGroup>
                           </div>
                         </div>

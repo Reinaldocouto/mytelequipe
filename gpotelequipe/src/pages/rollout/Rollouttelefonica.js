@@ -15,7 +15,7 @@ import {
 import { ZipReader, BlobReader, BlobWriter } from '@zip.js/zip.js';
 import EditIcon from '@mui/icons-material/Edit';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-//import DeleteIcon from '@mui/icons-material/Delete';
+import DeleteIcon from '@mui/icons-material/Delete';
 import PropTypes from 'prop-types';
 import Typography from '@mui/material/Typography';
 import Pagination from '@mui/material/Pagination';
@@ -29,6 +29,7 @@ import FiltroRolloutTelefonica from '../../components/modals/FiltroRolloutTelefo
 import Excluirregistro from '../../components/Excluirregistro';
 import Telat2editar from '../../components/formulario/projeto/Telat2editar';
 import ConfirmaModal from '../../components/modals/ConfirmacaoModal';
+import AdicionarSiteManual from '../../components/formulario/rollout/AdicionarSiteManual';
 import modoVisualizador from '../../services/modovisualizador';
 import S3Service from '../../services/s3Service';
 import createLocalDate from '../../services/data';
@@ -80,6 +81,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [rowToUpdate, setRowToUpdate] = useState(null);
   const [file, setFile] = useState(null);
+  const [showAdicionarSiteManual, setShowAdicionarSiteManual] = useState(false);
   const apiRef = useGridApiRef();
   const scrollerRef = useRef(null);
 
@@ -111,7 +113,60 @@ const Rollouttelefonica = ({ setshow, show }) => {
       }
     }
   };
+  const marcarComoAvulso = async () => {
+    if (!rowSelectionModel.length) {
+      toast.warning('Selecione pelo menos um item para marcar como avulso.');
+      return;
+    }
+    setLoading(true);
+    try {
+      // Filtra os IDs das atividades selecionadas
+      const atividadeSelecionada = totalacionamento
+        .filter((item) => rowSelectionModel.includes(item.id))
+        .map((item) => item.uididpmts)
+        .join(',');
 
+      await api.post('v1/projetotelefonica/marcaravulso', {
+        ...params,
+        uuidps: atividadeSelecionada,
+      });
+
+      toast.success('Itens marcados como avulso com sucesso!');
+      listarollouttelefonica();
+    } catch (error) {
+      console.error('Erro ao marcar como avulso:', error);
+      toast.error('Falha ao marcar como avulso.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const desmarcarComoAvulso = async () => {
+    if (!rowSelectionModel.length) {
+      toast.warning('Selecione pelo menos um item para desmarcar como avulso.');
+      return;
+    }
+    setLoading(true);
+    try {
+      // Filtra os IDs das atividades selecionadas
+      const atividadeSelecionada = totalacionamento
+        .filter((item) => rowSelectionModel.includes(item.id))
+        .map((item) => item.uididpmts)
+        .join(',');
+
+      await api.post('v1/projetotelefonica/desmarcarComoAvulso', {
+        ...params,
+        uuidps: atividadeSelecionada,
+      });
+
+      toast.success('Itens marcados como avulso com sucesso!');
+      listarollouttelefonica();
+    } catch (error) {
+      console.error('Erro ao marcar como avulso:', error);
+      toast.error('Falha ao marcar como avulso.');
+    } finally {
+      setLoading(false);
+    }
+  };
   const listaFilterrollouttelefonica = async (items) => {
     try {
       setLoading(true);
@@ -125,11 +180,11 @@ const Rollouttelefonica = ({ setshow, show }) => {
     }
   };
 
-  /* function deleteUser(stat) {
-     setididentificador(stat);
-     settelaexclusao(true);
-     listarollouttelefonica();
-   } */
+  function deleteUser(stat) {
+    setididentificador(stat);
+    settelaexclusao(true);
+    listarollouttelefonica();
+  }
 
   function alterarUser(stat, pmuflocal, idrlocal, ipmts, delet) {
     settitulo('Editar Rollout Telefonica');
@@ -156,12 +211,12 @@ const Rollouttelefonica = ({ setshow, show }) => {
     console.error('Erro ao salvar:', error);
     setmensagem('Erro ao salvar a edição!');
   };
-  const columns = useMemo(() => [
+  const columnsRaw = [
     {
       field: 'actions',
       headerName: 'Ação',
       type: 'actions',
-      width: 80,
+      width: 100,
       align: 'center',
       getActions: (parametros) => [
         <GridActionsCellItem
@@ -192,32 +247,22 @@ const Rollouttelefonica = ({ setshow, show }) => {
             )
           }
         />,
-
-        /*    <GridActionsCellItem
-              icon={<DeleteIcon />}
-              disabled={modoVisualizador()}
-              label="Delete"
-              onClick={() => deleteUser(parametros.id)}
-            />, */
+        // Botão de exclusão apenas para sites manuais
+        ...(parametros.row.origem === 'Manual'
+          ? [
+              <GridActionsCellItem
+                icon={<DeleteIcon />}
+                label="Excluir"
+                hint="Excluir Site Manual"
+                onClick={() => deleteUser(parametros.row.id)}
+                sx={{ color: 'red' }}
+              />,
+            ]
+          : []),
       ],
     },
     // { field: 'id', headerName: 'ID', width: 80, align: 'center' },
-     {
-       field: 'pmts',
-       headerName: 'PMTS',
-       width: 110,
-       align: 'center',
-       type: 'string',
-       editable: false,
-     }, 
-     {
-       field: 'sytex',
-       headerName: 'SYTEX',
-       width: 150,
-       align: 'left',
-       type: 'string',
-       editable: false,
-     },
+    
     {
       field: 'pmoref',
       headerName: 'PMO - REF',
@@ -294,15 +339,15 @@ const Rollouttelefonica = ({ setshow, show }) => {
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
-        field: 'regionaleapinfra',
-        headerName: 'REGIONAL - EAP - INFRA ',
-        width: 300,
-        align: 'left',
-        type: 'string',
-        editable: false,
-        renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
-      },
-      {
+      field: 'regionaleapinfra',
+      headerName: 'REGIONAL - EAP - INFRA ',
+      width: 300,
+      align: 'left',
+      type: 'string',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
       field: 'regionalpreaceiteeap',
       headerName: 'REGIONAL-PRE-ACEITE-EAP',
       width: 200,
@@ -324,7 +369,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: false,
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
-      {
+    {
       field: 'pmoaceitacaop',
       headerName: 'PMO - ACEITACAO P',
       width: 200,
@@ -355,19 +400,19 @@ const Rollouttelefonica = ({ setshow, show }) => {
       headerName: 'PMO-ACEITACAO',
       width: 200,
       align: 'left',
-        type: 'date',
-        valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-        valueFormatter: (parametros) =>
-          parametros.value
-            ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-            : '',
-        editable: false,
-      },
-      {
-        field: 'statusmensaltx',
-        headerName: 'STATUS-MENSAL-TX',
-        width: 300,
-        align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'statusmensaltx',
+      headerName: 'STATUS-MENSAL-TX',
+      width: 300,
+      align: 'left',
       type: 'string',
       editable: false,
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
@@ -1044,7 +1089,59 @@ const Rollouttelefonica = ({ setshow, show }) => {
       type: 'string',
       editable: false,
     },
-    
+    {
+      field: 'origem',
+      headerName: 'Origem',
+      width: 120,
+      align: 'center',
+      type: 'string',
+      editable: false,
+      renderCell: (parametros) => (
+        <div
+          style={{
+            backgroundColor: parametros.value === 'Manual' ? '#28a745' : '#007bff',
+            color: 'white',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            width: '100%',
+          }}
+        >
+          {params.value || 'PMTS'}
+        </div>
+      ),
+    },
+    {
+      field: 'avulso',
+      headerName: 'Avulso',
+      width: 120,
+      align: 'center',
+      type: 'string',
+      editable: false,
+      renderCell: (parametros) => {
+        const valor = parametros.value; // 0 ou 1
+        const ehAvulso = valor === 1;
+
+        return (
+          <div
+            style={{
+              backgroundColor: ehAvulso ? '#28a745' : '#dc3545', // verde se Sim, vermelho se Não
+              color: 'white',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              textAlign: 'center',
+              width: '100%',
+            }}
+          >
+            {ehAvulso ? 'Sim' : 'Não'}
+          </div>
+        );
+      },
+    },
     {
       field: 'datapostagemdoc',
       headerName: 'Data de Postagem Doc.',
@@ -1209,7 +1306,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 150,
       align: 'left',
       type: 'date',
-      valueGetter: (acessodatainicial) => (acessodatainicial.value ? createLocalDate(acessodatainicial.value) : null),
+      valueGetter: (acessodatainicial) =>
+        acessodatainicial.value ? createLocalDate(acessodatainicial.value) : null,
       valueFormatter: (acessodatainicial) =>
         acessodatainicial.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(params.value)
@@ -1298,7 +1396,18 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: !modoVisualizador(),
       valueOptions: ['APROVADO', 'REPROVADO'],
     },
-  ]);
+  ];
+
+  // Remove duplicados pelo campo 'field'
+  const columns = useMemo(() => {
+    const seen = new Set();
+    return columnsRaw.filter((col) => {
+      if (seen.has(col.field)) return false;
+      seen.add(col.field);
+      return true;
+    });
+  }, [columnsRaw]);
+
   const handleConfirmSave = async () => {
     if (!rowSelectionModel.length) {
       console.warn('Nenhuma atividade selecionada.');
@@ -1520,8 +1629,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
   const gerarexcel = () => {
     const excelData = totalacionamento
       .map((item) => ({
-        PMTS: item.pmts,
-        SYTEX: item.sytex,
+       
         'PMO - REF': item.pmoref,
         'PMO - CATEGORIA': item.pmocategoria,
         UIDIDPMTS: item.uididpmts,
@@ -1590,7 +1698,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
         DELIVERY_PLAN: item.deliverypolan,
         OV: item.ov,
         ACESSO: item.acesso,
-        
+        ORIGEM: item.origem || 'PMTS',
+        AVULSO: item.avulso === 1 ? 'SIM' : 'NÃO',
         DELETADO: item.deletado === 1 ? 'SIM' : 'NÃO',
       }))
       .map(formatDatesBR) // 1. converte datas / zera 1899-12-xx
@@ -1703,7 +1812,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
     });
 
     if (changedFields.length === 0) {
-      return oldRow; 
+      return oldRow;
     }
 
     React.startTransition(() => {
@@ -1846,6 +1955,31 @@ const Rollouttelefonica = ({ setshow, show }) => {
                     <Button color="primary" onClick={chamarfiltro}>
                       Aplicar Filtros
                     </Button>
+                    {JSON.parse(localStorage.getItem('permission'))?.marcardesmarcarsiteavulso ===
+                      1 && (
+                      <div>
+                        <Button color="primary" onClick={() => marcarComoAvulso()} className="me-2">
+                          Marcar como Avulso
+                        </Button>
+                        <Button
+                          color="primary"
+                          onClick={() => desmarcarComoAvulso()}
+                          className="me-2"
+                        >
+                          Desmarcar como Avulso
+                        </Button>
+                      </div>
+                    )}
+                    {JSON.parse(localStorage.getItem('permission'))
+                      ?.adicionarsitemanualmentetelefonica === 1 && (
+                      <Button
+                        color="success"
+                        onClick={() => setShowAdicionarSiteManual(true)}
+                        className="me-2"
+                      >
+                        Adicionar SITE manualmente
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1873,7 +2007,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
                   getRowClassName={(parametros) =>
                     parametros.row.deletado === 1 ? 'linha-diferente' : ''
                   }
-                  isRowSelectable={(rowSelectable) => rowSelectable.row.deletado !== 1}
+                  //isRowSelectable={(rowSelectable) => rowSelectable.row.deletado !== 1}
                   sx={{
                     '& .MuiDataGrid-row.Mui-selected': {
                       backgroundColor: '#32ccbc !important', // cor base
@@ -1883,6 +2017,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
                         backgroundColor: '#28a89b !important', // cor um pouco mais escura no hover
                       },
                     },
+
                     '& .MuiDataGrid-cell:focus': {
                       outline: 'none', // remove a borda azul padrão
                     },
@@ -1915,14 +2050,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       fontSize: '14px', // Ajusta o tamanho da fonte para caber melhor
                       lineHeight: '32px',
                     },
-                    "& .MuiDataGrid-columnHeader[data-field='pmts']": {
-                      backgroundColor: '#2196f3', // Azul
-                      color: 'white',
-                    },
-                    "& .MuiDataGrid-columnHeader[data-field='sytex']": {
-                      backgroundColor: '#2196f3', // Azul
-                      color: 'white',
-                    },
+                    
                     "& .MuiDataGrid-columnHeader[data-field='pmoref']": {
                       backgroundColor: '#000000', // preto
                       color: 'white',
@@ -2207,7 +2335,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       backgroundColor: '#2196f3', // Azul
                       color: 'white',
                     },
-                    
+
                     "& .MuiDataGrid-columnHeader[data-field='infra']": {
                       backgroundColor: '#9c27b0',
                       color: 'white',
@@ -2264,6 +2392,14 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       backgroundColor: '#9c27b0',
                       color: 'white',
                     },
+                    "& .MuiDataGrid-columnHeader[data-field='origem']": {
+                      backgroundColor: '#2196f3',
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='avulso']": {
+                      backgroundColor: '#2196f3',
+                      color: 'white',
+                    },
                   }}
                   localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                   paginationModel={paginationModel}
@@ -2279,6 +2415,13 @@ const Rollouttelefonica = ({ setshow, show }) => {
           </Button>
         </ModalFooter>
       </Modal>
+
+      {/* Modal Adicionar Site Manual */}
+      <AdicionarSiteManual
+        show={showAdicionarSiteManual}
+        setShow={setShowAdicionarSiteManual}
+        onSiteAdded={listarollouttelefonica}
+      />
     </>
   );
 };
