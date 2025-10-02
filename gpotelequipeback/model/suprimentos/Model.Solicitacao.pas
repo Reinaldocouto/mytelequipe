@@ -41,6 +41,7 @@ type
     Fnomecolaborador: string;
     Fsiteid: string;
     Fsiglasite: string;
+    Fregional: string;
     Flocal: string;
     Fdescricao: string;
     Fcliente: string;
@@ -88,6 +89,7 @@ type
     property nomecolaborador: string read Fnomecolaborador write Fnomecolaborador;
     property siteid: string read Fsiteid write Fsiteid;
     property siglasite: string read Fsiglasite write Fsiglasite;
+    property regional: string read Fregional write Fregional;
     property local: string read Flocal write Flocal;
     property descricao: string read Fdescricao write Fdescricao;
     property cliente: string read Fcliente write Fcliente;
@@ -461,6 +463,14 @@ var
         Result := trimmedProjeto + ' - ' + trimmedRegional;
     end;
   end;
+
+  function ResolveRegionalSuffix: string;
+  begin
+    Result := Trim(regional);
+    if Result = '' then
+      Result := Trim(siglasite);
+  end;
+
 begin
   CoInitialize(nil); // <-- inicializa COM (STA)
   try
@@ -488,6 +498,7 @@ begin
 
 
     // Dados
+    projetoFormatado := FormatProjectName(projeto, ResolveRegionalSuffix);
     Sheet.Cells[5, 1] := StrToDateTime(datasolicitacao);
     Sheet.Cells[5, 2] := nomecolaborador;
     Sheet.Cells[5, 3] := cliente;

@@ -1,0 +1,32 @@
+name: QA PR Logger
+
+on:
+  pull_request:
+    branches:
+      - QA
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+jobs:
+  log_to_readme:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Add QA log to README
+        run: |
+          DATE=$(date +"%Y-%m-%d %H:%M:%S")
+          echo "🚀 Enviado para QA em: $DATE" >> README.md
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "chore: add QA log on $DATE" || echo "No changes to commit"
+          git push origin HEAD:${{ github.head_ref }}

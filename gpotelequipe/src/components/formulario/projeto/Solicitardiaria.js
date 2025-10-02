@@ -38,6 +38,7 @@ const Solicitardiaria = ({
   clientelocal,
   idlocal,
   sigla,
+  regional: regionalProp = '',
 }) => {
   function dataHojeISO() {
     return new Date().toISOString().split('T')[0];
@@ -79,6 +80,7 @@ const Solicitardiaria = ({
   const [projeto, setprojeto] = useState(projetousual);
   const [siteid, setsiteid] = useState(numero);
   const [siglasite, setsiglasite] = useState(sigla);
+  const regionalValue = regionalProp || '';
   const [local, setlocal] = useState('');
   const [id, setid] = useState(idlocal);
   const [po, setpo] = useState('');
@@ -151,6 +153,7 @@ const Solicitardiaria = ({
         siteid,
         id,
         siglasite,
+        regional: regionalValue || siglasite,
         po,
         local,
         descricao,
@@ -477,6 +480,7 @@ Solicitardiaria.propTypes = {
   clientelocal: PropTypes.string,
   sigla: PropTypes.string,
   idlocal: PropTypes.string,
+  regional: PropTypes.string,
 };
 
 export default Solicitardiaria;

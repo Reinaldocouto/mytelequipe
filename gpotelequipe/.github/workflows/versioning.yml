@@ -1,0 +1,75 @@
+name: CI - Versioning and Rollback
+
+on:
+  push:
+    branches:
+      - main # roda sempre que tiver push/merge na main
+  workflow_dispatch: # permite rodar manualmente (usado para rollback)
+
+permissions:
+  contents: write
+jobs:
+  create_tag:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Git
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          latest=$(git tag --sort=-v:refname | head -n 1)
+          if [ -z "$latest" ]; then
+            echo "tag=0.0.0" >> $GITHUB_ENV
+          else
+            echo "tag=$latest" >> $GITHUB_ENV
+          fi
+
+      - name: Bump version (patch)
+        id: bump
+        run: |
+          old=${{ env.tag }}
+          IFS='.' read -r major minor patch <<< "$old"
+          patch=$((patch+1))
+          new="$major.$minor.$patch"
+          echo "new_tag=$new" >> $GITHUB_ENV
+          echo "➡️ Gerando nova tag: $new"
+
+      - name: Create new tag
+        run: |
+          git tag ${{ env.new_tag }}
+          git push origin ${{ env.new_tag }}
+  rollback:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # precisa de todo histórico p/ rollback
+
+      - name: Rollback to previous version
+        run: |
+          latest=$(git tag --sort=-v:refname | head -n 1)
+          previous=$(git tag --sort=-v:refname | sed -n 2p)
+
+          if [ -z "$previous" ]; then
+            echo "❌ Nenhuma versão anterior encontrada"
+            exit 1
+          fi
+
+          echo "🔄 Voltando da versão $latest para $previous"
+
+          # Reset para versão anterior
+          git checkout $previous
+          git tag -f rollback-$previous
+          git push origin rollback-$previous --force

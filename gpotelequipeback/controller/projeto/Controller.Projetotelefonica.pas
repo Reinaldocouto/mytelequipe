@@ -2118,6 +2118,8 @@ begin
       servico.initialtunningrealfinal := body.getvalue<string>('initialtunningrealfinal', '');
       servico.statusobra := body.getvalue<string>('statusobra', '');
       servico.docaplan := body.getvalue<string>('docaplan', '');
+      servico.pmoaceitacaoplan := body.getvalue<string>('pmoaceitacaoplan', '');
+      servico.pmoaceitacaoreal := body.getvalue<string>('pmoaceitacaoreal', '');
       servico.ov := body.getvalue<string>('ov', '');
       servico.uididcpomrf := body.getvalue<string>('uididcpomrf', '');
       servico.resumodafase := body.getvalue<string>('resumodafase', '');

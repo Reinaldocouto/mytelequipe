@@ -262,7 +262,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       ],
     },
     // { field: 'id', headerName: 'ID', width: 80, align: 'center' },
-    
+
     {
       field: 'pmoref',
       headerName: 'PMO - REF',
@@ -369,45 +369,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: false,
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
-    {
-      field: 'pmoaceitacaop',
-      headerName: 'PMO - ACEITACAO P',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'pmoaceitacaor',
-      headerName: 'PMO - ACEITACAO R',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'pmoaceitacao',
-      headerName: 'PMO-ACEITACAO',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
+
     {
       field: 'statusmensaltx',
       headerName: 'STATUS-MENSAL-TX',
@@ -417,32 +379,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: false,
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
-    {
-      field: 'pmoaceitacaop',
-      headerName: 'PMO Aceitação Plan',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'pmoaceitacaor',
-      headerName: 'PMO Aceitação Real',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
+
     {
       field: 'masterobrastatusrollout',
       headerName: 'MASTEROBR-STATUS-ROLLOUT',
@@ -624,8 +561,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: true,
     },
     {
-      field: 'vistoriareal',
-      headerName: 'Vistoria Real',
+      field: 'vistoriaplan',
+      headerName: 'Vistoria Plan',
       width: 200,
       align: 'left',
       type: 'date',
@@ -746,8 +683,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: true,
     },
     {
-      field: 'entregareal',
-      headerName: 'Entrega Real',
+      field: 'vistoriareal',
+      headerName: 'Vistoria Real',
       width: 200,
       align: 'left',
       type: 'date',
@@ -772,8 +709,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: true,
     },
     {
-      field: 'fiminstalacaoreal',
-      headerName: 'Fim Instalação Real',
+      field: 'docplan',
+      headerName: 'Documentação Vistoria Plan',
       width: 200,
       align: 'left',
       type: 'date',
@@ -798,8 +735,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: true,
     },
     {
-      field: 'integracaoreal',
-      headerName: 'Integração Real',
+      field: 'docvitoriareal',
+      headerName: 'Documentação Vistoria Real',
       width: 200,
       align: 'left',
       type: 'date',
@@ -812,8 +749,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
     },
 
     {
-      field: 'ativacao',
-      headerName: 'Ativação Real',
+      field: 'req',
+      headerName: 'REQ',
       width: 200,
       align: 'left',
       type: 'date',
@@ -825,8 +762,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: true,
     },
     {
-      field: 'documentacao',
-      headerName: 'Documentação',
+      field: 'entregaplan',
+      headerName: 'Entrega Plan',
       width: 200,
       align: 'left',
       type: 'date',
@@ -843,7 +780,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       width: 220,
       align: 'left',
       type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -870,33 +807,21 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: !modoVisualizador(),
     },
     {
-      field: 'initialtunningrealfinal',
-      headerName: 'Initial Tunning Real Final',
+      field: 'fiminstalacaoplan',
+      headerName: 'Fim Instalação Plan',
       width: 200,
       align: 'left',
       type: 'date',
-      valueGetter: ({ value }) => {
-        if (!value) return null;
-        const data = new Date(value);
-        data.setDate(data.getDate() + 1);
-        return data;
-      },
-      valueFormatter: ({ value }) =>
-        value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(value) : '',
-      editable: !modoVisualizador(),
-    },
-    {
-      field: 'initialtunnigstatus',
-      headerName: 'Initial Tunning Status',
-      width: 250,
-      align: 'left',
-      type: 'singleSelect', // muda de string para singleSelect
+      valueGetter: (parametros) => createLocalDate(parametros.value),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
       editable: true,
-      valueOptions: ['ABERTA', 'COMPLETADO_COM_PENDENCIAS', 'COMPLETADO'], // opções do dropdown
     },
     {
-      field: 'aprovacaossv',
-      headerName: 'Aprovação de SSV',
+      field: 'fiminstalacaoreal',
+      headerName: 'Fim Instalação Real',
       width: 200,
       align: 'left',
       type: 'date',
@@ -933,8 +858,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: true,
     },
     {
-      field: 'dtreal',
-      headerName: 'DT Real',
+      field: 'integracaoplan',
+      headerName: 'Integração Plan',
       width: 200,
       align: 'left',
       type: 'date',
@@ -990,6 +915,32 @@ const Rollouttelefonica = ({ setshow, show }) => {
       type: 'string',
       editable: true,
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+    {
+      field: 'pmoaceitacaop',
+      headerName: 'PMO - ACEITACAO PLAN',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => createLocalDate(parametros.value),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: !modoVisualizador(),
+    },
+    {
+      field: 'pmoaceitacaor',
+      headerName: 'PMO - ACEITACAO REAL',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => createLocalDate(parametros.value),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: !modoVisualizador(),
     },
     {
       field: 'acionamento',
@@ -1448,9 +1399,9 @@ const Rollouttelefonica = ({ setshow, show }) => {
     } catch (error) {
       console.error('Erro ao salvar alterações em massa:', error);
       // Opcional: mostrar feedback visual ao usuário
+      setLoading(false);
       toast.error('Falha ao salvar alterações.');
     } finally {
-      setLoading(false);
       setConfirmOpen(false);
     }
   };
@@ -1578,9 +1529,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
     'REGIONAL_LIB_SITE_R',
     'EQUIPAMENTO_ENTREGA_P',
     'REGIONAL_CARIMBO',
-    'PMO_ACEITACAO',
-    'PMO_ACEITACAO_P',
-    'PMO_ACEITACAO_R',
     'REGIONAL_PRE_ACEITE_EAP',
     'ATIVACAO_REAL',
     'DOCUMENTACAO',
@@ -1593,6 +1541,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
     'DOCUMENTACAO_VISTORIA_PLAN',
     'DOCUMENTACAO_VISTORIA_REAL',
     'REQ',
+    'PMO_ACEITACAO_PLAN',
+    'PMO_ACEITACAO_REAL',
   ]);
 
   const toBRDate = (v) => {
@@ -1642,9 +1592,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
         REGIONAL_EAP_INFRA: item.regionaleapinfra,
         REGIONAL_PRE_ACEITE_EAP: item.regionalpreaceiteeap,
         REGIONAL_PRE_ACEITE_RESPONSAVEL: item.regionalpreaceiteresponsavel,
-        PMO_ACEITACAO_P: item.pmoaceitacaop,
-        PMO_ACEITACAO_R: item.pmoaceitacaor,
-        PMO_ACEITACAO: item.pmoaceitacao,
         STATUS_MENSAL_TX: item.statusmensaltx,
         MASTEROBR_STATUS_ROLLOUT: item.masterobrastatusrollout,
         REGIONAL_LIB_SITE_P: item.regionallibsitep,
@@ -1686,6 +1633,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
         DT_REAL: item.dtreal,
         OBSERVACAO: item.acompanhamentofisicoobservacao,
         ROLLOUT: item.rollout,
+        PMO_ACEITACAO_PLAN: item.pmoaceitacaop,
+        PMO_ACEITACAO_REAL: item.pmoaceitacaor,
         ACIONAMENTO: item.acionamento,
         NOME_DO_SITE: item.nomedosite,
         ENDERECO: item.endereco,
@@ -2324,6 +2273,14 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       color: 'white',
                     },
                     "& .MuiDataGrid-columnHeader[data-field='acompanhamentofisicoobservacao']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='pmoaceitacaop']": {
+                      backgroundColor: '#4caf50', // Verde
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='pmoaceitacaor']": {
                       backgroundColor: '#4caf50', // Verde
                       color: 'white',
                     },

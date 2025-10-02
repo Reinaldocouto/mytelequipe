@@ -118,6 +118,7 @@ begin
       servico.idpessoa  := body.GetValue<string>('idpessoa','');
       servico.numero    := body.GetValue<string>('numero','');
       servico.idusuario := body.GetValue<string>('idusuario','');
+      servico.ids       := body.GetValue<string>('ids','');
       retanexo          := 'C:\servidorgpo\anexo\' + body.GetValue<string>('retanexo','');
 
       servico.SendEmail(destinatario, assunto, servico.ExecuteSelect, retanexo);

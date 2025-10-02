@@ -111,6 +111,8 @@ type
     FAprovacaoSSV: string;
     FStatusObra: string;
     Fdocaplan: string;
+    Fpmoaceitacaoplan: string;
+    Fpmoaceitacaoreal: string;
     FOV: string;
     FUIDIDCPOMRF: string;
     Fresumodafase: string;
@@ -265,6 +267,8 @@ type
     property AprovacaoSSV: string read FAprovacaoSSV write FAprovacaoSSV;
     property StatusObra: string read FStatusObra write FStatusObra;
     property docaplan: string read Fdocaplan write Fdocaplan;
+    property pmoaceitacaoplan: string read Fpmoaceitacaoplan write Fpmoaceitacaoplan;
+    property pmoaceitacaoreal: string read Fpmoaceitacaoreal write Fpmoaceitacaoreal;
     property OV: string read FOV write FOV;
     property UIDIDCPOMRF: string read FUIDIDCPOMRF write FUIDIDCPOMRF;
     property resumodafase: string read Fresumodafase write Fresumodafase;
@@ -1965,6 +1969,8 @@ begin
         SQL.Add('StatusAprovacaoSSV=:StatusAprovacaoSSV,  ');
         SQL.Add('StatusObra=:StatusObra,  ');
         SQL.Add('docaplan=:docaplan,  ');
+        SQL.Add('PMOACEITACAOP=:PMOACEITACAOP,  ');
+        SQL.Add('PMOACEITACAOR=:PMOACEITACAOR,  ');
         SQL.Add('OV=:OV, ');
         SQL.Add('vistoriaplan=:vistoriaplan, ');
         SQL.Add('vistoriareal=:vistoriareal, ');
@@ -2158,6 +2164,20 @@ begin
           ParamByName('docaplan').DataType := ftDateTime;
           ParamByName('docaplan').Clear;
 
+          end;
+        try
+          ParamByName('PMOACEITACAOP').AsDateTime := ISO8601ToDate(pmoaceitacaoplan);
+        except
+          ParamByName('PMOACEITACAOP').DataType := ftDateTime;
+          ParamByName('PMOACEITACAOP').Clear;
+
+        end;
+        try
+          ParamByName('PMOACEITACAOR').AsDateTime := ISO8601ToDate(pmoaceitacaoreal);
+        except
+          ParamByName('PMOACEITACAOR').DataType := ftDateTime;
+          ParamByName('PMOACEITACAOR').Clear;
+
         end;
         ParamByName('OV').asstring := OV;
         ParamByName('UIDIDCPOMRF').asstring := UIDIDCPOMRF;
@@ -2345,6 +2365,10 @@ begin
       updateParts.Add('docvitoriareal = :docvitoriareal');
     if Assigned(jsonParams.GetValue('req')) then
       updateParts.Add('req = :req');
+    if Assigned(jsonParams.GetValue('pmoaceitacaop')) then
+      updateParts.Add('pmoaceitacaop = :pmoaceitacaop');
+    if Assigned(jsonParams.GetValue('pmoaceitacaor')) then
+      updateParts.Add('pmoaceitacaor = :pmoaceitacaor');
     if Assigned(jsonParams.GetValue('entregaplan')) then
       updateParts.Add('EntregaPlan = :entregaplan');
     if Assigned(jsonParams.GetValue('entregareal')) then
@@ -2514,6 +2538,22 @@ begin
 
       if Assigned(jsonParams.GetValue('req')) then
         qry.ParamByName('req').AsDate := ISO8601ToDate(jsonParams.GetValue('req').Value);
+
+      if Assigned(jsonParams.GetValue('pmoaceitacaop')) then
+        try
+          qry.ParamByName('pmoaceitacaop').AsDateTime :=
+            ISO8601ToDate(jsonParams.GetValue('pmoaceitacaop').Value);
+        except
+          qry.ParamByName('pmoaceitacaop').Clear;
+        end;
+
+      if Assigned(jsonParams.GetValue('pmoaceitacaor')) then
+        try
+          qry.ParamByName('pmoaceitacaor').AsDateTime :=
+            ISO8601ToDate(jsonParams.GetValue('pmoaceitacaor').Value);
+        except
+          qry.ParamByName('pmoaceitacaor').Clear;
+        end;
 
       if Assigned(jsonParams.GetValue('entregaplan')) then
         qry.ParamByName('entregaplan').AsDate := ISO8601ToDate(jsonParams.GetValue('entregaplan').Value);
@@ -2748,16 +2788,33 @@ var
   qry, qry1, qry2: TFDQuery;
   cont: Integer;
   descricao, regional: string;
+  posTraco: Integer;
 begin
+  Result := False;
+  erro := '';
+  qry := nil;
+  qry1 := nil;
+  qry2 := nil;
+  
   try
+    // Verificar se a conexão está válida
+    if not Assigned(FConn) then
+    begin
+      erro := 'Conexão com banco de dados não está disponível';
+      Exit;
+    end;
+
     qry := TFDQuery.Create(nil);
     qry.connection := FConn;
     qry1 := TFDQuery.Create(nil);
     qry1.connection := FConn;
     qry2 := TFDQuery.Create(nil);
     qry2.connection := FConn;
+    
     try
       FConn.StartTransaction;
+      
+      // Primeira query - buscar dados do serviço
       with qry do
       begin
         active := false;
@@ -2779,7 +2836,15 @@ begin
         SQL.Add('telefonicacodigoservicos.ID =:idtarefa ');
         ParamByName('idtarefa').asstring := iddescricaocod;
         Open();
+        
+        if IsEmpty then
+        begin
+          erro := 'Código de serviço não encontrado';
+          Exit;
+        end;
       end;
+      
+      // Segunda query - buscar dados do PMTS
       with qry1 do
       begin
         active := false;
@@ -2796,7 +2861,15 @@ begin
         SQL.Add('pmtsvivo.UID_IDPMTS =:idpmts ');
         ParamByName('idpmts').asstring := idpmts;
         Open();
+        
+        if IsEmpty then
+        begin
+          erro := 'PMTS não encontrado';
+          Exit;
+        end;
       end;
+      
+      // Terceira query - inserir dados no controle T2
       with qry2 do
       begin
         active := false;
@@ -2807,16 +2880,27 @@ begin
         SQL.Add('                         values(:empresa,:regional, :site,:itemt2,:codfornecedor,:fabricante,:numerodocontrato,:t2codmatservsw,:t2descricaocod,:vlrunitarioliqliq, ');
         SQL.Add(':vlrunitarioliq,:quant,:unid,:vlrunitariocimposto,:vlrcimpsicms,:vlrtotalcimpostos,:itemt4,:t4codeqmatswserv,:t4descricaocod, ');
         SQL.Add(':pepnivel2,:idlocalidade,:pepnivel3,:descricaoobra,:idobra,:enlace,:gestor,:tipo,:responsavel,:categoria,:tecnologia,:datainclusao) ');
+        
+        // Tratamento seguro da descrição e extração da regional
+        descricao := qry.FieldByName('T2DESCRICAOCOD').AsString;
+        regional := '';
+        if descricao <> '' then
+        begin
+          posTraco := Pos('-', descricao);
+          if posTraco > 0 then
+            regional := Trim(Copy(descricao, 1, posTraco - 1))
+          else
+            regional := descricao;
+        end;
+        
         ParamByName('empresa').AsString := qry.fieldbyname('empresa').asstring;
+        ParamByName('regional').AsString := regional;
         ParamByName('site').AsString := qry1.fieldbyname('PMO_sigla').asstring;
         ParamByName('itemt2').AsString := '0';
         ParamByName('codfornecedor').AsString := qry.fieldbyname('CODFORNECEDOR').asstring;
         ParamByName('fabricante').AsString := 'TELEQUIPE';
         ParamByName('numerodocontrato').AsString := qry.fieldbyname('NUMERODOCONTRATO').asstring;
         ParamByName('t2codmatservsw').AsString := qry.fieldbyname('T2CODMATSERVSW').asstring;
-        descricao := qry.FieldByName('T2DESCRICAOCOD').AsString;
-        regional := SplitString(descricao, '-')[0];
-        ParamByName('regional').AsString := regional;
         ParamByName('t2descricaocod').AsString := descricao;
         ParamByName('vlrunitarioliqliq').asfloat := qry.fieldbyname('VLRUNITARIOLIQLIQ').AsFloat;
         ParamByName('vlrunitarioliq').asfloat := qry.fieldbyname('VLRUNITARIOLIQ').AsFloat;
@@ -2842,6 +2926,7 @@ begin
         ParamByName('datainclusao').AsDateTime := Now;
         ExecSQL;
 
+        // Atualizar numeração dos itens
         cont := 0;
         active := false;
         SQL.Clear;
@@ -2876,24 +2961,28 @@ begin
           end;
           Next;
         end;
-
       end;
 
       FConn.Commit;
-      if Length(erro) = 0 then
-        result := true
-      else
-        Result := false;
+      Result := True;
+      
     except
       on ex: exception do
       begin
-        FConn.Rollback;
+        if FConn.InTransaction then
+          FConn.Rollback;
         erro := 'Erro fazer lançamento: ' + ex.Message;
         Result := false;
       end;
     end;
   finally
-    qry.Free;
+    // Liberação segura de recursos
+    if Assigned(qry) then
+      qry.Free;
+    if Assigned(qry1) then
+      qry1.Free;
+    if Assigned(qry2) then
+      qry2.Free;
   end;
 end;
 
@@ -4459,7 +4548,7 @@ begin
       SQL.Add('acessoatividade, acessocomentario, acessooutros, acessoformaacesso, vistoriaplan, vistoriareal, docplan, docvitoriareal, req, deletado, rtt, rttdata,');
       SQL.Add('initialtunningplan, initialtunningreal, initialtunnigstatus, InitialTunningRealFinal, AprovacaoSSV, StatusAprovacaoSSV, observacaodocumentacao,');
       SQL.Add('datapostagemdocvdvm, dataexecucaodocvdvm, statusdocumentacao, datapostagemdoc, dataexecucaodoc, origem, avulso');
-      SQL.Add('FROM rolloutvivo');
+      SQL.Add('FROM rolloutvivo ');
 
 
 
@@ -5116,9 +5205,9 @@ begin
       SQL.Add('rolloutvivo.acompanhamentofisicoobservacao, ');
       SQL.Add('UPPER(rolloutvivo.StatusObra) as statusobra, ');
       SQL.Add('DATE_FORMAT(rolloutvivo.docaplan, ''%Y-%m-%d'') as docaplan, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAO, ''%Y-%m-%d'') as PMO_ACEITACAO, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAOP, ''%Y-%m-%d'') as PMO_ACEITACAO_P, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAOR, ''%Y-%m-%d'') as PMO_ACEITACAO_R, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAO, ''%Y-%m-%d'') as PMOACEITACAO, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAOP, ''%Y-%m-%d'') as PMOACEITACAOP, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAOR, ''%Y-%m-%d'') as PMOACEITACAOR, ');
       SQL.Add('rolloutvivo.OV ');
       SQL.Add(' ');
       SQL.Add('From ');

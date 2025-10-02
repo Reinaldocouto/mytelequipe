@@ -757,6 +757,7 @@ begin
             // Processa o arquivo Excel
             Writeln('[' + TimeToStr(Now) + '] Lendo dados do arquivo Excel...');
             jsonData := LerExcelParaJSON(vXLSFile);
+            Writeln(jsonData.ToString);
             try
               Writeln('[' + TimeToStr(Now) + '] Leitura concluída. Total de registros: ' + jsonData.Count.ToString);
 

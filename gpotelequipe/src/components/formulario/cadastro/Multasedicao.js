@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Col,
   Button,
@@ -551,6 +551,27 @@ Gravíss 100X
 Gravíss 30 X
 `;
 
+const DEPARTAMENTOS_TELE_EQUIPE = [
+  'ERICSSON - MG',
+  'ERICSSON - NE',
+  'ERICSSON - RJ',
+  'ERICSSON - SP',
+  'HUAWEI - MG',
+  'HUAWEI - NE',
+  'HUAWEI - RJ',
+  'HUAWEI - SP',
+  'TELEFONICA - MG',
+  'TELEFONICA - NE',
+  'TELEFONICA - NO',
+  'TELEFONICA - SP',
+  'ZTE - MG',
+  'ZTE - NE',
+  'ZTE - NO',
+  'ZTE - RJ',
+  'ZTE - SP',
+  'Site',
+];
+
 const infracaoDataLines = infracaoDataText.trim().split('\n');
 const naturezaPontuacaoLines = naturezaPontuacaoText.trim().split('\n');
 function parseNaturezaPontuacao(line) {
@@ -620,6 +641,7 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
   const [idmultas, setidmultas] = useState();
   const [nomeindicado, setnomeindicado] = useState('');
   const [placa, setplaca] = useState('');
+  const [departamento, setdepartamento] = useState('');
   const [numeroait, setnumeroait] = useState('');
   const [datainfracao, setdatainfracao] = useState('');
   const [local, setlocal] = useState('');
@@ -630,6 +652,7 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
   const [pontuacao, setpontuacao] = useState('');
   const [datacolaborador, setdatacolaborador] = useState('');
   const [statusmulta, setstatusmulta] = useState('');
+  const [idsite, setidsite] = useState('');
   const [idempresa, setidempresa] = useState('');
   const [idpessoa, setidpessoa] = useState('');
   const [selectedoptionempresa, setselectedoptionempresa] = useState(null);
@@ -638,6 +661,7 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
   const [funcionariolista, setfuncionariolista] = useState('');
   const [selectedInfracaoOption, setSelectedInfracaoOption] = useState(null);
   const [veiculoslista, setveiculoslista] = useState([]);
+  const [departamentolista, setdepartamentolista] = useState([]);
 
   const params = {
     idcliente: 1,
@@ -686,6 +710,8 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
           setpontuacao(infracaoOption.pontuacao || '');
         }
         setmensagem('');
+        setdepartamento(data.departamento)
+        setidsite(data.idsite)
       });
     } catch (err) {
       setmensagem(err.message);
@@ -808,6 +834,16 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
       return;
     }
 
+    if (!departamento || departamento.trim() === '') {
+      toast.error('O campo Departamento é obrigatório.');
+      return;
+    }
+
+    if (departamento && departamento.toLowerCase() === 'site' && (!idsite || idsite.trim() === '')) {
+      toast.error('O campo ID Site é obrigatório quando o Departamento for Site.');
+      return;
+    }
+
     // Converte datainfracao para o formato "YYYY-MM-DD HH:MM:SS"
     //const formattedDatainfracao = convertDatetimeLocalToMySQL(datainfracao);
     const formattedDataindicacao = dataindicacao ? dataindicacao.trim() : '';
@@ -832,6 +868,8 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
       idcliente: 1,
       idusuario: 1,
       idloja: 1,
+      departamento,
+      idsite: idsite ? idsite.trim() : null,
     };
 
     api
@@ -878,11 +916,32 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
       setloading(false);
     }
   };
+
+  const listadepartamento = () => {
+    const lista = DEPARTAMENTOS_TELE_EQUIPE.map((nome) => ({
+      label: nome,
+      value: nome,
+    }));
+    setdepartamentolista(lista);
+  };
+
+  const handleDepartamentoChange = useCallback((option) => {
+    const value = option?.value ?? '';
+    setdepartamento(value);
+    setidsite((prev) => (value === 'Site' ? prev : ''));
+  }, []);
+
+  const departamentoValue = useMemo(() => {
+    // evita fazer .find() inline no JSX a cada render
+    return departamentolista.find((o) => o.value === departamento) ?? null;
+  }, [departamentolista, departamento]);
+
   const iniciatabelas = () => {
     listaveiculos();
     setidmultas(ididentificador);
     listamultas();
     listaempresa();
+    listadepartamento();
   };
 
   useEffect(() => {
@@ -1085,6 +1144,33 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
                   />
                 </FormGroup>
               </Col>
+
+              <Col md="6">
+                Departamento
+                <Select
+                  isClearable
+                  isSearchable
+                  name="departamento"
+                  options={departamentolista}
+                  placeholder="Selecione"
+                  isLoading={loading}
+                  onChange={handleDepartamentoChange}
+                  value={departamentoValue}
+                />
+              </Col>
+
+              {departamento === "Site" && (
+                <Col md="6">
+                  <FormGroup>
+                    ID do Site
+                    <Input
+                      type="text"
+                      onChange={(e) => setidsite(e.target.value.toUpperCase())}
+                      value={idsite}
+                    />
+                  </FormGroup>
+                </Col>
+              )}
             </div>
           )}
         </ModalBody>

@@ -511,7 +511,7 @@ export default function Clienteericsson() {
             <Button color="link" onClick={() => fechamentoericsson()}>
               Fechamento
             </Button>
-            {permission?.ericfaturamento && (
+            {permission?.ericfaturamento === 1 && (
               <div>
                 <Button color="link" onClick={() => faturamentoericsson()}>
                   Faturamento

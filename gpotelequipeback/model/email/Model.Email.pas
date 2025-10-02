@@ -33,6 +33,7 @@ type
     Projeto: string;
     SiteId: string;
     SiglaSite: string;
+    Regional: string;
     PO: string;
     Local: string;
     Descricao: string;
@@ -498,6 +499,7 @@ var
   destinatarios: TStringList;
   i: Integer;
   projetoFormatado: string;
+  regionalFormatado: string;
 
   function FormatProjectName(const Projeto, Regional: string): string;
   var
@@ -592,7 +594,11 @@ begin
 
     // 3. Preparar o HTML do e-mail
     try
-      projetoFormatado := FormatProjectName(dadosDiaria.Projeto, dadosDiaria.SiglaSite);
+      regionalFormatado := Trim(dadosDiaria.Regional);
+      if regionalFormatado = '' then
+        regionalFormatado := Trim(dadosDiaria.SiglaSite);
+
+      projetoFormatado := FormatProjectName(dadosDiaria.Projeto, regionalFormatado);
       htmlEmail := '<!DOCTYPE html>' +
                    '<html lang="pt-BR">' +
                    '<head>' +
@@ -843,9 +849,13 @@ begin
     Query.SQL.Add('gesempresas On gesempresas.idempresa = obraericssonatividadepj.idcolaboradorpj left Join ');
     Query.SQL.Add('obraericssonmigo On obraericssonmigo.po = obraericssonatividadepj.po ');
     Query.SQL.Add('And obraericssonmigo.poritem = obraericssonatividadepj.poitem ');
-    Query.SQL.Add('And obraericssonmigo.codigoservico = obraericssonatividadepj.codigoservico where obraericssonatividadepj.email = 0 and ');
-    Query.SQL.Add('obraericssonatividadepj.deletado = 0  and idcolaboradorpj=:idcpj and obraericssonatividadepj.numero=:numero');
-    Query.SQL.Add(' ');
+    Query.SQL.Add('And obraericssonmigo.codigoservico = obraericssonatividadepj.codigoservico where idcolaboradorpj=:idcpj and obraericssonatividadepj.numero=:numero ');
+    Query.SQL.Add('and obraericssonatividadepj.deletado = 0  ');
+    //  and obraericssonatividadepj.email = 0
+
+    if Trim(ids) <> '' then
+      Query.SQL.Add('  and obraericssonatividadepj.idgeral in (' + ids + ') ');
+
     Query.SQL.Add('order by descricaoservico ');
     Query.parambyname('idcpj').asstring := idpessoa;
     Query.parambyname('numero').asstring := numero;

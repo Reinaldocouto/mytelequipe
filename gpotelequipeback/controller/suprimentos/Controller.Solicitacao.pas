@@ -185,6 +185,38 @@ var
     end;
   end;
 
+   function ResolveRegional(const Regional, Sigla: string): string;
+  begin
+    Result := Trim(Regional);
+    if Result = '' then
+      Result := Trim(Sigla);
+  end;
+
+  function FormatCurrencyBR(const Value: Double): string;
+  var
+    formatSettings: TFormatSettings;
+  begin
+    formatSettings := TFormatSettings.Create;
+    formatSettings.DecimalSeparator := ',';
+    formatSettings.ThousandSeparator := '.';
+    Result := FormatFloat('R$ #,##0.00', Value, formatSettings);
+  end;
+
+  function BuildDescricaoDiaria(const Quantidade: Integer): string;
+  var
+    valorDiaria: string;
+  begin
+    if Quantidade <= 0 then
+      Exit('');
+
+    valorDiaria := FormatCurrencyBR(VALOR_DIARIA);
+
+    if Quantidade = 1 then
+      Result := Format('%d Diria %s', [Quantidade, valorDiaria])
+    else
+      Result := Format('%d Dirias %s', [Quantidade, valorDiaria]);
+  end;
+
 begin
   servico := Tsolicitacao.Create;
   servicoEmail := Temail.Create;
@@ -196,16 +228,18 @@ begin
       servico.numero := body.GetValue<Integer>('idsolicitacao', 0);
       servico.datasolicitacao := body.GetValue<string>('datasol', '');
       servico.colaborador := body.GetValue<string>('idcolaboradorclt', '');
-      servico.nomecolaborador := body.GetValue<string>('nomecolaborador', ''); // Adicionei este campo que estava faltando
+      servico.nomecolaborador := body.GetValue<string>('nomecolaborador', '');
       servico.projeto := body.GetValue<string>('projeto', '');
       servico.siteid := body.GetValue<string>('siteid', '');
       servico.siglasite := body.GetValue<string>('siglasite', '');
+      servico.regional := body.GetValue<string>('regional', '');
       servico.podiaria := body.GetValue<string>('po', '');
       servico.local := body.GetValue<string>('local', '');
-      servico.descricao := body.GetValue<string>('descricao', '');
+      servico.diarias := body.GetValue<Integer>('diaria', 0);
+      servico.descricao := BuildDescricaoDiaria(servico.diarias);
       servico.cliente := body.GetValue<string>('cliente', '');
       servico.valoroutrassolicitacoes := body.GetValue<Double>('valorsolicitacao', 0);
-      servico.diarias := body.GetValue<Integer>('diaria', 0);
+
       servico.valortotal := (servico.diarias * VALOR_DIARIA) + servico.valoroutrassolicitacoes;
       servico.solicitante := body.GetValue<string>('solicitante', '');
 
@@ -216,7 +250,8 @@ begin
         diariaDTO.DataSolicitacao := StrToDate(servico.datasolicitacao);
         diariaDTO.Colaborador := servico.colaborador;
         diariaDTO.NomeColaborador := servico.nomecolaborador;
-        diariaDTO.Projeto := FormatProjectName(servico.projeto, servico.siglasite);
+        diariaDTO.Projeto := servico.projeto;
+        diariaDTO.Regional := servico.regional;
         diariaDTO.SiteId := servico.siteid;
         diariaDTO.SiglaSite := servico.siglasite;
         diariaDTO.PO := servico.podiaria;
@@ -228,6 +263,8 @@ begin
         diariaDTO.ValorTotal := servico.valortotal;
         diariaDTO.Solicitante := servico.solicitante;
 
+        diariaDTO.Projeto := FormatProjectName(diariaDTO.Projeto,
+          ResolveRegional(diariaDTO.Regional, diariaDTO.SiglaSite));
 
         if not servicoEmail.EnviarEmailDiaria(diariaDTO, erro) then
         begin

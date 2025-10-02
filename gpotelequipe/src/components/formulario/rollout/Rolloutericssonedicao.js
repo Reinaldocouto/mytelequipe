@@ -157,6 +157,7 @@ const Rolloutericssonedicao = ({
   const [colaboradorlistapj, setcolaboradorlistapj] = useState([]);
   const [colaboradorlistaclt, setcolaboradorlistaclt] = useState([]);
   const [rowSelectionModel, setRowSelectionModel] = useState([]);
+  const [rowSelectionModelPJ, setRowSelectionModelPJ] = useState([]);
   const [idcolaboradorpj, setidcolaboradorpj] = useState('');
   const [selectedoptioncolaboradorpj, setselectedoptioncolaboradorpj] = useState(null);
   const [lpulista, setlpulista] = useState([]);
@@ -1257,37 +1258,39 @@ const Rolloutericssonedicao = ({
 
     if (idcolaboradorpj.length === 0) {
       toast.error('Falta Selecionar o Colaborador!');
-    } else {
-      api
-        .post('v1/email/acionamentopj', {
-          destinatario: emailadcional,
-          destinatario1: colaboradoremail,
-          assunto: 'ACIONAMENTO ERICSSON',
-          cliente,
-          numero,
-          regiona,
-          site,
-          nomecolaboradorpj,
-          retanexo,
-          idpessoa: idcolaboradorpj,
-          idusuario: localStorage.getItem('sessionId'),
-        })
-        .then((response) => {
-          if (response.status === 200) {
-            toast.success('Email Enviando com Sucesso!');
-            listaatividadepj();
-          } else {
-            toast.error('Erro ao enviar a mensagem!');
-          }
-        })
-        .catch((err) => {
-          if (err.response) {
-            toast.error(err.response);
-          } else {
-            toast.error('Ocorreu um erro na requisição.');
-          }
-        });
+      return;
     }
+
+    api
+      .post('v1/email/acionamentopj', {
+        destinatario: emailadcional,
+        destinatario1: colaboradoremail,
+        assunto: 'ACIONAMENTO ERICSSON',
+        cliente,
+        numero,
+        regiona,
+        site,
+        ids: rowSelectionModelPJ.join(','),
+        nomecolaboradorpj,
+        retanexo,
+        idpessoa: idcolaboradorpj,
+        idusuario: localStorage.getItem('sessionId'),
+      })
+      .then((response) => {
+        if (response.status === 200) {
+          toast.success('Email Enviando com Sucesso!');
+          listaatividadepj();
+        } else {
+          toast.error('Erro ao enviar a mensagem!');
+        }
+      })
+      .catch((err) => {
+        if (err.response) {
+          toast.error(err.response.data || 'Erro na resposta do servidor');
+        } else {
+          toast.error('Ocorreu um erro na requisição.');
+        }
+      });
   };
 
   //abre tela de solicitação de material
@@ -1738,7 +1741,8 @@ const Rolloutericssonedicao = ({
           titulotopo={titulodiaria}
           numero={numero}
           idlocal={numero}
-          sigla={regiona}
+          sigla={site}
+          regional={regiona}
           clientelocal="ERICSSON"
           projetousual="ERICSSON"
           novo="0"
@@ -1779,6 +1783,7 @@ const Rolloutericssonedicao = ({
           numero={numero}
           idlocal={numero}
           sigla={site}
+          regional={regiona}
           clientelocal={cliente}
         />
       ) : null}
@@ -2460,6 +2465,12 @@ const Rolloutericssonedicao = ({
                 Pagination: CustomPagination,
                 LoadingOverlay: LinearProgress,
                 NoRowsOverlay: CustomNoRowsOverlay,
+              }}
+              checkboxSelection
+              onRowSelectionModelChange={(newRowSelectionModel) => {
+                console.log('HERE');
+                console.log(newRowSelectionModel);
+                setRowSelectionModelPJ(newRowSelectionModel);
               }}
               localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
               paginationModel={paginationModelatividadepj}

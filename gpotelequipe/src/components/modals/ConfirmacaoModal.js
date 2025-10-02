@@ -37,6 +37,8 @@ export default function ConfirmaModal({ open, quantity, onConfirm, onCancel, cam
     dtreal: 'DT Real',
     acompanhamentofisicoobservacao: 'Acompanhamento Físico Observação',
     rollout: 'Rollout',
+    pmoaceitacaop: 'PMO Aceitação Plan',
+    pmoaceitacaor: 'PMO Aceitação Real',
     acionamento: 'Acionamento',
   };
   const [disabledConfirmButton, setDisabledConfirmButton] = useState(false);

@@ -101,14 +101,14 @@ const Rollouttelefonica = ({ setshow, show }) => {
       ],
     },
     // { field: 'id', headerName: 'ID', width: 80, align: 'center' },
-    {
+    /* {
       field: 'pmts',
       headerName: 'PMTS',
       width: 80,
       align: 'center',
       type: 'string',
       editable: false,
-    },
+    }, */
     {
       field: 'sytex',
       headerName: 'SYTEX',
@@ -133,32 +133,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
       type: 'string',
       editable: false,
     },
-    {
-      field: 'pmoaceitacaop',
-      headerName: 'PMO - ACEITACAO P',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
-    {
-      field: 'pmoaceitacaor',
-      headerName: 'PMO - ACEITACAO R',
-      width: 200,
-      align: 'left',
-      type: 'date',
-      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
-      editable: false,
-    },
+    
     {
       field: 'uididpmts',
       headerName: 'UID - IDPMTS',
@@ -550,6 +525,32 @@ const Rollouttelefonica = ({ setshow, show }) => {
       renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
     {
+      field: 'pmoaceitacaop',
+      headerName: 'PMO - ACEITACAO PLAN',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
+      field: 'pmoaceitacaor',
+      headerName: 'PMO - ACEITACAO REAL',
+      width: 200,
+      align: 'left',
+      type: 'date',
+      valueGetter: (parametros) => (parametros.value ? new Date(parametros.value) : null),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
+      editable: false,
+    },
+    {
       field: 'acionamento',
       headerName: 'Acionamento',
       width: 250,
@@ -647,6 +648,70 @@ const Rollouttelefonica = ({ setshow, show }) => {
       type: 'string',
       editable: false,
     },
+    {
+      field: 't2instalacao',
+      headerName: 'T2 INSTALAÇÃO',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'numerodareq',
+      headerName: 'NUMERO DA REQ',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'numerot2',
+      headerName: 'NUMERO T2',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'pedido',
+      headerName: 'PEDIDO',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 't2vistoria',
+      headerName: 'T2 VISTORIA',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'numerodareqvistoria',
+      headerName: 'NUMERO DA REQ',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'numerot2vistoria',
+      headerName: 'NUMERO T2',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'pedidovistoria',
+      headerName: 'PEDIDO',
+      width: 200,
+      align: 'left',
+      type: 'string',
+      editable: false,
+    },
   ];
 
   function CustomNoRowsOverlay() {
@@ -705,8 +770,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
       SYTEX: item.sytex,
       'PMO REF': item.pmoref,
       CATEGORIA: item.pmocategoria,
-      'PMO ACEITACAO P': formatarDataCompleta(item.pmoaceitacaop),
-      'PMO ACEITACAO R': formatarDataCompleta(item.pmoaceitacaor),
       UF: item.pmouf,
       'SIGLA PMO': item.pmosigla,
       'SIGLA UF': item.ufsigla,
@@ -730,7 +793,11 @@ const Rollouttelefonica = ({ setshow, show }) => {
       'LIB SITE P': formatarDataCompleta(item.regionallibsitep),
       'LIB SITE R': formatarDataCompleta(item.regionallibsiter),
       'EQUIPAMENTO ENTREGA P': formatarDataCompleta(item.equipamentoentregap),
-
+      'T2 INSTALAÇÃO': item.t2instalacao,
+      REQ: item.numerodareq,
+      T2: item.numerot2,
+      PEDIDO: item.pedido,
+      'VISTORIA T2': item.t2vistoria,
       DETENTORA: item.rsorsadetentora,
       'CÓDIGO DETENTORA': item.rsorsaiddetentora,
       'RSORSA SCI': item.rsorsasci,
@@ -744,6 +811,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
       FREQ: item.pmofreqequip,
       'CPOM RF': item.uididcpomrf,
       ROLLOUT: item.rollout,
+      'PMO ACEITACAO PLAN': formatarDataCompleta(item.pmoaceitacaop),
+      'PMO ACEITACAO REAL': formatarDataCompleta(item.pmoaceitacaor),
       ACIONAMENTO: item.acionamento,
       'NOME DO SITE': item.nomedosite,
       ENDEREÇO: item.endereco,
@@ -1096,6 +1165,38 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       color: 'white',
                     },
                     "& .MuiDataGrid-columnHeader[data-field='acionamento']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='t2instalacao']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='numerodareq']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='numerot2']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='pedido']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='t2vistoria']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='numerodareqvistoria']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='numerot2vistoria']": {
+                      backgroundColor: '#2196f3', // Azul
+                      color: 'white',
+                    },
+                    "& .MuiDataGrid-columnHeader[data-field='pedidovistoria']": {
                       backgroundColor: '#2196f3', // Azul
                       color: 'white',
                     },

@@ -2168,8 +2168,10 @@ const HuaweiEdicao = ({
                                     //ver o que é isso aqui:
                                     novo="1"
                                     numero={numero}
-                                    oslocal={os}
+                                    
                                     projetousual="HUAWEI"
+                                    sigla={sitecode}
+                                    regional={region}
                                   />
                                 ) : null}
                                 {telacadastroedicaosolicitacao ? (
@@ -2630,6 +2632,8 @@ const HuaweiEdicao = ({
                                     //ver o que é isso aqui:
                                     novo="1"
                                     numero={numero}
+                                    sigla={sitecode}
+                                    regional={region}
                                   />
                                 ) : null}
                                 {telacadastroedicaosolicitacao ? (

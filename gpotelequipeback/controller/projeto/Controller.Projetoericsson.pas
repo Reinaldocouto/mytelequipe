@@ -650,6 +650,7 @@ begin
       else
         servico.idcolaboradorpj := 0;
 
+      servico.poitem := body.getvalue<string>('selecao', '');
       servico.po := body.getvalue<string>('selecao', '');
       servico.observacaopj := body.getvalue<string>('observacaopj', '');
 

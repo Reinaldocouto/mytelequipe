@@ -26,14 +26,13 @@ begin
   THorse.post('v1/multas/novocadastro', Novocadastro);
 end;
 
-// Fun��o para converter a data em m�ltiplos formatos
 function TentarConverterData(const DataStr: string; out DataConvertida: TDateTime): Boolean;
 const
   Formatos: array[0..3] of string = (
-    'dd/mm/yyyy',         // Formato padr�o brasileiro
-    'dd/mm/yyyy hh:nn:ss',// Com hor�rio
-    'yyyy-mm-dd',         // ISO
-    'yyyy-mm-dd hh:nn:ss' // ISO com hor�rio
+    'dd/mm/yyyy',
+    'dd/mm/yyyy hh:nn:ss',
+    'yyyy-mm-dd',
+    'yyyy-mm-dd hh:nn:ss'
   );
 var
   I: Integer;
@@ -43,14 +42,13 @@ begin
   begin
     try
       DataConvertida := StrToDateTime(DataStr);
-      Exit(True); // Se converter, retorna sucesso
+      Exit(True);
     except
-      Continue; // Tenta pr�ximo formato se falhar
+      Continue;
     end;
   end;
 end;
 
-// Busca multas por placa e data da infra��o
 procedure BuscaMultaPorPlacaData(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TMultas;
@@ -69,21 +67,18 @@ begin
   placa := Req.Query.Field('placa').AsString;
   datainfracao := Req.Query.Field('datainfracao').AsString;
 
-  // Valida par�metros obrigat�rios
   if (placa = '') or (datainfracao = '') then
   begin
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Placa e data da infra��o s�o obrigat�rios')).Status(THTTPStatus.BadRequest);
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Placa e data da infração são obrigatórios')).Status(THTTPStatus.BadRequest);
     Exit;
   end;
 
-  // Tenta converter a data para garantir compatibilidade com o banco
   if not TentarConverterData(datainfracao, DataConvertida) then
   begin
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Formato de data inv�lido. Use DD/MM/AAAA')).Status(THTTPStatus.BadRequest);
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Formato de data inválido. Use DD/MM/AAAA')).Status(THTTPStatus.BadRequest);
     Exit;
   end;
 
-  // Busca no banco
   qry := servico.BuscaPorPlacaData(placa, FormatDateTime('yyyy-mm-dd hh:nn:ss', DataConvertida), erro);
   try
     if erro = '' then
@@ -200,7 +195,6 @@ begin
       body := Req.Body<TJSONObject>;
       servico.idsMultas := body.GetValue<string>('ids', '');
 
-
       if servico.TransformaDebitado(erro) then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', 'Salvo com sucesso')).Status(THTTPStatus.Created)
       else
@@ -219,30 +213,59 @@ var
   servico: TMultas;
   body: TJSONValue;
   erro: string;
+  vIdSite: TJSONValue;
+  sIdSite: string;
 begin
   servico := TMultas.Create;
   try
     try
       body := Req.Body<TJSONObject>;
+
       servico.idcliente := body.GetValue<Integer>('idcliente', 0);
       servico.idloja := body.GetValue<Integer>('idloja', 0);
       servico.idmultas := body.GetValue<Integer>('idmultas', 0);
       servico.idempresa := body.GetValue<Integer>('idempresa', 0);
       servico.idpessoa := body.GetValue<Integer>('idpessoa', 0);
+
       servico.numeroait := body.getvalue<string>('numeroait', '');
-      servico.pontuacao:= body.GetValue<Integer>('pontuacao', 0);
-     //servico.nomeindicado:=
-      servico.placa:= body.getvalue<string>('placa', '') ;
-      servico.datainfracao:= body.getvalue<string>('datainfracao', '') ;
-      servico.local:= body.getvalue<string>('local', '') ;
-      servico.infracao:= body.getvalue<string>('infracao', '') ;
-      servico.valor:= body.getvalue<string>('valor', '') ;
-      servico.dataindicacao:= body.getvalue<string>('dataindicacao', '') ;
-      servico.natureza:=  body.getvalue<string>('natureza', '') ;
-      servico.datacolaborador:= body.getvalue<string>('datacolaborador', '') ;
-      servico.statusmulta:=  body.getvalue<string>('statusmulta', '') ;
+      servico.pontuacao := body.GetValue<Integer>('pontuacao', 0);
+      servico.placa := body.getvalue<string>('placa', '');
+      servico.datainfracao := body.getvalue<string>('datainfracao', '');
+      servico.local := body.getvalue<string>('local', '');
+      servico.infracao := body.getvalue<string>('infracao', '');
+      servico.valor := body.getvalue<string>('valor', '');
+      servico.dataindicacao := body.getvalue<string>('dataindicacao', '');
+      servico.natureza :=  body.getvalue<string>('natureza', '');
+      servico.datacolaborador := body.getvalue<string>('datacolaborador', '');
+      servico.statusmulta :=  body.getvalue<string>('statusmulta', '');
 
+      // novos campos
+      servico.departamento := body.getvalue<string>('departamento', '');
 
+      // idsite pode vir null -> converte para '' aqui; Model envia NULL se aplicável
+      sIdSite := '';
+      if body.TryGetValue<TJSONValue>('idsite', vIdSite) then
+      begin
+        if not (vIdSite is TJSONNull) then
+          sIdSite := body.GetValue<string>('idsite', '');
+      end
+      else if body.TryGetValue<TJSONValue>('siteId', vIdSite) then
+      begin
+        if not (vIdSite is TJSONNull) then
+          sIdSite := body.GetValue<string>('siteId', '');
+      end;
+      servico.idsite := sIdSite;
+
+      // valida: se "Site", idsite obrigatório
+      if SameText(Trim(servico.departamento), 'Site') and (Trim(servico.idsite) = '') then
+      begin
+        Res.Send<TJSONObject>(
+          CreateJsonObj('erro', 'ID do Site é obrigatório quando Departamento = Site.')
+        ).Status(THTTPStatus.BadRequest);
+        Exit;
+      end;
+
+      // se NÃO for Site, model gravará NULL (Clear) — manter string vazia aqui é ok
 
       if servico.Editar(erro) then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', 'Salvo com sucesso')).Status(THTTPStatus.Created)
@@ -257,6 +280,4 @@ begin
   end;
 end;
 
-
 end.
-

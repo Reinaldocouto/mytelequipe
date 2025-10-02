@@ -1736,6 +1736,7 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
             numero={numero}
             idlocal={numero}
             sigla={site}
+            regional={regiona}
             clientelocal={cliente}
           />
         ) : null}
@@ -2604,6 +2605,9 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                     //ver o que é isso aqui:
                                     novo="1"
                                     numero={numero}
+                                    sigla={site}
+                                    regional={regiona}
+                                    clientelocal={cliente}
                                   />
                                 ) : null}
                                 {telacadastroedicaosolicitacao ? (
@@ -3036,6 +3040,9 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                     //ver o que é isso aqui:
                                     novo="1"
                                     numero={numero}
+                                    sigla={site}
+                                    regional={regiona}
+                                    clientelocal={cliente}
                                   />
                                 ) : null}
                                 {telacadastroedicaosolicitacao ? (

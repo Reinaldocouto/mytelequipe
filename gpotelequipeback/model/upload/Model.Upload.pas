@@ -486,80 +486,80 @@ begin
     qry.Free;
   end;
 end;
+
 function TUpload.InserirAtualizarMigo(const jsonData: TJSONArray; out erro: string): Integer;
 var
   qry: TFDQuery;
-  i, poInt: Int64;
+  i: Integer;
+  poInt: Int64;
   jsonObject: TJSONObject;
   poStr: string;
   tempDate: TDateTime;
   tempFloat: Double;
   jsonValue: TJSONValue;
-  requiredKeys: array of string;
-  key: string;
   analiseStr: string;
+  createdConn: Boolean;
+  fs: TFormatSettings;
+  sNorm: string;
 begin
   Result := 0;
   erro := '';
 
-  // 🔹 Validação do JSON
   if (jsonData = nil) or (jsonData.Count = 0) then
   begin
     erro := 'JSON vazio ou inválido.';
     Exit;
   end;
 
-  // 🔹 Inicializa a conexão se não estiver atribuída
+  createdConn := False;
   if not Assigned(FConn) then
   begin
     FConn := TConnection.CreateConnection;
+    createdConn := True;
   end;
 
   qry := TFDQuery.Create(nil);
   try
-
     qry.Connection := FConn;
+
+    fs := TFormatSettings.Create;
+    fs.DecimalSeparator := '.';
+
     FConn.StartTransaction;
     try
-
-      // 🔹 Limpa tabela antes de inserir novos registros
       qry.SQL.Text := 'DELETE FROM atualizacaomigo';
       qry.ExecSQL;
-      FConn.Commit;
+
       qry.SQL.Clear;
+      qry.SQL.Add('INSERT INTO atualizacaomigo (po, poritem, datacriacaopo, siteid, codigoservico, id, ');
+      qry.SQL.Add('descricaoservico, vendorno, vendorname, datamigo, nmigo, qtdmigo, ');
+      qry.SQL.Add('datamiro, nmiro, qtdmiro, poativa, poaprovada, classificacaopo, statuspo, ');
+      qry.SQL.Add('codigocliente, estado, cidade, qtyordered, medidafiltro, medidafiltrounitario, ');
+      qry.SQL.Add('statusobranew, escopo, sigla, valorafaturar, analise, FAT) ');
+      qry.SQL.Add('VALUES (:po, :poritem, :datacriacaopo, :siteid, :codigoservico, :id, ');
+      qry.SQL.Add(':descricaoservico, :vendorno, :vendorname, :datamigo, :nmigo, :qtdmigo, ');
+      qry.SQL.Add(':datamiro, :nmiro, :qtdmiro, :poativa, :poaprovada, :classificacaopo, :statuspo, ');
+      qry.SQL.Add(':codigocliente, :estado, :cidade, :qtyordered, :medidafiltro, :medidafiltrounitario, ');
+      qry.SQL.Add(':statusobranew, :escopo, :sigla, :valorafaturar, :analise, :fat)');
+      qry.Prepare;
+
       for i := 0 to jsonData.Count - 1 do
       begin
         jsonObject := jsonData.Items[i] as TJSONObject;
         if jsonObject = nil then
-          Continue; // Ignora se for inválido
+          Continue;
 
-        // 🔹 Validação do PO
         if not jsonObject.TryGetValue<string>('PO', poStr) or not TryStrToInt64(poStr, poInt) then
         begin
           erro := Format('PO inválido na linha %d: %s. Registro ignorado.', [i + 1, poStr]);
-          Continue; // Apenas pula para o próximo item, sem sair da função
+          Continue;
         end;
-        qry.SQL.Clear;
-        qry.SQL.Add('INSERT INTO atualizacaomigo (po, poritem, datacriacaopo, siteid, codigoservico, id, ');
-        qry.SQL.Add('descricaoservico, vendorno, vendorname, datamigo, nmigo, qtdmigo, ');
-        qry.SQL.Add('datamiro, nmiro, qtdmiro, poativa, poaprovada, classificacaopo, statuspo, ');
-        qry.SQL.Add('codigocliente, estado, cidade, qtyordered, medidafiltro, medidafiltrounitario, ');
-        qry.SQL.Add('statusobranew, escopo, sigla, valorafaturar, analise, FAT) ');
-        qry.SQL.Add('VALUES (:po, :poritem, :datacriacaopo, :siteid, :codigoservico, :id,');
-        qry.SQL.Add(':descricaoservico, :vendorno, :vendorname, :datamigo, :nmigo, :qtdmigo, ');
-        qry.SQL.Add(':datamiro, :nmiro, :qtdmiro, :poativa, :poaprovada, :classificacaopo, :statuspo, ');
-        qry.SQL.Add(':codigocliente, :estado, :cidade, :qtyordered, :medidafiltro, :medidafiltrounitario, ');
-        qry.SQL.Add(':statusobranew, :escopo, :sigla, :valorafaturar, :analise, :fat)');
 
-        // 🔹 Mapeamento de parâmetros
-        qry.ParamByName('po').AsInteger := poInt;
+        qry.ParamByName('po').AsLargeInt := poInt;
         qry.ParamByName('poritem').AsString := jsonObject.GetValue<string>('PO+Item', '');
-        qry.ParamByName('datacriacaopo').DataType := ftDateTime;
-        // Validação de Data
+
         if jsonObject.TryGetValue<string>('Data Criação PO', poStr) and TryStrToDate(poStr, tempDate) then
-        begin
           qry.ParamByName('datacriacaopo').AsDateTime := tempDate
-        end
         else
           qry.ParamByName('datacriacaopo').Clear;
 
@@ -569,60 +569,42 @@ begin
         qry.ParamByName('descricaoservico').AsString := jsonObject.GetValue<string>('Descrição Serviço', '');
         qry.ParamByName('vendorno').AsString := jsonObject.GetValue<string>('Vendor No', '');
         qry.ParamByName('vendorname').AsString := jsonObject.GetValue<string>('Vendor Name', '');
-        qry.ParamByName('qtdmigo').DataType := ftFloat;
-        qry.ParamByName('datamiro').DataType := ftDateTime;
-        qry.ParamByName('nmiro').DataType := ftString;
-        qry.ParamByName('qtdmiro').DataType := ftFloat;
-        qry.ParamByName('qtyordered').DataType := ftFloat;
-        jsonValue := jsonObject.GetValue('Data MIGO');
-        qry.ParamByName('datamigo').DataType := ftDateTime;
-        qry.ParamByName('fat').AsString := 'SELECIONE';
 
-
-        if Assigned(jsonValue) and (jsonValue is TJSONString) then
-        begin
-          poStr := TJSONString(jsonValue).Value;
-          if TryStrToDate(poStr, tempDate) then
-            qry.ParamByName('datamigo').AsDateTime := tempDate
-          else
-            qry.ParamByName('datamigo').Clear;
-        end
+        // Data MIGO
+        if jsonObject.TryGetValue<string>('Data MIGO', poStr) and TryStrToDate(poStr, tempDate) then
+          qry.ParamByName('datamigo').AsDateTime := tempDate
         else
           qry.ParamByName('datamigo').Clear;
 
         qry.ParamByName('nmigo').AsString := jsonObject.GetValue<string>('Nº MIGO', '');
 
-        // Validação de Float
+        // Qtd MIGO
         if jsonObject.TryGetValue<string>('Qtd MIGO', poStr) then
         begin
-          if TryStrToFloat(poStr, tempFloat) then
-          begin
+          sNorm := StringReplace(poStr, '.', '', [rfReplaceAll]);
+          sNorm := StringReplace(sNorm, ',', '.', [rfReplaceAll]);
+          if TryStrToFloat(sNorm, tempFloat, fs) then
             qry.ParamByName('qtdmigo').AsFloat := tempFloat
-          end
           else
             qry.ParamByName('qtdmigo').Clear;
         end
         else
           qry.ParamByName('qtdmigo').Clear;
 
-        // Validação de Data para MIRO
-        if jsonObject.TryGetValue<string>('Data MIRO', poStr) then
-        begin
-          if TryStrToDate(poStr, tempDate) then
-            qry.ParamByName('datamiro').AsDateTime := tempDate
-          else
-            qry.ParamByName('datamiro').Clear;
-        end
+        // Data MIRO
+        if jsonObject.TryGetValue<string>('Data MIRO', poStr) and TryStrToDate(poStr, tempDate) then
+          qry.ParamByName('datamiro').AsDateTime := tempDate
         else
           qry.ParamByName('datamiro').Clear;
 
         qry.ParamByName('nmiro').AsString := jsonObject.GetValue<string>('Nº MIRO', '');
 
-
-        // Validação de Float
+        // Qtd MIRO
         if jsonObject.TryGetValue<string>('Qtd MIRO', poStr) then
         begin
-          if TryStrToFloat(poStr, tempFloat) then
+          sNorm := StringReplace(poStr, '.', '', [rfReplaceAll]);
+          sNorm := StringReplace(sNorm, ',', '.', [rfReplaceAll]);
+          if TryStrToFloat(sNorm, tempFloat, fs) then
             qry.ParamByName('qtdmiro').AsFloat := tempFloat
           else
             qry.ParamByName('qtdmiro').Clear;
@@ -630,10 +612,12 @@ begin
         else
           qry.ParamByName('qtdmiro').Clear;
 
-          // Validação de 'Qty ordered' - verifica se a chave existe e se pode ser convertida para Float
+        // Qty ordered
         if jsonObject.TryGetValue<string>('Qty ordered', poStr) then
         begin
-          if TryStrToFloat(poStr, tempFloat) then
+          sNorm := StringReplace(poStr, '.', '', [rfReplaceAll]);
+          sNorm := StringReplace(sNorm, ',', '.', [rfReplaceAll]);
+          if TryStrToFloat(sNorm, tempFloat, fs) then
             qry.ParamByName('qtyordered').AsFloat := tempFloat
           else
             qry.ParamByName('qtyordered').Clear;
@@ -641,20 +625,23 @@ begin
         else
           qry.ParamByName('qtyordered').Clear;
 
-      if (qry.ParamByName('nmigo').AsString <> '') and
-         (not qry.ParamByName('qtdmigo').IsNull) and
-         (qry.ParamByName('nmiro').AsString <> '') and
-         (not qry.ParamByName('qtdmiro').IsNull) then
-      begin
-        if SameValue(qry.ParamByName('qtdmigo').AsFloat,
-                     qry.ParamByName('qtdmiro').AsFloat, 0.0001) then
-          analiseStr := 'OK'
+        // Análise
+        if (qry.ParamByName('nmigo').AsString <> '') and
+           (not qry.ParamByName('qtdmigo').IsNull) and
+           (qry.ParamByName('nmiro').AsString <> '') and
+           (not qry.ParamByName('qtdmiro').IsNull) then
+        begin
+          if SameValue(qry.ParamByName('qtdmigo').AsFloat,
+                       qry.ParamByName('qtdmiro').AsFloat, 0.0001) then
+            analiseStr := 'OK'
+          else
+            analiseStr := 'NOK';
+        end
         else
           analiseStr := 'NOK';
-      end
-      else
-        analiseStr := 'NOK';
         qry.ParamByName('analise').AsString := analiseStr;
+
+        // Strings restantes
         qry.ParamByName('poativa').AsString := jsonObject.GetValue<string>('PO Ativa', '');
         qry.ParamByName('poaprovada').AsString := jsonObject.GetValue<string>('PO Aprovada', '');
         qry.ParamByName('classificacaopo').AsString := jsonObject.GetValue<string>('ClassificaçãoPO', '');
@@ -668,11 +655,10 @@ begin
         qry.ParamByName('statusobranew').AsString := jsonObject.GetValue<string>('Status Obra New', '');
         qry.ParamByName('escopo').AsString := jsonObject.GetValue<string>('Escopo', '');
         qry.ParamByName('sigla').AsString := jsonObject.GetValue<string>('Sigla', '');
+        qry.ParamByName('fat').AsString := '';
 
         qry.ExecSQL;
       end;
-
-      // 🔹 Finaliza a transação
 
       if not migoparareal then
         raise Exception.Create('Falha ao executar procedure AtualizaMigo');
@@ -680,21 +666,26 @@ begin
       FConn.Commit;
       Result := jsonData.Count;
 
-
     except
       on E: Exception do
       begin
-        erro := 'Erro ao inserir dados na linha ' + IntToStr(i + 1) + ': ' + E.Message;
-        Writeln(erro);
-        FConn.Rollback;
+        try
+          FConn.Rollback;
+        except
+        end;
+        erro := Format('Erro ao inserir dados (linha ~%d): %s',
+          [i + 1, E.ClassName + ': ' + E.Message]);
         Result := 0;
       end;
     end;
   finally
-    if FConn <> nil then FConn.Free;
     qry.Free;
+    if createdConn and Assigned(FConn) then
+      FreeAndNil(FConn);
   end;
 end;
+
+
 
 function TUpload.InserirMonitoramento(const jsonData: TJSONArray; out erro: string): Integer;
 var
@@ -1360,9 +1351,10 @@ begin
       jsonObj := jsonArray.Items[i] as TJSONObject;
       erro := '';
 
+
       try
         // Prepara a query para cada registro
-        qry.SQL.Text := 'INSERT INTO pmtsvivo (' + 'PROCESS_TIME, DATA_MODIFICACAO, PMTS, SYTEX, UID_IDPMTS, UID_IDENG, UID_IDMASTER, ' + 'UID_UFSIGLA, UID_IDCPOMRF, UID_IDCPOMIE, PMO_SIGLA, PMO_UF, ' + 'PMO_REGIONAL, PMO_DIVISAO, PMO_GESTAO, UID_IBGE, IBGE_MUNICIPIO, ' + 'IBGE_CAPITAL, SIGLA_HOTEL_DE_BTS, FLG_RRU_REMOTA, MASTERSITE_COBERTURA, ' + 'PMO_CARIMBO_CENTRALIZADO, MASTER_CARIMBO, REGIONAL_CARIMBO, PMO_CARIMBO_BASELINE, ' + 'PMO_BASELINE, ANALISE_CARIMBO, EAP_AUTOMATICA, REGIONAL_RISCO, REGIONAL_EAP_CRITICA, '
+        qry.SQL.Text := 'INSERT INTO pmtsvivo (' + 'PROCESS_TIME, DATA_MODIFICACAO, UID_IDPMTS, UID_IDENG, UID_IDMASTER, ' + 'UID_UFSIGLA, UID_IDCPOMRF, UID_IDCPOMIE, PMO_SIGLA, PMO_UF, ' + 'PMO_REGIONAL, PMO_DIVISAO, PMO_GESTAO, UID_IBGE, IBGE_MUNICIPIO, ' + 'IBGE_CAPITAL, SIGLA_HOTEL_DE_BTS, FLG_RRU_REMOTA, MASTERSITE_COBERTURA, ' + 'PMO_CARIMBO_CENTRALIZADO, MASTER_CARIMBO, REGIONAL_CARIMBO, PMO_CARIMBO_BASELINE, ' + 'PMO_BASELINE, ANALISE_CARIMBO, EAP_AUTOMATICA, REGIONAL_RISCO, REGIONAL_EAP_CRITICA, '
           + 'UPDATE_EAP_CRITICA, REGIONAL_EAP_RESPONSAVEL, REGIONAL_EAP_OFENSOR, REGIONAL_EAP_ACAO, ' + 'PMO_REF, PMO_DATA_INCLUSAO, PMO_DATA_EXCLUSAO, MASTEROBRA_FREEZING, MASTEROBRA_STATUS_ROLLOUT, ' + 'PMO_CARIMBO_CENTRAL_QUARTER, PMO_ROLLOUT_OVBK, MASTEROBRA_PRIO_ENG, ENG_PARAM_OK, ' + 'ENG_PARAM_NOK, VENDOR_EQUIPAMENTO, VENDOR_VISTORIA, VENDOR_PROJETO, VENDOR_INSTALADOR, ' + 'VENDOR_INTEGRADOR, PMO_TECN_EQUIP, PMO_FREQ_EQUIP, PMO_TIPO_INTERV, PMO_TIPO_INTERV_2, ' +
           'PMO_TIPO_OBRA, PMO_TIPO_PMTS, PMO_CATEGORIA, COMPROMISSADO_SRF, FATURADO_SRF, ' + 'EMITIDO_SRF, ENG_FORNECEDOR_INFRA, ENG_STATUS_DISPARO_INFRA, ENG_GABINETE_NOVO, ' + 'ENG_GRADIL_GABINETE, ENG_DETENTORA_GABINETE, ENG_TIPO_GABINETE, ENG_STEP_GABINETE, ' + 'ENG_FABRICANTE_GABINETE, EQUIPAMENTO_STATUS_PO, VISTORIA_STATUS_PO, PROJETO_STATUS_PO, ' + 'INSTALADOR_STATUS_PO, INTEGRADOR_STATUS_PO, MASTEROBRA_SRF, MASTEROBRA_AVALIACAO_DE_TX, ' +
           'MASTEROBRA_OBSERVACAO_TX, MASTEROBRA_ANO_ACAO_INVERSORA, MASTEROBRA_MEGA_PROJETO, ' + 'MASTEROBRA_OBJ_ENG, ENG_OBJ_MACRO, MASTEROBRA_OBS, MASTERSITE_OBS, PMO_ANO, ' + 'PMO_CLASSIFICACAO, PMO_MEGA, PMO_MIMO_MASSIVE, PMO_NOVO_REF_REPORT, PMO_PEP_RF, ' + 'PMO_PROJETO, PMO_REFERENCIA_REPORT, PMO_RISCO_AUT, PMO_SUB_PROJETO, TX_FLAG_ATIVACAO, ' + 'REGIONAL_OFENSOR_DETALHE, REGIONAL_OFENSOR_MACRO, REGIONAL_OFENSOR_MICRO, REGIONAL_PRIO_REG, ' +
@@ -1372,12 +1364,12 @@ begin
           'STATUS_ESTEIRA_PO, INTEGRADOR_ALARME_PRE_EXIST, INTEGRADOR_LOCAL_GABINETE_TECN, ' + 'RSO_DISPARO_P, DEADLINE_DISPARO, RSO_DISPARO_R, RSO_SAR_P, DEADLINE_SAR, RSO_SAR_R, ' + 'RSO_QUALIFICACAO_P, DEADLINE_QUALIFICACAO, RSO_QUALIFICACAO_R, RSO_CONTRATACAO_P, ' + 'DEADLINE_CONTRATACAO, RSO_CONTRATACAO_R, PMO_ABERT_SCI_P, DEADLINE_ABERT_SCI, ' + 'RSO_RSA_ABERT_SCI_R, RSO_RSA_LIB_SCI_P, DEADLINE_LIB_SCI, RSO_RSA_LIB_SCI_R, ' +
           'RSO_RSA_AQUISICAO_P, RSO_RSA_AQUISICAO_R, VISTORIA_VIST_PE_P, DEADLINE_VISTORIA, ' + 'VISTORIA_VIST_PE_R, PROJETO_WR_ENV_P, DEADLINE_WR_ENV, PROJETO_WR_ENV_R, ' + 'RSO_RSA_PROJ_EXEC_P, DEADLINE_PROJ_EXEC, RSO_RSA_PROJ_EXEC_R, PMO_WR_APROV_P, ' + 'DEADLINE_WR_APROV, PROJETO_WR_APROV_R, PROJETO_PPI_P, PROJETO_PPI_R, PMO_T2_DT_P, ' + 'DEADLINE_T2, MAX_T2_DT_R, EQUIPAMENTO_T2_DT_R, EQUIPAMENTO_T4_DT_R, VISTORIA_T2_DT_R, ' + 'VISTORIA_T4_DT_R, PROJETO_T2_DT_R, PROJETO_T4_DT_R, INSTALADOR_T2_DT_R, ' +
           'INSTALADOR_T4_DT_R, INTEGRADOR_T2_DT_R, INTEGRADOR_T4_DT_R, DATA_CRIACAO_PEDIDO, ' + 'OBRA_INICIO_P, DEADLINE_OBRA_INICIO, OBRA_INICIO_R, GABINETE_P, GABINETE_R, ' + 'RSO_RFI_P, RSO_RFI_R, REGIONAL_OBRA_FIM_P, REGIONAL_OBRA_FIM_R, OBRA_FIM_P, ' + 'DEADLINE_OBRA_FIM, OBRA_FIM_R, REGIONAL_LIB_SITE_P, DEADLINE_LIB_SITE, ' + 'REGIONAL_LIB_SITE_R, EQUIPAMENTO_ENTREGA_P, DEADLINE_ENTREGA, EQUIPAMENTO_ENTREGA_R, ' + 'INSTALADOR_RECEBIMENTO_P, INSTALADOR_RECEBIMENTO_R, EQUIPAMENTO_DISP_LIC_R, ' +
-'INTEGRADOR_CHECK_LIC_R, INSTALADOR_INSTALACAO_P, DEADLINE_INSTALACAO, ' + 'INSTALADOR_INSTALACAO_R, TX_OBRA_P, TX_OBRA_R, TX_CIRCUITO_P, DEADLINE_TX_CIRCUITO, ' + 'TX_CIRCUITO_R, INTEGRADOR_INTEGRACAO_P, DEADLINE_INTEGRACAO, INTEGRADOR_INTEGRACAO_R, ' + 'INTEGRADOR_ATIVACAO_P, DEADLINE_ATIVACAO, INTEGRADOR_ATIVACAO_R, INTEGRADOR_ACEITACAO_R, ' + 'INTEGRADOR_ENV_LOG_ATIV_R, REGIONAL_PRE_ACEITE_R, PMO_ACEITACAO, PMO_ACEITACAO_P, PMO_ACEITACAO_R, ' +
-          'VALID_SITE_NOVO, VALID_AQUISICAO, VALID_ABERT_SCI, VALID_LIB_SCI, VALID_VIST_PE, ' + 'VALID_RSO_RSA_PROJ_EXEC, VALID_RSO_VALID_RELATORIO_CRITICO, VALID_RSO_VALID_ON_HOLD, ' + 'VALID_WR_ENV, VALID_WR_APROV, PROJETO_WR_STEP_APROV, VALID_PRECISA_PARAM, ' + 'VALID_ENG_PARAM, VALID_SIGLA_PORTADORA, VALID_PPI, VALID_LICENCIAMENTO, ' +
+          'INTEGRADOR_CHECK_LIC_R, INSTALADOR_INSTALACAO_P, DEADLINE_INSTALACAO, ' + 'INSTALADOR_INSTALACAO_R, TX_OBRA_P, TX_OBRA_R, TX_CIRCUITO_P, DEADLINE_TX_CIRCUITO, ' + 'TX_CIRCUITO_R, INTEGRADOR_INTEGRACAO_P, DEADLINE_INTEGRACAO, INTEGRADOR_INTEGRACAO_R, ' + 'INTEGRADOR_ATIVACAO_P, DEADLINE_ATIVACAO, INTEGRADOR_ATIVACAO_R, INTEGRADOR_ACEITACAO_R, ' + 'INTEGRADOR_ENV_LOG_ATIV_R, REGIONAL_PRE_ACEITE_R, VALID_RSO_POLIGONO, VALID_RSO_DISPARO, ' +
+          'VALID_RSO_DEF_MODALIDADE, VALID_RSO_SAR, VALID_RSO_QUALIFICACAO, VALID_RSO_CONTRATACAO, ' + 'VALID_SITE_NOVO, VALID_AQUISICAO, VALID_ABERT_SCI, VALID_LIB_SCI, VALID_VIST_PE, ' + 'VALID_RSO_RSA_PROJ_EXEC, VALID_RSO_VALID_RELATORIO_CRITICO, VALID_RSO_VALID_ON_HOLD, ' + 'VALID_WR_ENV, VALID_WR_APROV, PROJETO_WR_STEP_APROV, VALID_PRECISA_PARAM, ' + 'VALID_ENG_PARAM, VALID_SIGLA_PORTADORA, VALID_PPI, VALID_LICENCIAMENTO, ' +
           'VALID_T2_EQUIPAMENTO, VALID_T4_EQUIPAMENTO, VALID_PO_EQUIPAMENTO, VALID_T2_VISTORIA, ' + 'VALID_T4_VISTORIA, VALID_PO_VISTORIA, VALID_T2_PROJETO, VALID_T4_PROJETO, ' + 'VALID_PO_PROJETO, VALID_T2_INSTALADOR, VALID_T4_INSTALADOR, VALID_PO_INSTALADOR, ' + 'VALID_T2_INTEGRADOR, VALID_T4_INTEGRADOR, VALID_PO_INTEGRADOR, VALID_T2, VALID_T4, ' + 'VALID_PO, VALID_OBRA_INICIO, VALID_RSO_OBRA_FIM, VALID_OBRA_FIM, VALID_GABINETE_SHARING, ' +
           'VALID_ENTREGA_GABINETE, VALID_CADASTRO_GABINETES_SHARING, VALID_LIB_SITE, ' + 'VALID_ENTREGA, VALID_RECEBIMENTO, VALID_INSTALACAO, VALID_TX, VALID_INTEGRACAO, ' + 'VALID_FLAG_ATIVACAO, VALID_ATIVACAO, VALID_PRE_ACEITE, VALID_CADASTRO, ' + 'VALID_FLAG_SCIENCE, VALID_ACEITE, VALID_CONCLUSAO_PMTS, VALID_STATUS_ROLLOUT, ' + 'VALID_TA_ACEITACAO, VALID_OBRA_BW, PMO_DIVULGAR, SOLUCAO_TX_FINAL, TX_STATUS_ACIONAMENTO, ' + 'ID_RD_CONSOLIDADO, RD_CARIMBO_MAX, RD_LIB_TRAFEGO_P_MAX, RD_LIB_TRAFEGO_R_MAX, ' +
           'ID_METRO_CONSOLIDADO, METRO_CARIMBO_MAX, METRO_P_MAX, METRO_R_MAX, METRO_STATUS_MAX, ' + 'TX_CARIMBO_MAX, TX_P_MAX, TX_R_MAX, VALID_TX_MAX, FAROL_ESTEIRA, ETAPAS_PEND_PLAN, ' + 'ETAPAS_PLAN, ETAPAS_CONCL, DEADLINE_ALERTA, FAROL_ESTEIRA_HOJE, ETAPAS_HOJE, ' + 'DEADLINE_ALERTA_HOJE, ETAPAS_INCONSIST, FAROL_ETAPA, SLA_ETAPA, DIAS_ETAPA_ATUAL, ' + 'VERSAOVENDOREQUIPAMENTO, VERSAOVENDORINSTALADOR, VERSAOVENDORINTEGRADOR, ' +
-          'VERSAOVENDORPROJETO, VERSAOVENDORVISTORIA, VERSAOREGIONALTX, VERSAOREGIONALRF' + ') VALUES (' + ':PROCESS_TIME, :DATA_MODIFICACAO, :PMTS, SYTEX, :UID_IDPMTS, :UID_IDENG, :UID_IDMASTER, ' + ':UID_UFSIGLA, :UID_IDCPOMRF, :UID_IDCPOMIE, :PMO_SIGLA, :PMO_UF, ' + ':PMO_REGIONAL, :PMO_DIVISAO, :PMO_GESTAO, :UID_IBGE, :IBGE_MUNICIPIO, ' + ':IBGE_CAPITAL, :SIGLA_HOTEL_DE_BTS, :FLG_RRU_REMOTA, :MASTERSITE_COBERTURA, ' + ':PMO_CARIMBO_CENTRALIZADO, :MASTER_CARIMBO, :REGIONAL_CARIMBO, :PMO_CARIMBO_BASELINE, ' +
+          'VERSAOVENDORPROJETO, VERSAOVENDORVISTORIA, VERSAOREGIONALTX, VERSAOREGIONALRF, PMO_ACEITACAO_P, PMO_ACEITACAO_R' + ') VALUES (' + ':PROCESS_TIME, :DATA_MODIFICACAO, :UID_IDPMTS, :UID_IDENG, :UID_IDMASTER, ' + ':UID_UFSIGLA, :UID_IDCPOMRF, :UID_IDCPOMIE, :PMO_SIGLA, :PMO_UF, ' + ':PMO_REGIONAL, :PMO_DIVISAO, :PMO_GESTAO, :UID_IBGE, :IBGE_MUNICIPIO, ' + ':IBGE_CAPITAL, :SIGLA_HOTEL_DE_BTS, :FLG_RRU_REMOTA, :MASTERSITE_COBERTURA, ' + ':PMO_CARIMBO_CENTRALIZADO, :MASTER_CARIMBO, :REGIONAL_CARIMBO, :PMO_CARIMBO_BASELINE, ' +
           ':PMO_BASELINE, :ANALISE_CARIMBO, :EAP_AUTOMATICA, :REGIONAL_RISCO, :REGIONAL_EAP_CRITICA, ' + ':UPDATE_EAP_CRITICA, :REGIONAL_EAP_RESPONSAVEL, :REGIONAL_EAP_OFENSOR, :REGIONAL_EAP_ACAO, ' + ':PMO_REF, :PMO_DATA_INCLUSAO, :PMO_DATA_EXCLUSAO, :MASTEROBRA_FREEZING, :MASTEROBRA_STATUS_ROLLOUT, ' + ':PMO_CARIMBO_CENTRAL_QUARTER, :PMO_ROLLOUT_OVBK, :MASTEROBRA_PRIO_ENG, :ENG_PARAM_OK, ' + ':ENG_PARAM_NOK, :VENDOR_EQUIPAMENTO, :VENDOR_VISTORIA, :VENDOR_PROJETO, :VENDOR_INSTALADOR, ' +
           ':VENDOR_INTEGRADOR, :PMO_TECN_EQUIP, :PMO_FREQ_EQUIP, :PMO_TIPO_INTERV, :PMO_TIPO_INTERV_2, ' + ':PMO_TIPO_OBRA, :PMO_TIPO_PMTS, :PMO_CATEGORIA, :COMPROMISSADO_SRF, :FATURADO_SRF, ' + ':EMITIDO_SRF, :ENG_FORNECEDOR_INFRA, :ENG_STATUS_DISPARO_INFRA, :ENG_GABINETE_NOVO, ' + ':ENG_GRADIL_GABINETE, :ENG_DETENTORA_GABINETE, :ENG_TIPO_GABINETE, :ENG_STEP_GABINETE, ' + ':ENG_FABRICANTE_GABINETE, :EQUIPAMENTO_STATUS_PO, :VISTORIA_STATUS_PO, :PROJETO_STATUS_PO, ' +
           ':INSTALADOR_STATUS_PO, :INTEGRADOR_STATUS_PO, :MASTEROBRA_SRF, :MASTEROBRA_AVALIACAO_DE_TX, ' + ':MASTEROBRA_OBSERVACAO_TX, :MASTEROBRA_ANO_ACAO_INVERSORA, :MASTEROBRA_MEGA_PROJETO, ' + ':MASTEROBRA_OBJ_ENG, :ENG_OBJ_MACRO, :MASTEROBRA_OBS, :MASTERSITE_OBS, :PMO_ANO, ' + ':PMO_CLASSIFICACAO, :PMO_MEGA, :PMO_MIMO_MASSIVE, :PMO_NOVO_REF_REPORT, :PMO_PEP_RF, ' + ':PMO_PROJETO, :PMO_REFERENCIA_REPORT, :PMO_RISCO_AUT, :PMO_SUB_PROJETO, :TX_FLAG_ATIVACAO, ' +
@@ -1388,11 +1380,11 @@ begin
           ':RSO_RSA_ABERT_SCI_R, :RSO_RSA_LIB_SCI_P, :DEADLINE_LIB_SCI, :RSO_RSA_LIB_SCI_R, ' + ':RSO_RSA_AQUISICAO_P, :RSO_RSA_AQUISICAO_R, :VISTORIA_VIST_PE_P, :DEADLINE_VISTORIA, ' + ':VISTORIA_VIST_PE_R, :PROJETO_WR_ENV_P, :DEADLINE_WR_ENV, :PROJETO_WR_ENV_R, ' + ':RSO_RSA_PROJ_EXEC_P, :DEADLINE_PROJ_EXEC, :RSO_RSA_PROJ_EXEC_R, :PMO_WR_APROV_P, ' + ':DEADLINE_WR_APROV, :PROJETO_WR_APROV_R, :PROJETO_PPI_P, :PROJETO_PPI_R, :PMO_T2_DT_P, ' +
           ':DEADLINE_T2, :MAX_T2_DT_R, :EQUIPAMENTO_T2_DT_R, :EQUIPAMENTO_T4_DT_R, :VISTORIA_T2_DT_R, ' + ':VISTORIA_T4_DT_R, :PROJETO_T2_DT_R, :PROJETO_T4_DT_R, :INSTALADOR_T2_DT_R, ' + ':INSTALADOR_T4_DT_R, :INTEGRADOR_T2_DT_R, :INTEGRADOR_T4_DT_R, :DATA_CRIACAO_PEDIDO, ' + ':OBRA_INICIO_P, :DEADLINE_OBRA_INICIO, :OBRA_INICIO_R, :GABINETE_P, :GABINETE_R, ' + ':RSO_RFI_P, :RSO_RFI_R, :REGIONAL_OBRA_FIM_P, :REGIONAL_OBRA_FIM_R, :OBRA_FIM_P, ' +
           ':DEADLINE_OBRA_FIM, :OBRA_FIM_R, :REGIONAL_LIB_SITE_P, :DEADLINE_LIB_SITE, ' + ':REGIONAL_LIB_SITE_R, :EQUIPAMENTO_ENTREGA_P, :DEADLINE_ENTREGA, :EQUIPAMENTO_ENTREGA_R, ' + ':INSTALADOR_RECEBIMENTO_P, :INSTALADOR_RECEBIMENTO_R, :EQUIPAMENTO_DISP_LIC_R, ' + ':INTEGRADOR_CHECK_LIC_R, :INSTALADOR_INSTALACAO_P, :DEADLINE_INSTALACAO, ' + ':INSTALADOR_INSTALACAO_R, :TX_OBRA_P, :TX_OBRA_R, :TX_CIRCUITO_P, :DEADLINE_TX_CIRCUITO, ' +
-          ':TX_CIRCUITO_R, :INTEGRADOR_INTEGRACAO_P, :DEADLINE_INTEGRACAO, :INTEGRADOR_INTEGRACAO_R, ' + ':INTEGRADOR_ATIVACAO_P, :DEADLINE_ATIVACAO, :INTEGRADOR_ATIVACAO_R, :INTEGRADOR_ACEITACAO_R, ' + ':INTEGRADOR_ENV_LOG_ATIV_R, :REGIONAL_PRE_ACEITE_R, :PMO_ACEITACAO, :PMO_ACEITACAO_P, :PMO_ACEITACAO_R, ' + ':VALID_SITE_NOVO, :VALID_AQUISICAO, :VALID_ABERT_SCI, :VALID_LIB_SCI, :VALID_VIST_PE, ' +':TX_CIRCUITO_R, :INTEGRADOR_INTEGRACAO_P, :DEADLINE_INTEGRACAO, :INTEGRADOR_INTEGRACAO_R, ' + ':INTEGRADOR_ATIVACAO_P, :DEADLINE_ATIVACAO, :INTEGRADOR_ATIVACAO_R, :INTEGRADOR_ACEITACAO_R, ' + ':INTEGRADOR_ENV_LOG_ATIV_R, :REGIONAL_PRE_ACEITE_R, :PMO_ACEITACAO, :PMO_ACEITACAO_P, :PMO_ACEITACAO_R, ' + ':VALID_SITE_NOVO, :VALID_AQUISICAO, :VALID_ABERT_SCI, :VALID_LIB_SCI, :VALID_VIST_PE, ' +
+          ':TX_CIRCUITO_R, :INTEGRADOR_INTEGRACAO_P, :DEADLINE_INTEGRACAO, :INTEGRADOR_INTEGRACAO_R, ' + ':INTEGRADOR_ATIVACAO_P, :DEADLINE_ATIVACAO, :INTEGRADOR_ATIVACAO_R, :INTEGRADOR_ACEITACAO_R, ' + ':INTEGRADOR_ENV_LOG_ATIV_R, :REGIONAL_PRE_ACEITE_R, :VALID_RSO_POLIGONO, :VALID_RSO_DISPARO, ' + ':VALID_RSO_DEF_MODALIDADE, :VALID_RSO_SAR, :VALID_RSO_QUALIFICACAO, :VALID_RSO_CONTRATACAO, ' + ':VALID_SITE_NOVO, :VALID_AQUISICAO, :VALID_ABERT_SCI, :VALID_LIB_SCI, :VALID_VIST_PE, ' +
           ':VALID_RSO_RSA_PROJ_EXEC, :VALID_RSO_VALID_RELATORIO_CRITICO, :VALID_RSO_VALID_ON_HOLD, ' + ':VALID_WR_ENV, :VALID_WR_APROV, :PROJETO_WR_STEP_APROV, :VALID_PRECISA_PARAM, ' + ':VALID_ENG_PARAM, :VALID_SIGLA_PORTADORA, :VALID_PPI, :VALID_LICENCIAMENTO, ' + ':VALID_T2_EQUIPAMENTO, :VALID_T4_EQUIPAMENTO, :VALID_PO_EQUIPAMENTO, :VALID_T2_VISTORIA, ' + ':VALID_T4_VISTORIA, :VALID_PO_VISTORIA, :VALID_T2_PROJETO, :VALID_T4_PROJETO, ' +
           ':VALID_PO_PROJETO, :VALID_T2_INSTALADOR, :VALID_T4_INSTALADOR, :VALID_PO_INSTALADOR, ' + ':VALID_T2_INTEGRADOR, :VALID_T4_INTEGRADOR, :VALID_PO_INTEGRADOR, :VALID_T2, :VALID_T4, ' + ':VALID_PO, :VALID_OBRA_INICIO, :VALID_RSO_OBRA_FIM, :VALID_OBRA_FIM, :VALID_GABINETE_SHARING, ' + ':VALID_ENTREGA_GABINETE, :VALID_CADASTRO_GABINETES_SHARING, :VALID_LIB_SITE, ' + ':VALID_ENTREGA, :VALID_RECEBIMENTO, :VALID_INSTALACAO, :VALID_TX, :VALID_INTEGRACAO, ' +
           ':VALID_FLAG_ATIVACAO, :VALID_ATIVACAO, :VALID_PRE_ACEITE, :VALID_CADASTRO, ' + ':VALID_FLAG_SCIENCE, :VALID_ACEITE, :VALID_CONCLUSAO_PMTS, :VALID_STATUS_ROLLOUT, ' + ':VALID_TA_ACEITACAO, :VALID_OBRA_BW, :PMO_DIVULGAR, :SOLUCAO_TX_FINAL, :TX_STATUS_ACIONAMENTO, ' + ':ID_RD_CONSOLIDADO, :RD_CARIMBO_MAX, :RD_LIB_TRAFEGO_P_MAX, :RD_LIB_TRAFEGO_R_MAX, ' + ':ID_METRO_CONSOLIDADO, :METRO_CARIMBO_MAX, :METRO_P_MAX, :METRO_R_MAX, :METRO_STATUS_MAX, ' +
-          ':TX_CARIMBO_MAX, :TX_P_MAX, :TX_R_MAX, :VALID_TX_MAX, :FAROL_ESTEIRA, :ETAPAS_PEND_PLAN, ' + ':ETAPAS_PLAN, :ETAPAS_CONCL, :DEADLINE_ALERTA, :FAROL_ESTEIRA_HOJE, :ETAPAS_HOJE, ' + ':DEADLINE_ALERTA_HOJE, :ETAPAS_INCONSIST, :FAROL_ETAPA, :SLA_ETAPA, :DIAS_ETAPA_ATUAL, ' + ':VERSAOVENDOREQUIPAMENTO, :VERSAOVENDORINSTALADOR, :VERSAOVENDORINTEGRADOR, ' + ':VERSAOVENDORPROJETO, :VERSAOVENDORVISTORIA, :VERSAOREGIONALTX, :VERSAOREGIONALRF)';
+          ':TX_CARIMBO_MAX, :TX_P_MAX, :TX_R_MAX, :VALID_TX_MAX, :FAROL_ESTEIRA, :ETAPAS_PEND_PLAN, ' + ':ETAPAS_PLAN, :ETAPAS_CONCL, :DEADLINE_ALERTA, :FAROL_ESTEIRA_HOJE, :ETAPAS_HOJE, ' + ':DEADLINE_ALERTA_HOJE, :ETAPAS_INCONSIST, :FAROL_ETAPA, :SLA_ETAPA, :DIAS_ETAPA_ATUAL, ' + ':VERSAOVENDOREQUIPAMENTO, :VERSAOVENDORINSTALADOR, :VERSAOVENDORINTEGRADOR, ' + ':VERSAOVENDORPROJETO, :VERSAOVENDORVISTORIA, :VERSAOREGIONALTX, :VERSAOREGIONALRF, :PMOACEITACAOP, :PMOACEITACAOR)';
         if qry.Params[i].DataType = ftUnknown then
           qry.Params[i].DataType := ftString;
           // Processa todos os campos DateTime
@@ -1475,7 +1467,9 @@ begin
         SetDateTimeParam('PMO_DATA_INCLUSAO', GetJSONValue(jsonObj, 'PMO_DATA_INCLUSAO'), qry, erro);
         SetDateTimeParam('PMO_DATA_EXCLUSAO', GetJSONValue(jsonObj, 'PMO_DATA_EXCLUSAO'), qry, erro);
         SetDateTimeParam('INTEGRADOR_T2_DT_R', GetJSONValue(jsonObj, 'INTEGRADOR_T2_DT_R'), qry, erro);
-  
+        SetDateTimeParam('PMOACEITACAOP', GetJSONValue(jsonObj, 'PMO_ACEITACAO_P'), qry, erro);
+        SetDateTimeParam('PMOACEITACAOR', GetJSONValue(jsonObj, 'PMO_ACEITACAO_R'), qry, erro);
+
 
     // Processa todos os campos Integer
         SetIntParam('UID_IBGE', GetJSONValue(jsonObj, 'UID_IBGE'), qry, erro);
@@ -1515,10 +1509,7 @@ begin
         SetDateTimeParam('INTEGRADOR_ATIVACAO_R', GetJSONValue(jsonObj, 'INTEGRADOR_ATIVACAO_R'), qry, erro);
         SetDateTimeParam('INTEGRADOR_ACEITACAO_R', GetJSONValue(jsonObj, 'INTEGRADOR_ACEITACAO_R'), qry, erro);
         SetDateTimeParam('INTEGRADOR_ENV_LOG_ATIV_R', GetJSONValue(jsonObj, 'INTEGRADOR_ENV_LOG_ATIV_R'), qry, erro);
-        SetDateTimeParam('REGIONAL_PRE_ACEITE_R', GetJSONValue(jsonObj, 'REGIONAL_PRE_ACEITE_R'), qry, erro);SetDateTimeParam('REGIONAL_PRE_ACEITE_R', GetJSONValue(jsonObj, 'REGIONAL_PRE_ACEITE_R'), qry, erro);
-        SetDateTimeParam('PMO_ACEITACAO', GetJSONValue(jsonObj, 'PMO_ACEITACAO'), qry, erro);
-        SetDateTimeParam('PMO_ACEITACAO_P', GetJSONValue(jsonObj, 'PMO_ACEITACAO_P'), qry, erro);
-        SetDateTimeParam('PMO_ACEITACAO_R', GetJSONValue(jsonObj, 'PMO_ACEITACAO_R'), qry, erro);
+        SetDateTimeParam('REGIONAL_PRE_ACEITE_R', GetJSONValue(jsonObj, 'REGIONAL_PRE_ACEITE_R'), qry, erro);
         SetDateTimeParam('RSO_RSA_AQUISICAO_P', GetJSONValue(jsonObj, 'RSO_RSA_AQUISICAO_P'), qry, erro);
         SetDateTimeParam('RSO_RSA_AQUISICAO_R', GetJSONValue(jsonObj, 'RSO_RSA_AQUISICAO_R'), qry, erro);
         SetDateTimeParam('RSO_RSA_PROJ_EXEC_P', GetJSONValue(jsonObj, 'RSO_RSA_PROJ_EXEC_P'), qry, erro);
@@ -1544,7 +1535,6 @@ begin
         SetDateTimeParam('INTEGRADOR_ACEITACAO_R', GetJSONValue(jsonObj, 'INTEGRADOR_ACEITACAO_R'), qry, erro);
         SetDateTimeParam('INTEGRADOR_ENV_LOG_ATIV_R', GetJSONValue(jsonObj, 'INTEGRADOR_ENV_LOG_ATIV_R'), qry, erro);
         SetDateTimeParam('REGIONAL_PRE_ACEITE_R', GetJSONValue(jsonObj, 'REGIONAL_PRE_ACEITE_R'), qry, erro);
-        SetDateTimeParam('PMO_ACEITACAO', GetJSONValue(jsonObj, 'PMO_ACEITACAO'), qry, erro);
         SetDateTimeParam('DEADLINE_MODALIDADE', GetJSONValue(jsonObj, 'DEADLINE_MODALIDADE'), qry, erro);
         SetDateTimeParam('DEADLINE_POLIGONO', GetJSONValue(jsonObj, 'DEADLINE_POLIGONO'), qry, erro);
         SetDateTimeParam('RSO_RSA_AQUISICAO_P', GetJSONValue(jsonObj, 'RSO_RSA_AQUISICAO_P'), qry, erro);
@@ -1582,8 +1572,6 @@ begin
         SetStrParam('ID_METRO_CONSOLIDADO', GetJSONValue(jsonObj, 'ID_METRO_CONSOLIDADO'), qry, erro);
         SetStrParam('METRO_STATUS_MAX', GetJSONValue(jsonObj, 'METRO_STATUS_MAX'), qry, erro);
     // Processa todos os campos String
-        SetStrParam('PMTS', GetJSONValue(jsonObj, 'PMTS'), qry, erro);
-        SetStrParam('SYTEX', GetJSONValue(jsonObj, 'SYTEX'), qry, erro);
         SetStrParam('UID_IDPMTS', GetJSONValue(jsonObj, 'UID_IDPMTS'), qry, erro);
         SetStrParam('UID_IDENG', GetJSONValue(jsonObj, 'UID_IDENG'), qry, erro);
         SetStrParam('UID_IDMASTER', GetJSONValue(jsonObj, 'UID_IDMASTER'), qry, erro);
@@ -1831,6 +1819,12 @@ begin
         SetStrParam('REGIONAL_EAP_INFRA_RESP', GetJSONValue(jsonObj, 'REGIONAL_EAP_INFRA_RESP'), qry, erro);
         SetStrParam('STATUS_MENSAL_TX', GetJSONValue(jsonObj, 'STATUS_MENSAL_TX'), qry, erro);
         SetStrParam('STATUS_ESTEIRA_PO', GetJSONValue(jsonObj, 'STATUS_ESTEIRA_PO'), qry, erro);
+        SetStrParam('VALID_RSO_POLIGONO', GetJSONValue(jsonObj, 'VALID_RSO_POLIGONO'), qry, erro);
+        SetStrParam('VALID_RSO_DISPARO', GetJSONValue(jsonObj, 'VALID_RSO_DISPARO'), qry, erro);
+        SetStrParam('VALID_RSO_DEF_MODALIDADE', GetJSONValue(jsonObj, 'VALID_RSO_DEF_MODALIDADE'), qry, erro);
+        SetStrParam('VALID_RSO_SAR', GetJSONValue(jsonObj, 'VALID_RSO_SAR'), qry, erro);
+        SetStrParam('VALID_RSO_QUALIFICACAO', GetJSONValue(jsonObj, 'VALID_RSO_QUALIFICACAO'), qry, erro);
+        SetStrParam('VALID_RSO_CONTRATACAO', GetJSONValue(jsonObj, 'VALID_RSO_CONTRATACAO'), qry, erro);
         SetStrParam('VALID_SITE_NOVO', GetJSONValue(jsonObj, 'VALID_SITE_NOVO'), qry, erro);
         SetStrParam('VALID_AQUISICAO', GetJSONValue(jsonObj, 'VALID_AQUISICAO'), qry, erro);
         SetStrParam('VALID_ABERT_SCI', GetJSONValue(jsonObj, 'VALID_ABERT_SCI'), qry, erro);
@@ -1964,7 +1958,6 @@ begin
   end;
   end;
 end;
-
 
 function TUpload.InserirGeFolhaDePagamento(const jsonData: TJSONArray; const periodo: String; out erro: string): Integer;
 var
