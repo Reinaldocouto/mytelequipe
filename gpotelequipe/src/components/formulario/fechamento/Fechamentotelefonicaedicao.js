@@ -1449,7 +1449,7 @@ const Fechamentotelefonicaedicao = ({ setshow, show, idempresa, empresa, email }
 
     const selecionados = projeto.filter((row) => selectedIds.includes(row.id));
     const ultrapassaLimite = selecionados.some(
-      (item) => item.porcentagem * 100 + Number(porcentagemg) > 100,
+      (item) => parseFloat((item.porcentagem * 100 + Number(porcentagemg)).toFixed(6)) > 100,
     );
 
     if (ultrapassaLimite) {

@@ -312,6 +312,7 @@ var
   IdVeiculo: Variant;
   Descricao, Observacao: string;
   Existe: Boolean;
+  P: TFDParam;
   Affected: Integer;
   TipoRateio, Depto, Site: string;
 begin
@@ -385,7 +386,7 @@ begin
         ')';
       Q.ParamByName('iddespesas').AsInteger := IdDesp;
       Q.ParamByName('idgeral').AsInteger := idmultas;
-      Q.ParamByName('categoria').AsString := 'Outros';
+      Q.ParamByName('categoria').AsString := 'Multas';
     end;
     with Q.ParamByName('datalancamento') do
     begin
@@ -434,7 +435,7 @@ begin
           ')';
         Q.ParamByName('iddespesas').AsInteger := IdDesp;
         Q.ParamByName('idgeral').AsInteger := idmultas;
-        Q.ParamByName('categoria').AsString := 'Outros';
+        Q.ParamByName('categoria').AsString := 'Multas';
         Q.ExecSQL;
         if Q.RowsAffected = 0 then
           raise Exception.Create('Nenhuma linha afetada ao inserir despesa (fallback). Verifique constraints/filtros.');

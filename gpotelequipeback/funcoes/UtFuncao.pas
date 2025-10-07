@@ -40,6 +40,7 @@ function LerExcelParaJSONSemTotal(const vXLSFile: string): TJSONArray;
 function LerExcelParaJSONMonitoramento(const vXLSFile: string): TJSONArray;
 function LerExcelParaJSONLpuValidar(const vXLSFile: string): TJSONArray;
 function ISO8601ToDate(const ISO8601Str: string): TDateTime;
+function ForcarLiberacaoArquivo(const nomeArquivo: string): Boolean;
 
 
 
@@ -80,6 +81,7 @@ begin
         If pStr[I] In ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'] Then
             Result := Result + pStr[I];
 end;
+
 
 
 function limpaaspas(texto: string): string;
@@ -820,11 +822,15 @@ end;
 function LerExcelParaJSON(const vXLSFile: string): TJSONArray;
 var
   vExcelApp, vWorkbook, vSheet: OleVariant;
-  j, k, ColCount, RowCount: Integer;
+  DataMatrix: Variant;
+  RowCount, ColCount, j, k: Integer;
   jsonArray: TJSONArray;
   jsonRow: TJSONObject;
   ColHeaders: array of string;
-  cellValue, firstCellValue: Variant;
+  valor: string;
+  tentativas: Integer;
+  sucesso: Boolean;
+  ultimoErro: string;
 
   function GetUniqueHeaderName(const BaseName: string; Index: Integer): string;
   var
@@ -837,7 +843,6 @@ var
     repeat
       Exists := False;
       for var i := 0 to Index - 1 do
-      begin
         if SameText(ColHeaders[i], UniqueName) then
         begin
           Exists := True;
@@ -845,128 +850,190 @@ var
           UniqueName := BaseName + '_' + IntToStr(Counter);
           Break;
         end;
-      end;
     until not Exists;
     Result := UniqueName;
+  end;
+
+  procedure LimparProcessosExcelOrfaos;
+  var
+    ProcessList: TStringList;
+    i: Integer;
+    ProcessName: string;
+  begin
+    try
+      ProcessList := TStringList.Create;
+      try
+        // Força fechamento de processos Excel órfãos
+        if FileExists('C:\Windows\System32\taskkill.exe') then
+        begin
+          Writeln('[LIMPEZA] Finalizando processos Excel órfãos...');
+          WinExec('taskkill /f /im excel.exe /t', SW_HIDE);
+          Sleep(2000); // Aguarda 2 segundos para os processos serem finalizados
+        end;
+      finally
+        ProcessList.Free;
+      end;
+    except
+      // Ignora erros na limpeza de processos
+    end;
+  end;
+
+  function TentarAbrirArquivo: Boolean;
+  begin
+    Result := False;
+    try
+      vExcelApp := CreateOleObject('Excel.Application');
+      vExcelApp.Visible := False;
+      vExcelApp.DisplayAlerts := False;
+      vExcelApp.ScreenUpdating := False;
+      vExcelApp.EnableEvents := False;
+
+      // Tenta abrir o arquivo
+      vWorkbook := vExcelApp.Workbooks.Open(vXLSFile, False, True); // ReadOnly = True
+      vSheet := vWorkbook.Sheets[1];
+      
+      Result := True;
+      Writeln('[SUCESSO] Arquivo Excel aberto com sucesso');
+    except
+      on E: Exception do
+      begin
+        ultimoErro := E.Message;
+        Writeln(Format('[ERRO] Tentativa %d falhou: %s', [tentativas + 1, E.Message]));
+        
+        // Limpa objetos em caso de erro
+        try
+          if not VarIsEmpty(vWorkbook) then
+            vWorkbook.Close(False);
+          if not VarIsEmpty(vExcelApp) then
+            vExcelApp.Quit;
+        except
+        end;
+        
+        vWorkbook := Unassigned;
+        vSheet := Unassigned;
+        vExcelApp := Unassigned;
+        
+        Result := False;
+      end;
+    end;
   end;
 
 begin
   jsonArray := TJSONArray.Create;
 
-  // Verificar se o arquivo existe antes de tentar abrir
   if not FileExists(vXLSFile) then
     raise Exception.Create('Arquivo não encontrado: ' + vXLSFile);
 
-  // Inicializar COM com tratamento de erro
-  try
-    CoInitialize(nil);
-  except
-    on E: Exception do
-      raise Exception.Create('Erro ao inicializar COM: ' + E.Message);
-  end;
+  // Implementa retry com limpeza de processos
+  sucesso := False;
+  tentativas := 0;
+  ultimoErro := '';
 
-  try
-    // Criar instância do Excel com tratamento específico
+  while (not sucesso) and (tentativas < 3) do
+  begin
+    if tentativas > 0 then
+    begin
+      Writeln(Format('[RETRY] Tentativa %d de 3 para abrir arquivo: %s', [tentativas + 1, ExtractFileName(vXLSFile)]));
+      LimparProcessosExcelOrfaos;
+      Sleep(3000); // Aguarda 3 segundos entre tentativas
+    end;
+
+    CoInitialize(nil);
     try
-      vExcelApp := CreateOleObject('Excel.Application');
+      sucesso := TentarAbrirArquivo;
+      if not sucesso then
+      begin
+        CoUninitialize;
+        Inc(tentativas);
+      end;
     except
       on E: Exception do
-        raise Exception.Create('Erro ao criar instância do Excel. Verifique se o Microsoft Excel está instalado: ' + E.Message);
-    end;
-
-    vExcelApp.Visible := False;
-    vExcelApp.DisplayAlerts := False;
-
-    try
-      // Abrir arquivo Excel com tratamento de erro
-      try
-        vWorkbook := vExcelApp.Workbooks.Open(vXLSFile);
-      except
-        on E: Exception do
-          raise Exception.Create('Erro ao abrir arquivo Excel "' + ExtractFileName(vXLSFile) + '": ' + E.Message + '. Verifique se o arquivo não está corrompido ou sendo usado por outro processo.');
-      end;
-
-      // Verificar se há planilhas no arquivo
-      if vWorkbook.Sheets.Count = 0 then
-        raise Exception.Create('O arquivo Excel não contém planilhas.');
-
-      vSheet := vWorkbook.Sheets[1]; // Primeira planilha
-
-      // Verificar se a planilha tem dados
-      if VarIsEmpty(vSheet.UsedRange) then
-        raise Exception.Create('A planilha está vazia ou não contém dados válidos.');
-
-      RowCount := vSheet.UsedRange.Rows.Count;
-      ColCount := vSheet.UsedRange.Columns.Count;
-
-      // Verificar limites razoáveis
-      if (RowCount > 100000) or (ColCount > 1000) then
-        raise Exception.Create(Format('Arquivo muito grande: %d linhas x %d colunas. Limite: 100.000 linhas x 1.000 colunas.', [RowCount, ColCount]));
-
-      SetLength(ColHeaders, ColCount);
-
-      // 🔸 Lê os cabeçalhos da primeira linha com verificação de duplicatas
-      for k := 1 to ColCount do
       begin
-        cellValue := vSheet.Cells[1, k].Value;
-        if not VarIsNull(cellValue) and not VarIsEmpty(cellValue) and not VarIsError(cellValue) then
-          ColHeaders[k - 1] := GetUniqueHeaderName(Trim(VarToStr(cellValue)), k - 1)
-        else
-          ColHeaders[k - 1] := GetUniqueHeaderName(Format('Coluna_%d', [k]), k - 1);
+        ultimoErro := E.Message;
+        CoUninitialize;
+        Inc(tentativas);
       end;
-
-      // 🔸 Lê os dados das linhas (a partir da segunda)
-      for j := 2 to RowCount do
-      begin
-        firstCellValue := vSheet.Cells[j, 1].Value;
-        // Ignora se a primeira célula tiver o valor 'Total'
-        if VarToStr(firstCellValue).Trim.ToLower = 'total' then
-          Continue;
-
-        jsonRow := TJSONObject.Create;
-        try
-          for k := 1 to ColCount do
-          begin
-            cellValue := vSheet.Cells[j, k].Value;
-
-            // Se não for nulo, adiciona no JSON, se for, ignora a coluna
-            if not VarIsNull(cellValue) and not VarIsEmpty(cellValue) and not VarIsError(cellValue) then
-              jsonRow.AddPair(ColHeaders[k - 1], Trim(VarToStr(cellValue)));
-          end;
-
-          // Adiciona apenas se tiver pelo menos um valor
-          if jsonRow.Count > 0 then
-            jsonArray.AddElement(jsonRow)
-          else
-            jsonRow.Free;
-
-        except
-          on E: Exception do
-          begin
-            jsonRow.Free;
-            Writeln('❌ Erro processando linha ' + IntToStr(j) + ': ' + E.Message);
-          end;
-        end;
-      end;
-
-    finally
-      vWorkbook.Close(False);
-      vExcelApp.Quit;
-      vWorkbook := Unassigned;
-      vSheet := Unassigned;
-      vExcelApp := Unassigned;
-    end;
-
-  except
-    on E: Exception do
-    begin
-      Writeln('❌ Erro ao processar o Excel: ' + E.Message);
-      jsonArray.Free;
-      raise;
     end;
   end;
 
-  CoUninitialize;
+  if not sucesso then
+  begin
+    jsonArray.Free;
+    raise Exception.Create(Format('Falha ao abrir arquivo após 3 tentativas. Último erro: %s', [ultimoErro]));
+  end;
+
+  try
+
+    vWorkbook := vExcelApp.Workbooks.Open(vXLSFile);
+    vSheet := vWorkbook.Sheets[1];
+
+    // Lê tudo de uma vez em memória
+    DataMatrix := vSheet.UsedRange.Value;
+
+    if VarIsEmpty(DataMatrix) then
+      raise Exception.Create('A planilha está vazia.');
+
+    RowCount := VarArrayHighBound(DataMatrix, 1);
+    ColCount := VarArrayHighBound(DataMatrix, 2);
+
+    SetLength(ColHeaders, ColCount);
+
+    // Cabeçalhos (linha 1)
+    for k := 1 to ColCount do
+    begin
+      valor := Trim(VarToStr(DataMatrix[1, k]));
+      if valor = '' then
+        ColHeaders[k - 1] := Format('Coluna_%d', [k])
+      else
+        ColHeaders[k - 1] := GetUniqueHeaderName(valor, k - 1);
+    end;
+
+    // Linhas de dados (a partir da 2ª)
+    for j := 2 to RowCount do
+    begin
+      jsonRow := TJSONObject.Create;
+      try
+        var linhaVazia := True;
+
+        for k := 1 to ColCount do
+        begin
+          valor := Trim(VarToStr(DataMatrix[j, k]));
+          if valor <> '' then
+          begin
+            linhaVazia := False;
+            jsonRow.AddPair(ColHeaders[k - 1], valor);
+          end;
+        end;
+
+        if not linhaVazia then
+          jsonArray.AddElement(jsonRow)
+        else
+          jsonRow.Free;
+
+        if (j mod 1000 = 0) then
+          Writeln(Format('[Progresso] %d linhas processadas de %d', [j, RowCount]));
+      except
+        on E: Exception do
+        begin
+          jsonRow.Free;
+          Writeln(Format('❌ Erro processando linha %d: %s', [j, E.Message]));
+        end;
+      end;
+    end;
+
+  finally
+    try
+      vWorkbook.Close(False);
+      vExcelApp.Quit;
+    except
+    end;
+
+    vWorkbook := Unassigned;
+    vSheet := Unassigned;
+    vExcelApp := Unassigned;
+    CoUninitialize;
+  end;
+
   Result := jsonArray;
 end;
 
@@ -1459,6 +1526,65 @@ begin
       Result := EncodeDate(1899, 12, 30);
     end;
   end;
+end;
+
+function ForcarLiberacaoArquivo(const nomeArquivo: string): Boolean;
+var
+  tentativas: Integer;
+  nomeArquivoSemCaminho: string;
+begin
+  Result := False;
+  tentativas := 0;
+  nomeArquivoSemCaminho := ExtractFileName(nomeArquivo);
+  
+  Writeln(Format('[LIBERAÇÃO] Tentando liberar arquivo: %s', [nomeArquivoSemCaminho]));
+  
+  while (tentativas < 3) do
+  begin
+    try
+      // Tenta deletar o arquivo
+      if FileExists(nomeArquivo) then
+      begin
+        if DeleteFile(nomeArquivo) then
+        begin
+          Writeln(Format('[SUCESSO] Arquivo liberado na tentativa %d', [tentativas + 1]));
+          Result := True;
+          Exit;
+        end;
+      end
+      else
+      begin
+        Result := True; // Arquivo não existe, consideramos como sucesso
+        Exit;
+      end;
+      
+    except
+      on E: Exception do
+        Writeln(Format('[ERRO] Tentativa %d falhou: %s', [tentativas + 1, E.Message]));
+    end;
+    
+    Inc(tentativas);
+    
+    if tentativas < 3 then
+    begin
+      // Força fechamento de processos Excel
+      Writeln(Format('[LIMPEZA] Tentativa %d - Finalizando processos Excel...', [tentativas]));
+      try
+        WinExec('taskkill /f /im excel.exe /t', SW_HIDE);
+        Sleep(2000);
+
+        
+      except
+        on E: Exception do
+          Writeln('[AVISO] Erro ao finalizar processos: ' + E.Message);
+      end;
+      
+      Sleep(1000); // Aguarda antes da próxima tentativa
+    end;
+  end;
+  
+  if not Result then
+    Writeln(Format('[FALHA] Não foi possível liberar o arquivo após %d tentativas', [tentativas]));
 end;
 
 

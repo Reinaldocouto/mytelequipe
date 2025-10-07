@@ -4,7 +4,7 @@ interface
 
 uses
   Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,
-  DataSet.Serialize, Model.Multas, UtFuncao, Controller.Auth, System.DateUtils;
+  DataSet.Serialize, Model.Multas, UtFuncao, Controller.Auth;
 
 procedure Registry;
 procedure Lista(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -26,51 +26,31 @@ begin
   THorse.post('v1/multas/novocadastro', Novocadastro);
 end;
 
+// Fun��o para converter a data em m�ltiplos formatos
 function TentarConverterData(const DataStr: string; out DataConvertida: TDateTime): Boolean;
+const
+  Formatos: array[0..3] of string = (
+    'dd/mm/yyyy',         // Formato padr�o brasileiro
+    'dd/mm/yyyy hh:nn:ss',// Com hor�rio
+    'yyyy-mm-dd',         // ISO
+    'yyyy-mm-dd hh:nn:ss' // ISO com hor�rio
+  );
 var
-  FS: TFormatSettings;
+  I: Integer;
 begin
   Result := False;
-  if DataStr = '' then Exit;
-
-  // 1) dd/mm/yyyy (e com hora)
-  FS := TFormatSettings.Create;
-  FS.DateSeparator  := '/';
-  FS.TimeSeparator  := ':';
-  FS.ShortDateFormat := 'dd/mm/yyyy';
-  FS.LongTimeFormat  := 'hh:nn:ss';
-  try
-    DataConvertida := StrToDateTime(DataStr, FS);
-    Exit(True);
-  except end;
-
-  // 2) yyyy-mm-dd (e com hora)
-  FS := TFormatSettings.Create;
-  FS.DateSeparator  := '-';
-  FS.TimeSeparator  := ':';
-  FS.ShortDateFormat := 'yyyy-mm-dd';
-  FS.LongTimeFormat  := 'hh:nn:ss';
-  try
-    DataConvertida := StrToDateTime(DataStr, FS);
-    Exit(True);
-  except end;
-
-  // 3) ISO 8601 (ex.: 2025-10-05T21:37)
-  {$IF Declared(TryISO8601ToDate)}
-  if TryISO8601ToDate(DataStr, DataConvertida) then
-    Exit(True);
-  {$IFEND}
-
-  try
-    // algumas versões só têm ISO8601ToDate(String) com 1 parâmetro
-    DataConvertida := ISO8601ToDate(DataStr);
-    Exit(True);
-  except
-    // continua falso
+  for I := Low(Formatos) to High(Formatos) do
+  begin
+    try
+      DataConvertida := StrToDateTime(DataStr);
+      Exit(True); // Se converter, retorna sucesso
+    except
+      Continue; // Tenta pr�ximo formato se falhar
+    end;
   end;
 end;
 
-// Busca multas por placa e data da infração
+// Busca multas por placa e data da infra��o
 procedure BuscaMultaPorPlacaData(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TMultas;
@@ -89,18 +69,21 @@ begin
   placa := Req.Query.Field('placa').AsString;
   datainfracao := Req.Query.Field('datainfracao').AsString;
 
+  // Valida par�metros obrigat�rios
   if (placa = '') or (datainfracao = '') then
   begin
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Placa e data da infração são obrigatórios')).Status(THTTPStatus.BadRequest);
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Placa e data da infra��o s�o obrigat�rios')).Status(THTTPStatus.BadRequest);
     Exit;
   end;
 
+  // Tenta converter a data para garantir compatibilidade com o banco
   if not TentarConverterData(datainfracao, DataConvertida) then
   begin
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Formato de data inválido. Use DD/MM/AAAA')).Status(THTTPStatus.BadRequest);
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Formato de data inv�lido. Use DD/MM/AAAA')).Status(THTTPStatus.BadRequest);
     Exit;
   end;
 
+  // Busca no banco
   qry := servico.BuscaPorPlacaData(placa, FormatDateTime('yyyy-mm-dd hh:nn:ss', DataConvertida), erro);
   try
     if erro = '' then
@@ -109,7 +92,9 @@ begin
       Res.Send<TJSONObject>(arraydados).Status(THTTPStatus.OK);
     end
     else
+    begin
       Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    end;
   finally
     qry.Free;
     servico.Free;
@@ -214,6 +199,8 @@ begin
     try
       body := Req.Body<TJSONObject>;
       servico.idsMultas := body.GetValue<string>('ids', '');
+
+
       if servico.TransformaDebitado(erro) then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', 'Salvo com sucesso')).Status(THTTPStatus.Created)
       else
@@ -230,9 +217,8 @@ end;
 procedure Salva(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TMultas;
-  body: TJSONObject;
+  body: TJSONValue;
   erro: string;
-  V: TJSONValue;
 begin
   servico := TMultas.Create;
   try
@@ -244,29 +230,19 @@ begin
       servico.idempresa := body.GetValue<Integer>('idempresa', 0);
       servico.idpessoa := body.GetValue<Integer>('idpessoa', 0);
       servico.numeroait := body.getvalue<string>('numeroait', '');
-      servico.pontuacao := body.GetValue<Integer>('pontuacao', 0);
-      servico.placa := body.getvalue<string>('placa', '');
-      servico.datainfracao := body.getvalue<string>('datainfracao', '');
-      servico.local := body.getvalue<string>('local', '');
-      servico.infracao := body.getvalue<string>('infracao', '');
-      servico.valor := body.getvalue<string>('valor', '');
-      servico.dataindicacao := body.getvalue<string>('dataindicacao', '');
-      servico.natureza := body.getvalue<string>('natureza', '');
-      servico.datacolaborador := body.getvalue<string>('datacolaborador', '');
-      servico.statusmulta := body.getvalue<string>('statusmulta', '');
+      servico.pontuacao:= body.GetValue<Integer>('pontuacao', 0);
+     //servico.nomeindicado:=
+      servico.placa:= body.getvalue<string>('placa', '') ;
+      servico.datainfracao:= body.getvalue<string>('datainfracao', '') ;
+      servico.local:= body.getvalue<string>('local', '') ;
+      servico.infracao:= body.getvalue<string>('infracao', '') ;
+      servico.valor:= body.getvalue<string>('valor', '') ;
+      servico.dataindicacao:= body.getvalue<string>('dataindicacao', '') ;
+      servico.natureza:=  body.getvalue<string>('natureza', '') ;
+      servico.datacolaborador:= body.getvalue<string>('datacolaborador', '') ;
+      servico.statusmulta:=  body.getvalue<string>('statusmulta', '') ;
 
-      // departamento e idsite (tratando null)
-      V := body.GetValue('departamento');
-      if Assigned(V) and not (V is TJSONNull) then
-        servico.departamento := V.Value
-      else
-        servico.departamento := '';
 
-      V := body.GetValue('idsite');
-      if Assigned(V) and not (V is TJSONNull) then
-        servico.idsite := V.Value
-      else
-        servico.idsite := '';
 
       if servico.Editar(erro) then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', 'Salvo com sucesso')).Status(THTTPStatus.Created)
@@ -280,6 +256,7 @@ begin
     servico.Free;
   end;
 end;
+
 
 end.
 

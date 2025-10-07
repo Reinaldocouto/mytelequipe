@@ -45,10 +45,12 @@ procedure UploadT4(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure UploadZteLpu(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
+procedure logsObraEricsson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
 implementation
 
 procedure Registry;
-begin
+begin 
   THorse.Post('v1/uploadobraericson', UploadObraEricson);
   THorse.Post('v1/uploadobrazte', UploadObraZTE);
   THorse.Post('v1/uploadlpu', Uploadlpu);
@@ -67,6 +69,37 @@ begin
   THorse.Post('v1/uploadt2', UploadT2);
   THorse.Post('v1/uploadt4', UploadT4);
   THorse.Post('v1/upload/ztelpu', UploadZteLpu);
+  THorse.Get('v1/upload/acompanharimportacaoericsson', logsObraEricsson);
+end;
+procedure logsObraEricsson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TUpload;
+  qry: TFDQuery;
+  erro, dataParam, arquivoParam: string;
+begin
+  // 🔹 OBTER PARÂMETROS DA QUERY STRING
+  dataParam := Req.Query['data'];
+  arquivoParam := Req.Query['arquivo'];
+
+  if (dataParam = '') or (arquivoParam = '') then
+  begin
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Parâmetros "data" e "arquivo" são obrigatórios'))
+      .Status(THTTPStatus.BadRequest);
+    Exit;
+  end;
+
+  servico := TUpload.Create;
+  try
+    // 🔹 PASSAR PARÂMETROS PARA O MÉTODO
+    qry := servico.LogProcessamentoObra(dataParam, arquivoParam, erro);
+
+    if erro = '' then
+      Res.Send<TJSONArray>(qry.ToJSONArray).Status(THTTPStatus.OK)
+    else
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+  finally
+    servico.Free;
+  end;
 end;
 
 procedure GetCredenciaisS3(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -141,35 +174,67 @@ var
   guid: TGUID;
   startTime, endTime: TDateTime;
   elapsedTime: string;
+  servicoLog: TUpload;
 begin
-  if not FileExists(vDiretorio) then
-  begin
-    Writeln('Erro: Arquivo não encontrado: ' + vDiretorio);
-    Exit;
+  servico := TUpload.Create;
+  try
+    servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Iniciando processamento de upload de obra');
+    servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Arquivo recebido: ' + vDiretorio);
+    
+    Writeln('=== INICIANDO PROCESSAMENTO DE UPLOAD ===');
+    Writeln('Arquivo recebido: ' + vDiretorio);
+    
+    if FileExists(vDiretorio) then
+    begin
+      servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Arquivo existe - Tamanho: ' + IntToStr(TFile.GetSize(vDiretorio)) + ' bytes');
+      Writeln('Tamanho do arquivo: ' + IntToStr(TFile.GetSize(vDiretorio)) + ' bytes');
+    end
+    else
+    begin
+      servico.LogEvento('ERRO', 'ProcessarArquivoObra', 'Arquivo não encontrado: ' + vDiretorio);
+      Writeln('Arquivo não encontrado');
+      Exit;
+    end;
+  finally
+    servico.Free;
   end;
 
   if LowerCase(ExtractFileExt(vDiretorio)) = '.zip' then
   begin
-    Writeln('Arquivo ZIP detectado: ' + vDiretorio);
-
-    // Garantir que o diretório base existe
-    if not DirectoryExists(DIRETORIO_BASE) then
-      ForceDirectories(DIRETORIO_BASE);
-
-    vZipFile := TZipFile.Create;
+    servico := TUpload.Create;
     try
-      vZipFile.Open(vDiretorio, zmRead);
+      servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Arquivo ZIP detectado: ' + vDiretorio);
+      Writeln('Arquivo ZIP detectado: ' + vDiretorio);
+
+      // Garantir que o diretório base existe
+      if not DirectoryExists(DIRETORIO_BASE) then
+      begin
+        servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Criando diretório base: ' + DIRETORIO_BASE);
+        ForceDirectories(DIRETORIO_BASE);
+        servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Diretório base criado com sucesso');
+      end;
+
+      servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Iniciando abertura do arquivo ZIP');
+      vZipFile := TZipFile.Create;
+      try
+        vZipFile.Open(vDiretorio, zmRead);
+        servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Arquivo ZIP aberto com sucesso');
+    finally
+      servicoLog.Free;
+    end;
 
       // Primeiro, identificar todos os arquivos válidos
       SetLength(validFiles, vZipFile.FileCount);
       validFileCount := 0;
 
-      for i := 0 to vZipFile.FileCount - 1 do
-      begin
-        fileName := ExtractFileName(vZipFile.FileNames[i]);
-        fileExt := LowerCase(ExtractFileExt(fileName));
-        lowerFileName := LowerCase(fileName);
-        fileNameLength := Length(lowerFileName);
+        for i := 0 to vZipFile.FileCount - 1 do
+        begin
+          fileName := ExtractFileName(vZipFile.FileNames[i]);
+          fileExt := LowerCase(ExtractFileExt(fileName));
+          lowerFileName := LowerCase(fileName);
+          fileNameLength := Length(lowerFileName);
+          
+          servico.LogEvento('INFO', 'ProcessarArquivoObra', Format('Analisando arquivo %d/%d: %s', [i + 1, vZipFile.FileCount, fileName]));
 
         // Verificar se é um arquivo válido para processamento
         if ((fileExt = '.xlsx') or (fileExt = '.csv')) and
@@ -181,10 +246,10 @@ begin
         begin
           validFiles[validFileCount] := i;
           Inc(validFileCount);
+          servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Arquivo válido encontrado: ' + fileName);
         end;
       end;
 
-      // Processar cada arquivo válido sequencialmente
       for i := 0 to validFileCount - 1 do
       begin
         fileIndex := validFiles[i];
@@ -196,16 +261,21 @@ begin
         // Processar o arquivo sequencialmente
         begin
           try
+            servico := TUpload.Create;
+            try
+              // Gerar nome único para evitar conflitos
+              CreateGUID(guid);
+              fileNameWithoutExt := ChangeFileExt(fileName, '');
+              uniqueFileName := fileNameWithoutExt + '_' + StringReplace(GUIDToString(guid), '{', '', [rfReplaceAll]).Substring(0, 8) + fileExt;
 
-            // Gerar nome único para evitar conflitos
-            CreateGUID(guid);
-            fileNameWithoutExt := ChangeFileExt(fileName, '');
-            uniqueFileName := fileNameWithoutExt + '_' + StringReplace(GUIDToString(guid), '{', '', [rfReplaceAll]).Substring(0, 8) + fileExt;
-
-            startTime := Now;
-            Writeln('[INÍCIO] Processando arquivo: ' + fileName);
-            Writeln('[INFO] Arquivo temporário: ' + uniqueFileName);
-            Writeln('[INFO] Horário de início: ' + FormatDateTime('hh:nn:ss', startTime));
+              startTime := Now;
+              servico.LogEvento('INFO', 'ProcessarArquivoObra', Format('Iniciando processamento do arquivo %d/%d: %s', [i + 1, validFileCount, fileName]));
+              Writeln('[INÍCIO] Processando arquivo: ' + fileName);
+              Writeln('[INFO] Arquivo temporário: ' + uniqueFileName);
+              Writeln('[INFO] Horário de início: ' + FormatDateTime('hh:nn:ss', startTime));
+            finally
+              servico.Free;
+            end;
 
               servico := TUpload.Create;
               try
@@ -217,10 +287,16 @@ begin
                 if (fileNameLength >= 4) and (Copy(lowerFileName, 1, 4) = PADRAO_MIGO) and (fileExt = '.xlsx') then
                 begin
                   Writeln('[PROGRESSO] Processando arquivo MIGO: ' + fileName);
+                  Writeln('[INFO] Padrão MIGO reconhecido - iniciando processamento');
                   vXLSFile := DIRETORIO_BASE + ExtractFileName(localZipFile.FileNames[fileIndex]);
-                  // Remover arquivo se já existir
+                  
+                  // Remover arquivo se já existir usando função auxiliar
                   if FileExists(vXLSFile) then
-                    DeleteFile(vXLSFile);
+                  begin
+                    Writeln('[INFO] Removendo arquivo existente: ' + ExtractFileName(vXLSFile));
+                    ForcarLiberacaoArquivo(vXLSFile);
+                  end;
+                  
                   Writeln('[EXTRAÇÃO] Extraindo MIGO para: ' + vXLSFile);
                   localZipFile.Extract(localZipFile.FileNames[fileIndex], DIRETORIO_BASE);
 
@@ -231,23 +307,37 @@ begin
                   try
                     Writeln('[CONVERSÃO] Convertendo MIGO para JSON...');
                     jsonData := LerExcelParaJSON(vXLSFile);
+                    Writeln(Format('[INFO] JSON gerado com %d registros', [jsonData.Count]));
+                    servico.LogEvento('INFO', fileName, Format('Processando arquivo %d de %d - MIGO com %d registros', [i + 1, validFileCount, jsonData.Count]));
+                    Writeln(Format('[PROGRESSO] Processando arquivo %d de %d - MIGO com %d registros', [i + 1, validFileCount, jsonData.Count]));
                     Writeln('[UPLOAD] Enviando dados MIGO...');
                     servico.InserirAtualizarMigo(jsonData, erro);
-                    Writeln('[SUCESSO] MIGO processado com sucesso: ' + fileName);
+                    if erro = '' then
+                      Writeln('[SUCESSO] MIGO processado com sucesso: ' + fileName)
+                    else
+                      Writeln('[ERRO] Falha no processamento MIGO: ' + erro);
                   finally
                     if Assigned(jsonData) then jsonData.Free;
-                    DeleteFile(vXLSFile);
+                    
+                    // Limpeza robusta do arquivo temporário
+                    Writeln('[LIMPEZA] Removendo arquivo temporário: ' + ExtractFileName(vXLSFile));
+                    if not ForcarLiberacaoArquivo(vXLSFile) then
+                      Writeln('[AVISO] Não foi possível remover completamente o arquivo temporário: ' + ExtractFileName(vXLSFile));
                   end;
                 end
 
                 // --- Lista Sites ---
                 else if (fileNameLength >= 14) and (Copy(lowerFileName, 1, 14) = PADRAO_LISTA_SITES) and (fileExt = '.xlsx') then
                 begin
-                  Writeln('[PROGRESSO] Processando Lista Sites: ' + fileName);
+                  Writeln('[PROGRESSO] Processando arquivo Lista Sites: ' + fileName);
+                  Writeln('[INFO] Padrão Lista Sites reconhecido - iniciando processamento');
                   vXLSFile := DIRETORIO_BASE + ExtractFileName(localZipFile.FileNames[fileIndex]);
                   // Remover arquivo se já existir
                   if FileExists(vXLSFile) then
+                  begin
+                    Writeln('[INFO] Removendo arquivo existente: ' + vXLSFile);
                     DeleteFile(vXLSFile);
+                  end;
                   Writeln('[EXTRAÇÃO] Extraindo Lista Sites para: ' + vXLSFile);
                   localZipFile.Extract(localZipFile.FileNames[fileIndex], DIRETORIO_BASE);
 
@@ -258,9 +348,24 @@ begin
                   try
                     Writeln('[CONVERSÃO] Convertendo Lista Sites para JSON...');
                     jsonData := LerExcelParaJSON(vXLSFile);
+                    servico.LogEvento('INFO', 'ProcessarArquivoObra', 'JSON Lista Sites gerado com sucesso');
+
+                    servico.LogEvento('INFO', 'ProcessarArquivoObra', Format('Processando arquivo %d de %d - Lista Sites com %d registros', [i + 1, validFileCount, jsonData.Count]));
                     Writeln('[UPLOAD] Enviando dados Lista Sites...');
+
+                    servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Enviando dados Lista Sites para banco de dados');
                     servico.InserirAtualizaObrasSites(jsonData, erro);
-                    Writeln('[SUCESSO] Lista Sites processada com sucesso: ' + fileName);
+                    
+                    if erro <> '' then
+                    begin
+                      servico.LogEvento('ERROR', 'ProcessarArquivoObra', 'Falha no processamento Lista Sites: ' + erro);
+                      Writeln('[ERRO] Lista Sites com erro: ' + fileName + ' - ' + erro);
+                    end
+                    else
+                    begin
+                      servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Lista Sites processada com sucesso: ' + fileName);
+                      Writeln('[SUCESSO] Lista Sites processada com sucesso: ' + fileName);
+                    end;
                   finally
                     if Assigned(jsonData) then jsonData.Free;
                     DeleteFile(vXLSFile);
@@ -270,26 +375,50 @@ begin
                 // --- Documentação Obra ---
                 else if (fileNameLength >= 29) and (Copy(lowerFileName, 1, 29) = PADRAO_DOCUMENTACAO_OBRA) and (fileExt = '.csv') then
                 begin
+                  servico.LogEvento('INFO', fileName, 'Iniciando processamento Documentação Obra');
                   Writeln('[PROGRESSO] Processando Documentação Obra: ' + fileName);
+                  Writeln('[INFO] Padrão Documentação Obra reconhecido - iniciando processamento');
+                  
                   vXLSFile := DIRETORIO_BASE + ExtractFileName(localZipFile.FileNames[fileIndex]);
+                  
                   // Remover arquivo se já existir
                   if FileExists(vXLSFile) then
+                  begin
+                    Writeln('[INFO] Removendo arquivo existente: ' + vXLSFile);
                     DeleteFile(vXLSFile);
+                  end;
                   Writeln('[EXTRAÇÃO] Extraindo Documentação Obra para: ' + vXLSFile);
                   localZipFile.Extract(localZipFile.FileNames[fileIndex], DIRETORIO_BASE);
 
                   // Verificar se o arquivo foi extraído com sucesso
                   if not FileExists(vXLSFile) then
+                  begin
+                    servico.LogEvento('ERRO', 'ProcessarArquivoObra', 'Falha na extração do arquivo Documentação Obra: ' + vXLSFile);
                     raise Exception.Create('Falha na extração do arquivo Documentação Obra: ' + vXLSFile);
+                  end;
 
                   try
                     Writeln('[CONVERSÃO] Convertendo Documentação Obra para JSON...');
                     jsonData := LerCSVParaJSON(vXLSFile);
+                    Writeln(Format('[INFO] JSON gerado com %d registros', [jsonData.Count]));
+                    servico.LogEvento('INFO', fileName, Format('Processando arquivo %d de %d - Documentação Obra com %d registros', [i + 1, validFileCount, jsonData.Count]));
+                    Writeln(Format('[PROGRESSO] Processando arquivo %d de %d - Documentação Obra com %d registros', [i + 1, validFileCount, jsonData.Count]));
+                    servico.LogEvento('INFO', fileName, 'Enviando dados Documentação Obra para banco de dados');
                     Writeln('[UPLOAD] Enviando dados Documentação Obra...');
                     servico.InserirAtualizaObraDocumentacaoObraFinal(jsonData, erro);
-                    Writeln('[SUCESSO] Documentação Obra processada com sucesso: ' + fileName);
+                    if erro = '' then
+                    begin
+                      servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Documentação Obra processada com sucesso');
+                      Writeln('[SUCESSO] Documentação Obra processada com sucesso: ' + fileName);
+                    end
+                    else
+                    begin
+                      servico.LogEvento('ERRO', 'ProcessarArquivoObra', 'Falha no processamento Documentação Obra: ' + erro);
+                      Writeln('[ERRO] Documentação Obra falhou: ' + fileName + ' - ' + erro);
+                    end;
                   finally
                     if Assigned(jsonData) then jsonData.Free;
+                    Writeln('[LIMPEZA] Removendo arquivo temporário: ' + vXLSFile);
                     DeleteFile(vXLSFile);
                   end;
                 end
@@ -297,26 +426,50 @@ begin
                 // --- Obras ASP 2022 ---
                 else if (fileNameLength >= 14) and (Copy(lowerFileName, 1, 14) = PADRAO_OBRAS_ASP_2022) and (fileExt = '.csv') then
                 begin
-                  Writeln('[PROGRESSO] Processando Obras ASP 2022: ' + fileName);
+                  servico.LogEvento('INFO', fileName, 'Iniciando processamento Obras ASP 2022');
+                  Writeln('[PROGRESSO] Processando arquivo Obras ASP 2022: ' + fileName);
+                  Writeln('[INFO] Padrão Obras ASP 2022 reconhecido - iniciando processamento');
                   vXLSFile := DIRETORIO_BASE + ExtractFileName(localZipFile.FileNames[fileIndex]);
                   // Remover arquivo se já existir
                   if FileExists(vXLSFile) then
+                  begin
+                    Writeln('[INFO] Removendo arquivo existente: ' + vXLSFile);
                     DeleteFile(vXLSFile);
+                  end;
+                  servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Extraindo arquivo Obras ASP 2022 para processamento');
                   Writeln('[EXTRAÇÃO] Extraindo Obras ASP 2022 para: ' + vXLSFile);
                   localZipFile.Extract(localZipFile.FileNames[fileIndex], DIRETORIO_BASE);
 
                   // Verificar se o arquivo foi extraído com sucesso
                   if not FileExists(vXLSFile) then
+                  begin
+                    servico.LogEvento('ERRO', 'ProcessarArquivoObra', 'Falha na extração do arquivo Obras ASP 2022: ' + vXLSFile);
                     raise Exception.Create('Falha na extração do arquivo Obras ASP 2022: ' + vXLSFile);
+                  end;
 
                   try
+                    servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Convertendo Obras ASP 2022 para JSON');
                     Writeln('[CONVERSÃO] Convertendo Obras ASP 2022 para JSON...');
                     jsonData := LerCSVParaJSON(vXLSFile);
+                    Writeln(Format('[INFO] JSON gerado com %d registros', [jsonData.Count]));
+                    servico.LogEvento('INFO', 'ProcessarArquivoObra', Format('Processando arquivo %d de %d - Obras ASP 2022 com %d registros', [i + 1, validFileCount, jsonData.Count]));
+                    Writeln(Format('[PROGRESSO] Processando arquivo %d de %d - Obras ASP 2022 com %d registros', [i + 1, validFileCount, jsonData.Count]));
+                    servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Enviando dados Obras ASP 2022 para banco de dados');
                     Writeln('[UPLOAD] Enviando dados Obras ASP 2022...');
                     servico.InserirAtualizaObras2022(jsonData, erro);
-                    Writeln('[SUCESSO] Obras ASP 2022 processada com sucesso: ' + fileName);
+                    if erro = '' then
+                    begin
+                      servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Obras ASP 2022 processada com sucesso');
+                      Writeln('[SUCESSO] Obras ASP 2022 processada com sucesso: ' + fileName);
+                    end
+                    else
+                    begin
+                      servico.LogEvento('ERRO', 'ProcessarArquivoObra', 'Falha no processamento Obras ASP 2022: ' + erro);
+                      Writeln('[ERRO] Falha no processamento Obras ASP 2022: ' + erro);
+                    end;
                   finally
                     if Assigned(jsonData) then jsonData.Free;
+                    Writeln('[LIMPEZA] Removendo arquivo temporário: ' + vXLSFile);
                     DeleteFile(vXLSFile);
                   end;
                 end
@@ -324,26 +477,50 @@ begin
                 // --- Obras ASP RFP 2024 ---
                 else if (fileNameLength >= 18) and (Copy(lowerFileName, 1, 18) = PADRAO_OBRAS_ASP_RFP_2024) and (fileExt = '.csv') then
                 begin
+                  servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Iniciando processamento Obras ASP RFP 2024');
                   Writeln('[PROGRESSO] Processando Obras ASP RFP 2024: ' + fileName);
+                  Writeln('[INFO] Padrão Obras ASP RFP 2024 reconhecido - iniciando processamento');
                   vXLSFile := DIRETORIO_BASE + ExtractFileName(localZipFile.FileNames[fileIndex]);
                   // Remover arquivo se já existir
                   if FileExists(vXLSFile) then
+                  begin
+                    Writeln('[INFO] Removendo arquivo existente: ' + vXLSFile);
                     DeleteFile(vXLSFile);
+                  end;
+                  servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Extraindo arquivo Obras ASP RFP 2024 para processamento');
                   Writeln('[EXTRAÇÃO] Extraindo Obras ASP RFP 2024 para: ' + vXLSFile);
                   localZipFile.Extract(localZipFile.FileNames[fileIndex], DIRETORIO_BASE);
 
                   // Verificar se o arquivo foi extraído com sucesso
                   if not FileExists(vXLSFile) then
+                  begin
+                    servico.LogEvento('ERRO', fileName, 'Falha na extração do arquivo Obras ASP RFP 2024: ' + vXLSFile);
                     raise Exception.Create('Falha na extração do arquivo Obras ASP RFP 2024: ' + vXLSFile);
+                  end;
 
                   try
+                    servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Convertendo Obras ASP RFP 2024 para JSON');
                     Writeln('[CONVERSÃO] Convertendo Obras ASP RFP 2024 para JSON...');
                     jsonData := LerCSVParaJSON(vXLSFile);
+                    Writeln(Format('[INFO] JSON gerado com %d registros', [jsonData.Count]));
+                    servico.LogEvento('INFO', 'ProcessarArquivoObra', Format('Processando arquivo %d de %d - Obras ASP RFP 2024 com %d registros', [i + 1, validFileCount, jsonData.Count]));
+                    Writeln(Format('[PROGRESSO] Processando arquivo %d de %d - Obras ASP RFP 2024 com %d registros', [i + 1, validFileCount, jsonData.Count]));
+                    servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Enviando dados Obras ASP RFP 2024 para banco de dados');
                     Writeln('[UPLOAD] Enviando dados Obras ASP RFP 2024...');
                     servico.InserirAtualizaObrasAspRFP2024(jsonData, erro);
-                    Writeln('[SUCESSO] Obras ASP RFP 2024 processada com sucesso: ' + fileName);
+                    if erro = '' then
+                    begin
+                      servico.LogEvento('INFO', 'ProcessarArquivoObra', 'Obras ASP RFP 2024 processada com sucesso');
+                      Writeln('[SUCESSO] Obras ASP RFP 2024 processada com sucesso: ' + fileName);
+                    end
+                    else
+                    begin
+                      servico.LogEvento('ERRO', 'ProcessarArquivoObra', 'Falha no processamento Obras ASP RFP 2024: ' + erro);
+                      Writeln('[ERRO] Falha no processamento Obras ASP RFP 2024: ' + erro);
+                    end;
                   finally
                     if Assigned(jsonData) then jsonData.Free;
+                    Writeln('[LIMPEZA] Removendo arquivo temporário: ' + vXLSFile);
                     DeleteFile(vXLSFile);
                   end;
                 end;
@@ -355,6 +532,14 @@ begin
               servico.Free;
               endTime := Now;
               elapsedTime := FormatDateTime('hh:nn:ss', endTime - startTime);
+              
+              servico := TUpload.Create;
+              try
+                servico.LogEvento('INFO', 'ProcessarArquivoObra', Format('Arquivo processado com sucesso: %s - Tempo: %s', [fileName, elapsedTime]));
+              finally
+                servico.Free;
+              end;
+              
               Writeln('[FINALIZAÇÃO] Processamento concluído para: ' + fileName);
               Writeln('[TEMPO] Tempo decorrido: ' + elapsedTime);
               Writeln('[INFO] Horário de término: ' + FormatDateTime('hh:nn:ss', endTime));
@@ -364,16 +549,49 @@ begin
             begin
               endTime := Now;
               elapsedTime := FormatDateTime('hh:nn:ss', endTime - startTime);
+              
+              servico := TUpload.Create;
+              try
+                servico.LogEvento('ERROR', 'ProcessarArquivoObra', Format('Falha no processamento do arquivo %s - Tempo: %s - Erro: %s', [fileName, elapsedTime, E.Message]));
+              finally
+                servico.Free;
+              end;
+              
               Writeln('[ERRO] Falha no processamento do arquivo ' + fileName + ': ' + E.Message);
               Writeln('[TEMPO] Tempo até o erro: ' + elapsedTime);
+              Writeln('[INFO] Limpeza de recursos após erro');
             end;
           end;
         end;
        end;
 
     finally
+      Writeln('[INFO] Fechando arquivo ZIP');
       vZipFile.Free;
+      Writeln('[INFO] Limpeza concluída com sucesso');
     end;
+    
+    servico := TUpload.Create;
+    try
+      servico.LogEvento('INFO', 'ProcessarArquivoObra', Format('Processamento completo - %d arquivos válidos processados', [validFileCount]));
+    finally
+      servico.Free;
+    end;
+    
+    Writeln('[INFO] === PROCESSAMENTO CONCLUÍDO COM SUCESSO ===');
+    Writeln('[INFO] Todos os arquivos válidos foram processados');
+    Writeln(Format('[RESUMO] %d arquivos válidos processados', [validFileCount]))
+  end
+  else
+  begin
+    servico := TUpload.Create;
+    try
+      servico.LogEvento('ERROR', 'ProcessarArquivoObra', 'Arquivo não é um ZIP válido: ' + vDiretorio);
+    finally
+      servico.Free;
+    end;
+    
+    Writeln('[ERRO] Arquivo não é um ZIP válido: ' + vDiretorio);
   end;
 end;
 

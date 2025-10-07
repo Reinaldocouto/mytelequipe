@@ -764,7 +764,8 @@ var
   qry: TFDQuery;
   id: Integer;
   FS: TFormatSettings;
-  valorp, porcent, valorpg, valorpgexistente, valorpagamentoexistente, valorpagamentonovo: Real;
+  valorp, porcent, valorpg, valorpgexistente,
+  valorpagamentoexistente, valorpagamentonovo: Real;
 begin
   try
     qry := TFDQuery.Create(nil);
@@ -786,20 +787,24 @@ begin
         SQL.Add('coalesce(Sum(telefonicapagamento.valorpagamento),0) As Sum_valorpagamento  ');
         SQL.Add('From  ');
         SQL.Add('acionamentovivo left Join   ');
-        SQL.Add('telefonicapagamento On telefonicapagamento.idacionamentovivo = acionamentovivo.id WHERE acionamentovivo.id = :id  ');
-        SQL.Add('Group By  ');
-        SQL.Add('acionamentovivo.id ');
+        SQL.Add('telefonicapagamento On telefonicapagamento.idacionamentovivo = acionamentovivo.id ');
+        SQL.Add('WHERE acionamentovivo.id = :id  ');
+        SQL.Add('Group By acionamentovivo.id ');
         ParamByName('id').AsInteger := idgeralfechamento;
         Open;
-        valorp := fieldbyname('valor').asfloat;
-        valorpgexistente := FieldByName('Sum_valorpagamento').asfloat;
+
+        valorp := FieldByName('valor').AsFloat;
+        valorpgexistente := FieldByName('Sum_valorpagamento').AsFloat;
         if valorp < 0 then
           valorp := 0;
 
         Close;
         SQL.Clear;
-        SQL.Add('select * from telefonicapagamento where mespagamento=:mespagamento and datapagamento=:datapagamento and ');
-        SQL.Add('tipopagamento=:tipopagamento and idacionamentovivo=:idacionamentovivo  ');
+        SQL.Add('select * from telefonicapagamento ');
+        SQL.Add('where mespagamento = :mespagamento ');
+        SQL.Add('and datapagamento = :datapagamento ');
+        SQL.Add('and tipopagamento = :tipopagamento ');
+        SQL.Add('and idacionamentovivo = :idacionamentovivo');
         ParamByName('idacionamentovivo').AsInteger := idgeralfechamento;
         ParamByName('mespagamento').AsString := mesfechamento;
         ParamByName('datapagamento').AsDate := StrToDate(diapagamento, FS);
@@ -807,81 +812,94 @@ begin
         Open();
         valorpagamentoexistente := 0;
         if RecordCount > 0 then
-          valorpagamentoexistente := FieldByName('valorpagamento').asfloat;
+          valorpagamentoexistente := FieldByName('valorpagamento').AsFloat;
 
         valorpagamentonovo := valorp * (porcentagem / 100);
         if (valorpgexistente - valorpagamentoexistente + valorpagamentonovo) > valorp then
         begin
           FConn.Rollback;
           erro := 'Pagamento inválido: o valor informado ultrapassa 100% do valor do site.';
-          Result := false;
+          Result := False;
           Exit;
         end;
+
         if RecordCount = 0 then
         begin
           Close;
           SQL.Clear;
           SQL.Add('INSERT INTO telefonicapagamento ');
-          SQL.Add('        (idacionamentovivo,  mespagamento,  porcentagem,  valorpagamento, observacao,  datapagamento,    idfuncionario,  tipopagamento, datafechamento) ');
-          SQL.Add('VALUES (:idacionamentovivo, :mespagamento, :porcentagem, :valorpago,     :observacao, :datadopagamento, :idfuncionario, :status,       :datafechamento)');
+          SQL.Add('(idacionamentovivo, mespagamento, porcentagem, valorpagamento, observacao, datapagamento, idfuncionario, tipopagamento, datafechamento) ');
+          SQL.Add('VALUES (:idacionamentovivo, :mespagamento, :porcentagem, :valorpago, :observacao, :datadopagamento, :idfuncionario, :status, :datafechamento)');
+
+          ParamByName('porcentagem').AsFloat := porcentagem / 100;
+          ParamByName('valorpago').AsFloat := valorpagamentonovo;
         end
         else
         begin
           Close;
           SQL.Clear;
-          sql.add('update telefonicapagamento set valorpagamento=:valorpago, porcentagem=:porcentagem, observacao=:observacao, idfuncionario=:idfuncionario, datafechamento=:datafechamento where mespagamento=:mespagamento and datapagamento=:datadopagamento and  ');
-          SQL.Add('tipopagamento=:status and idacionamentovivo=:idacionamentovivo  ');
+          SQL.Add('UPDATE telefonicapagamento ');
+          SQL.Add('SET valorpagamento = :valorpago, ');
+          SQL.Add('    porcentagem = :porcentagem, ');
+          SQL.Add('    observacao = :observacao, ');
+          SQL.Add('    idfuncionario = :idfuncionario, ');
+          SQL.Add('    datafechamento = :datafechamento ');
+          SQL.Add('WHERE mespagamento = :mespagamento ');
+          SQL.Add('  AND datapagamento = :datadopagamento ');
+          SQL.Add('  AND tipopagamento = :status ');
+          SQL.Add('  AND idacionamentovivo = :idacionamentovivo');
+
+          ParamByName('porcentagem').AsFloat := (valorpagamentoexistente / valorp) + (porcentagem / 100);
+          ParamByName('valorpago').AsFloat := valorpagamentoexistente + valorpagamentonovo;
         end;
         ParamByName('mespagamento').AsString := mesfechamento;
-        ParamByName('porcentagem').Asfloat := porcentagem / 100;
-        ParamByName('valorpago').AsFloat := valorpagamentonovo;
         ParamByName('observacao').AsString := observacao;
         ParamByName('datadopagamento').AsDate := StrToDate(diapagamento, FS);
         ParamByName('status').AsString := tipopagamento;
         ParamByName('idfuncionario').AsInteger := idfuncionario;
-        ParamByName('datafechamento').AsDatetime := now;
+        ParamByName('datafechamento').AsDateTime := Now;
         ParamByName('idacionamentovivo').AsInteger := idgeralfechamento;
         ExecSQL;
 
+        // atualiza totais no acionamentovivo
         Close;
         SQL.Clear;
-        sql.Add('Select ');
-        sql.Add('Sum(telefonicapagamento.porcentagem) As Sum_porcentagem, ');
-        sql.Add('Sum(telefonicapagamento.valorpagamento) As Sum_valorpagamento ');
-        sql.Add('From ');
-        sql.Add('telefonicapagamento where idacionamentovivo =:idacionamentovivo  ');
+        SQL.Add('Select ');
+        SQL.Add('Sum(telefonicapagamento.porcentagem) As Sum_porcentagem, ');
+        SQL.Add('Sum(telefonicapagamento.valorpagamento) As Sum_valorpagamento ');
+        SQL.Add('From telefonicapagamento where idacionamentovivo = :idacionamentovivo');
         ParamByName('idacionamentovivo').AsInteger := idgeralfechamento;
         Open();
-        porcent := FieldByName('Sum_porcentagem').asfloat;
-        valorpg := FieldByName('Sum_valorpagamento').asfloat;
+        porcent := FieldByName('Sum_porcentagem').AsFloat;
+        valorpg := FieldByName('Sum_valorpagamento').AsFloat;
 
         Close;
         SQL.Clear;
-        SQL.Add('update acionamentovivo set porcentagem = :porce, valorpago = :vp where id=:id  ');
-        ParamByName('id').asinteger := idgeralfechamento;
-        ParamByName('porce').asfloat := porcent;
-        ParamByName('vp').asfloat := valorpg;
+        SQL.Add('update acionamentovivo set porcentagem = :porce, valorpago = :vp where id = :id');
+        ParamByName('id').AsInteger := idgeralfechamento;
+        ParamByName('porce').AsFloat := porcent;
+        ParamByName('vp').AsFloat := valorpg;
         ExecSQL;
+
         FConn.Commit;
       end;
 
       erro := '';
-      FConn.Commit;
-      result := true;
+      Result := True;
     except
-      on ex: exception do
+      on ex: Exception do
       begin
         FConn.Rollback;
         erro := 'Erro ao efetuar pagamento: ' + ex.Message;
-        Result := false;
+        Result := False;
       end;
     end;
 
   finally
     qry.Free;
-
   end;
 end;
+
 
 function TProjetotelefonica.Listaparadocumentacao(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
@@ -5371,6 +5389,8 @@ begin
       SQL.Add('lpuvivo On lpuvivo.ID = acionamentovivo.idpacote left Join ');
       SQL.Add('gesempresas On gesempresas.idempresa = acionamentovivo.idcolaborador left Join ');
       SQL.Add('rolloutvivo On rolloutvivo.UIDIDPMTS = acionamentovivo.idpmts ');
+      SQL.Add('WHERE acionamentovivo.deletado = 0');
+
       Active := true;
     end;
     erro := '';

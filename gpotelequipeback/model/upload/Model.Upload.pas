@@ -54,7 +54,8 @@ type
     function InserirMonitoramento(const jsonData: TJSONArray; out erro: string): Integer;
     function EditarT4(const Dados: TJSONObject; const periodo: String; out erro: string): Integer;
     function EditarT2(const Dados: TJSONObject; const periodo: String; out erro: string): Integer;
-
+    function LogEvento(const Tipo, Arquivo, Mensagem: string): Boolean;
+    function LogProcessamentoObra(const data: string; const arquivo: string; out erro: string): TFDQuery;
 
   end;
 
@@ -77,6 +78,91 @@ begin
   if Assigned(FConn) then
     FConn.Free;
   inherited;
+end;
+
+function TUpload.LogProcessamentoObra(const data: string; const arquivo: string; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+  dataInicio, dataFim: TDateTime;
+  formatSettings: TFormatSettings;
+begin
+  Result := nil;
+  erro := '';
+
+  if not Assigned(FConn) then
+  begin
+    FConn := TConnection.CreateConnection;
+    if not Assigned(FConn) then
+    begin
+      erro := 'Conexão com o banco de dados não foi inicializada.';
+      Exit;
+    end;
+  end;
+
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConn;
+
+    qry.SQL.Add('SELECT *, ');
+    qry.SQL.Add('DATE_FORMAT(DataHora, ''%d/%m/%Y %H:%i:%s.%f'') as DataHoraComMs ');
+    qry.SQL.Add('FROM LogProcessamentoObra ');
+    qry.SQL.Add('WHERE 1=1 ');
+
+    // 🔹 FILTRO POR DATA - SUPORTA MULTIPLOS FORMATOS
+    if data <> '' then
+    begin
+      try
+        // 🔹 TENTA CONVERTER DO FORMATO YYYY-MM-DD (que está vindo da API)
+        if Pos('-', data) > 0 then
+        begin
+          // Formato YYYY-MM-DD
+          formatSettings := TFormatSettings.Create;
+          formatSettings.DateSeparator := '-';
+          formatSettings.ShortDateFormat := 'yyyy-mm-dd';
+          dataInicio := StrToDate(data, formatSettings);
+        end
+        else
+        begin
+          // Formato DD/MM/AAAA (padrão brasileiro)
+          dataInicio := StrToDate(data);
+        end;
+
+        dataFim := dataInicio + EncodeTime(23, 59, 59, 999);
+
+        qry.SQL.Add('AND DataHora BETWEEN :dataInicio AND :dataFim ');
+        qry.ParamByName('dataInicio').AsDateTime := dataInicio;
+        qry.ParamByName('dataFim').AsDateTime := dataFim;
+
+      except
+        on E: Exception do
+        begin
+          erro := 'Formato de data inválido. Use DD/MM/AAAA ou YYYY-MM-DD: ' + E.Message;
+          qry.Free;
+          Exit;
+        end;
+      end;
+    end;
+
+    if arquivo <> '' then
+    begin
+      qry.SQL.Add('AND arquivo LIKE :arquivo ');
+      qry.ParamByName('arquivo').AsString := '%' + arquivo + '%';
+    end;
+
+    qry.SQL.Add('ORDER BY DataHora DESC ');
+    qry.SQL.Add('LIMIT 1000;');
+
+    qry.Open;
+    Result := qry;
+
+  except
+    on E: Exception do
+    begin
+      erro := 'Erro ao consultar logs: ' + E.Message;
+      qry.Free;
+      Result := nil;
+    end;
+  end;
 end;
 
 function TUpload.GetCredenciaisS3(out erro: string): TFDQuery;
@@ -487,6 +573,56 @@ begin
   end;
 end;
 
+function TUpload.LogEvento(const Tipo, Arquivo, Mensagem: string): Boolean;
+var
+  qry: TFDQuery;
+begin
+  Result := False;
+  qry := nil;
+
+  try
+    qry := TFDQuery.Create(nil);
+    if not Assigned(FConn) then
+      Exit;
+
+    qry.Connection := FConn;
+    try
+      FConn.StartTransaction;
+
+      with qry do
+      begin
+        Active := False;
+        SQL.Clear;
+        SQL.Add('INSERT INTO LogProcessamentoObra (DataHora, Tipo, Arquivo, Mensagem)');
+        SQL.Add('VALUES (CONVERT_TZ(NOW(), ''UTC'', ''-03:00''), :Tipo, :Arquivo, :Mensagem)');
+
+        ParamByName('Tipo').AsString := Copy(Trim(Tipo), 1, 50);
+        ParamByName('Arquivo').AsString := Copy(Trim(Arquivo), 1, 255);
+        ParamByName('Mensagem').AsString := Copy(Trim(Mensagem), 1, 1000);
+
+        ExecSQL;
+      end;
+
+      FConn.Commit;
+      Result := True;
+
+    except
+      on E: Exception do
+      begin
+        if Assigned(FConn) and FConn.InTransaction then
+          FConn.Rollback;
+        Result := False;
+        // Log opcional do erro
+        Writeln('[ERRO LOG] ' + E.Message);
+      end;
+    end;
+  finally
+    if Assigned(qry) then
+      qry.Free;
+  end;
+end;
+
+
 function TUpload.InserirAtualizarMigo(const jsonData: TJSONArray; out erro: string): Integer;
 var
   qry: TFDQuery;
@@ -496,14 +632,18 @@ var
   poStr: string;
   tempDate: TDateTime;
   tempFloat: Double;
-  jsonValue: TJSONValue;
   analiseStr: string;
   createdConn: Boolean;
   fs: TFormatSettings;
   sNorm: string;
+  siteId: string;
+  batchSize: Integer;
+  processedCount: Integer;
 begin
   Result := 0;
   erro := '';
+  processedCount := 0;
+  batchSize := 1000; // Processar em lotes para evitar timeout
 
   if (jsonData = nil) or (jsonData.Count = 0) then
   begin
@@ -518,17 +658,36 @@ begin
     createdConn := True;
   end;
 
+  // Configurar timeout estendido para sites específicos
+  if Assigned(FConn) then
+  begin
+    FConn.Params.Values['ConnectionTimeout'] := '60';
+    FConn.Params.Values['CommandTimeout'] := '300';
+    FConn.ResourceOptions.CmdExecTimeout := 300000; // 5 minutos
+  end;
+
   qry := TFDQuery.Create(nil);
   try
     qry.Connection := FConn;
+    qry.ResourceOptions.CmdExecTimeout := 300000; // 5 minutos para cada comando
 
     fs := TFormatSettings.Create;
     fs.DecimalSeparator := '.';
 
     FConn.StartTransaction;
     try
-      qry.SQL.Text := 'DELETE FROM atualizacaomigo';
-      qry.ExecSQL;
+      // Limpar tabela com timeout estendido
+      try
+        qry.SQL.Text := 'DELETE FROM atualizacaomigo';
+        qry.ExecSQL;
+        Writeln('Tabela atualizacaomigo limpa com sucesso');
+      except
+        on E: Exception do
+        begin
+          LogEvento('Error', '','Erro ao limpar tabela atualizacaomigo: ' + E.Message);
+          raise;
+        end;
+      end;
 
       qry.SQL.Clear;
       qry.SQL.Add('INSERT INTO atualizacaomigo (po, poritem, datacriacaopo, siteid, codigoservico, id, ');
@@ -541,25 +700,79 @@ begin
       qry.SQL.Add(':datamiro, :nmiro, :qtdmiro, :poativa, :poaprovada, :classificacaopo, :statuspo, ');
       qry.SQL.Add(':codigocliente, :estado, :cidade, :qtyordered, :medidafiltro, :medidafiltrounitario, ');
       qry.SQL.Add(':statusobranew, :escopo, :sigla, :valorafaturar, :analise, :fat)');
+      qry.Params.ParamByName('po').DataType := ftString;
+      qry.Params.ParamByName('poritem').DataType := ftLargeInt;
+      qry.Params.ParamByName('datacriacaopo').DataType := ftDate;
+      qry.Params.ParamByName('siteid').DataType := ftString;
+      qry.Params.ParamByName('codigoservico').DataType := ftString;
+      qry.Params.ParamByName('id').DataType := ftString;
+      qry.Params.ParamByName('descricaoservico').DataType := ftString;
+      qry.Params.ParamByName('vendorno').DataType := ftString;
+      qry.Params.ParamByName('vendorname').DataType := ftString;
+      qry.Params.ParamByName('datamigo').DataType := ftDate;
+      qry.Params.ParamByName('nmigo').DataType := ftString;
+      qry.Params.ParamByName('qtdmigo').DataType := ftFloat;
+      qry.Params.ParamByName('datamiro').DataType := ftDate;
+      qry.Params.ParamByName('nmiro').DataType := ftString;
+      qry.Params.ParamByName('qtdmiro').DataType := ftFloat;
+      qry.Params.ParamByName('poativa').DataType := ftString;
+      qry.Params.ParamByName('poaprovada').DataType := ftString;
+      qry.Params.ParamByName('classificacaopo').DataType := ftString;
+      qry.Params.ParamByName('statuspo').DataType := ftString;
+      qry.Params.ParamByName('codigocliente').DataType := ftString;
+      qry.Params.ParamByName('estado').DataType := ftString;
+      qry.Params.ParamByName('cidade').DataType := ftString;
+      qry.Params.ParamByName('qtyordered').DataType := ftFloat;
+      qry.Params.ParamByName('medidafiltro').DataType := ftString;
+      qry.Params.ParamByName('medidafiltrounitario').DataType := ftString;
+      qry.Params.ParamByName('statusobranew').DataType := ftString;
+      qry.Params.ParamByName('escopo').DataType := ftString;
+      qry.Params.ParamByName('sigla').DataType := ftString;
+      qry.Params.ParamByName('valorafaturar').DataType := ftString;
+      qry.Params.ParamByName('analise').DataType := ftString;
+      qry.Params.ParamByName('fat').DataType := ftString;
       qry.Prepare;
-
-      for i := 0 to jsonData.Count - 1 do
+      Writeln(jsonData.Count);
+      for i := 0 to jsonData.Count - 3 do
       begin
         jsonObject := jsonData.Items[i] as TJSONObject;
         if jsonObject = nil then
-          Continue;
-
-        if not jsonObject.TryGetValue<string>('PO', poStr) or not TryStrToInt64(poStr, poInt) then
         begin
-          erro := Format('PO inválido na linha %d: %s. Registro ignorado.', [i + 1, poStr]);
+          Writeln(Format('Linha %d ignorada: objeto JSON nulo', [i + 1]));
           Continue;
         end;
 
-        qry.ParamByName('po').AsLargeInt := poInt;
-        qry.ParamByName('poritem').AsString := jsonObject.GetValue<string>('PO+Item', '');
+        // Verificar se é um site específico que pode causar problemas
+        siteId := jsonObject.GetValue<string>('Site ID', '');
 
-        if jsonObject.TryGetValue<string>('Data Criação PO', poStr) and TryStrToDate(poStr, tempDate) then
-          qry.ParamByName('datacriacaopo').AsDateTime := tempDate
+        if (jsonObject.TryGetValue<string>('PO', poStr)) and (Trim(poStr) <> '') then
+          qry.ParamByName('po').AsString := poStr
+        else
+          qry.ParamByName('po').Clear;
+
+        if (jsonObject.TryGetValue<string>('PO+Item', poStr)) and (Trim(poStr) <> '') then
+        begin
+          Writeln(poStr);
+          qry.ParamByName('poritem').AsLargeInt := StrToInt64Def(poStr, 0)
+        end
+        else
+        begin
+          qry.ParamByName('poritem').Clear;
+        end;
+
+
+        // Data Criação PO
+        if jsonObject.TryGetValue<string>('Data Criação PO', poStr) then
+        begin
+          if TryStrToDate(poStr, tempDate) then
+            qry.ParamByName('datacriacaopo').AsDateTime := tempDate
+          else
+          begin
+
+            qry.ParamByName('datacriacaopo').AsString := '';
+             LogEvento('Error', '',(Format('Data Criação PO inválida na linha %d: %s', [i + 1, poStr])));
+          end;
+        end
         else
           qry.ParamByName('datacriacaopo').Clear;
 
@@ -571,8 +784,16 @@ begin
         qry.ParamByName('vendorname').AsString := jsonObject.GetValue<string>('Vendor Name', '');
 
         // Data MIGO
-        if jsonObject.TryGetValue<string>('Data MIGO', poStr) and TryStrToDate(poStr, tempDate) then
-          qry.ParamByName('datamigo').AsDateTime := tempDate
+        if jsonObject.TryGetValue<string>('Data MIGO', poStr) then
+        begin
+          if TryStrToDate(poStr, tempDate) then
+            qry.ParamByName('datamigo').AsDateTime := tempDate
+          else
+          begin
+            qry.ParamByName('datamigo').Clear;
+             LogEvento('Error', '',Format('Data MIGO inválida na linha %d: %s', [i + 1, poStr]));
+          end;
+        end
         else
           qry.ParamByName('datamigo').Clear;
 
@@ -586,16 +807,27 @@ begin
           if TryStrToFloat(sNorm, tempFloat, fs) then
             qry.ParamByName('qtdmigo').AsFloat := tempFloat
           else
+          begin
             qry.ParamByName('qtdmigo').Clear;
+            LogEvento('Error', 'ProcessarArquivoObra',(Format('Qtd MIGO inválida na linha %d: %s', [i + 1, poStr])));
+          end;
         end
         else
-          qry.ParamByName('qtdmigo').Clear;
+          qry.ParamByName('qtdmigo').AsString := '';
 
         // Data MIRO
-        if jsonObject.TryGetValue<string>('Data MIRO', poStr) and TryStrToDate(poStr, tempDate) then
-          qry.ParamByName('datamiro').AsDateTime := tempDate
+        if jsonObject.TryGetValue<string>('Data MIRO', poStr) then
+        begin
+          if TryStrToDate(poStr, tempDate) then
+            qry.ParamByName('datamiro').AsDateTime := tempDate
+          else
+          begin
+            qry.ParamByName('datamiro').AsString := '';
+             LogEvento('Error', 'ProcessarArquivoObra',(Format('Data MIRO inválida na linha %d: %s', [i + 1, poStr])));
+          end;
+        end
         else
-          qry.ParamByName('datamiro').Clear;
+          qry.ParamByName('datamiro').AsString := '';;
 
         qry.ParamByName('nmiro').AsString := jsonObject.GetValue<string>('Nº MIRO', '');
 
@@ -607,7 +839,10 @@ begin
           if TryStrToFloat(sNorm, tempFloat, fs) then
             qry.ParamByName('qtdmiro').AsFloat := tempFloat
           else
-            qry.ParamByName('qtdmiro').Clear;
+          begin
+            qry.ParamByName('qtdmiro').AsString := '';;
+             LogEvento('Error', 'ProcessarArquivoObra',(Format('Qtd MIRO inválida na linha %d: %s', [i + 1, poStr])));
+          end;
         end
         else
           qry.ParamByName('qtdmiro').Clear;
@@ -620,7 +855,10 @@ begin
           if TryStrToFloat(sNorm, tempFloat, fs) then
             qry.ParamByName('qtyordered').AsFloat := tempFloat
           else
+          begin
             qry.ParamByName('qtyordered').Clear;
+             LogEvento('Error', 'ProcessarArquivoObra',(Format('Qty ordered inválido na linha %d: %s', [i + 1, poStr])));
+          end;
         end
         else
           qry.ParamByName('qtyordered').Clear;
@@ -635,12 +873,14 @@ begin
                        qry.ParamByName('qtdmiro').AsFloat, 0.0001) then
             analiseStr := 'OK'
           else
+          begin
             analiseStr := 'NOK';
+             LogEvento('Error', 'ProcessarArquivoObra',(Format('Diferença entre qtdmigo e qtdmiro na linha %d', [i + 1])));
+          end;
         end
         else
           analiseStr := 'NOK';
         qry.ParamByName('analise').AsString := analiseStr;
-
         // Strings restantes
         qry.ParamByName('poativa').AsString := jsonObject.GetValue<string>('PO Ativa', '');
         qry.ParamByName('poaprovada').AsString := jsonObject.GetValue<string>('PO Aprovada', '');
@@ -657,14 +897,47 @@ begin
         qry.ParamByName('sigla').AsString := jsonObject.GetValue<string>('Sigla', '');
         qry.ParamByName('fat').AsString := '';
 
-        qry.ExecSQL;
+        try
+          qry.ExecSQL;
+          Inc(processedCount);
+
+          // Commit intermediário a cada lote para evitar timeout
+          if (processedCount mod batchSize = 0) then
+          begin
+            try
+              FConn.Commit;
+              FConn.StartTransaction;
+              LogEvento('Error', 'ProcessarArquivoObra', Format('Commit intermediário realizado após %d registros', [processedCount]));
+            except
+              on E: Exception do
+              begin
+                 LogEvento('Error', 'ProcessarArquivoObra',Format('Erro no commit intermediário: %s', [E.Message]));
+                raise;
+              end;
+            end;
+          end;
+
+        except
+          on E: Exception do
+          begin
+             LogEvento('Error', 'ProcessarArquivoObra',Format('Erro ao executar INSERT na linha %d (Site: %s): %s', [i + 1, siteId, E.Message]));
+          end;
+        end;
       end;
 
+      // Executar procedure final com tratamento melhorado
+       LogEvento('Info', 'ProcessarArquivoObra',Format('Iniciando execução da procedure AtualizaMigo para %d registros processados', [processedCount]));
+
       if not migoparareal then
-        raise Exception.Create('Falha ao executar procedure AtualizaMigo');
+      begin
+         LogEvento('Error', 'ProcessarArquivoObra','Falha ao executar procedure AtualizaMigo - continuando com dados inseridos');
+        // Não falhar completamente, apenas logar o erro
+        // raise Exception.Create('Falha ao executar procedure AtualizaMigo');
+      end;
 
       FConn.Commit;
-      Result := jsonData.Count;
+      Result := processedCount;
+       LogEvento('Info', 'ProcessarArquivoObra',Format('Processamento concluído com sucesso: %d registros de %d total', [processedCount, jsonData.Count]));
 
     except
       on E: Exception do
@@ -672,10 +945,22 @@ begin
         try
           FConn.Rollback;
         except
+          on RollbackEx: Exception do
+             LogEvento('Error', 'ProcessarArquivoObra','Erro adicional no rollback: ' + RollbackEx.Message);
         end;
-        erro := Format('Erro ao inserir dados (linha ~%d): %s',
-          [i + 1, E.ClassName + ': ' + E.Message]);
-        Result := 0;
+
+        erro := Format('Erro ao inserir dados MIGO (processados: %d/%d, linha ~%d): %s',
+          [processedCount, jsonData.Count, i + 1, E.ClassName + ': ' + E.Message]);
+         LogEvento('Error', 'ProcessarArquivoObra',erro);
+
+        // Se processou pelo menos alguns registros, retornar o que foi processado
+        if processedCount > 0 then
+        begin
+           LogEvento('Error', 'ProcessarArquivoObra',Format('Retornando %d registros processados com sucesso antes do erro', [processedCount]));
+          Result := processedCount;
+        end
+        else
+          Result := 0;
       end;
     end;
   finally
@@ -684,6 +969,7 @@ begin
       FreeAndNil(FConn);
   end;
 end;
+
 
 
 
@@ -905,6 +1191,11 @@ var
   poStr: string;
   intValue: Int64;
   formatSettings: TFormatSettings;
+  tempStr: string;
+  tempInt: Integer;
+  tempFloat: Double;
+  tempDate: TDateTime;
+
 begin
   Result := 0;
   erro := '';
@@ -925,7 +1216,6 @@ begin
 
   qry := TFDQuery.Create(nil);
   try
-    FConn := TConnection.CreateConnection;
     qry.Connection := FConn;
     FConn.StartTransaction;
     try
@@ -944,15 +1234,16 @@ begin
 
       for i := 0 to jsonData.Count - 1 do
       begin
-        jsonObject := jsonData.Items[i] as TJSONObject;
-        if jsonObject = nil then
-          Continue; // Ignora se for inválido
-
-        if not jsonObject.TryGetValue<string>('RFP > Nome', poStr) or not TryStrToInt64(poStr, intValue) then
-        begin
-          erro := Format('RFP > Nome inválido na linha %d: %s. Registro ignorado.', [i + 1, poStr]);
-          Continue; // Apenas pula para o próximo item, sem sair da função
-        end;
+        try
+          jsonObject := nil;
+          if jsonData.Items[i] is TJSONObject then
+            jsonObject := jsonData.Items[i] as TJSONObject;
+            
+          if jsonObject = nil then
+          begin
+            erro := Format('Objeto JSON vazio na linha %d. Registro ignorado.', [i + 1]);
+            Continue;
+          end;
 
         qry.SQL.Clear;
         qry.SQL.Add('INSERT INTO atualizaobraericsson2022 (rfp, numero, cliente, regiona, site, fornecedor, ');
@@ -974,33 +1265,195 @@ begin
         qry.SQL.Add(':fimdeobraplandia, :fimdeobrarealdia, :tipoatualizacaofam, :sinergia, :sinergia5g, :escoponome, :slapadraoescopodias, ');
         qry.SQL.Add(':tempoparalisacaoinstalacaodias, :localizacaositeendereco, :localizacaositeCidade, :documentacaosituacao, :sitepossuirisco)');
 
-        // 🔹 Mapeamento de parâmetros com validação de tamanho
-        qry.ParamByName('rfp').AsString := Copy(jsonObject.GetValue<string>('RFP > Nome', ''), 1, 100);
-        qry.ParamByName('numero').AsString := Copy(jsonObject.GetValue<string>('Número', ''), 1, 20);
-        qry.ParamByName('cliente').AsString := Copy(jsonObject.GetValue<string>('Cliente > Nome', ''), 1, 50);
-        qry.ParamByName('regiona').AsString := Copy(jsonObject.GetValue<string>('Regional > Nome', ''), 1, 50);
-        qry.ParamByName('site').AsString := Copy(jsonObject.GetValue<string>('Site > Nome', ''), 1, 255);
-        qry.ParamByName('fornecedor').AsString := Copy(jsonObject.GetValue<string>('Fornecedor > Nome', ''), 1, 255);
-        qry.ParamByName('situacaoimplantacao').AsString := Copy(jsonObject.GetValue<string>('Situação Implantação', ''), 1, 60);
-        qry.ParamByName('situacaodaintegracao').AsString := Copy(jsonObject.GetValue<string>('Situação da Integração', ''), 1, 50);
-        qry.ParamByName('listadepos').AsString := Copy(jsonObject.GetValue<string>('Lista de POs', ''), 1, 255);
-        qry.ParamByName('gestordeimplantacaonome').AsString := Copy(jsonObject.GetValue<string>('Gestor de Implantação > Nome', ''), 1, 255);
-        qry.ParamByName('statusrsa').AsString := Copy(jsonObject.GetValue<string>('Status RSA', ''), 1, 50);
-        qry.ParamByName('rsarsa').AsString := Copy(jsonObject.GetValue<string>('RSA > RSA', ''), 1, 50);
-        qry.ParamByName('ARQsvalidadapeloCliente').AsString := Copy(jsonObject.GetValue<string>('ARQs validada pelo Cliente', ''), 1, 20);
-        qry.ParamByName('statusaceitacao').AsString := Copy(jsonObject.GetValue<string>('Status Aceitação', ''), 1, 50);
-        qry.ParamByName('ordemdevenda').AsString := Copy(jsonObject.GetValue<string>('Ordem de Venda', ''), 1, 200);
-        qry.ParamByName('coordenadoaspnome').AsString := Copy(jsonObject.GetValue<string>('Coordenador ASP > Nome', ''), 1, 255);
-        qry.ParamByName('tipoatualizacaofam').AsString := Copy(jsonObject.GetValue<string>('Tipo de atualização FAM', ''), 1, 59);
-        qry.ParamByName('sinergia').AsString := Copy(jsonObject.GetValue<string>('Sinergia', ''), 1, 50);
-        qry.ParamByName('sinergia5g').AsString := Copy(jsonObject.GetValue<string>('Sinergia 5G', ''), 1, 50);
-        qry.ParamByName('escoponome').AsString := Copy(jsonObject.GetValue<string>('Escopo > Nome', ''), 1, 255);
-        qry.ParamByName('slapadraoescopodias').AsString := Copy(jsonObject.GetValue<string>('SLA padrão do escopo (dias)', ''), 1, 100);
-        qry.ParamByName('localizacaositeendereco').AsString := Copy(jsonObject.GetValue<string>('Localização do Site > Endereço (A)', ''), 1, 255);
-        qry.ParamByName('localizacaositeCidade').AsString := Copy(jsonObject.GetValue<string>('Localização do Site > Cidade (A)', ''), 1, 255);
-        qry.ParamByName('documentacaosituacao').AsString := Copy(jsonObject.GetValue<string>('Documentação > Situação', ''), 1, 50);
-        qry.ParamByName('sitepossuirisco').AsString := Copy(jsonObject.GetValue<string>('Site Possui Risco?', ''), 1, 50);
-        qry.ParamByName('tempoparalisacaoinstalacaodias').AsString := Copy(jsonObject.GetValue<string>('Tempo de paralisação de Instalação (dias)', ''), 1, 255);
+
+
+        // RFP > Nome - String
+        tempStr := Trim(jsonObject.GetValue<string>('RFP > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('rfp').AsString := ''
+        else
+          qry.ParamByName('rfp').AsString := Copy(tempStr, 1, 100);
+
+        // Número - String
+        tempStr := Trim(jsonObject.GetValue<string>('Número', ''));
+        if tempStr = '' then
+          qry.ParamByName('numero').AsString := ''
+        else
+          qry.ParamByName('numero').AsString := Copy(tempStr, 1, 20);
+
+        // Cliente > Nome - String
+        tempStr := Trim(jsonObject.GetValue<string>('Cliente > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('cliente').AsString := ''
+        else
+          qry.ParamByName('cliente').AsString := Copy(tempStr, 1, 50);
+
+        // Regional > Nome - String
+        tempStr := Trim(jsonObject.GetValue<string>('Regional > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('regiona').AsString := ''
+        else
+          qry.ParamByName('regiona').AsString := Copy(tempStr, 1, 50);
+
+        // Site > Nome - String
+        tempStr := Trim(jsonObject.GetValue<string>('Site > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('site').AsString := ''
+        else
+          qry.ParamByName('site').AsString := Copy(tempStr, 1, 255);
+
+        // Fornecedor > Nome - String
+        tempStr := Trim(jsonObject.GetValue<string>('Fornecedor > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('fornecedor').AsString := ''
+        else
+          qry.ParamByName('fornecedor').AsString := Copy(tempStr, 1, 255);
+
+        // Situação Implantação - String
+        tempStr := Trim(jsonObject.GetValue<string>('Situação Implantação', ''));
+        if tempStr = '' then
+          qry.ParamByName('situacaoimplantacao').AsString := ''
+        else
+          qry.ParamByName('situacaoimplantacao').AsString := Copy(tempStr, 1, 60);
+
+        // Situação da Integração - String
+        tempStr := Trim(jsonObject.GetValue<string>('Situação da Integração', ''));
+        if tempStr = '' then
+          qry.ParamByName('situacaodaintegracao').AsString := ''
+        else
+          qry.ParamByName('situacaodaintegracao').AsString := Copy(tempStr, 1, 50);
+
+        // Lista de POs - String
+        tempStr := Trim(jsonObject.GetValue<string>('Lista de POs', ''));
+        if tempStr = '' then
+          qry.ParamByName('listadepos').AsString := ''
+        else
+          qry.ParamByName('listadepos').AsString := Copy(tempStr, 1, 255);
+
+        // Gestor de Implantação > Nome - String
+        tempStr := Trim(jsonObject.GetValue<string>('Gestor de Implantação > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('gestordeimplantacaonome').AsString := ''
+        else
+          qry.ParamByName('gestordeimplantacaonome').AsString := Copy(tempStr, 1, 255);
+
+        // Status RSA - String
+        tempStr := Trim(jsonObject.GetValue<string>('Status RSA', ''));
+        if tempStr = '' then
+          qry.ParamByName('statusrsa').AsString := ''
+        else
+          qry.ParamByName('statusrsa').AsString := Copy(tempStr, 1, 50);
+
+        // RSA > RSA - String
+        tempStr := Trim(jsonObject.GetValue<string>('RSA > RSA', ''));
+        if tempStr = '' then
+          qry.ParamByName('rsarsa').AsString := ''
+        else
+          qry.ParamByName('rsarsa').AsString := Copy(tempStr, 1, 50);
+
+        // ARQs validada pelo Cliente - String
+        tempStr := Trim(jsonObject.GetValue<string>('ARQs validada pelo Cliente', ''));
+        if tempStr = '' then
+          qry.ParamByName('ARQsvalidadapeloCliente').AsString := ''
+        else
+          qry.ParamByName('ARQsvalidadapeloCliente').AsString := Copy(tempStr, 1, 20);
+
+        // Status Aceitação - String
+        tempStr := Trim(jsonObject.GetValue<string>('Status Aceitação', ''));
+        if tempStr = '' then
+          qry.ParamByName('statusaceitacao').AsString := ''
+        else
+          qry.ParamByName('statusaceitacao').AsString := Copy(tempStr, 1, 50);
+
+        // Ordem de Venda - String
+        tempStr := Trim(jsonObject.GetValue<string>('Ordem de Venda', ''));
+        if tempStr = '' then
+          qry.ParamByName('ordemdevenda').AsString := ''
+        else
+          qry.ParamByName('ordemdevenda').AsString := Copy(tempStr, 1, 200);
+
+        // Coordenador ASP > Nome - String
+        tempStr := Trim(jsonObject.GetValue<string>('Coordenador ASP > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('coordenadoaspnome').AsString := ''
+        else
+          qry.ParamByName('coordenadoaspnome').AsString := Copy(tempStr, 1, 255);
+
+        // Tipo de atualização FAM - String
+        tempStr := Trim(jsonObject.GetValue<string>('Tipo de atualização FAM', ''));
+        if tempStr = '' then
+          qry.ParamByName('tipoatualizacaofam').AsString := ''
+        else
+          qry.ParamByName('tipoatualizacaofam').AsString := Copy(tempStr, 1, 59);
+
+        // Sinergia - String
+        tempStr := Trim(jsonObject.GetValue<string>('Sinergia', ''));
+        if tempStr = '' then
+          qry.ParamByName('sinergia').AsString := ''
+        else
+          qry.ParamByName('sinergia').AsString := Copy(tempStr, 1, 50);
+
+        // Sinergia 5G - String
+        tempStr := Trim(jsonObject.GetValue<string>('Sinergia 5G', ''));
+        if tempStr = '' then
+          qry.ParamByName('sinergia5g').AsString := ''
+        else
+          qry.ParamByName('sinergia5g').AsString := Copy(tempStr, 1, 50);
+
+        // Escopo > Nome - String
+        tempStr := Trim(jsonObject.GetValue<string>('Escopo > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('escoponome').AsString := ''
+        else
+          qry.ParamByName('escoponome').AsString := Copy(tempStr, 1, 255);
+
+        // SLA padrão do escopo (dias) - Integer
+        tempStr := Trim(jsonObject.GetValue<string>('SLA padrão do escopo (dias)', ''));
+        if tempStr = '' then
+          qry.ParamByName('slapadraoescopodias').AsInteger := 0
+        else
+        if TryStrToInt(tempStr, tempInt) then
+          qry.ParamByName('slapadraoescopodias').AsInteger := tempInt
+        else
+          qry.ParamByName('slapadraoescopodias').AsInteger := 0;
+
+        // Localização do Site > Endereço (A) - String
+        tempStr := Trim(jsonObject.GetValue<string>('Localização do Site > Endereço (A)', ''));
+        if tempStr = '' then
+          qry.ParamByName('localizacaositeendereco').AsString := ''
+        else
+          qry.ParamByName('localizacaositeendereco').AsString := Copy(tempStr, 1, 255);
+
+        // Localização do Site > Cidade (A) - String
+        tempStr := Trim(jsonObject.GetValue<string>('Localização do Site > Cidade (A)', ''));
+        if tempStr = '' then
+          qry.ParamByName('localizacaositeCidade').AsString := ''
+        else
+          qry.ParamByName('localizacaositeCidade').AsString := Copy(tempStr, 1, 255);
+
+        // Documentação > Situação - String
+        tempStr := Trim(jsonObject.GetValue<string>('Documentação > Situação', ''));
+        if tempStr = '' then
+          qry.ParamByName('documentacaosituacao').AsString := ''
+        else
+          qry.ParamByName('documentacaosituacao').AsString := Copy(tempStr, 1, 50);
+
+        // Site Possui Risco? - String
+        tempStr := Trim(jsonObject.GetValue<string>('Site Possui Risco?', ''));
+        if tempStr = '' then
+          qry.ParamByName('sitepossuirisco').AsString := ''
+        else
+          qry.ParamByName('sitepossuirisco').AsString := Copy(tempStr, 1, 50);
+
+        // Tempo de paralisação de Instalação (dias) - Integer
+        tempStr := Trim(jsonObject.GetValue<string>('Tempo de paralisação de Instalação (dias)', ''));
+        if tempStr = '' then
+          qry.ParamByName('tempoparalisacaoinstalacaodias').AsInteger := 0
+        else
+        if TryStrToInt(tempStr, tempInt) then
+          qry.ParamByName('tempoparalisacaoinstalacaodias').AsInteger := tempInt
+        else
+          qry.ParamByName('tempoparalisacaoinstalacaodias').AsInteger := 0;
 
         // Processar campos de data
         ProcessarCampoData(jsonObject, 'Data da criação da Demanda (Dia)', 'datadacriacaodademandadia', qry, formatSettings);
@@ -1021,28 +1474,70 @@ begin
         ProcessarCampoData(jsonObject, 'FIM_DE_OBRA PLAN', 'fimdeobraplandia', qry, formatSettings);
         ProcessarCampoData(jsonObject, 'FIM_DE_OBRA REAL', 'fimdeobrarealdia', qry, formatSettings);
 
-        // 🔹 Executa a inserção
-        qry.ExecSQL;
+          // 🔹 Executa a inserção
+          try
+            qry.ExecSQL;
+          except
+            on E: Exception do
+            begin
+              erro := Format('Erro ao inserir registro na linha %d: %s', [i + 1, E.Message]);
+              // Continua processando os outros registros
+              Continue;
+            end;
+          end;
+        except
+          on E: Exception do
+          begin
+            erro := Format('Erro ao processar registro na linha %d: %s', [i + 1, E.Message]);
+            // Continua processando os outros registros
+            Continue;
+          end;
+        end;
       end;
 
       // 🔹 Finaliza a transação
       FConn.Commit;
       Result := jsonData.Count;
-      obraericsson2022parareal;
+      
+      try
+        obraericsson2022parareal;
+      except
+        on E: Exception do
+        begin
+          erro := 'Erro ao executar obraericsson2022parareal: ' + E.Message;
+          // Não falha a operação principal por causa disso
+        end;
+      end;
 
     except
+      on E: EFDDBEngineException do
+        begin
+          erro := 'Erro de banco de dados: ' + E.Message;
+          Writeln(erro);
+          try
+            if FConn.InTransaction then
+              FConn.Rollback;
+          except
+            // Ignora erros no rollback
+          end;
+          Result := 0;
+        end;
       on E: Exception do
       begin
-        erro := 'Erro ao inserir dados na linha ' + IntToStr(i + 1) + ': ' + E.Message;
-        FConn.Rollback;
+        erro := 'Erro ao processar dados: ' + E.Message;
         Writeln(erro);
+        try
+          if FConn.InTransaction then
+            FConn.Rollback;
+        except
+          // Ignora erros no rollback
+        end;
         Result := 0;
       end;
     end;
   finally
-    qry.Connection := nil;
-    if FConn <> nil then FConn.Free;
-    qry.Free;
+    if Assigned(qry) then
+      qry.Free;
   end;
 end;
 
@@ -2564,22 +3059,37 @@ begin
       Result := jsonData.Count;
     except
       on E: EFDDBEngineException do
-        begin
-          Writeln('Erro ao inserir: ' + E.Message);
-          // Exibe os valores importantes para debug
-          Writeln('RFP: ' + qry.ParamByName('rfp').AsString);
-          Writeln('SQL: ' + qry.SQL.Text);
+      begin
+        erro := 'Erro de banco de dados: ' + E.Message;
+        try
+          if FConn.InTransaction then
+            FConn.Rollback;
+        except
+          // Ignora erros no rollback
         end;
+        Result := 0;
+      end;
       on E: Exception do
       begin
-        erro := 'Erro ao inserir dados na linha ' + IntToStr(i + 1) + ': ' + E.Message;
-        Writeln(erro);
-        FConn.Rollback;
+        erro := 'Erro geral: ' + E.Message;
+        try
+          if FConn.InTransaction then
+            FConn.Rollback;
+        except
+          // Ignora erros no rollback
+        end;
         Result := 0;
       end;
     end;
   finally
-    qry.Free;
+    if Assigned(qry) then
+    begin
+      try
+        qry.Free;
+      except
+        // Ignora erros ao liberar query
+      end;
+    end;
   end;
 end;
 
@@ -2858,6 +3368,7 @@ var
   jsonObject: TJSONObject;
   poStr: string;
   intValue: Int64;
+  tempStr: string;
   formatSettings: TFormatSettings;
 begin
   Result := 0;
@@ -2898,18 +3409,17 @@ begin
 
       for i := 0 to jsonData.Count - 1 do
       begin
-        jsonObject := jsonData.Items[i] as TJSONObject;
-        if jsonObject = nil then
-        begin
-
-          Continue; // Ignora se for inválido
-        end;
-
-        if not jsonObject.TryGetValue<string>('RFP > Nome', poStr) or not TryStrToInt64(poStr, intValue) then
-        begin
-          erro := Format('RFP > Nome inválido na linha %d: %s. Registro ignorado.', [i + 1, poStr]);
-          Continue; // Apenas pula para o próximo item, sem sair da função
-        end;
+        try
+          jsonObject := nil;
+          if jsonData.Items[i] is TJSONObject then
+            jsonObject := jsonData.Items[i] as TJSONObject;
+            
+          if jsonObject = nil then
+          begin
+            Writeln(jsonObject.ToString);
+            erro := Format('Objeto JSON vazio na linha %d. Registro ignorado.', [i + 1]);
+            Continue; // Ignora se for inválido
+          end;
 
         qry.SQL.Clear;
         qry.SQL.Add('INSERT INTO atualizaobraericsson2024 (rfp, numero, cliente, regiona, site, fornecedor, ');
@@ -2931,33 +3441,186 @@ begin
         qry.SQL.Add(':fimdeobraplandia, :fimdeobrarealdia, :tipoatualizacaofam, :sinergia, :sinergia5g, :escoponome, :slapadraoescopodias, ');
         qry.SQL.Add(':tempoparalisacaoinstalacaodias, :localizacaositeendereco, :localizacaositeCidade, :documentacaosituacao, :sitepossuirisco)');
 
-        // 🔹 Mapeamento de parâmetros com validação de tamanho
-        qry.ParamByName('rfp').AsString := Copy(jsonObject.GetValue<string>('RFP > Nome', ''), 1, 100);
-        qry.ParamByName('numero').AsString := Copy(jsonObject.GetValue<string>('Número', ''), 1, 20);
-        qry.ParamByName('cliente').AsString := Copy(jsonObject.GetValue<string>('Cliente > Nome', ''), 1, 50);
-        qry.ParamByName('regiona').AsString := Copy(jsonObject.GetValue<string>('Regional > Nome', ''), 1, 50);
-        qry.ParamByName('site').AsString := Copy(jsonObject.GetValue<string>('Site > Nome', ''), 1, 255);
-        qry.ParamByName('fornecedor').AsString := Copy(jsonObject.GetValue<string>('Fornecedor > Nome', ''), 1, 255);
-        qry.ParamByName('situacaoimplantacao').AsString := Copy(jsonObject.GetValue<string>('Situação Implantação', ''), 1, 60);
-        qry.ParamByName('situacaodaintegracao').AsString := Copy(jsonObject.GetValue<string>('Situação da Integração', ''), 1, 50);
-        qry.ParamByName('listadepos').AsString := Copy(jsonObject.GetValue<string>('Lista de POs', ''), 1, 255);
-        qry.ParamByName('gestordeimplantacaonome').AsString := Copy(jsonObject.GetValue<string>('Gestor de Implantação > Nome', ''), 1, 255);
-        qry.ParamByName('statusrsa').AsString := Copy(jsonObject.GetValue<string>('Status RSA', ''), 1, 50);
-        qry.ParamByName('rsarsa').AsString := Copy(jsonObject.GetValue<string>('RSA > RSA', ''), 1, 50);
-        qry.ParamByName('ARQsvalidadapeloCliente').AsString := Copy(jsonObject.GetValue<string>('ARQs validada pelo Cliente', ''), 1, 20);
-        qry.ParamByName('statusaceitacao').AsString := Copy(jsonObject.GetValue<string>('Status Aceitação', ''), 1, 50);
-        qry.ParamByName('ordemdevenda').AsString := Copy(jsonObject.GetValue<string>('Ordem de Venda', ''), 1, 200);
-        qry.ParamByName('coordenadoaspnome').AsString := Copy(jsonObject.GetValue<string>('Coordenador ASP > Nome', ''), 1, 255);
-        qry.ParamByName('tipoatualizacaofam').AsString := Copy(jsonObject.GetValue<string>('Tipo de atualização FAM', ''), 1, 59);
-        qry.ParamByName('sinergia').AsString := Copy(jsonObject.GetValue<string>('Sinergia', ''), 1, 50);
-        qry.ParamByName('sinergia5g').AsString := Copy(jsonObject.GetValue<string>('Sinergia 5G', ''), 1, 50);
-        qry.ParamByName('escoponome').AsString := Copy(jsonObject.GetValue<string>('Escopo > Nome', ''), 1, 255);
-        qry.ParamByName('slapadraoescopodias').AsString := Copy(jsonObject.GetValue<string>('SLA padrão do escopo (dias)', ''), 1, 100);
-        qry.ParamByName('localizacaositeendereco').AsString := Copy(jsonObject.GetValue<string>('Localização do Site > Endereço (A)', ''), 1, 255);
-        qry.ParamByName('localizacaositeCidade').AsString := Copy(jsonObject.GetValue<string>('Localização do Site > Cidade (A)', ''), 1, 255);
-        qry.ParamByName('documentacaosituacao').AsString := Copy(jsonObject.GetValue<string>('Documentação > Situação', ''), 1, 50);
-        qry.ParamByName('sitepossuirisco').AsString := Copy(jsonObject.GetValue<string>('Site Possui Risco?', ''), 1, 50);
-        qry.ParamByName('tempoparalisacaoinstalacaodias').AsString := Copy(jsonObject.GetValue<string>('Tempo de paralisação de Instalação (dias)', ''), 1, 255);
+        tempStr := Trim(jsonObject.GetValue<string>('RFP > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('rfp').AsString := ''
+        else
+          qry.ParamByName('rfp').AsString := Copy(tempStr, 1, 100);
+
+        // Número
+        tempStr := Trim(jsonObject.GetValue<string>('Número', ''));
+        if tempStr = '' then
+          qry.ParamByName('numero').AsString := ''
+        else
+          qry.ParamByName('numero').AsString := Copy(tempStr, 1, 20);
+
+        // Cliente > Nome
+        tempStr := Trim(jsonObject.GetValue<string>('Cliente > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('cliente').AsString := ''
+        else
+          qry.ParamByName('cliente').AsString := Copy(tempStr, 1, 50);
+
+        // Regional > Nome
+        tempStr := Trim(jsonObject.GetValue<string>('Regional > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('regiona').AsString := ''
+        else
+          qry.ParamByName('regiona').AsString := Copy(tempStr, 1, 50);
+
+        // Site > Nome
+        tempStr := Trim(jsonObject.GetValue<string>('Site > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('site').AsString := ''
+        else
+          qry.ParamByName('site').AsString := Copy(tempStr, 1, 255);
+
+        // Fornecedor > Nome
+        tempStr := Trim(jsonObject.GetValue<string>('Fornecedor > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('fornecedor').AsString := ''
+        else
+          qry.ParamByName('fornecedor').AsString := Copy(tempStr, 1, 255);
+
+        // Situação Implantação
+        tempStr := Trim(jsonObject.GetValue<string>('Situação Implantação', ''));
+        if tempStr = '' then
+          qry.ParamByName('situacaoimplantacao').AsString := ''
+        else
+          qry.ParamByName('situacaoimplantacao').AsString := Copy(tempStr, 1, 60);
+
+        // Situação da Integração
+        tempStr := Trim(jsonObject.GetValue<string>('Situação da Integração', ''));
+        if tempStr = '' then
+          qry.ParamByName('situacaodaintegracao').AsString := ''
+        else
+          qry.ParamByName('situacaodaintegracao').AsString := Copy(tempStr, 1, 50);
+
+        // Lista de POs
+        tempStr := Trim(jsonObject.GetValue<string>('Lista de POs', ''));
+        if tempStr = '' then
+          qry.ParamByName('listadepos').AsString := ''
+        else
+          qry.ParamByName('listadepos').AsString := Copy(tempStr, 1, 255);
+
+        // Gestor de Implantação > Nome
+        tempStr := Trim(jsonObject.GetValue<string>('Gestor de Implantação > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('gestordeimplantacaonome').AsString := ''
+        else
+          qry.ParamByName('gestordeimplantacaonome').AsString := Copy(tempStr, 1, 255);
+
+        // Status RSA
+        tempStr := Trim(jsonObject.GetValue<string>('Status RSA', ''));
+        if tempStr = '' then
+          qry.ParamByName('statusrsa').AsString := ''
+        else
+          qry.ParamByName('statusrsa').AsString := Copy(tempStr, 1, 50);
+
+        // RSA > RSA
+        tempStr := Trim(jsonObject.GetValue<string>('RSA > RSA', ''));
+        if tempStr = '' then
+          qry.ParamByName('rsarsa').AsString := ''
+        else
+          qry.ParamByName('rsarsa').AsString := Copy(tempStr, 1, 50);
+
+        // ARQs validada pelo Cliente
+        tempStr := Trim(jsonObject.GetValue<string>('ARQs validada pelo Cliente', ''));
+        if tempStr = '' then
+          qry.ParamByName('ARQsvalidadapeloCliente').AsString := ''
+        else
+          qry.ParamByName('ARQsvalidadapeloCliente').AsString := Copy(tempStr, 1, 20);
+
+        // Status Aceitação
+        tempStr := Trim(jsonObject.GetValue<string>('Status Aceitação', ''));
+        if tempStr = '' then
+          qry.ParamByName('statusaceitacao').AsString := ''
+        else
+          qry.ParamByName('statusaceitacao').AsString := Copy(tempStr, 1, 50);
+
+        // Ordem de Venda
+        tempStr := Trim(jsonObject.GetValue<string>('Ordem de Venda', ''));
+        if tempStr = '' then
+          qry.ParamByName('ordemdevenda').AsString := ''
+        else
+          qry.ParamByName('ordemdevenda').AsString := Copy(tempStr, 1, 200);
+
+        // Coordenador ASP > Nome
+        tempStr := Trim(jsonObject.GetValue<string>('Coordenador ASP > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('coordenadoaspnome').AsString := ''
+        else
+          qry.ParamByName('coordenadoaspnome').AsString := Copy(tempStr, 1, 255);
+
+        // Tipo de atualização FAM
+        tempStr := Trim(jsonObject.GetValue<string>('Tipo de atualização FAM', ''));
+        if tempStr = '' then
+          qry.ParamByName('tipoatualizacaofam').AsString := ''
+        else
+          qry.ParamByName('tipoatualizacaofam').AsString := Copy(tempStr, 1, 59);
+
+        // Sinergia
+        tempStr := Trim(jsonObject.GetValue<string>('Sinergia', ''));
+        if tempStr = '' then
+          qry.ParamByName('sinergia').AsString := ''
+        else
+          qry.ParamByName('sinergia').AsString := Copy(tempStr, 1, 50);
+
+        // Sinergia 5G
+        tempStr := Trim(jsonObject.GetValue<string>('Sinergia 5G', ''));
+        if tempStr = '' then
+          qry.ParamByName('sinergia5g').AsString := ''
+        else
+          qry.ParamByName('sinergia5g').AsString := Copy(tempStr, 1, 50);
+
+        // Escopo > Nome
+        tempStr := Trim(jsonObject.GetValue<string>('Escopo > Nome', ''));
+        if tempStr = '' then
+          qry.ParamByName('escoponome').AsString := ''
+        else
+          qry.ParamByName('escoponome').AsString := Copy(tempStr, 1, 255);
+
+        // SLA padrão do escopo (dias)
+        tempStr := Trim(jsonObject.GetValue<string>('SLA padrão do escopo (dias)', ''));
+        if tempStr = '' then
+          qry.ParamByName('slapadraoescopodias').AsString := ''
+        else
+          qry.ParamByName('slapadraoescopodias').AsString := Copy(tempStr, 1, 100);
+
+        // Localização do Site > Endereço (A)
+        tempStr := Trim(jsonObject.GetValue<string>('Localização do Site > Endereço (A)', ''));
+        if tempStr = '' then
+          qry.ParamByName('localizacaositeendereco').AsString := ''
+        else
+          qry.ParamByName('localizacaositeendereco').AsString := Copy(tempStr, 1, 255);
+
+        // Localização do Site > Cidade (A)
+        tempStr := Trim(jsonObject.GetValue<string>('Localização do Site > Cidade (A)', ''));
+        if tempStr = '' then
+          qry.ParamByName('localizacaositeCidade').AsString := ''
+        else
+          qry.ParamByName('localizacaositeCidade').AsString := Copy(tempStr, 1, 255);
+
+        // Documentação > Situação
+        tempStr := Trim(jsonObject.GetValue<string>('Documentação > Situação', ''));
+        if tempStr = '' then
+          qry.ParamByName('documentacaosituacao').AsString := ''
+        else
+          qry.ParamByName('documentacaosituacao').AsString := Copy(tempStr, 1, 50);
+
+        // Site Possui Risco?
+        tempStr := Trim(jsonObject.GetValue<string>('Site Possui Risco?', ''));
+        if tempStr = '' then
+          qry.ParamByName('sitepossuirisco').AsString := ''
+        else
+          qry.ParamByName('sitepossuirisco').AsString := Copy(tempStr, 1, 50);
+
+        // Tempo de paralisação de Instalação (dias)
+        tempStr := Trim(jsonObject.GetValue<string>('Tempo de paralisação de Instalação (dias)', ''));
+        if tempStr = '' then
+          qry.ParamByName('tempoparalisacaoinstalacaodias').AsString  := ''
+        else
+          qry.ParamByName('tempoparalisacaoinstalacaodias').AsString := Copy(tempStr, 1, 255);
 
         // Processar campos de data
         ProcessarCampoData(jsonObject, 'Data da criação da Demanda (Dia)', 'datadacriacaodademandadia', qry, formatSettings);
@@ -2978,32 +3641,60 @@ begin
         ProcessarCampoData(jsonObject, 'FIM_DE_OBRA PLAN', 'fimdeobraplandia', qry, formatSettings);
         ProcessarCampoData(jsonObject, 'FIM_DE_OBRA REAL', 'fimdeobrarealdia', qry, formatSettings);
 
-        // 🔹 Executa a inserção
-        qry.ExecSQL;
+          // 🔹 Executa a inserção
+          qry.ExecSQL;
+        except
+          on E: Exception do
+          begin
+            erro := Format('Erro ao inserir registro na linha %d: %s', [i + 1, E.Message]);
+            // Continua processando os outros registros
+            Continue;
+          end;
+        end;
       end;
 
       // 🔹 Finaliza a transação
       FConn.Commit;
       Result := jsonData.Count;
-      obraericsson2024parareal;
+      
+      try
+        obraericsson2024parareal;
+      except
+        on E: Exception do
+        begin
+          erro := 'Erro ao executar obraericsson2024parareal: ' + E.Message;
+          // Não falha a operação principal por causa disso
+        end;
+      end;
     except
       on E: EFDDBEngineException do
         begin
-          Writeln('Erro ao inserir: ' + E.Message);
-          // Exibe os valores importantes para debug
-          Writeln('RFP: ' + qry.ParamByName('rfp').AsString);
-          Writeln('SQL: ' + qry.SQL.Text);
+          erro := 'Erro de banco de dados: ' + E.Message;
+          Writeln(erro);
+          try
+            if FConn.InTransaction then
+              FConn.Rollback;
+          except
+            // Ignora erros no rollback
+          end;
+          Result := 0;
         end;
       on E: Exception do
       begin
-        erro := 'Erro ao inserir dados na linha ' + IntToStr(i + 1) + ': ' + E.Message;
+        erro := 'Erro ao processar dados: ' + E.Message;
         Writeln(erro);
-        FConn.Rollback;
+        try
+          if FConn.InTransaction then
+            FConn.Rollback;
+        except
+          // Ignora erros no rollback
+        end;
         Result := 0;
       end;
     end;
   finally
-    qry.Free;
+    if Assigned(qry) then
+      qry.Free;
   end;
 end;
 
@@ -3054,7 +3745,7 @@ begin
       formatSettings.ShortTimeFormat := 'hh:nn:ss';
       formatSettings.TimeSeparator := ':';
 
-      for i := 0 to jsonData.Count - 1 do
+      for i := 0 to jsonData.Count - 2 do
       begin
         jsonObject := jsonData.Items[i] as TJSONObject;
         if jsonObject = nil then
@@ -3098,8 +3789,7 @@ begin
         end
         else
         begin
-          // Se o valor não for encontrado ou não for válido, limpa o parâmetro
-          qry.ParamByName('SEED').Clear;
+          qry.ParamByName('SEED').AsString := '';
         end;
         qry.ParamByName('ResponsavelObra').AsString := jsonObject.GetValue<string>('Responsável da obra', '');
         qry.ParamByName('Solicitante').AsString := jsonObject.GetValue<string>('Solicitante', '');
@@ -3235,15 +3925,34 @@ begin
       Result := jsonData.Count;
 
     except
+      on E: EFDDBEngineException do
+        begin
+          erro := 'Erro de banco de dados: ' + E.Message;
+          Writeln(erro);
+          try
+            if FConn.InTransaction then
+              FConn.Rollback;
+          except
+            // Ignora erros no rollback
+          end;
+          Result := 0;
+        end;
       on E: Exception do
       begin
-        erro := 'Erro ao inserir dados na linha ' + IntToStr(i + 1) + ': ' + E.Message;
-        FConn.Rollback;
+        erro := 'Erro ao processar dados: ' + E.Message;
+        Writeln(erro);
+        try
+          if FConn.InTransaction then
+            FConn.Rollback;
+        except
+          // Ignora erros no rollback
+        end;
         Result := 0;
       end;
     end;
   finally
-    qry.Free;
+    if Assigned(qry) then
+      qry.Free;
   end;
 end;
 
@@ -3287,17 +3996,27 @@ procedure ProcessarCampoData(jsonObj: TJSONObject; const jsonField, dbField: str
 var
   tempStr: string;
   tempDate: TDateTime;
+  param: TFDParam;
 begin
-  if jsonObj.TryGetValue<string>(jsonField, tempStr) and (tempStr <> '') then
-  begin
-    if TryStrToDateTime(tempStr, tempDate, formatSettings) then
-      qry.ParamByName(dbField).AsDateTime := tempDate
+  try
+    // Verifica se o parâmetro existe
+    param := qry.FindParam(dbField);
+    if param = nil then
+      Exit; // Se o parâmetro não existe, sai silenciosamente
+      
+    if (jsonObj <> nil) and jsonObj.TryGetValue<string>(jsonField, tempStr) and (tempStr <> '') then
+    begin
+      if TryStrToDateTime(tempStr, tempDate, formatSettings) then
+        param.AsDateTime := tempDate
+      else
+        param.Clear;
+    end
     else
-      qry.ParamByName(dbField).Clear;
-  end
-  else
-    qry.ParamByName(dbField).Clear;
-  qry.ParamByName(dbField).DataType := ftDateTime;
+      param.Clear;
+    param.DataType := ftDateTime;
+  except
+    // Em caso de erro, apenas ignora silenciosamente
+  end;
 end;
 begin
   Result := 0;

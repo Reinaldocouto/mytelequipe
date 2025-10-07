@@ -12,7 +12,7 @@ uses
   FireDAC.DApt,
   System.Generics.Collections,
   System.Variants,
-  FireDAC.Stan.Param;
+  FireDAC.Stan.Param; // Necessário para TFDParam
 
 type
   TMultas = class
@@ -33,17 +33,20 @@ type
     Fidcliente: Integer;
     Fidloja: Integer;
     Fdeletado: Integer;
-    Fidempresa: Integer;
-    Fidpessoa: Integer;
+    Fidempresa: integer;
+    Fidpessoa: integer;
     FidsMultas: string;
+    // novos
     Fdepartamento: string;
     Fidsite: string;
+
+    // helpers
     function NextIdDespesas(out Erro: string): Integer;
     function ResolveIdVeiculoPorPlaca(const APlaca: string): Variant;
     function ParseValor(const S: string): Double;
     function TryStrToDateTimeInvariant(const S: string; out ADt: TDateTime): Boolean;
     function UpsertDespesaParaMulta(out Erro: string): Boolean;
-    procedure ReplaceRateioDespesa(const AIdGeral: Integer; const ATipo, ADepto, ASite: string; const APercentual: Double);
+
   public
     constructor Create;
     destructor Destroy; override;
@@ -67,78 +70,99 @@ type
     property idpessoa: Integer read Fidpessoa write Fidpessoa;
     property departamento: string read Fdepartamento write Fdepartamento;
     property idsite: string read Fidsite write Fidsite;
+
     function Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Editar(out erro: string): Boolean;
-    function NovoCadastro(out erro: string): Integer;
+    function NovoCadastro(out erro: string): integer;
     function TransformaDebitado(out erro: string): Boolean;
+
+    // Mantemos apenas UMA defini��o da fun��o:
     function BuscaPorPlacaData(const APlaca, AData: string; out erro: string): TFDQuery;
   end;
 
 implementation
 
+{---------------------------- Auxiliar ISO8601 --------------------------------}
+
 function MyTryISO8601ToDate(const S: string; out ADateTime: TDateTime): Boolean;
 var
-  LDate, LTime: string; i: Integer;
-  Y, M, D, HH, NN, SS: Word; Temp: string;
+  LDate, LTime: string;
+  i: Integer;
+  Y, M, D, HH, NN, SS: Word;
+  Temp: string;
 begin
   Result := False; ADateTime := 0;
   if S = '' then Exit;
+
   i := Pos('T', S);
   if i > 0 then
   begin
-    LDate := Copy(S, 1, i-1);
-    LTime := Copy(S, i+1, MaxInt);
+    LDate := Copy(S, 1, i - 1);
+    LTime := Copy(S, i + 1, MaxInt);
   end
   else
   begin
+    // Tenta achar espa�o se n�o tiver 'T'
     i := Pos(' ', S);
     if i > 0 then
     begin
-      LDate := Copy(S, 1, i-1);
-      LTime := Copy(S, i+1, MaxInt);
+      LDate := Copy(S, 1, i - 1);
+      LTime := Copy(S, i + 1, MaxInt);
     end
     else
     begin
-      LDate := S; LTime := '';
+      LDate := S;
+      LTime := '';
     end;
   end;
+
   if (Length(LDate) < 10) or (LDate[5] <> '-') or (LDate[8] <> '-') then Exit;
+
   Y := StrToIntDef(Copy(LDate,1,4),-1);
   M := StrToIntDef(Copy(LDate,6,2),-1);
   D := StrToIntDef(Copy(LDate,9,2),-1);
   if (Y<1) or (M<1) or (D<1) then Exit;
+
   HH := 0; NN := 0; SS := 0;
   if LTime <> '' then
   begin
+    // Podem vir 'HH:NN' ou 'HH:NN:SS'
     i := Pos(':', LTime);
     if i > 0 then
     begin
-      HH := StrToIntDef(Copy(LTime,1,i-1),-1);
-      Temp := Copy(LTime,i+1,MaxInt);
+      HH := StrToIntDef(Copy(LTime, 1, i - 1), -1);
+      Temp := Copy(LTime, i + 1, MaxInt);
       i := Pos(':', Temp);
       if i > 0 then
       begin
-        NN := StrToIntDef(Copy(Temp,1,i-1),-1);
-        SS := StrToIntDef(Copy(Temp,i+1,MaxInt),-1);
+        NN := StrToIntDef(Copy(Temp, 1, i - 1), -1);
+        SS := StrToIntDef(Copy(Temp, i + 1, MaxInt), -1);
       end
       else
-        NN := StrToIntDef(Temp,-1);
-      if (HH<0) or (NN<0) or (SS<0) then Exit;
+      begin
+        NN := StrToIntDef(Temp, -1);
+      end;
+      if (HH < 0) or (NN < 0) or (SS < 0) then
+        Exit;
     end
     else
     begin
-      HH := StrToIntDef(LTime,-1);
-      if HH<0 then Exit;
+      HH := StrToIntDef(LTime, -1);
+      if HH < 0 then
+        Exit;
     end;
   end;
   try
-    ADateTime := EncodeDateTime(Y,M,D,HH,NN,SS,0);
+    ADateTime := EncodeDateTime(Y, M, D, HH, NN, SS, 0);
     Result := True;
   except
+    // Falha no EncodeDateTime
     Result := False;
   end;
 end;
+
+{--------------------------------- Helpers -----------------------------------}
 
 constructor TMultas.Create;
 begin
@@ -147,7 +171,8 @@ end;
 
 destructor TMultas.Destroy;
 begin
-  if Assigned(FConn) then FConn.Free;
+  if Assigned(FConn) then
+    FConn.Free;
   inherited;
 end;
 
@@ -186,9 +211,12 @@ begin
   Result := Null;
   Pl := Trim(APlaca);
   if Pl = '' then Exit;
+
   Q := TFDQuery.Create(nil);
   try
     Q.Connection := FConn;
+
+    // 1) tentativa preferencial: por placa + idcliente + idloja (e não deletado)
     Q.SQL.Text :=
       'SELECT idveiculo FROM gesveiculos '+
       'WHERE placa = :placa AND idcliente = :idcliente AND idloja = :idloja AND COALESCE(deletado,0)=0 '+
@@ -197,11 +225,14 @@ begin
     Q.ParamByName('idcliente').AsInteger := idcliente;
     Q.ParamByName('idloja').AsInteger := idloja;
     Q.Open;
+
     if not Q.IsEmpty then
     begin
       Result := Q.FieldByName('idveiculo').AsInteger;
       Exit;
     end;
+
+    // 2) fallback: somente pela placa (último ativo), independente de cliente/loja
     Q.Close;
     Q.SQL.Text :=
       'SELECT idveiculo FROM gesveiculos '+
@@ -209,6 +240,7 @@ begin
       'ORDER BY idveiculo DESC LIMIT 1';
     Q.ParamByName('placa').AsString := Pl;
     Q.Open;
+
     if not Q.IsEmpty then
       Result := Q.FieldByName('idveiculo').AsInteger;
   finally
@@ -226,6 +258,8 @@ begin
   Q := TFDQuery.Create(nil);
   try
     Q.Connection := FConn;
+
+    // tenta incrementar; se não existir linha, não afeta nada
     Q.SQL.Text :=
       'UPDATE admponteiro ' +
       'SET iddespesas = COALESCE(iddespesas,0) + 1 ' +
@@ -234,6 +268,8 @@ begin
     Q.ParamByName('idloja').AsInteger := idloja;
     Q.ExecSQL;
     Affected := Q.RowsAffected;
+
+    // cria linha caso não exista
     if Affected = 0 then
     begin
       Q.SQL.Text :=
@@ -244,12 +280,15 @@ begin
       Q.ParamByName('idloja').AsInteger := idloja;
       Q.ExecSQL;
     end;
+
+    // lê o valor atual
     Q.SQL.Text :=
       'SELECT iddespesas FROM admponteiro '+
       'WHERE idcliente = :idcliente AND idloja = :idloja';
     Q.ParamByName('idcliente').AsInteger := idcliente;
     Q.ParamByName('idloja').AsInteger := idloja;
     Q.Open;
+
     if not Q.IsEmpty then
       Result := Q.FieldByName('iddespesas').AsInteger
     else
@@ -261,48 +300,6 @@ begin
   Q.Free;
 end;
 
-procedure TMultas.ReplaceRateioDespesa(const AIdGeral: Integer; const ATipo, ADepto, ASite: string; const APercentual: Double);
-var
-  Q: TFDQuery;
-begin
-  Q := TFDQuery.Create(nil);
-  try
-    Q.Connection := FConn;
-    Q.SQL.Text := 'DELETE FROM gesdespesas_rateio WHERE iddespesas = :id';
-    Q.ParamByName('id').DataType := ftInteger;
-    Q.ParamByName('id').AsInteger := AIdGeral;
-    Q.ExecSQL;
-    if (SameText(ATipo, 'DEPARTAMENTO') and (Trim(ADepto) <> '')) or
-       (SameText(ATipo, 'SITE') and (Trim(ASite) <> '')) then
-    begin
-      Q.SQL.Text :=
-        'INSERT INTO gesdespesas_rateio (iddespesas, tipo, departamento, idsite, percentual) '+
-        'VALUES (:iddespesas, :tipo, :departamento, :idsite, :percentual)';
-      Q.ParamByName('iddespesas').DataType := ftInteger;
-      Q.ParamByName('tipo').DataType := ftString;
-      Q.ParamByName('departamento').DataType := ftString;
-      Q.ParamByName('idsite').DataType := ftString;
-      Q.ParamByName('percentual').DataType := ftFloat;
-      Q.ParamByName('iddespesas').AsInteger := AIdGeral;
-      Q.ParamByName('tipo').AsString := ATipo;
-      if SameText(ATipo, 'DEPARTAMENTO') then
-      begin
-        Q.ParamByName('departamento').AsString := ADepto;
-        Q.ParamByName('idsite').Clear;
-      end
-      else
-      begin
-        Q.ParamByName('departamento').Clear;
-        Q.ParamByName('idsite').AsString := ASite;
-      end;
-      Q.ParamByName('percentual').AsFloat := APercentual;
-      Q.ExecSQL;
-    end;
-  finally
-    Q.Free;
-  end;
-end;
-
 function TMultas.UpsertDespesaParaMulta(out Erro: string): Boolean;
 var
   Q: TFDQuery;
@@ -312,10 +309,13 @@ var
   IdVeiculo: Variant;
   Descricao, Observacao: string;
   Existe: Boolean;
+  P: TFDParam;
   Affected: Integer;
-  TipoRateio, Depto, Site: string;
 begin
   Result := False; Erro := '';
+
+  // ===== Databases dates for DESPESAS =====
+  // Preferir dataindicacao; se inválida, cair para datainfracao.
   if not TryStrToDateTimeInvariant(dataindicacao, DtBase) then
   begin
     if not TryStrToDateTimeInvariant(datainfracao, DtBase) then
@@ -324,16 +324,27 @@ begin
       Exit;
     end;
   end;
+
+  // datalancamento = DtBase (somente data)
+  // datainicio     = DtBase (somente data)
   DtInicio := Trunc(DtBase);
+
   Vlr := ParseValor(valor);
   IdVeiculo := ResolveIdVeiculoPorPlaca(placa);
+
   Descricao := 'Multa ' + Trim(numeroait) + ' - ' + Trim(placa);
   Observacao :=
     'Local: ' + Trim(local) + ' | Infração: ' + Trim(infracao) +
-    ' | Natureza: ' + Trim(natureza);
+    ' | Natureza: ' + Trim(natureza) +
+    ' | Departamento: ' + Trim(departamento) +
+    IfThen((LowerCase(Trim(departamento)) = 'site') and (Trim(idsite) <> ''),
+           ' | Site: ' + Trim(idsite), '');
+
   Q := TFDQuery.Create(nil);
   try
     Q.Connection := FConn;
+
+    // 1) Já existe despesa p/ essa multa?
     Q.SQL.Text :=
       'SELECT iddespesas FROM gesdespesas '+
       'WHERE idcliente = :idcliente AND idloja = :idloja '+
@@ -341,9 +352,10 @@ begin
     Q.ParamByName('idcliente').AsInteger := idcliente;
     Q.ParamByName('idloja').AsInteger := idloja;
     Q.ParamByName('idgeral').AsInteger := idmultas;
-    Q.ParamByName('categoria').AsString := 'Multas';
+    Q.ParamByName('categoria').AsString := 'Outros'; // corrigido
     Q.Open;
     Existe := not Q.IsEmpty;
+
     if Existe then
     begin
       IdDesp := Q.FieldByName('iddespesas').AsInteger;
@@ -373,6 +385,7 @@ begin
     begin
       IdDesp := NextIdDespesas(Erro);
       if (IdDesp = 0) or (Erro <> '') then Exit;
+
       Q.SQL.Text :=
         'INSERT INTO gesdespesas ( '+
         '  iddespesas, datalancamento, valordespesa, descricao, idveiculo, observacao, '+
@@ -387,41 +400,58 @@ begin
       Q.ParamByName('idgeral').AsInteger := idmultas;
       Q.ParamByName('categoria').AsString := 'Outros';
     end;
+
+    // comuns
     with Q.ParamByName('datalancamento') do
     begin
-      DataType := ftDate;
+      DataType := ftDate;       // apenas a data
       AsDate := Trunc(DtBase);
     end;
+
     Q.ParamByName('valordespesa').AsFloat := Vlr;
     Q.ParamByName('descricao').AsString := Descricao;
+
+    // idveiculo (nullable, mas tipado)
+    P := Q.ParamByName('idveiculo');
+    P.DataType := ftInteger;
+    if VarIsNull(IdVeiculo) then P.Clear else P.AsInteger := Integer(IdVeiculo);
+
     Q.ParamByName('observacao').AsString := Observacao;
     Q.ParamByName('idloja').AsInteger := idloja;
     Q.ParamByName('idcliente').AsInteger := idcliente;
     Q.ParamByName('idempresa').AsInteger := idempresa;
     Q.ParamByName('idpessoa').AsInteger := idpessoa;
+
+    // solicitados
     Q.ParamByName('periodicidade').AsString := 'Unica';
     Q.ParamByName('periodo').AsString := '';
     Q.ParamByName('usuario').AsString := 'Sistema';
     Q.ParamByName('parceladoem').AsInteger := 1;
-    Q.ParamByName('comprovante').AsString := 'multa';
-    Q.ParamByName('valorparcela').DataType := ftFloat;
-    Q.ParamByName('valorparcela').AsFloat := Vlr;
-    Q.ParamByName('datainicio').DataType := ftDate;
-    Q.ParamByName('datainicio').AsDate := Trunc(DtInicio);
-    with Q.ParamByName('idveiculo') do
-    begin
-      DataType := ftInteger;
-      if VarIsNull(IdVeiculo) then Clear else AsInteger := Integer(IdVeiculo);
-    end;
+
+    // datainicio = dataindicacao (ou fallback já aplicado em DtBase)
+    P := Q.ParamByName('datainicio');
+    P.DataType := ftDate;
+    P.AsDate := Trunc(DtInicio);
+
+    // valorparcela = valor da multa
+    P := Q.ParamByName('valorparcela'); P.DataType := ftFloat;  P.AsFloat := Vlr;
+
+    // comprovante = 'multa'
+    P := Q.ParamByName('comprovante');  P.DataType := ftString; P.AsString := 'multa';
+
     Q.ExecSQL;
     Affected := Q.RowsAffected;
+
+    // fallback/diagnóstico
     if Affected = 0 then
     begin
       if Existe then
       begin
+        // força insert caso update não tenha afetado (p.ex. filtros/flags)
         Existe := False;
         IdDesp := NextIdDespesas(Erro);
         if (IdDesp = 0) or (Erro <> '') then Exit;
+
         Q.SQL.Text :=
           'INSERT INTO gesdespesas ( '+
           '  iddespesas, datalancamento, valordespesa, descricao, idveiculo, observacao, '+
@@ -436,25 +466,14 @@ begin
         Q.ParamByName('idgeral').AsInteger := idmultas;
         Q.ParamByName('categoria').AsString := 'Outros';
         Q.ExecSQL;
+
         if Q.RowsAffected = 0 then
           raise Exception.Create('Nenhuma linha afetada ao inserir despesa (fallback). Verifique constraints/filtros.');
       end
       else
-        raise Exception.Create('Nenhuma linha afetada ao inserir/atualizar despesa.');
+        raise Exception.Create('Nenhuma linha afetada ao inserir/atualizar despesa. Possível problema de filtros/constraints.');
     end;
-    if SameText(Trim(departamento), 'site') then
-    begin
-      TipoRateio := 'SITE';
-      Depto := '';
-      Site := Trim(idsite);
-    end
-    else
-    begin
-      TipoRateio := 'DEPARTAMENTO';
-      Depto := Trim(departamento);
-      Site := '';
-    end;
-    ReplaceRateioDespesa(idmultas, TipoRateio, Depto, Site, 100.0);
+
     Result := True;
   except
     on E: Exception do
@@ -466,38 +485,46 @@ begin
   Q.Free;
 end;
 
+{------------------------------- Métodos principais ---------------------------}
+
 function TMultas.BuscaPorPlacaData(const APlaca, AData: string; out erro: string): TFDQuery;
-var qry: TFDQuery;
+var
+  qry: TFDQuery;
 begin
   try
     qry := TFDQuery.Create(nil);
     qry.Connection := FConn;
     with qry do
     begin
-      Active := False; SQL.Clear;
+      Active := False;
+      SQL.Clear;
       SQL.Add('SELECT * FROM gesmultas');
       SQL.Add('WHERE placa = :placa AND datainfracao = :datainfracao');
       ParamByName('placa').AsString := APlaca;
       ParamByName('datainfracao').AsString := AData;
       Open;
     end;
-    erro := ''; Result := qry;
+    erro := '';
+    Result := qry;
   except
     on ex: Exception do
     begin
-      erro := 'Erro ao buscar por placa e data: ' + ex.Message; Result := nil;
+      erro := 'Erro ao buscar por placa e data: ' + ex.Message;
+      Result := nil;
     end;
   end;
 end;
 
-function TMultas.NovoCadastro(out erro: string): Integer;
-var qry: TFDQuery;
+function TMultas.NovoCadastro(out erro: string): integer;
+var
+  qry: TFDQuery;
 begin
   try
     qry := TFDQuery.Create(nil);
     qry.Connection := FConn;
     try
       FConn.StartTransaction;
+
       qry.Active := False; qry.SQL.Clear;
       qry.SQL.Add('UPDATE admponteiro');
       qry.SQL.Add('SET idmultas = idmultas + 1');
@@ -513,11 +540,14 @@ begin
       qry.Open;
       Fidmultas := qry.FieldByName('idmultas').AsInteger;
       FConn.Commit;
+
       erro := ''; Result := Fidmultas;
     except
       on ex: Exception do
       begin
-        FConn.Rollback; erro := 'Erro ao consultar : ' + ex.Message; Result := 0;
+        FConn.Rollback;
+        erro := 'Erro ao consultar : ' + ex.Message;
+        Result := 0;
       end;
     end;
   finally
@@ -526,38 +556,57 @@ begin
 end;
 
 function TMultas.TransformaDebitado(out erro: string): Boolean;
-var qry: TFDQuery; dt: TDateTime; dataBanco, sqlUpdate: string;
+var
+  qry: TFDQuery;
+  dt: TDateTime;
+  dataBanco: string;
+  formatBanco: string;
+  sqlUpdate: string;
 begin
-  if Trim(datainfracao) = '' then dataBanco := ''
+  // Se datainfracao vier vazio, n�o vamos bloquear
+  if Trim(datainfracao) = '' then
+    dataBanco := ''
   else
   begin
-    if not TryStrToDateTimeInvariant(datainfracao, dt) then
+    formatSettings := TFormatSettings.Create;
+    formatSettings.ShortDateFormat := 'yyyy-mm-dd';
+    formatSettings.LongTimeFormat := 'hh:nn:ss.zzz';
+    formatSettings.DateSeparator := '-';
+    formatSettings.TimeSeparator := ':';
+
+    if not TryStrToDateTime(dataInfracao, dt, formatSettings) then
     begin
-      erro := 'O campo Data/Hora da Infração está com um valor inválido: ' + datainfracao;
-      Exit(False);
+      erro := 'O campo Data/Hora da Infra��o est� com um valor inv�lido: ' + dataInfracao;
+      Exit;
     end;
-    dataBanco := FormatDateTime('yyyy-mm-dd hh:nn:ss', dt);
+  dataBanco := FormatDateTime('yyyy-mm-dd hh:nn:ss', dt);
   end;
   try
     qry := TFDQuery.Create(nil);
     qry.Connection := FConn;
     try
       FConn.StartTransaction;
-      qry.Active := False; qry.SQL.Clear;
+      qry.Active := False;
+      qry.SQL.Clear;
       if Length(idsMultas) = 0 then
+      begin
         raise Exception.Create('A lista de multas está vazia.');
+
       sqlUpdate :=
-        'UPDATE gesmultas SET debitado = :debitado '+
+        'UPDATE gesmultas SET ' +
+        '  debitado = :debitado ' +
         'WHERE idmultas IN (' + idsMultas + ')';
       qry.SQL.Text := sqlUpdate;
       qry.ParamByName('debitado').AsString := 'Debitado';
+
       qry.ExecSQL; FConn.Commit; erro := ''; Result := True;
     except
       on ex: Exception do
       begin
         FConn.Rollback;
+        // se vier "Incorrect datetime value" do MySQL, tratamos
         if Pos('Incorrect datetime value', ex.Message) > 0 then
-          erro := 'O campo Data/Hora da Infração é inválido.'
+          erro := 'O campo Data/Hora da Infra��o � inv�lido.'
         else
           erro := 'Erro ao cadastrar multas: ' + ex.Message;
         Result := False;
@@ -571,19 +620,26 @@ end;
 function TMultas.Editar(out erro: string): Boolean;
 var
   qry: TFDQuery; dt: TDateTime; dataBanco: string;
-  sqlInsert, sqlUpdate: string;
-  jaExiste: Boolean;
+  sqlInsert, sqlUpdate: string; jaExiste: Boolean;
   ErroDesp: string;
 begin
-  if Trim(datainfracao) = '' then dataBanco := ''
+  // Se datainfracao vier vazio, n�o vamos bloquear
+  if Trim(datainfracao) = '' then
+    dataBanco := ''
   else
   begin
-    if not TryStrToDateTimeInvariant(datainfracao, dt) then
+    formatSettings := TFormatSettings.Create;
+    formatSettings.ShortDateFormat := 'yyyy-mm-dd';
+    formatSettings.LongTimeFormat := 'hh:nn:ss.zzz';
+    formatSettings.DateSeparator := '-';
+    formatSettings.TimeSeparator := ':';
+
+    if not TryStrToDateTime(dataInfracao, dt, formatSettings) then
     begin
-      erro := 'O campo Data/Hora da Infração é inválido: ' + datainfracao;
-      Exit(False);
+      erro := 'O campo Data/Hora da Infra��o est� com um valor inv�lido: ' + dataInfracao;
+      Exit;
     end;
-    dataBanco := FormatDateTime('yyyy-mm-dd hh:nn:ss', dt);
+  dataBanco := FormatDateTime('yyyy-mm-dd hh:nn:ss', dt);
   end;
   try
     qry := TFDQuery.Create(nil);
@@ -596,6 +652,7 @@ begin
       qry.SQL.Add('WHERE idcliente = :idcliente AND idloja = :idloja AND idmultas = :idmultas');
       qry.ParamByName('idcliente').AsInteger := idcliente;
       qry.ParamByName('idloja').AsInteger := idloja;
+
       qry.ParamByName('idmultas').AsInteger := idmultas;
       qry.Open;
       sqlInsert :=
@@ -618,7 +675,7 @@ begin
         'WHERE idcliente = :idcliente AND idloja = :idloja AND idmultas = :idmultas';
       if qry.RecordCount = 0 then
       begin
-        if (dataBanco <> '') then
+       if (dataBanco <> '') and TryStrToDateTime(dataBanco, dt) then
         begin
           qry.Close;
           qry.SQL.Clear;
@@ -634,7 +691,10 @@ begin
           qry.Open;
           jaExiste := not qry.IsEmpty;
           if jaExiste then
-            raise Exception.Create('Já existe uma multa para essa pessoa nesse mesmo horário.')
+          begin
+            raise Exception.Create('Já existe uma multa para essa pessoa nesse mesmo horário.');
+            Exit;
+          end
           else
           begin
             qry.Close;
@@ -642,21 +702,26 @@ begin
           end;
         end
         else
+        begin
           raise Exception.Create('Data de infração inválida.');
+        end;
       end
       else
         qry.SQL.Text := sqlUpdate;
+
+      // parâmetros
       qry.ParamByName('idmultas').AsInteger := idmultas;
       qry.ParamByName('placa').AsString := placa;
       qry.ParamByName('numeroait').AsString := numeroait;
+
       if (dataBanco <> '') then
       begin
-        qry.ParamByName('datainfracao').DataType := ftDateTime;
+       qry.ParamByName('datainfracao').DataType := ftDateTime;
         qry.ParamByName('datainfracao').AsDateTime := dt;
       end
       else
       begin
-        qry.ParamByName('datainfracao').DataType := ftDateTime;
+         qry.ParamByName('datainfracao').DataType := ftDateTime;
         qry.ParamByName('datainfracao').Clear;
       end;
       qry.ParamByName('local').AsString := local;
@@ -672,16 +737,34 @@ begin
       qry.ParamByName('idcliente').AsInteger := idcliente;
       qry.ParamByName('idloja').AsInteger := idloja;
       qry.ParamByName('DELETADO').AsInteger := 0;
+
+      // novos params
+      qry.ParamByName('departamento').DataType := ftString;
+      qry.ParamByName('departamento').AsString := departamento;
+
+      with qry.ParamByName('idsite') do
+      begin
+        DataType := ftString;
+        if (LowerCase(Trim(departamento)) = 'site') and (Trim(idsite) <> '') then
+          AsString := idsite
+        else
+          Clear;
+      end;
+
       qry.ExecSQL;
+
+      // integra com despesas (mesma transação)
       if not UpsertDespesaParaMulta(ErroDesp) then
         raise Exception.Create(ErroDesp);
+
       FConn.Commit; erro := ''; Result := True;
     except
       on ex: Exception do
       begin
         FConn.Rollback;
+        // se vier "Incorrect datetime value" do MySQL, tratamos
         if Pos('Incorrect datetime value', ex.Message) > 0 then
-          erro := 'O campo Data/Hora da Infração é inválido.'
+          erro := 'O campo Data/Hora da Infra��o � inv�lido.'
         else
           erro := 'Erro ao cadastrar multas: ' + ex.Message;
         Result := False;
@@ -693,24 +776,34 @@ begin
 end;
 
 function TMultas.Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
-var qry: TFDQuery;
+var
+  qry: TFDQuery;
 begin
-  Result := nil; erro := '';
+  Result := nil; // Inicializa o resultado como nil
+  erro := '';    // Inicializa a mensagem de erro como vazia
+
+  // Verifica se AQuery est� inicializado
   if not Assigned(AQuery) then
   begin
-    erro := 'AQuery não foi inicializado.'; Exit;
+    erro := 'AQuery n�o foi inicializado.';
+    Exit;
   end;
   try
+    // Cria a query
     qry := TFDQuery.Create(nil);
     try
+      // Verifica se a conex�o FConn est� inicializada
       if not Assigned(FConn) then
       begin
-        erro := 'Conexão FConn não foi inicializada.'; Exit;
+        erro := 'Conex�o FConn n�o foi inicializada.';
+        Exit;
       end;
       qry.Connection := FConn;
+
       with qry do
       begin
-        Active := False; SQL.Clear;
+        Active := False;
+        SQL.Clear;
         SQL.Add('SELECT');
         SQL.Add('  gesmultas.idmultas as id,');
         SQL.Add('  gesmultas.placa,');
@@ -742,18 +835,22 @@ begin
           SQL.Add('OR gespessoa.nome LIKE :busca)');
           ParamByName('busca').AsString := '%' + AQuery.Items['busca'] + '%';
         end;
+
         if AQuery.ContainsKey('debitado') and (AQuery.Items['debitado'] <> '') then
         begin
           SQL.Add(' AND (gesmultas.debitado LIKE :debitado)');
           ParamByName('debitado').AsString := '%' + AQuery.Items['debitado'] + '%';
         end;
+
         Active := True;
       end;
+
       Result := qry;
     except
       on ex: Exception do
       begin
-        erro := 'Erro ao consultar: ' + ex.Message; FreeAndNil(qry);
+        erro := 'Erro ao consultar: ' + ex.Message;
+        FreeAndNil(qry);
       end;
     end;
   except
@@ -765,14 +862,17 @@ begin
 end;
 
 function TMultas.Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
-var qry: TFDQuery; a: Integer;
+var
+  qry: TFDQuery;
+  a: integer;
 begin
   try
     qry := TFDQuery.Create(nil);
     qry.Connection := FConn;
     with qry do
     begin
-      Active := False; SQL.Clear;
+      Active := False;
+      SQL.Clear;
       SQL.Add('SELECT');
       SQL.Add('  gesmultas.*,');
       SQL.Add('  gesempresas.nome as empresa,');
@@ -793,11 +893,13 @@ begin
       end;
       Active := True;
     end;
-    erro := ''; Result := qry;
+    erro := '';
+    Result := qry;
   except
     on ex: Exception do
     begin
-      erro := 'Erro ao consultar : ' + ex.Message; Result := nil;
+      erro := 'Erro ao consultar : ' + ex.Message;
+      Result := nil;
     end;
   end;
 end;

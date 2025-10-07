@@ -4,7 +4,7 @@ interface
 
 uses
   Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,
-  DataSet.Serialize, Model.Multas, UtFuncao, Controller.Auth, System.DateUtils;
+  DataSet.Serialize, Model.Multas, UtFuncao, Controller.Auth;
 
 procedure Registry;
 procedure Lista(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -31,46 +31,33 @@ var
   FS: TFormatSettings;
 begin
   Result := False;
-  if DataStr = '' then Exit;
-
-  // 1) dd/mm/yyyy (e com hora)
   FS := TFormatSettings.Create;
-  FS.DateSeparator  := '/';
-  FS.TimeSeparator  := ':';
-  FS.ShortDateFormat := 'dd/mm/yyyy';
-  FS.LongTimeFormat  := 'hh:nn:ss';
   try
-    DataConvertida := StrToDateTime(DataStr, FS);
-    Exit(True);
-  except end;
-
-  // 2) yyyy-mm-dd (e com hora)
-  FS := TFormatSettings.Create;
-  FS.DateSeparator  := '-';
-  FS.TimeSeparator  := ':';
-  FS.ShortDateFormat := 'yyyy-mm-dd';
-  FS.LongTimeFormat  := 'hh:nn:ss';
-  try
-    DataConvertida := StrToDateTime(DataStr, FS);
-    Exit(True);
-  except end;
-
-  // 3) ISO 8601 (ex.: 2025-10-05T21:37)
-  {$IF Declared(TryISO8601ToDate)}
-  if TryISO8601ToDate(DataStr, DataConvertida) then
-    Exit(True);
-  {$IFEND}
-
-  try
-    // algumas versões só têm ISO8601ToDate(String) com 1 parâmetro
-    DataConvertida := ISO8601ToDate(DataStr);
-    Exit(True);
+    FS.DateSeparator := '/';
+    FS.TimeSeparator := ':';
+    FS.ShortDateFormat := 'dd/mm/yyyy';
+    FS.LongTimeFormat := 'hh:nn:ss';
+    try
+      DataConvertida := StrToDateTime(DataStr, FS);
+      Exit(True);
+    except
+    end;
+    FS.DateSeparator := '-';
+    FS.ShortDateFormat := 'yyyy-mm-dd';
+    try
+      DataConvertida := StrToDateTime(DataStr, FS);
+      Exit(True);
+    except
+    end;
+    try
+      DataConvertida := ISO8601ToDate(DataStr, False);
+      Exit(True);
+    except
+    end;
   except
-    // continua falso
   end;
 end;
 
-// Busca multas por placa e data da infração
 procedure BuscaMultaPorPlacaData(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TMultas;
@@ -91,13 +78,13 @@ begin
 
   if (placa = '') or (datainfracao = '') then
   begin
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Placa e data da infração são obrigatórios')).Status(THTTPStatus.BadRequest);
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Placa e data da infra��o s�o obrigat�rios')).Status(THTTPStatus.BadRequest);
     Exit;
   end;
 
   if not TentarConverterData(datainfracao, DataConvertida) then
   begin
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Formato de data inválido. Use DD/MM/AAAA')).Status(THTTPStatus.BadRequest);
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Formato de data inv�lido. Use DD/MM/AAAA')).Status(THTTPStatus.BadRequest);
     Exit;
   end;
 
@@ -109,7 +96,9 @@ begin
       Res.Send<TJSONObject>(arraydados).Status(THTTPStatus.OK);
     end
     else
+    begin
       Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    end;
   finally
     qry.Free;
     servico.Free;
@@ -244,18 +233,17 @@ begin
       servico.idempresa := body.GetValue<Integer>('idempresa', 0);
       servico.idpessoa := body.GetValue<Integer>('idpessoa', 0);
       servico.numeroait := body.getvalue<string>('numeroait', '');
-      servico.pontuacao := body.GetValue<Integer>('pontuacao', 0);
-      servico.placa := body.getvalue<string>('placa', '');
-      servico.datainfracao := body.getvalue<string>('datainfracao', '');
-      servico.local := body.getvalue<string>('local', '');
-      servico.infracao := body.getvalue<string>('infracao', '');
-      servico.valor := body.getvalue<string>('valor', '');
-      servico.dataindicacao := body.getvalue<string>('dataindicacao', '');
-      servico.natureza := body.getvalue<string>('natureza', '');
-      servico.datacolaborador := body.getvalue<string>('datacolaborador', '');
-      servico.statusmulta := body.getvalue<string>('statusmulta', '');
+      servico.pontuacao:= body.GetValue<Integer>('pontuacao', 0);
+      servico.placa:= body.getvalue<string>('placa', '');
+      servico.datainfracao:= body.getvalue<string>('datainfracao', '');
+      servico.local:= body.getvalue<string>('local', '');
+      servico.infracao:= body.getvalue<string>('infracao', '');
+      servico.valor:= body.getvalue<string>('valor', '');
+      servico.dataindicacao:= body.getvalue<string>('dataindicacao', '');
+      servico.natureza:=  body.getvalue<string>('natureza', '');
+      servico.datacolaborador:= body.getvalue<string>('datacolaborador', '');
+      servico.statusmulta:=  body.getvalue<string>('statusmulta', '');
 
-      // departamento e idsite (tratando null)
       V := body.GetValue('departamento');
       if Assigned(V) and not (V is TJSONNull) then
         servico.departamento := V.Value

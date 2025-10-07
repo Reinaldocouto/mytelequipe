@@ -33,6 +33,7 @@ import Ericssonedicao from './Ericssonedicao';
 import exportExcel from '../../../data/exportexcel/Excelexport';
 import Notpermission from '../../../layouts/notpermission/notpermission';
 import modoVisualizador from '../../../services/modovisualizador';
+import ImportLogModal from '../../modals/filtros/ImportLogModalProps';
 
 const Ericssonacionamento = ({ setshow, show }) => {
   const [projeto, setprojeto] = useState([]);
@@ -46,9 +47,14 @@ const Ericssonacionamento = ({ setshow, show }) => {
   const [site, setsite] = useState('');
   const [arquivoobra, setarquivoobra] = useState('');
   const [permission, setpermission] = useState(0);
+  const [showLogModal, setShowLogModal] = useState(false);
 
   const togglecadastro = () => {
     setshow(!show);
+  };
+
+  const toggleLogModal = () => {
+    setShowLogModal(!showLogModal);
   };
 
   const params = {
@@ -216,7 +222,7 @@ const Ericssonacionamento = ({ setshow, show }) => {
       if (response && response.data) {
         console.log(response);
         if (response.status === 200) {
-          setmensagemsucesso('Upload concluído. A atualização será processada em até 6 horas.');
+          setmensagemsucesso('Upload concluído. A atualização está sendo processada.');
           setmensagem('');
         } else {
           setmensagemsucesso('');
@@ -342,6 +348,9 @@ const Ericssonacionamento = ({ setshow, show }) => {
                 ) : null}
 
                 <div className="row g-3">
+                  <Button color="primary" onClick={toggleLogModal} className="ms-2">
+                    Acompanhar Importação
+                  </Button>
                   {/*  <div className="col-sm-1">
               RFP
               <Input type="select" placeholder="Pesquise por Numero da Obra" >
@@ -421,6 +430,9 @@ const Ericssonacionamento = ({ setshow, show }) => {
           {!permission && <Notpermission />}
         </div>
       </ModalBody>
+
+      {/* Modal de Logs de Importação */}
+      <ImportLogModal show1={showLogModal} toggle1={toggleLogModal} />
     </Modal>
   );
 };

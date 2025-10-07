@@ -1,0 +1,571 @@
+unit Model.Despesas;
+
+interface
+
+uses
+  System.SysUtils, System.Classes, System.Generics.Collections,
+  System.JSON, Data.DB, FireDAC.Comp.Client, FireDAC.DApt,
+  Model.Connection;
+
+type
+  { Item de rateio da despesa }
+  TDespesaRateio = class
+  private
+    Fid: Integer;
+    Fiddespesas: Integer;
+    Ftipo: string;           // 'DEPARTAMENTO' | 'SITE'
+    Fidentificador: string;  // nome do depto OU código do site
+    Fpercentual: Double;     // ex.: 20.00
+  public
+    property id: Integer read Fid write Fid;
+    property iddespesas: Integer read Fiddespesas write Fiddespesas;
+    property tipo: string read Ftipo write Ftipo;
+    property identificador: string read Fidentificador write Fidentificador;
+    property percentual: Double read Fpercentual write Fpercentual;
+  end;
+
+  TDespesas = class
+  private
+    FConn: TFDConnection;
+
+    Fiddespesas: Integer;
+    Fdatalancamento: string;
+    Fvalordespesa: string;
+    Fdescricao: string;
+    Fcomprovante: string;
+    Fobservacao: string;
+    Fidcliente: Integer;
+    Fidloja: Integer;
+    Fdeletado: Integer;
+    Fidempresa: Integer;
+    Fidpessoa: Integer;
+    Fidveiculo: Integer;
+    Fcategoria: string;
+    Fperiodicidade: string;
+    Fperiodo: string;
+    Fparceladoem: string;
+    Fvalordaparcela: string;
+    Fdespesacadastradapor: string;
+    FdataInicio: string;
+
+    FRateios: TObjectList<TDespesaRateio>;
+
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    { Propriedades da despesa }
+    property iddespesas: Integer read Fiddespesas write Fiddespesas;
+    property idcliente: Integer read Fidcliente write Fidcliente;
+    property idloja: Integer read Fidloja write Fidloja;
+    property deletado: Integer read Fdeletado write Fdeletado;
+    property periodicidade: string read Fperiodicidade write Fperiodicidade;
+    property categoria: string read Fcategoria write Fcategoria;
+    property datalancamento: string read Fdatalancamento write Fdatalancamento;
+    property valordespesa: string read Fvalordespesa write Fvalordespesa;
+    property descricao: string read Fdescricao write Fdescricao;
+    property periodo: string read Fperiodo write Fperiodo;
+    property valordaparcela: string read Fvalordaparcela write Fvalordaparcela;
+    property comprovante: string read Fcomprovante write Fcomprovante;
+    property observacao: string read Fobservacao write Fobservacao;
+    property idempresa: Integer read Fidempresa write Fidempresa;
+    property idpessoa: Integer read Fidpessoa write Fidpessoa;
+    property idveiculo: Integer read Fidveiculo write Fidveiculo;
+    property dataInicio: string read FdataInicio write FdataInicio;
+    property parceladoEm: string read Fparceladoem write Fparceladoem;
+    property despesacadastradapor: string read Fdespesacadastradapor write Fdespesacadastradapor;
+
+    { Rateios vinculados }
+    property Rateios: TObjectList<TDespesaRateio> read FRateios;
+
+    { API atual que seu controller já usa }
+    function Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function Editar(out erro: string): Boolean;
+    function NovoCadastro(out erro: string): Integer;
+
+    { Novos helpers para o rateio }
+    function CarregarRateios: Boolean;
+    function SalvarRateios(out erro: string): Boolean;
+    procedure ClearRateios;
+    procedure AddRateio(const ATipo, AIdentificador: string; APercentual: Double);
+    procedure LoadRateiosFromJSONArray(const AJSONArray: TJSONArray);
+  end;
+
+implementation
+
+uses
+  System.StrUtils;
+
+{ TDespesas }
+
+constructor TDespesas.Create;
+begin
+  FConn := TConnection.CreateConnection;
+  FRateios := TObjectList<TDespesaRateio>.Create(True); // OwnsObjects
+  Fdeletado := 0;
+end;
+
+destructor TDespesas.Destroy;
+begin
+  FRateios.Free;
+  FConn.Free;
+  inherited;
+end;
+
+procedure TDespesas.ClearRateios;
+begin
+  FRateios.Clear;
+end;
+
+procedure TDespesas.AddRateio(const ATipo, AIdentificador: string; APercentual: Double);
+var
+  R: TDespesaRateio;
+begin
+  R := TDespesaRateio.Create;
+  R.id := 0;
+  R.iddespesas := Fiddespesas;
+  R.tipo := ATipo;
+  R.identificador := AIdentificador;
+  R.percentual := APercentual;
+  FRateios.Add(R);
+end;
+
+procedure TDespesas.LoadRateiosFromJSONArray(const AJSONArray: TJSONArray);
+var
+  I: Integer;
+  Obj: TJSONObject;
+  Tipo, Ident: string;
+  Perc: Double;
+begin
+  if not Assigned(AJSONArray) then Exit;
+  ClearRateios;
+  for I := 0 to AJSONArray.Count - 1 do
+  begin
+    if not (AJSONArray.Items[I] is TJSONObject) then Continue;
+    Obj := TJSONObject(AJSONArray.Items[I]);
+
+    Tipo := Obj.GetValue<string>('tipo', '');
+    // modelo novo: 'identificador'
+    if Obj.TryGetValue<string>('identificador', Ident) then
+      ; // ok
+    // compat: se veio iddepartamento/idsite, converte
+    if (Ident = '') then
+    begin
+      Ident := Obj.GetValue<string>('iddepartamento', '');
+      if Ident = '' then
+        Ident := Obj.GetValue<string>('idsite', '');
+    end;
+
+    // percentual pode chegar inteiro/float
+    if Obj.GetValue('percentual') <> nil then
+      Perc := Obj.GetValue('percentual').Value.ToDouble
+    else
+      Perc := 0;
+
+    if (Tipo <> '') and (Ident <> '') and (Perc > 0) then
+      AddRateio(Tipo, Ident, Perc);
+  end;
+end;
+
+function TDespesas.CarregarRateios: Boolean;
+var
+  Q: TFDQuery;
+  R: TDespesaRateio;
+begin
+  Result := False;
+  FRateios.Clear;
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FConn;
+    Q.SQL.Text :=
+      'SELECT id, iddespesas, tipo, identificador, percentual '+
+      'FROM gesdespesas_rateio WHERE iddespesas = :iddespesas';
+    Q.ParamByName('iddespesas').AsInteger := Fiddespesas;
+    Q.Open;
+    while not Q.Eof do
+    begin
+      R := TDespesaRateio.Create;
+      R.id := Q.FieldByName('id').AsInteger;
+      R.iddespesas := Q.FieldByName('iddespesas').AsInteger;
+      R.tipo := Q.FieldByName('tipo').AsString;
+      R.identificador := Q.FieldByName('identificador').AsString;
+      R.percentual := Q.FieldByName('percentual').AsFloat;
+      FRateios.Add(R);
+      Q.Next;
+    end;
+    Result := True;
+  finally
+    Q.Free;
+  end;
+end;
+
+function TDespesas.SalvarRateios(out erro: string): Boolean;
+var
+  Q: TFDQuery;
+  R: TDespesaRateio;
+begin
+  Result := False;
+  erro := '';
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FConn;
+
+    // limpa os itens atuais da despesa
+    Q.SQL.Text := 'DELETE FROM gesdespesas_rateio WHERE iddespesas = :iddespesas';
+    Q.ParamByName('iddespesas').AsInteger := Fiddespesas;
+    Q.ExecSQL;
+
+    // insere os itens da lista
+    for R in FRateios do
+    begin
+      Q.SQL.Text :=
+        'INSERT INTO gesdespesas_rateio (iddespesas, tipo, identificador, percentual) '+
+        'VALUES (:iddespesas, :tipo, :identificador, :percentual)';
+      Q.ParamByName('iddespesas').AsInteger := Fiddespesas;
+      Q.ParamByName('tipo').AsString := R.tipo;
+      Q.ParamByName('identificador').AsString := R.identificador;
+      Q.ParamByName('percentual').AsFloat := R.percentual;
+      Q.ExecSQL;
+    end;
+
+    Result := True;
+  except
+    on E: Exception do
+    begin
+      erro := 'Erro ao salvar rateio: ' + E.Message;
+      Exit(False);
+    end;
+  end;
+end;
+
+function TDespesas.NovoCadastro(out erro: string): Integer;
+var
+  Q: TFDQuery;
+begin
+  Result := 0;
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FConn;
+    try
+      FConn.StartTransaction;
+
+      // usa sua tabela admponteiro para gerar o iddespesas
+      Q.SQL.Text :=
+        'UPDATE admponteiro SET iddespesas = iddespesas+1 '+
+        'WHERE idcliente = :idcliente AND idloja = :idloja';
+      Q.ParamByName('idcliente').AsInteger := idcliente;
+      Q.ParamByName('idloja').AsInteger := idloja;
+      Q.ExecSQL;
+
+      Q.SQL.Text :=
+        'SELECT iddespesas FROM admponteiro '+
+        'WHERE idcliente = :idcliente AND idloja = :idloja';
+      Q.ParamByName('idcliente').AsInteger := idcliente;
+      Q.ParamByName('idloja').AsInteger := idloja;
+      Q.Open;
+
+      Fiddespesas := Q.FieldByName('iddespesas').AsInteger;
+
+      FConn.Commit;
+      erro := '';
+      Result := Fiddespesas;
+    except
+      on E: Exception do
+      begin
+        FConn.Rollback;
+        erro := 'Erro ao gerar novo iddespesas: ' + E.Message;
+        Result := 0;
+      end;
+    end;
+  finally
+    Q.Free;
+  end;
+end;
+
+function TDespesas.Editar(out erro: string): Boolean;
+var
+  Q, QHist, QIns: TFDQuery;
+  IsInsert: Boolean;
+begin
+  Result := False;
+  erro := '';
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FConn;
+    try
+      FConn.StartTransaction;
+
+      // verifica se já existe (por iddespesas)
+      Q.SQL.Text :=
+        'SELECT iddespesas FROM gesdespesas '+
+        'WHERE idcliente = :idcliente AND idloja = :idloja AND iddespesas = :iddespesas';
+      Q.ParamByName('idcliente').AsInteger := idcliente;
+      Q.ParamByName('idloja').AsInteger := idloja;
+      Q.ParamByName('iddespesas').AsInteger := iddespesas;
+      Q.Open;
+      IsInsert := Q.IsEmpty;
+      Q.Close;
+
+      if IsInsert then
+      begin
+        Q.SQL.Text :=
+          'INSERT INTO gesdespesas('+
+          'iddespesas, datalancamento, parceladoem, datainicio, valorparcela, despesacadastradapor, '+
+          'valordespesa, descricao, comprovante, observacao, '+
+          'idempresa, idpessoa, idveiculo, deletado, idcliente, idloja, '+
+          'periodo, periodicidade, categoria, datadocadastro) '+
+          'VALUES(:iddespesas, :datalancamento, :parceladoem, :datainicio, :valorparcela, :despesacadastradapor, '+
+          ':valordespesa, :descricao, :comprovante, :observacao, '+
+          ':idempresa, :idpessoa, :idveiculo, :deletado, :idcliente, :idloja, '+
+          ':periodo, :periodicidade, :categoria, :datadocadastro)';
+        Q.ParamByName('datadocadastro').AsDateTime := Now;
+      end
+      else
+      begin
+        Q.SQL.Text :=
+          'UPDATE gesdespesas SET '+
+          'DELETADO = :DELETADO, '+
+          'parceladoem = :parceladoem, '+
+          'datainicio = :datainicio, '+
+          'valorparcela = :valorparcela, '+
+          'despesacadastradapor = :despesacadastradapor, '+
+          'datalancamento = :datalancamento, '+
+          'valordespesa = :valordespesa, '+
+          'descricao = :descricao, '+
+          'comprovante = :comprovante, '+
+          'categoria = :categoria, '+
+          'periodicidade = :periodicidade, '+
+          'periodo = :periodo, '+
+          'observacao = :observacao, '+
+          'idempresa = :idempresa, '+
+          'idpessoa = :idpessoa, '+
+          'idveiculo = :idveiculo '+
+          'WHERE idcliente = :idcliente AND idloja = :idloja AND iddespesas = :iddespesas';
+      end;
+
+      Q.ParamByName('iddespesas').AsInteger := iddespesas;
+      Q.ParamByName('datalancamento').AsString := datalancamento;
+      Q.ParamByName('parceladoem').AsString := parceladoEm;
+      Q.ParamByName('datainicio').AsString := dataInicio;
+      Q.ParamByName('valorparcela').AsString := valordaparcela;
+      Q.ParamByName('despesacadastradapor').AsString := despesacadastradapor;
+      Q.ParamByName('valordespesa').AsString := valordespesa;
+      Q.ParamByName('descricao').AsString := descricao;
+      Q.ParamByName('comprovante').AsString := comprovante;
+      Q.ParamByName('observacao').AsString := observacao;
+      Q.ParamByName('idcliente').AsInteger := idcliente;
+      Q.ParamByName('idloja').AsInteger := idloja;
+      Q.ParamByName('periodicidade').AsString := periodicidade;
+      Q.ParamByName('categoria').AsString := categoria;
+      Q.ParamByName('DELETADO').AsInteger := 0;
+      Q.ParamByName('idempresa').AsInteger := idempresa;
+      Q.ParamByName('idpessoa').AsInteger := idpessoa;
+      Q.ParamByName('idveiculo').AsInteger := idveiculo;
+      Q.ParamByName('periodo').AsString := periodo;
+      Q.ExecSQL;
+
+      { Salva rateios na mesma transação }
+      if not SalvarRateios(erro) then
+      begin
+        FConn.Rollback;
+        Exit(False);
+      end;
+
+      { Se quiser manter o histórico quando for insert }
+      if IsInsert then
+      begin
+        QHist := TFDQuery.Create(nil);
+        try
+          QHist.Connection := FConn;
+          QHist.SQL.Text :=
+            'SELECT v.placa, v.iniciolocacao, v.fimlocacao, v.categoria, v.periodicidade, e.nome AS empresa '+
+            'FROM gesveiculos v '+
+            'LEFT JOIN gesempresas e ON e.idempresa = v.idempresa '+
+            'WHERE v.idveiculo = :idveiculo';
+          QHist.ParamByName('idveiculo').AsInteger := idveiculo;
+          QHist.Open;
+
+          if not QHist.IsEmpty then
+          begin
+            QIns := TFDQuery.Create(nil);
+            try
+              QIns.Connection := FConn;
+              QIns.SQL.Text :=
+                'INSERT INTO historicoveiculo ('+
+                'iniciolocacaohistorico, fimlocacaohistorico, valordespesa, descricao, placa, empresa, funcionario, categoria, periodicidade) '+
+                'VALUES (:ini, :fim, :val, :desc, :placa, :empresa, :func, :cat, :per)';
+              QIns.ParamByName('ini').Value := QHist.FieldByName('iniciolocacao').Value;
+              QIns.ParamByName('fim').Value := QHist.FieldByName('fimlocacao').Value;
+              QIns.ParamByName('val').AsString := valordespesa;
+              QIns.ParamByName('desc').AsString := descricao;
+              QIns.ParamByName('placa').AsString := QHist.FieldByName('placa').AsString;
+              QIns.ParamByName('empresa').AsString := QHist.FieldByName('empresa').AsString;
+              QIns.ParamByName('func').Clear; // sem funcionario aqui
+              QIns.ParamByName('cat').AsString := QHist.FieldByName('categoria').AsString;
+              QIns.ParamByName('per').AsString := QHist.FieldByName('periodicidade').AsString;
+              QIns.ExecSQL;
+            finally
+              QIns.Free;
+            end;
+          end;
+        finally
+          QHist.Free;
+        end;
+      end;
+
+      FConn.Commit;
+      Result := True;
+    except
+      on E: Exception do
+      begin
+        FConn.Rollback;
+        erro := 'Erro ao salvar despesa: ' + E.Message;
+        Result := False;
+      end;
+    end;
+  finally
+    Q.Free;
+  end;
+end;
+
+function TDespesas.Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  Q: TFDQuery;
+begin
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FConn;
+    with Q do
+    begin
+      Active := False;
+      SQL.Clear;
+      SQL.Add('SELECT ');
+      SQL.Add('  gesdespesas.iddespesas AS id, ');
+      SQL.Add('  DATE_FORMAT(gesdespesas.datalancamento,''%d/%m/%Y'') AS datalancamento, ');
+      SQL.Add('  DATE_FORMAT(gesdespesas.datadocadastro,''%d/%m/%Y'') AS datadocadastro, ');
+      SQL.Add('  DATE_FORMAT(gesdespesas.datainicio,''%d/%m/%Y'') AS datainicio, ');
+      SQL.Add('  gesdespesas.valordespesa, ');
+      SQL.Add('  gesdespesas.valorparcela, ');
+      SQL.Add('  gesdespesas.descricao, ');
+      SQL.Add('  gesdespesas.comprovante, ');
+      SQL.Add('  gesdespesas.observacao, ');
+      SQL.Add('  gesdespesas.idcliente, ');
+      SQL.Add('  gesdespesas.idloja, ');
+      SQL.Add('  gesdespesas.despesacadastradapor, ');
+      SQL.Add('  gesdespesas.parceladoem, ');
+      SQL.Add('  gesdespesas.categoria, ');
+      SQL.Add('  gesdespesas.periodicidade, ');
+      SQL.Add('  gesempresas.nome AS empresa, ');
+      SQL.Add('  gespessoa.nome AS funcionario, ');
+      SQL.Add('  gesveiculos.modelo AS veiculo, ');
+      SQL.Add('  gesveiculos.placa ');
+      SQL.Add('FROM gesdespesas ');
+      SQL.Add('LEFT JOIN gesveiculos ON gesveiculos.idveiculo = gesdespesas.idveiculo ');
+      SQL.Add('LEFT JOIN gespessoa  ON gesdespesas.idpessoa  = gespessoa.idpessoa ');
+      SQL.Add('LEFT JOIN gesempresas ON gesempresas.idempresa = gesdespesas.idempresa ');
+      SQL.Add('WHERE gesdespesas.iddespesas IS NOT NULL ');
+
+      if AQuery.ContainsKey('busca') then
+      begin
+        if Length(AQuery.Items['busca']) > 0 then
+        begin
+          SQL.Add('AND (gesdespesas.datalancamento LIKE ''%' + AQuery.Items['busca'] + '%'' ');
+          SQL.Add(' OR gesdespesas.valordespesa LIKE ''%' + AQuery.Items['busca'] + '%'' ');
+          SQL.Add(' OR gesdespesas.comprovante LIKE ''%' + AQuery.Items['busca'] + '%'' )');
+        end;
+      end;
+
+      if AQuery.ContainsKey('deletado') and (AQuery.Items['deletado'] <> '') then
+      begin
+        SQL.Add('AND gesdespesas.deletado = :deletado');
+        ParamByName('deletado').AsInteger := AQuery.Items['deletado'].ToInteger;
+      end;
+
+      if AQuery.ContainsKey('idcliente') then
+      begin
+        SQL.Add('AND gesdespesas.idcliente = :idcliente');
+        if AQuery.Items['idcliente'] <> '' then
+          ParamByName('idcliente').AsInteger := AQuery.Items['idcliente'].ToInteger
+        else
+          ParamByName('idcliente').AsInteger := 0;
+      end;
+
+      if AQuery.ContainsKey('idloja') then
+      begin
+        SQL.Add('AND gesdespesas.idloja = :idloja');
+        if AQuery.Items['idloja'] <> '' then
+          ParamByName('idloja').AsInteger := AQuery.Items['idloja'].ToInteger
+        else
+          ParamByName('idloja').AsInteger := 0;
+      end;
+
+      if AQuery.ContainsKey('idveiculo') and (AQuery.Items['idveiculo'] <> '') then
+      begin
+        SQL.Add('AND gesdespesas.idveiculo = :idveiculo');
+        ParamByName('idveiculo').AsInteger := AQuery.Items['idveiculo'].ToInteger;
+      end;
+
+      SQL.Add('ORDER BY id ');
+      Active := True;
+    end;
+
+    erro := '';
+    Result := Q; // controller vai dar Free
+  except
+    on E: Exception do
+    begin
+      erro := 'Erro ao consultar: ' + E.Message;
+      Q.Free;
+      Result := nil;
+    end;
+  end;
+end;
+
+function TDespesas.Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  Q: TFDQuery;
+begin
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FConn;
+    with Q do
+    begin
+      Active := False;
+      SQL.Clear;
+      SQL.Add('SELECT ');
+      SQL.Add('  gesdespesas.*, ');
+      SQL.Add('  gesempresas.nome AS empresa, ');
+      SQL.Add('  gespessoa.nome   AS funcionario, ');
+      SQL.Add('  gesveiculos.modelo AS veiculo ');
+      SQL.Add('FROM gesdespesas ');
+      SQL.Add('LEFT JOIN gesempresas ON gesempresas.idempresa = gesdespesas.idempresa ');
+      SQL.Add('LEFT JOIN gesveiculos ON gesveiculos.idveiculo = gesdespesas.idveiculo ');
+      SQL.Add('LEFT JOIN gespessoa  ON gesdespesas.idpessoa  = gespessoa.idpessoa ');
+      SQL.Add('WHERE gesdespesas.idveiculo IS NOT NULL ');
+      SQL.Add('  AND gesdespesas.iddespesas = :id ');
+      ParamByName('id').AsInteger := AQuery.Items['idpessoabusca'].ToInteger;
+
+      if AQuery.ContainsKey('deletado') and (AQuery.Items['deletado'] <> '') then
+      begin
+        SQL.Add('AND gesdespesas.deletado = :deletado');
+        ParamByName('deletado').AsInteger := AQuery.Items['deletado'].ToInteger;
+      end;
+
+      Active := True;
+    end;
+
+    erro := '';
+    Result := Q; // controller vai dar Free
+  except
+    on E: Exception do
+    begin
+      erro := 'Erro ao consultar: ' + E.Message;
+      Q.Free;
+      Result := nil;
+    end;
+  end;
+end;
+
+end.
+

@@ -20,13 +20,10 @@ import Loader from '../../../layouts/loader/Loader';
 import Excluirregistro from '../../Excluirregistro';
 import modoVisualizador from '../../../services/modovisualizador';
 
-// Função auxiliar para converter o valor do campo datetime-local (ex.: "2024-11-22T08:20")
-// para o formato esperado pelo back-end ("YYYY-MM-DD HH:MM:SS")
-/*const convertDatetimeLocalToMySQL = (datetimeLocalValue) => {
-  if (!datetimeLocalValue) return '';
-  // Substitui o "T" por espaço e acrescenta ":00" para os segundos
-  return `${datetimeLocalValue.replace('T', ' ')}:00`;
-};  */
+// Helpers para normalização (evitam controlled → uncontrolled)
+const asStr = (v) => (v ?? '');
+const asUpper = (v) => (v ? String(v).toUpperCase() : '');
+const asNumOrEmpty = (v) => (v === null || v === undefined ? '' : v);
 
 // Dados das infrações (texto bruto)
 const infracaoDataText = `
@@ -130,7 +127,7 @@ const infracaoDataText = `
 5975\tDeixar de parar no acostamento à direita, p/ cruzar pista ou entrar à esquerda 
 5983\tUltrapassar veículo em movimento que integre cortejo/desfile/formação militar 
 5991\tExecutar operação de retorno em locais proibidos pela sinalização 
-6009\tExecutar operação de retorno nas curvas - Executar operação de retorno nos aclives ou declives - Executar operação de retorno nas pontes - Executar operação de retorno nos viadutos - Executar operação de retorno nos túneis 
+6009\tExecutar operação de retorno nas curvas - Executar operação de retorno nos aclives ou declives - Executar operação de retorno nos pontes - Executar operação de retorno nos viadutos - Executar operação de retorno nos túneis 
 6017\tExecutar operação de retorno passando por cima de calçada, passeio - Executar operação de retorno passando por cima de ilha, refúgio - Executar operação de retorno passando por cima de ajardinamento - Executar operação de retorno passando por cima de canteiro de divisor de pista - Executar operação de retorno passando por cima de faixa de pedestres - Executar operação de retorno passando por cima de faixa de veíc não motorizados 
 6025\tExecutar retorno nas interseções, entrando na contramão da via transversal 
 6033\tExecutar retorno c/prejuízo da circulação/segurança ainda que em local permitido 
@@ -574,6 +571,7 @@ const DEPARTAMENTOS_TELE_EQUIPE = [
 
 const infracaoDataLines = infracaoDataText.trim().split('\n');
 const naturezaPontuacaoLines = naturezaPontuacaoText.trim().split('\n');
+
 function parseNaturezaPontuacao(line) {
   line = line.trim();
   if (line === '---' || line === '') {
@@ -638,27 +636,27 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
   const [mensagemsucesso, setmensagemsucesso] = useState('');
   const [loading, setloading] = useState(false);
   const [telaexclusao, settelaexclusao] = useState('');
-  const [idmultas, setidmultas] = useState();
-  const [nomeindicado, setnomeindicado] = useState('');
+  const [idmultas, setidmultas] = useState(''); // string para manter controlado
+  const [nomeindicado, setnomeindicado] = useState(''); // não é exibido, mas mantém consistência
   const [placa, setplaca] = useState('');
   const [departamento, setdepartamento] = useState('');
   const [numeroait, setnumeroait] = useState('');
-  const [datainfracao, setdatainfracao] = useState('');
+  const [datainfracao, setdatainfracao] = useState(''); // datetime-local exige '' ou string válida
   const [local, setlocal] = useState('');
   const [infracao, setinfracao] = useState('');
-  const [valor, setvalor] = useState('');
-  const [dataindicacao, setdataindicacao] = useState('');
+  const [valor, setvalor] = useState(''); // string ou number, aqui vamos controlar como string
+  const [dataindicacao, setdataindicacao] = useState(''); // date exige '' ou string YYYY-MM-DD
   const [natureza, setnatureza] = useState('');
-  const [pontuacao, setpontuacao] = useState('');
+  const [pontuacao, setpontuacao] = useState(''); // manter string
   const [datacolaborador, setdatacolaborador] = useState('');
   const [statusmulta, setstatusmulta] = useState('');
   const [idsite, setidsite] = useState('');
-  const [idempresa, setidempresa] = useState('');
-  const [idpessoa, setidpessoa] = useState('');
+  const [idempresa, setidempresa] = useState(0);
+  const [idpessoa, setidpessoa] = useState(0);
   const [selectedoptionempresa, setselectedoptionempresa] = useState(null);
   const [selectedoptionfuncionario, setselectedoptionfuncionario] = useState(null);
-  const [empresalista, setempresalista] = useState('');
-  const [funcionariolista, setfuncionariolista] = useState('');
+  const [empresalista, setempresalista] = useState([]); // array
+  const [funcionariolista, setfuncionariolista] = useState([]); // array
   const [selectedInfracaoOption, setSelectedInfracaoOption] = useState(null);
   const [veiculoslista, setveiculoslista] = useState([]);
   const [departamentolista, setdepartamentolista] = useState([]);
@@ -678,41 +676,46 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
   const listamultas = async () => {
     try {
       setloading(true);
-      await api.get('v1/multasid', { params }).then((response) => {
-        const { data } = response;
-        setidmultas(data.idmultas);
-        setnomeindicado(data.nomeindicado);
-        setplaca(data.placa ? data.placa.toUpperCase() : '');
-        setnumeroait(data.numeroait ? data.numeroait.toUpperCase() : '');
-        setdatainfracao(data.datainfracao);
-        setlocal(data.local ? data.local.toUpperCase() : '');
-        setinfracao(data.infracao ? data.infracao.toUpperCase() : '');
-        setvalor(data.valor);
-        setdataindicacao(data.dataindicacao);
-        setnatureza(data.natureza ? data.natureza.toUpperCase() : '');
-        setpontuacao(data.pontuacao);
-        setdatacolaborador(data.datacolaborador ? data.datacolaborador.toUpperCase() : '');
-        setstatusmulta(data.statusmulta ? data.statusmulta.toUpperCase() : '');
-        setselectedoptionempresa({
-          value: data.idempresa,
-          label: data.empresa ? data.empresa.toUpperCase() : '',
-        });
-        setselectedoptionfuncionario({
-          value: data.idpessoa,
-          label: data.funcionario ? data.funcionario.toUpperCase() : '',
-        });
-        setidempresa(data.idempresa);
-        setidpessoa(data.idpessoa);
-        const infracaoOption = infracaoOptions.find((option) => option.value === data.infracao);
-        setSelectedInfracaoOption(infracaoOption);
-        if (infracaoOption) {
-          setnatureza(infracaoOption.natureza || '');
-          setpontuacao(infracaoOption.pontuacao || '');
-        }
-        setmensagem('');
-        setdepartamento(data.departamento)
-        setidsite(data.idsite)
-      });
+      const response = await api.get('v1/multasid', { params });
+      const { data } = response;
+
+      setidmultas(asStr(data.idmultas));
+      setnomeindicado(asUpper(data.nomeindicado));
+      setplaca(asUpper(data.placa));
+      setnumeroait(asUpper(data.numeroait));
+      setdatainfracao(asStr(data.datainfracao));
+      setlocal(asUpper(data.local));
+      setinfracao(asUpper(data.infracao));
+      setvalor(asNumOrEmpty(data.valor));
+      setdataindicacao(asStr(data.dataindicacao));
+      setnatureza(asUpper(data.natureza));
+      setpontuacao(asStr(data.pontuacao));
+      setdatacolaborador(asStr(data.datacolaborador));
+      setstatusmulta(asUpper(data.statusmulta));
+      setdepartamento(asStr(data.departamento));
+      setidsite(asStr(data.idsite));
+
+      setselectedoptionempresa(
+        data.idempresa
+          ? { value: data.idempresa, label: asUpper(data.empresa) }
+          : null
+      );
+      setselectedoptionfuncionario(
+        data.idpessoa
+          ? { value: data.idpessoa, label: asUpper(data.funcionario) }
+          : null
+      );
+      setidempresa(data.idempresa ?? 0);
+      setidpessoa(data.idpessoa ?? 0);
+
+      const infracaoOption = infracaoOptions.find((option) => option.value === data.infracao);
+      setSelectedInfracaoOption(infracaoOption || null);
+      if (infracaoOption) {
+        setnatureza(infracaoOption.natureza || '');
+        setpontuacao(infracaoOption.pontuacao || '');
+      }
+
+      setmensagem('');
     } catch (err) {
       setmensagem(err.message);
     } finally {
@@ -723,14 +726,11 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
   const listaempresa = async () => {
     try {
       setloading(true);
-      await api
-        .get('v1/empresas/selectpj', {
-          params: { ...params, showinative: 'true' },
-        })
-        .then((response) => {
-          setempresalista(response.data);
-          setmensagem('');
-        });
+      const response = await api.get('v1/empresas/selectpj', {
+        params: { ...params, showinative: 'true' },
+      });
+      setempresalista(response.data || []);
+      setmensagem('');
     } catch (err) {
       setmensagem(err.message);
     } finally {
@@ -741,16 +741,11 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
   const listafuncionario = async (id) => {
     try {
       setloading(true);
-      console.log('Funcionario');
-      await api
-        .get(`v1/pessoa/selectfuncionario/${id}`, {
-          params: { isOnlyCnh: 1, showinative: 'true' },
-        })
-        .then((response) => {
-          console.log(response);
-          setfuncionariolista(response.data);
-          setmensagem('');
-        });
+      const response = await api.get(`v1/pessoa/selectfuncionario/${id}`, {
+        params: { isOnlyCnh: 1, showinative: 'true' },
+      });
+      setfuncionariolista(response.data || []);
+      setmensagem('');
     } catch (err) {
       setmensagem(err.message);
     } finally {
@@ -758,35 +753,36 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
     }
   };
 
-  const handleempresa = (stat) => {
-    if (stat !== null) {
-      setidempresa(stat.value);
-      setselectedoptionempresa({ value: stat.value, label: stat.label });
-      listafuncionario(stat.value);
+  const handleempresa = (opt) => {
+    if (opt) {
+      setidempresa(opt.value);
+      setselectedoptionempresa({ value: opt.value, label: opt.label });
+      listafuncionario(opt.value);
     } else {
       setidempresa(0);
-      setselectedoptionempresa({ value: null, label: null });
+      setselectedoptionempresa(null);
+      setfuncionariolista([]);
+      setselectedoptionfuncionario(null);
+      setidpessoa(0);
     }
   };
 
-  const handlefuncionario = (stat) => {
-    if (stat !== null) {
-      setidpessoa(stat.value);
-      setselectedoptionfuncionario({ value: stat.value, label: stat.label });
+  const handlefuncionario = (opt) => {
+    if (opt) {
+      setidpessoa(opt.value);
+      setselectedoptionfuncionario({ value: opt.value, label: opt.label });
     } else {
       setidpessoa(0);
-      setselectedoptionfuncionario({ value: null, label: null });
+      setselectedoptionfuncionario(null);
     }
   };
 
-  const handleInfracaoChange = (option) => {
-    if (option) {
-      setinfracao(option.value.toUpperCase());
-      setSelectedInfracaoOption(option);
-      setnatureza(
-        option.natureza && option.natureza.trim() !== '' ? option.natureza : 'NÃO SE APLICA',
-      );
-      setpontuacao(option.pontuacao && option.pontuacao.trim() !== '' ? option.pontuacao : '0');
+  const handleInfracaoChange = (opt) => {
+    if (opt) {
+      setinfracao(String(opt.value).toUpperCase());
+      setSelectedInfracaoOption(opt);
+      setnatureza(opt.natureza?.trim() ? opt.natureza : 'NÃO SE APLICA');
+      setpontuacao(opt.pontuacao?.trim() ? opt.pontuacao : '0');
     } else {
       setinfracao('');
       setSelectedInfracaoOption(null);
@@ -800,7 +796,6 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
     setmensagem('');
     setmensagemsucesso('');
 
-    // Validações dos campos
     if (!placa || placa.trim() === '') {
       toast.error('O campo Placa é obrigatório.');
       return;
@@ -813,14 +808,6 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
       toast.error('O campo Local Infração é obrigatório.');
       return;
     }
-    /*if (!dataindicacao || dataindicacao.trim() === '') {
-      toast.error('O campo Data Limite para Indicação é obrigatório.');
-      return;
-    }
-    if (!datacolaborador || datacolaborador.trim() === '') {
-      toast.error('O campo Data Envio para Colaborador é obrigatório.');
-      return;
-    }*/
     if (!infracao) {
       toast.error('O campo Infração é obrigatório.');
       return;
@@ -833,19 +820,15 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
       toast.error('Selecione um Nome Indicado.');
       return;
     }
-
     if (!departamento || departamento.trim() === '') {
       toast.error('O campo Departamento é obrigatório.');
       return;
     }
-
     if (departamento && departamento.toLowerCase() === 'site' && (!idsite || idsite.trim() === '')) {
       toast.error('O campo ID Site é obrigatório quando o Departamento for Site.');
       return;
     }
 
-    // Converte datainfracao para o formato "YYYY-MM-DD HH:MM:SS"
-    //const formattedDatainfracao = convertDatetimeLocalToMySQL(datainfracao);
     const formattedDataindicacao = dataindicacao ? dataindicacao.trim() : '';
     const formattedDatacolaborador = datacolaborador ? datacolaborador.trim() : '';
 
@@ -857,10 +840,10 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
       pontuacao: pontuacao ? parseInt(pontuacao, 10) : 0,
       nomeindicado,
       placa,
-      datainfracao, //   :   formattedDatainfracao,
+      datainfracao,
       local,
       infracao,
-      valor,
+      valor: valor === '' ? null : Number(valor),
       dataindicacao: formattedDataindicacao,
       natureza,
       datacolaborador: formattedDatacolaborador,
@@ -877,13 +860,11 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
       .then((response) => {
         if (response.status === 201) {
           toast.success('Registro salvo com sucesso!', { autoClose: 2000 });
-
-          // Adiar fechamento da modal para garantir que o toast seja exibido
           setTimeout(() => {
             setshow(false);
             togglecadastro();
-            atualiza(); // Se `atualiza` recarregar algo, ele virá depois do toast.
-          }, 2000); // Espera 2 segundos antes de fechar a modal
+            if (typeof atualiza === 'function') atualiza();
+          }, 2000);
         } else {
           toast.error(`Erro: ${response.status}`);
         }
@@ -896,19 +877,17 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
         }
       });
   }
+
   const listaveiculos = async () => {
     try {
       setloading(true);
       const response = await api.get('v1/veiculos', { params });
-      //console.log("get de veiculos: ", response.data);
-      const lista = response.data.map((item) => {
-        return {
-          value: item.placa,
-          label: item.placa,
-          empresaId: item.idempresa,
-          pessoaId: item.idpessoa,
-        };
-      });
+      const lista = (response.data || []).map((item) => ({
+        value: item.placa,
+        label: item.placa,
+        empresaId: item.idempresa,
+        pessoaId: item.idpessoa,
+      }));
       setveiculoslista(lista);
     } catch (err) {
       setmensagem(err.message);
@@ -932,13 +911,12 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
   }, []);
 
   const departamentoValue = useMemo(() => {
-    // evita fazer .find() inline no JSX a cada render
     return departamentolista.find((o) => o.value === departamento) ?? null;
   }, [departamentolista, departamento]);
 
   const iniciatabelas = () => {
     listaveiculos();
-    setidmultas(ididentificador);
+    setidmultas(asStr(ididentificador));
     listamultas();
     listaempresa();
     listadepartamento();
@@ -948,6 +926,7 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
     if (ididentificador) {
       iniciatabelas();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ididentificador]);
 
   return (
@@ -957,6 +936,7 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
         toggle={togglecadastro}
         backdrop="static"
         keyboard={false}
+        fade={false}
         className="modal-dialog modal-xl modal-fullscreen"
       >
         <ModalHeader toggle={togglecadastro} className="h1 fw-bold">
@@ -994,7 +974,7 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
                   options={veiculoslista}
                   placeholder="Selecione"
                   isLoading={loading}
-                  onChange={(e) => setplaca(e.value)}
+                  onChange={(opt) => setplaca(opt ? opt.value : '')}
                   value={veiculoslista.find((v) => v.value === placa) || null}
                 />
               </Col>
@@ -1005,7 +985,7 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
                   <Input
                     type="datetime-local"
                     onChange={(e) => setdatainfracao(e.target.value)}
-                    value={datainfracao}
+                    value={datainfracao ?? ''}
                     placeholder=""
                   />
                 </FormGroup>
@@ -1015,15 +995,15 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
                 <FormGroup>
                   <Input
                     type="hidden"
-                    onChange={(e) => setidmultas(e.target.value.toUpperCase())}
-                    value={idmultas}
+                    onChange={(e) => setidmultas(e.target.value)}
+                    value={idmultas ?? ''}
                     placeholder=""
                   />
                   Número AIT
                   <Input
                     type="text"
-                    onChange={(e) => setnumeroait(e.target.value.toUpperCase())}
-                    value={numeroait}
+                    onChange={(e) => setnumeroait(asUpper(e.target.value))}
+                    value={numeroait ?? ''}
                     placeholder=""
                   />
                 </FormGroup>
@@ -1077,8 +1057,8 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
                   Local Infração
                   <Input
                     type="text"
-                    onChange={(e) => setlocal(e.target.value.toUpperCase())}
-                    value={local}
+                    onChange={(e) => setlocal(asUpper(e.target.value))}
+                    value={local ?? ''}
                     placeholder=""
                   />
                 </FormGroup>
@@ -1089,8 +1069,11 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
                   Valor
                   <Input
                     type="number"
-                    onChange={(e) => setvalor(e.target.value.toUpperCase())}
-                    value={valor}
+                    onChange={(e) => {
+                      const v = e.target.value; // string
+                      setvalor(v); // manter como string controlada; converter no submit
+                    }}
+                    value={valor === '' ? '' : valor}
                     placeholder=""
                   />
                 </FormGroup>
@@ -1099,14 +1082,14 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
               <Col md="2">
                 <FormGroup>
                   Pontuação
-                  <Input type="text" value={pontuacao} placeholder="" readOnly />
+                  <Input type="text" value={pontuacao ?? ''} placeholder="" readOnly />
                 </FormGroup>
               </Col>
 
               <Col md="8">
                 <FormGroup>
                   Natureza
-                  <Input type="text" value={natureza.toUpperCase()} placeholder="" readOnly />
+                  <Input type="text" value={asUpper(natureza)} placeholder="" readOnly />
                 </FormGroup>
               </Col>
 
@@ -1115,8 +1098,8 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
                   Status
                   <Input
                     type="text"
-                    onChange={(e) => setstatusmulta(e.target.value.toUpperCase())}
-                    value={statusmulta}
+                    onChange={(e) => setstatusmulta(asUpper(e.target.value))}
+                    value={statusmulta ?? ''}
                   />
                 </FormGroup>
               </Col>
@@ -1127,7 +1110,7 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
                   <Input
                     type="date"
                     onChange={(e) => setdataindicacao(e.target.value)}
-                    value={dataindicacao}
+                    value={dataindicacao ?? ''}
                     placeholder=""
                   />
                 </FormGroup>
@@ -1139,7 +1122,7 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
                   <Input
                     type="date"
                     onChange={(e) => setdatacolaborador(e.target.value)}
-                    value={datacolaborador}
+                    value={datacolaborador ?? ''}
                     placeholder=""
                   />
                 </FormGroup>
@@ -1159,14 +1142,14 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
                 />
               </Col>
 
-              {departamento === "Site" && (
+              {departamento === 'Site' && (
                 <Col md="6">
                   <FormGroup>
                     ID do Site
                     <Input
                       type="text"
-                      onChange={(e) => setidsite(e.target.value.toUpperCase())}
-                      value={idsite}
+                      onChange={(e) => setidsite(asUpper(e.target.value))}
+                      value={idsite ?? ''}
                     />
                   </FormGroup>
                 </Col>
@@ -1204,7 +1187,7 @@ Multasedicao.propTypes = {
   show: PropTypes.bool.isRequired,
   setshow: PropTypes.func.isRequired,
   ididentificador: PropTypes.number,
-  atualiza: PropTypes.node,
+  atualiza: PropTypes.func, // corrigido
 };
 
 export default Multasedicao;
