@@ -36,17 +36,24 @@ type
     Fidempresa: Integer;
     Fidpessoa: Integer;
     FidsMultas: string;
-    Fdepartamento: string;
-    Fidsite: string;
+    Fdepartamento: string; // usado só para rateio
+    Fidsite: string;       // usado só para rateio
+    Fnomeindicacao: string;
+
     function NextIdDespesas(out Erro: string): Integer;
     function ResolveIdVeiculoPorPlaca(const APlaca: string): Variant;
     function ParseValor(const S: string): Double;
     function TryStrToDateTimeInvariant(const S: string; out ADt: TDateTime): Boolean;
+
+    // cria/atualiza a DESPESA da multa usando idgeral = idmultas
     function UpsertDespesaParaMulta(out Erro: string): Boolean;
+
+    // ATENÇÃO: aqui AIdGeral = gesdespesas.idgeral (rateio.iddespesas referencia idgeral)
     procedure ReplaceRateioDespesa(const AIdGeral: Integer; const ATipo, ADepto, ASite: string; const APercentual: Double);
   public
     constructor Create;
     destructor Destroy; override;
+
     property idsMultas: string read FidsMultas write FidsMultas;
     property idmultas: Integer read Fidmultas write Fidmultas;
     property idcliente: Integer read Fidcliente write Fidcliente;
@@ -67,6 +74,8 @@ type
     property idpessoa: Integer read Fidpessoa write Fidpessoa;
     property departamento: string read Fdepartamento write Fdepartamento;
     property idsite: string read Fidsite write Fidsite;
+    property nomeindicacao: string read Fnomeindicacao write Fnomeindicacao;
+
     function Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Editar(out erro: string): Boolean;
@@ -202,6 +211,7 @@ begin
       Result := Q.FieldByName('idveiculo').AsInteger;
       Exit;
     end;
+
     Q.Close;
     Q.SQL.Text :=
       'SELECT idveiculo FROM gesveiculos '+
@@ -233,6 +243,7 @@ begin
     Q.ParamByName('idcliente').AsInteger := idcliente;
     Q.ParamByName('idloja').AsInteger := idloja;
     Q.ExecSQL;
+
     Affected := Q.RowsAffected;
     if Affected = 0 then
     begin
@@ -244,6 +255,7 @@ begin
       Q.ParamByName('idloja').AsInteger := idloja;
       Q.ExecSQL;
     end;
+
     Q.SQL.Text :=
       'SELECT iddespesas FROM admponteiro '+
       'WHERE idcliente = :idcliente AND idloja = :idloja';
@@ -261,6 +273,7 @@ begin
   Q.Free;
 end;
 
+// AIdGeral = gesdespesas.idgeral
 procedure TMultas.ReplaceRateioDespesa(const AIdGeral: Integer; const ATipo, ADepto, ASite: string; const APercentual: Double);
 var
   Q: TFDQuery;
@@ -268,10 +281,13 @@ begin
   Q := TFDQuery.Create(nil);
   try
     Q.Connection := FConn;
+
+    // rateio.iddespesas referencia gesdespesas.idgeral
     Q.SQL.Text := 'DELETE FROM gesdespesas_rateio WHERE iddespesas = :id';
     Q.ParamByName('id').DataType := ftInteger;
     Q.ParamByName('id').AsInteger := AIdGeral;
     Q.ExecSQL;
+
     if (SameText(ATipo, 'DEPARTAMENTO') and (Trim(ADepto) <> '')) or
        (SameText(ATipo, 'SITE') and (Trim(ASite) <> '')) then
     begin
@@ -283,8 +299,10 @@ begin
       Q.ParamByName('departamento').DataType := ftString;
       Q.ParamByName('idsite').DataType := ftString;
       Q.ParamByName('percentual').DataType := ftFloat;
+
       Q.ParamByName('iddespesas').AsInteger := AIdGeral;
       Q.ParamByName('tipo').AsString := ATipo;
+
       if SameText(ATipo, 'DEPARTAMENTO') then
       begin
         Q.ParamByName('departamento').AsString := ADepto;
@@ -295,6 +313,7 @@ begin
         Q.ParamByName('departamento').Clear;
         Q.ParamByName('idsite').AsString := ASite;
       end;
+
       Q.ParamByName('percentual').AsFloat := APercentual;
       Q.ExecSQL;
     end;
@@ -308,153 +327,166 @@ var
   Q: TFDQuery;
   DtBase, DtInicio: TDateTime;
   Vlr: Double;
-  IdDesp: Integer;
   IdVeiculo: Variant;
   Descricao, Observacao: string;
   Existe: Boolean;
   Affected: Integer;
   TipoRateio, Depto, Site: string;
+  LIdGeral, LIdDespesas: Integer;
+  QLastId: TFDQuery;
 begin
   Result := False; Erro := '';
+
+  // Data base (preferir dataindicacao, senão datainfracao)
   if not TryStrToDateTimeInvariant(dataindicacao, DtBase) then
-  begin
     if not TryStrToDateTimeInvariant(datainfracao, DtBase) then
     begin
       Erro := 'Nem dataindicacao nem datainfracao são válidas para gerar despesa.';
       Exit;
     end;
-  end;
+
   DtInicio := Trunc(DtBase);
   Vlr := ParseValor(valor);
   IdVeiculo := ResolveIdVeiculoPorPlaca(placa);
+
   Descricao := 'Multa ' + Trim(numeroait) + ' - ' + Trim(placa);
   Observacao :=
     'Local: ' + Trim(local) + ' | Infração: ' + Trim(infracao) +
-    ' | Natureza: ' + Trim(natureza);
+    ' | Natureza: ' + Trim(natureza) + ' | Indicado: ' + Trim(nomeindicacao);
+
   Q := TFDQuery.Create(nil);
+  QLastId := TFDQuery.Create(nil);
   try
     Q.Connection := FConn;
+    QLastId.Connection := FConn;
+
+    // 1) Existe despesa para esta multa? (agora por idmulta)
     Q.SQL.Text :=
-      'SELECT iddespesas FROM gesdespesas '+
-      'WHERE idcliente = :idcliente AND idloja = :idloja '+
-      '  AND idgeral = :idgeral AND categoria = :categoria';
+      'SELECT idgeral, iddespesas FROM gesdespesas '+
+      'WHERE idcliente=:idcliente AND idloja=:idloja '+
+      '  AND idmulta=:idmulta AND categoria=''Multas'' '+
+      'LIMIT 1';
     Q.ParamByName('idcliente').AsInteger := idcliente;
     Q.ParamByName('idloja').AsInteger := idloja;
-    Q.ParamByName('idgeral').AsInteger := idmultas;
-    Q.ParamByName('categoria').AsString := 'Multas';
+    Q.ParamByName('idmulta').AsInteger := idmultas;
     Q.Open;
+
     Existe := not Q.IsEmpty;
+
     if Existe then
     begin
-      IdDesp := Q.FieldByName('iddespesas').AsInteger;
+      // UPDATE por idmulta
+      LIdGeral    := Q.FieldByName('idgeral').AsInteger;
+      LIdDespesas := Q.FieldByName('iddespesas').AsInteger;
+
       Q.Close;
       Q.SQL.Text :=
         'UPDATE gesdespesas SET '+
+        '  idmulta        = :idmulta, '+
         '  datalancamento = :datalancamento, '+
-        '  valordespesa = :valordespesa, '+
-        '  descricao = :descricao, '+
-        '  idveiculo = :idveiculo, '+
-        '  observacao = :observacao, '+
-        '  deletado = 0, '+
-        '  idempresa = :idempresa, '+
-        '  idpessoa = :idpessoa, '+
-        '  periodo = :periodo, '+
-        '  periodicidade = :periodicidade, '+
+        '  valordespesa   = :valordespesa, '+
+        '  descricao      = :descricao, '+
+        '  idveiculo      = :idveiculo, '+
+        '  observacao     = :observacao, '+
+        '  deletado       = 0, '+
+        '  idempresa      = :idempresa, '+
+        '  idpessoa       = :idpessoa, '+
+        '  periodo        = :periodo, '+
+        '  periodicidade  = :periodicidade, '+
         '  despesacadastradapor = :usuario, '+
-        '  comprovante = :comprovante, '+
-        '  parceladoem = :parceladoem, '+
-        '  datainicio = :datainicio, '+
-        '  valorparcela = :valorparcela, '+
+        '  comprovante    = :comprovante, '+
+        '  parceladoem    = :parceladoem, '+
+        '  datainicio     = :datainicio, '+
+        '  valorparcela   = :valorparcela, '+
         '  datadocadastro = NOW() '+
-        'WHERE iddespesas = :iddespesas AND idcliente = :idcliente AND idloja = :idloja';
-      Q.ParamByName('iddespesas').AsInteger := IdDesp;
+        'WHERE idcliente=:idcliente AND idloja=:idloja AND idgeral=:idgeral';
+      Q.ParamByName('idgeral').AsInteger := LIdGeral;
     end
     else
     begin
-      IdDesp := NextIdDespesas(Erro);
-      if (IdDesp = 0) or (Erro <> '') then Exit;
+      // INSERT — NÃO seta idgeral (auto-increment); inclui idmulta
+      LIdDespesas := NextIdDespesas(Erro); // se você quiser manter este contador próprio
+      if (LIdDespesas = 0) or (Erro <> '') then Exit;
+
       Q.SQL.Text :=
-        'INSERT INTO gesdespesas ( '+
-        '  iddespesas, datalancamento, valordespesa, descricao, idveiculo, observacao, '+
-        '  deletado, idloja, idcliente, idgeral, comprovante, idempresa, idpessoa, '+
+        'INSERT INTO gesdespesas ('+
+        '  iddespesas, idmulta, datalancamento, valordespesa, descricao, idveiculo, observacao, '+
+        '  deletado, idloja, idcliente, comprovante, idempresa, idpessoa, '+
         '  periodicidade, categoria, periodo, despesacadastradapor, parceladoem, datainicio, valorparcela, datadocadastro '+
-        ') VALUES ( '+
-        '  :iddespesas, :datalancamento, :valordespesa, :descricao, :idveiculo, :observacao, '+
-        '  0, :idloja, :idcliente, :idgeral, :comprovante, :idempresa, :idpessoa, '+
+        ') VALUES ('+
+        '  :iddespesas, :idmulta, :datalancamento, :valordespesa, :descricao, :idveiculo, :observacao, '+
+        '  0, :idloja, :idcliente, :comprovante, :idempresa, :idpessoa, '+
         '  :periodicidade, :categoria, :periodo, :usuario, :parceladoem, :datainicio, :valorparcela, NOW() '+
         ')';
-      Q.ParamByName('iddespesas').AsInteger := IdDesp;
-      Q.ParamByName('idgeral').AsInteger := idmultas;
-      Q.ParamByName('categoria').AsString := 'Outros';
+      Q.ParamByName('iddespesas').AsInteger := LIdDespesas;
+      Q.ParamByName('categoria').AsString   := 'Multas';
     end;
+
+    // parâmetros comuns
+    Q.ParamByName('idmulta').AsInteger := idmultas;
+
     with Q.ParamByName('datalancamento') do
     begin
       DataType := ftDate;
-      AsDate := Trunc(DtBase);
+      AsDate   := Trunc(DtBase);
     end;
+
     Q.ParamByName('valordespesa').AsFloat := Vlr;
-    Q.ParamByName('descricao').AsString := Descricao;
-    Q.ParamByName('observacao').AsString := Observacao;
-    Q.ParamByName('idloja').AsInteger := idloja;
-    Q.ParamByName('idcliente').AsInteger := idcliente;
-    Q.ParamByName('idempresa').AsInteger := idempresa;
-    Q.ParamByName('idpessoa').AsInteger := idpessoa;
+    Q.ParamByName('descricao').AsString   := Descricao;
+    Q.ParamByName('observacao').AsString  := Observacao;
+    Q.ParamByName('idloja').AsInteger     := idloja;
+    Q.ParamByName('idcliente').AsInteger  := idcliente;
+    Q.ParamByName('idempresa').AsInteger  := idempresa;
+    Q.ParamByName('idpessoa').AsInteger   := idpessoa;
     Q.ParamByName('periodicidade').AsString := 'Unica';
-    Q.ParamByName('periodo').AsString := '';
-    Q.ParamByName('usuario').AsString := 'Sistema';
-    Q.ParamByName('parceladoem').AsInteger := 1;
-    Q.ParamByName('comprovante').AsString := 'multa';
-    Q.ParamByName('valorparcela').DataType := ftFloat;
-    Q.ParamByName('valorparcela').AsFloat := Vlr;
-    Q.ParamByName('datainicio').DataType := ftDate;
-    Q.ParamByName('datainicio').AsDate := Trunc(DtInicio);
+    Q.ParamByName('periodo').AsString       := '';
+    Q.ParamByName('usuario').AsString       := 'Sistema';
+    Q.ParamByName('parceladoem').AsInteger  := 1;
+    Q.ParamByName('comprovante').AsString   := 'multa';
+    Q.ParamByName('valorparcela').DataType  := ftFloat;
+    Q.ParamByName('valorparcela').AsFloat   := Vlr;
+    Q.ParamByName('datainicio').DataType    := ftDate;
+    Q.ParamByName('datainicio').AsDate      := Trunc(DtInicio);
+
     with Q.ParamByName('idveiculo') do
     begin
       DataType := ftInteger;
       if VarIsNull(IdVeiculo) then Clear else AsInteger := Integer(IdVeiculo);
     end;
+
     Q.ExecSQL;
     Affected := Q.RowsAffected;
     if Affected = 0 then
+      raise Exception.Create('Nenhuma linha afetada ao inserir/atualizar despesa.');
+
+    // Se foi INSERT, precisamos descobrir o idgeral (auto-inc) recém gerado
+    if not Existe then
     begin
-      if Existe then
-      begin
-        Existe := False;
-        IdDesp := NextIdDespesas(Erro);
-        if (IdDesp = 0) or (Erro <> '') then Exit;
-        Q.SQL.Text :=
-          'INSERT INTO gesdespesas ( '+
-          '  iddespesas, datalancamento, valordespesa, descricao, idveiculo, observacao, '+
-          '  deletado, idloja, idcliente, idgeral, comprovante, idempresa, idpessoa, '+
-          '  periodicidade, categoria, periodo, despesacadastradapor, parceladoem, datainicio, valorparcela, datadocadastro '+
-          ') VALUES ( '+
-          '  :iddespesas, :datalancamento, :valordespesa, :descricao, :idveiculo, :observacao, '+
-          '  0, :idloja, :idcliente, :idgeral, :comprovante, :idempresa, :idpessoa, '+
-          '  :periodicidade, :categoria, :periodo, :usuario, :parceladoem, :datainicio, :valorparcela, NOW() '+
-          ')';
-        Q.ParamByName('iddespesas').AsInteger := IdDesp;
-        Q.ParamByName('idgeral').AsInteger := idmultas;
-        Q.ParamByName('categoria').AsString := 'Outros';
-        Q.ExecSQL;
-        if Q.RowsAffected = 0 then
-          raise Exception.Create('Nenhuma linha afetada ao inserir despesa (fallback). Verifique constraints/filtros.');
-      end
-      else
-        raise Exception.Create('Nenhuma linha afetada ao inserir/atualizar despesa.');
+      // MySQL/MariaDB: LAST_INSERT_ID()
+      QLastId.SQL.Text := 'SELECT LAST_INSERT_ID() AS idgeral';
+      QLastId.Open;
+      if QLastId.IsEmpty then
+        raise Exception.Create('Falha ao obter LAST_INSERT_ID() para gesdespesas.');
+      LIdGeral := QLastId.FieldByName('idgeral').AsInteger;
+      QLastId.Close;
     end;
+
+    // 3) RATEIO — usar o idgeral (auto-increment) da despesa
     if SameText(Trim(departamento), 'site') then
     begin
       TipoRateio := 'SITE';
       Depto := '';
-      Site := Trim(idsite);
+      Site  := Trim(idsite);
     end
     else
     begin
       TipoRateio := 'DEPARTAMENTO';
       Depto := Trim(departamento);
-      Site := '';
+      Site  := '';
     end;
-    ReplaceRateioDespesa(idmultas, TipoRateio, Depto, Site, 100.0);
+
+    ReplaceRateioDespesa(LIdGeral {= idgeral autoinc}, TipoRateio, Depto, Site, 100.0);
+
     Result := True;
   except
     on E: Exception do
@@ -463,6 +495,7 @@ begin
       Result := False;
     end;
   end;
+  QLastId.Free;
   Q.Free;
 end;
 
@@ -505,12 +538,14 @@ begin
       qry.ParamByName('idcliente').AsInteger := idcliente;
       qry.ParamByName('idloja').AsInteger := idloja;
       qry.ExecSQL;
+
       qry.SQL.Clear;
       qry.SQL.Add('SELECT idmultas FROM admponteiro');
       qry.SQL.Add('WHERE idcliente = :idcliente AND idloja = :idloja');
       qry.ParamByName('idcliente').AsInteger := idcliente;
       qry.ParamByName('idloja').AsInteger := idloja;
       qry.Open;
+
       Fidmultas := qry.FieldByName('idmultas').AsInteger;
       FConn.Commit;
       erro := ''; Result := Fidmultas;
@@ -538,20 +573,26 @@ begin
     end;
     dataBanco := FormatDateTime('yyyy-mm-dd hh:nn:ss', dt);
   end;
+
   try
     qry := TFDQuery.Create(nil);
     qry.Connection := FConn;
     try
       FConn.StartTransaction;
       qry.Active := False; qry.SQL.Clear;
+
       if Length(idsMultas) = 0 then
         raise Exception.Create('A lista de multas está vazia.');
+
       sqlUpdate :=
         'UPDATE gesmultas SET debitado = :debitado '+
         'WHERE idmultas IN (' + idsMultas + ')';
+
       qry.SQL.Text := sqlUpdate;
       qry.ParamByName('debitado').AsString := 'Debitado';
-      qry.ExecSQL; FConn.Commit; erro := ''; Result := True;
+      qry.ExecSQL;
+
+      FConn.Commit; erro := ''; Result := True;
     except
       on ex: Exception do
       begin
@@ -585,11 +626,13 @@ begin
     end;
     dataBanco := FormatDateTime('yyyy-mm-dd hh:nn:ss', dt);
   end;
+
   try
     qry := TFDQuery.Create(nil);
     qry.Connection := FConn;
     try
       FConn.StartTransaction;
+
       qry.Active := False;
       qry.SQL.Clear;
       qry.SQL.Add('SELECT idmultas FROM gesmultas');
@@ -598,24 +641,27 @@ begin
       qry.ParamByName('idloja').AsInteger := idloja;
       qry.ParamByName('idmultas').AsInteger := idmultas;
       qry.Open;
+
       sqlInsert :=
         'INSERT INTO gesmultas (' +
         '  idmultas, placa, numeroait, datainfracao, local, infracao, valor, ' +
         '  dataindicacao, natureza, pontuacao, datacolaborador, statusmulta, ' +
-        '  idempresa, idpessoa, deletado, idcliente, idloja' +
+        '  idempresa, idpessoa, deletado, idcliente, idloja, nomeindicacao' +
         ') VALUES (' +
         '  :idmultas, :placa, :numeroait, :datainfracao, :local, :infracao, :valor, ' +
         '  :dataindicacao, :natureza, :pontuacao, :datacolaborador, :statusmulta, ' +
-        '  :idempresa, :idpessoa, :deletado, :idcliente, :idloja' +
+        '  :idempresa, :idpessoa, :deletado, :idcliente, :idloja, :nomeindicacao' +
         ')';
+
       sqlUpdate :=
         'UPDATE gesmultas SET ' +
         '  DELETADO = :DELETADO, placa = :placa, numeroait = :numeroait, ' +
         '  datainfracao = :datainfracao, local = :local, infracao = :infracao, valor = :valor, ' +
         '  dataindicacao = :dataindicacao, natureza = :natureza, pontuacao = :pontuacao, ' +
         '  datacolaborador = :datacolaborador, idempresa = :idempresa, idpessoa = :idpessoa, ' +
-        '  statusmulta = :statusmulta ' +
+        '  statusmulta = :statusmulta, nomeindicacao = :nomeindicacao ' +
         'WHERE idcliente = :idcliente AND idloja = :idloja AND idmultas = :idmultas';
+
       if qry.RecordCount = 0 then
       begin
         if (dataBanco <> '') then
@@ -632,6 +678,7 @@ begin
           qry.ParamByName('datainfracao').AsDateTime := dt;
           qry.ParamByName('idpessoa').AsInteger := idpessoa;
           qry.Open;
+
           jaExiste := not qry.IsEmpty;
           if jaExiste then
             raise Exception.Create('Já existe uma multa para essa pessoa nesse mesmo horário.')
@@ -646,9 +693,11 @@ begin
       end
       else
         qry.SQL.Text := sqlUpdate;
+
       qry.ParamByName('idmultas').AsInteger := idmultas;
       qry.ParamByName('placa').AsString := placa;
       qry.ParamByName('numeroait').AsString := numeroait;
+
       if (dataBanco <> '') then
       begin
         qry.ParamByName('datainfracao').DataType := ftDateTime;
@@ -659,6 +708,7 @@ begin
         qry.ParamByName('datainfracao').DataType := ftDateTime;
         qry.ParamByName('datainfracao').Clear;
       end;
+
       qry.ParamByName('local').AsString := local;
       qry.ParamByName('infracao').AsString := infracao;
       qry.ParamByName('valor').AsString := valor;
@@ -672,9 +722,14 @@ begin
       qry.ParamByName('idcliente').AsInteger := idcliente;
       qry.ParamByName('idloja').AsInteger := idloja;
       qry.ParamByName('DELETADO').AsInteger := 0;
+      qry.ParamByName('nomeindicacao').AsString := nomeindicacao;
+
       qry.ExecSQL;
+
+      // cria/atualiza a despesa vinculada (idgeral = idmultas) e grava rateio (iddespesas = idgeral)
       if not UpsertDespesaParaMulta(ErroDesp) then
         raise Exception.Create(ErroDesp);
+
       FConn.Commit; erro := ''; Result := True;
     except
       on ex: Exception do
@@ -700,6 +755,7 @@ begin
   begin
     erro := 'AQuery não foi inicializado.'; Exit;
   end;
+
   try
     qry := TFDQuery.Create(nil);
     try
@@ -707,48 +763,47 @@ begin
       begin
         erro := 'Conexão FConn não foi inicializada.'; Exit;
       end;
+
       qry.Connection := FConn;
       with qry do
       begin
         Active := False; SQL.Clear;
+
+        // multa + despesa (via idgeral) + rateio (via idgeral)
         SQL.Add('SELECT');
-        SQL.Add('  gesmultas.idmultas as id,');
-        SQL.Add('  gesmultas.placa,');
-        SQL.Add('  gesmultas.numeroait,');
-        SQL.Add('  DATE_FORMAT(gesmultas.datainfracao, ''%d/%m/%Y'') as datainfracao,');
-        SQL.Add('  gesmultas.local,');
-        SQL.Add('  gesmultas.infracao,');
-        SQL.Add('  gesmultas.valor,');
-        SQL.Add('  DATE_FORMAT(gesmultas.dataindicacao, ''%d/%m/%Y'') as dataindicacao,');
-        SQL.Add('  gesmultas.natureza,');
-        SQL.Add('  gesmultas.pontuacao,');
-        SQL.Add('  DATE_FORMAT(gesmultas.datacolaborador, ''%d/%m/%Y'') as datacolaborador,');
-        SQL.Add('  gesmultas.statusmulta,');
-        SQL.Add('  gesmultas.idcliente,');
-        SQL.Add('  gesmultas.idloja,');
-        SQL.Add('  gesmultas.nomeindicacao,');
-        SQL.Add('  gesmultas.debitado,');
-        SQL.Add('  gespessoa.nome as funcionario');
-        SQL.Add('FROM gesmultas');
-        SQL.Add('LEFT JOIN gespessoa ON gespessoa.idpessoa = gesmultas.idpessoa');
-        SQL.Add('WHERE gesmultas.idmultas IS NOT NULL');
-        SQL.Add(' AND gesmultas.DELETADO = 0');
-        if AQuery.Items['busca'] <> '' then
+        SQL.Add('  m.idmultas AS id,');
+        SQL.Add('  m.placa, m.numeroait,');
+        SQL.Add('  DATE_FORMAT(m.datainfracao, ''%d/%m/%Y'') AS datainfracao,');
+        SQL.Add('  m.local, m.infracao, m.valor,');
+        SQL.Add('  DATE_FORMAT(m.dataindicacao, ''%d/%m/%Y'') AS dataindicacao,');
+        SQL.Add('  m.natureza, m.pontuacao,');
+        SQL.Add('  DATE_FORMAT(m.datacolaborador, ''%d/%m/%Y'') AS datacolaborador,');
+        SQL.Add('  m.statusmulta, m.idcliente, m.idloja, m.nomeindicacao, m.debitado,');
+        SQL.Add('  p.nome AS funcionario,');
+        SQL.Add('  d.valordespesa,');
+        SQL.Add('  r.percentual, r.tipo, r.departamento, r.idsite');
+        SQL.Add('FROM gesmultas m');
+        SQL.Add('LEFT JOIN gespessoa p ON p.idpessoa = m.idpessoa');
+        SQL.Add('LEFT JOIN gesdespesas d ON d.idgeral = m.idmultas AND d.categoria = ''Multas''');
+        SQL.Add('LEFT JOIN gesdespesas_rateio r ON r.iddespesas = d.idgeral');
+        SQL.Add('WHERE m.idmultas IS NOT NULL');
+        SQL.Add('  AND COALESCE(m.deletado,0) = 0');
+
+        if AQuery.ContainsKey('busca') and (AQuery.Items['busca'] <> '') then
         begin
-          SQL.Add('AND (gesmultas.placa LIKE :busca');
-          SQL.Add('OR gesmultas.natureza LIKE :busca');
-          SQL.Add('OR gesmultas.infracao LIKE :busca');
-          SQL.Add('OR gesmultas.numeroait LIKE :busca');
-          SQL.Add('OR gespessoa.nome LIKE :busca)');
+          SQL.Add('AND (m.placa LIKE :busca OR m.natureza LIKE :busca OR m.infracao LIKE :busca OR m.numeroait LIKE :busca OR p.nome LIKE :busca)');
           ParamByName('busca').AsString := '%' + AQuery.Items['busca'] + '%';
         end;
+
         if AQuery.ContainsKey('debitado') and (AQuery.Items['debitado'] <> '') then
         begin
-          SQL.Add(' AND (gesmultas.debitado LIKE :debitado)');
+          SQL.Add(' AND (m.debitado LIKE :debitado)');
           ParamByName('debitado').AsString := '%' + AQuery.Items['debitado'] + '%';
         end;
+
         Active := True;
       end;
+
       Result := qry;
     except
       on ex: Exception do
@@ -765,7 +820,7 @@ begin
 end;
 
 function TMultas.Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
-var qry: TFDQuery; a: Integer;
+var qry: TFDQuery;
 begin
   try
     qry := TFDQuery.Create(nil);
@@ -773,26 +828,29 @@ begin
     with qry do
     begin
       Active := False; SQL.Clear;
+
       SQL.Add('SELECT');
-      SQL.Add('  gesmultas.*,');
-      SQL.Add('  gesempresas.nome as empresa,');
-      SQL.Add('  gespessoa.nome as funcionario');
-      SQL.Add('FROM gesmultas');
-      SQL.Add('LEFT JOIN gesempresas ON gesempresas.idempresa = gesmultas.idempresa');
-      SQL.Add('LEFT JOIN gespessoa ON gespessoa.idpessoa = gesmultas.idpessoa');
-      SQL.Add('WHERE gesmultas.idmultas IS NOT NULL AND gesmultas.idmultas = :id');
-      ParamByName('id').AsInteger := AQuery.Items['idpessoabusca'].ToInteger;
-      a := AQuery.Items['idpessoabusca'].ToInteger;
-      if AQuery.ContainsKey('deletado') then
+      SQL.Add('  m.*, e.nome AS empresa, p.nome AS funcionario,');
+      SQL.Add('  d.iddespesas, d.idgeral, d.valordespesa, d.categoria,');
+      SQL.Add('  r.percentual, r.tipo, r.departamento, r.idsite');
+      SQL.Add('FROM gesmultas m');
+      SQL.Add('LEFT JOIN gesempresas e ON e.idempresa = m.idempresa');
+      SQL.Add('LEFT JOIN gespessoa p ON p.idpessoa = m.idpessoa');
+      SQL.Add('LEFT JOIN gesdespesas d ON d.idgeral = m.idmultas AND d.categoria = ''Multas''');
+      SQL.Add('LEFT JOIN gesdespesas_rateio r ON r.iddespesas = d.idgeral');
+      SQL.Add('WHERE m.idmultas IS NOT NULL AND m.idmultas = :id');
+
+      ParamByName('id').AsInteger := StrToIntDef(AQuery.Items['idpessoabusca'], 0);
+
+      if AQuery.ContainsKey('deletado') and (Length(AQuery.Items['deletado']) > 0) then
       begin
-        if Length(AQuery.Items['deletado']) > 0 then
-        begin
-          SQL.Add('AND gesmultas.deletado = :deletado');
-          ParamByName('deletado').AsInteger := StrToIntDef(AQuery.Items['deletado'], 0);
-        end;
+        SQL.Add('AND m.deletado = :deletado');
+        ParamByName('deletado').AsInteger := StrToIntDef(AQuery.Items['deletado'], 0);
       end;
+
       Active := True;
     end;
+
     erro := ''; Result := qry;
   except
     on ex: Exception do

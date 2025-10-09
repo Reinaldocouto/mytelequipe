@@ -564,7 +564,7 @@ begin
         SQL.Add('Select obraericssonmigo.descricaoservico,obraericssonmigo.po From ');
         SQL.Add('  obraericssonmigo  ');
         SQL.Add('Where ');
-        SQL.Add('  obraericssonmigo.poritem=:po ');
+        SQL.Add('  obraericssonmigo.poritem=:po ');         // quantos itens tem em cada item
         ParamByName('po').AsString := po;
         Open();
 
@@ -651,10 +651,10 @@ begin
           SQL.Add('  obraericssonmigo Inner Join ');
           SQL.Add('  obraericssonlpu On obraericssonlpu.codigo = obraericssonmigo.codigoservico ');
           SQL.Add('Where ');
-          SQL.Add('  descricaoservico LIKE :descricaoservico and poritem=:poritem and ');
+          SQL.Add('  descricaoservico LIKE :descricaoservico and po=:po and ');
           SQL.Add('  obraericssonlpu.historico LIKE :historico ');
           ParamByName('descricaoservico').asstring := '%' + descricaoservico + '%';
-          ParamByName('poritem').asstring := po;
+          ParamByName('po').asString := polocal;
           ParamByName('historico').asstring := lpuhistorico;
           Open();
         end;

@@ -606,6 +606,85 @@ const infracaoOptions = infracaoDataLines.map((line, index) => {
   };
 });
 
+// ======== HELPERS EXTRA (rateio + valor + datas + normalização) ========
+const pickDepartamentoFromRateio = (rateio) => {
+  if (!Array.isArray(rateio) || rateio.length === 0) return { departamento: '', idsite: '' };
+  const r0 = rateio[0] || {};
+  const tipo = String(r0.tipo || '').toUpperCase();
+  if (tipo === 'SITE') {
+    return { departamento: 'Site', idsite: r0.idsite || '' };
+  }
+  return { departamento: r0.departamento || '', idsite: '' };
+};
+
+// aceita "333", "333,50", "1.234,56" -> "1234.56"
+const normalizeMoney = (s) => {
+  if (s == null) return '';
+  const str = String(s).replace(/[^\d.,]/g, '');
+  if (str.includes(',') && str.includes('.')) {
+    return str.replace(/\./g, '').replace(',', '.');
+  }
+  return str.replace(',', '.');
+};
+
+// Converte QUALQUER formato comum -> "YYYY-MM-DDTHH:mm" (para <input type="datetime-local">)
+const toDateTimeLocal = (input) => {
+  if (!input) return '';
+  let s = String(input).trim();
+  // trata strings com "\/" vindas de JSON
+  s = s.replace(/\\\//g, '/');
+
+  // Já está no formato local?
+  const mLocal = s.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::\d{2})?/);
+  if (mLocal) return `${mLocal[1]}T${mLocal[2]}:${mLocal[3]}`;
+
+  // BR: "DD/MM/YYYY HH:mm[:ss]"
+  const mBr = s.match(/^(\d{2})\/(\d{2})\/(\d{4})[ T](\d{2}):(\d{2})(?::\d{2})?/);
+  if (mBr) {
+    const [, dd, mm, yyyy, hh, mi] = mBr;
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  }
+
+  // ISO com espaço: "YYYY-MM-DD HH:mm[:ss]"
+  const mIsoSpace = s.match(/^(\d{4})-(\d{2})-(\d{2})[ ](\d{2}):(\d{2})(?::\d{2})?/);
+  if (mIsoSpace) {
+    const [, yyyy, mm, dd, hh, mi] = mIsoSpace;
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  }
+
+  // Fallback: tentar Date.parse
+  const ts = Date.parse(s);
+  if (!Number.isNaN(ts)) {
+    const d = new Date(ts);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  }
+  return '';
+};
+
+// Converte "YYYY-MM-DDTHH:mm" -> "DD/MM/YYYY HH:mm:00" (pra enviar ao backend)
+const toIsoSqlDatetime = (localDt) => {
+  if (!localDt) return '';
+  const m = String(localDt).match(/^(\d{4})-(\d{2})-(\d{2})T?(\d{2}):(\d{2})/);
+  if (!m) return '';
+  const [, yyyy, mm, dd, hh, mi] = m;
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:00`;
+};
+
+// normaliza string pra comparações (remove acentos, espaços múltiplos, upper)
+const norm = (s) =>
+  (s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
+// ======================================================================
+
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
   return (
@@ -641,25 +720,33 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
   const [placa, setplaca] = useState('');
   const [departamento, setdepartamento] = useState('');
   const [numeroait, setnumeroait] = useState('');
-  const [datainfracao, setdatainfracao] = useState(''); // datetime-local exige '' ou string válida
+  const [datainfracao, setdatainfracao] = useState(''); // datetime-local
   const [local, setlocal] = useState('');
   const [infracao, setinfracao] = useState('');
-  const [valor, setvalor] = useState(''); // string ou number, aqui vamos controlar como string
-  const [dataindicacao, setdataindicacao] = useState(''); // date exige '' ou string YYYY-MM-DD
+  const [valor, setvalor] = useState(''); // string controlada
+  const [dataindicacao, setdataindicacao] = useState(''); // YYYY-MM-DD
   const [natureza, setnatureza] = useState('');
-  const [pontuacao, setpontuacao] = useState(''); // manter string
+  const [pontuacao, setpontuacao] = useState(''); // string
   const [datacolaborador, setdatacolaborador] = useState('');
   const [statusmulta, setstatusmulta] = useState('');
   const [idsite, setidsite] = useState('');
+
   const [idempresa, setidempresa] = useState(0);
   const [idpessoa, setidpessoa] = useState(0);
+
   const [selectedoptionempresa, setselectedoptionempresa] = useState(null);
   const [selectedoptionfuncionario, setselectedoptionfuncionario] = useState(null);
-  const [empresalista, setempresalista] = useState([]); // array
-  const [funcionariolista, setfuncionariolista] = useState([]); // array
+
+  const [empresalista, setempresalista] = useState([]); // [{value,label}]
+  const [funcionariolista, setfuncionariolista] = useState([]); // [{value,label}]
+
   const [selectedInfracaoOption, setSelectedInfracaoOption] = useState(null);
   const [veiculoslista, setveiculoslista] = useState([]);
   const [departamentolista, setdepartamentolista] = useState([]);
+
+  // nomes vindos do GET (quando idempresa/idpessoa não vierem)
+  const [empresaNomeRef, setEmpresaNomeRef] = useState('');
+  const [funcionarioNomeRef, setFuncionarioNomeRef] = useState('');
 
   const params = {
     idcliente: 1,
@@ -680,35 +767,46 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
       const { data } = response;
 
       setidmultas(asStr(data.idmultas));
-      setnomeindicado(asUpper(data.nomeindicado));
+      setnomeindicado(asUpper(data.nomeindicado || data.funcionario || ''));
       setplaca(asUpper(data.placa));
       setnumeroait(asUpper(data.numeroait));
-      setdatainfracao(asStr(data.datainfracao));
+      // <<< CONVERSÃO ROBUSTA >>>
+      setdatainfracao(toDateTimeLocal(asStr(data.datainfracao)));
       setlocal(asUpper(data.local));
       setinfracao(asUpper(data.infracao));
-      setvalor(asNumOrEmpty(data.valor));
+
+      // usa valordespesa se vier; senão, valor
+      const valorBruto = data.valordespesa ?? data.valor;
+      setvalor(asNumOrEmpty(valorBruto));
+
       setdataindicacao(asStr(data.dataindicacao));
       setnatureza(asUpper(data.natureza));
       setpontuacao(asStr(data.pontuacao));
       setdatacolaborador(asStr(data.datacolaborador));
       setstatusmulta(asUpper(data.statusmulta));
-      setdepartamento(asStr(data.departamento));
-      setidsite(asStr(data.idsite));
 
-      setselectedoptionempresa(
-        data.idempresa
-          ? { value: data.idempresa, label: asUpper(data.empresa) }
-          : null
-      );
-      setselectedoptionfuncionario(
-        data.idpessoa
-          ? { value: data.idpessoa, label: asUpper(data.funcionario) }
-          : null
-      );
+      // Departamento/ID Site a partir do rateio
+      const { departamento: depFromRateio, idsite: idsiteFromRateio } = pickDepartamentoFromRateio(data.rateio);
+      const depFinal = depFromRateio || asStr(data.departamento);
+      setdepartamento(depFinal);
+      setidsite(depFinal === 'Site' ? asStr(idsiteFromRateio) : '');
+
+      // salva ids (se vierem) e também os nomes para reconciliar depois
       setidempresa(data.idempresa ?? 0);
       setidpessoa(data.idpessoa ?? 0);
+      setEmpresaNomeRef(asStr(data.empresa));
+      setFuncionarioNomeRef(asStr(data.funcionario));
 
-      const infracaoOption = infracaoOptions.find((option) => option.value === data.infracao);
+      // seta selects se já tiver id
+      setselectedoptionempresa(
+        data.idempresa ? { value: data.idempresa, label: asUpper(data.empresa || '') } : null
+      );
+      setselectedoptionfuncionario(
+        data.idpessoa ? { value: data.idpessoa, label: asUpper(data.funcionario || '') } : null
+      );
+
+      // infração -> natureza/pontuação
+      const infracaoOption = infracaoOptions.find((option) => option.value === String(data.infracao).toUpperCase());
       setSelectedInfracaoOption(infracaoOption || null);
       if (infracaoOption) {
         setnatureza(infracaoOption.natureza || '');
@@ -771,9 +869,11 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
     if (opt) {
       setidpessoa(opt.value);
       setselectedoptionfuncionario({ value: opt.value, label: opt.label });
+      setnomeindicado(asUpper(opt.label || ''));
     } else {
       setidpessoa(0);
       setselectedoptionfuncionario(null);
+      setnomeindicado('');
     }
   };
 
@@ -832,6 +932,27 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
     const formattedDataindicacao = dataindicacao ? dataindicacao.trim() : '';
     const formattedDatacolaborador = datacolaborador ? datacolaborador.trim() : '';
 
+    // normaliza valor e garante número
+    const valorNum = valor === '' ? null : Number(normalizeMoney(valor));
+
+    // monta rateio com 100%
+    const rateio =
+      departamento === 'Site'
+        ? [
+          {
+            percentual: 100.0,
+            tipo: 'SITE',
+            idsite: idsite ? idsite.trim() : null,
+          },
+        ]
+        : [
+          {
+            percentual: 100.0,
+            tipo: 'DEPARTAMENTO',
+            departamento,
+          },
+        ];
+
     const data = {
       idmultas: ididentificador ? parseInt(ididentificador, 10) : null,
       idempresa: idempresa ? parseInt(idempresa, 10) : null,
@@ -840,10 +961,12 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
       pontuacao: pontuacao ? parseInt(pontuacao, 10) : 0,
       nomeindicado,
       placa,
-      datainfracao,
+      // >>> Envia no padrão BR que o backend retornou
+      datainfracao: toIsoSqlDatetime(datainfracao),
       local,
       infracao,
-      valor: valor === '' ? null : Number(valor),
+      valor: valorNum,        // mantém compatibilidade
+      valordespesa: valorNum, // backend de despesas
       dataindicacao: formattedDataindicacao,
       natureza,
       datacolaborador: formattedDatacolaborador,
@@ -853,6 +976,7 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
       idloja: 1,
       departamento,
       idsite: idsite ? idsite.trim() : null,
+      rateio,
     };
 
     api
@@ -929,6 +1053,67 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ididentificador]);
 
+  // ========= RECONCILIAÇÃO DE EMPRESA PELO NOME QUANDO NÃO VEM ID =========
+  useEffect(() => {
+    if (!Array.isArray(empresalista) || empresalista.length === 0) return;
+
+    // 1) tenta pelo id (se existir)
+    if (idempresa) {
+      const byId = empresalista.find((o) => String(o.value) === String(idempresa));
+      if (byId) {
+        setselectedoptionempresa(byId);
+        return;
+      }
+    }
+
+    // 2) tenta pelo nome (data.empresa)
+    if (empresaNomeRef && !selectedoptionempresa) {
+      const target = norm(empresaNomeRef);
+      // busca match por igualdade ou inclusão
+      const byName =
+        empresalista.find((o) => norm(o.label) === target) ||
+        empresalista.find((o) => norm(o.label).includes(target)) ||
+        empresalista.find((o) => target.includes(norm(o.label)));
+
+      if (byName) {
+        setidempresa(byName.value);
+        setselectedoptionempresa(byName);
+        // carrega funcionários da empresa encontrada
+        listafuncionario(byName.value);
+      }
+    }
+  }, [empresalista, idempresa, empresaNomeRef, selectedoptionempresa]);
+
+  // ========= RECONCILIAÇÃO DE FUNCIONÁRIO PELO NOME QUANDO NÃO VEM ID =====
+  useEffect(() => {
+    if (!Array.isArray(funcionariolista) || funcionariolista.length === 0) return;
+
+    // 1) tenta pelo id (se existir)
+    if (idpessoa) {
+      const byId = funcionariolista.find((o) => String(o.value) === String(idpessoa));
+      if (byId) {
+        setselectedoptionfuncionario(byId);
+        setnomeindicado(asUpper(byId.label || ''));
+        return;
+      }
+    }
+
+    // 2) tenta pelo nome (data.funcionario)
+    if (funcionarioNomeRef && !selectedoptionfuncionario) {
+      const target = norm(funcionarioNomeRef);
+      const byName =
+        funcionariolista.find((o) => norm(o.label) === target) ||
+        funcionariolista.find((o) => norm(o.label).includes(target)) ||
+        funcionariolista.find((o) => target.includes(norm(o.label)));
+
+      if (byName) {
+        setidpessoa(byName.value);
+        setselectedoptionfuncionario(byName);
+        setnomeindicado(asUpper(byName.label || ''));
+      }
+    }
+  }, [funcionariolista, idpessoa, funcionarioNomeRef, selectedoptionfuncionario]);
+
   return (
     <>
       <Modal
@@ -984,6 +1169,7 @@ const Multasedicao = ({ setshow, show, ididentificador, atualiza }) => {
                   Data/Hora da Infração
                   <Input
                     type="datetime-local"
+                    step="60"
                     onChange={(e) => setdatainfracao(e.target.value)}
                     value={datainfracao ?? ''}
                     placeholder=""

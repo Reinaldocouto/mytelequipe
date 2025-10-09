@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box } from '@mui/material';
+import { Box, CircularProgress, Alert } from '@mui/material';
 import { Button, Modal, ModalBody, ModalHeader, ModalFooter } from 'reactstrap';
 import {
   DataGrid,
@@ -18,8 +18,6 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import PropTypes from 'prop-types';
 import Typography from '@mui/material/Typography';
 import Pagination from '@mui/material/Pagination';
-import LinearProgress from '@mui/material/LinearProgress';
-import Loader from '../../layouts/loader/Loader';
 import api from '../../services/api';
 import exportExcel from '../../data/exportexcel/Excelexport';
 import Rollouthuaweiedicao from '../../components/formulario/rollout/Rollouthuaweiedicao';
@@ -27,10 +25,11 @@ import Excluirregistro from '../../components/Excluirregistro';
 import Telat2editar from '../../components/formulario/projeto/Telat2editar';
 import FiltroRolloutHuawei from '../../components/modals/filtros/FiltroRolloutHuawei';
 import ConfirmaModal from '../../components/modals/ConfirmacaoModal';
+import Loader from '../../layouts/loader/Loader';
 
 const Rollouthuawei = ({ setshow, show }) => {
   const [pageSize, setPageSize] = useState(10);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [totalacionamento, settotalacionamento] = useState([]);
   const [mensagem, setmensagem] = useState('');
   const [ididentificador, setididentificador] = useState(0);
@@ -72,8 +71,11 @@ const Rollouthuawei = ({ setshow, show }) => {
       setmensagem('');
     } catch (err) {
       setmensagem(err.message);
+      toast.error(`Erro ao carregar dados: ${err.message}`);
     } finally {
-      setLoading(false);
+      if (totalacionamento.length > 0) {
+        setLoading(false);
+      }
     }
   };
 
@@ -145,7 +147,6 @@ const Rollouthuawei = ({ setshow, show }) => {
   };
   const listaempresa = async () => {
     try {
-      setLoading(true);
       await api.get('/v1/empresas', { params }).then((response) => {
         const empresasName = response.data.map((item) => item.nome);
         setEmpresas(empresasName);
@@ -153,20 +154,21 @@ const Rollouthuawei = ({ setshow, show }) => {
       });
     } catch (err) {
       setmensagem(err.message);
+      toast.error(`Erro ao carregar empresas: ${err.message}`);
     } finally {
-      setLoading(false);
+      //setLoading(false);
     }
   };
   const listapessoas = async () => {
     try {
       await api.get('/v1/pessoa', { params }).then((response) => {
-        console.log(setPessoas);
         const pessoasName = response.data.map((item) => item.nome);
         setPessoas(pessoasName);
         setmensagem('');
       });
     } catch (err) {
       setmensagem(err.message);
+      toast.error(`Erro ao carregar pessoas: ${err.message}`);
     } finally {
       console.log('');
     }
@@ -586,10 +588,16 @@ const Rollouthuawei = ({ setshow, show }) => {
     setshow1(!show1);
   };
 
-  const iniciatabelas = () => {
-    listarollouthuawei();
-    listaempresa();
-    listapessoas();
+  const iniciatabelas = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([listarollouthuawei(true), listaempresa(), listapessoas()]);
+    } catch (error) {
+      console.error('Erro ao inicializar dados:', error);
+      toast.error('Erro ao carregar dados iniciais');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const chamarfiltro = () => {
@@ -661,91 +669,104 @@ const Rollouthuawei = ({ setshow, show }) => {
     );
 
   /* ---------- função principal ---------------------------------------- */
-  const gerarexcel = () => {
-    const excelData = totalacionamento
-      .map((item) => ({
-        ID: item.id,
-        NAME: item.name,
-        PROJETO: item.projeto,
-        'END SITE': item.endSite,
-        DU: item.du,
-        'STATUS GERAL': item.statusGeral,
-        'LÍDER RESPONSÁVEL': item.liderResponsavel,
-        EMPRESA: item.empresa,
-        'ATIVO NO PERÍODO': item.ativoNoPeriodo,
+  const gerarexcel = async () => {
+    try {
+      setLoading(true);
 
-        FECHAMENTO: item.fechamento,
-        'ANO/SEMANA FECHAMENTO': item.anoSemanaFechamento,
-        'CONFIRMAÇÃO PAGAMENTO': item.confirmacaoPagamento,
-        'DESCRIÇÃO ADD': item.descricaoAdd,
-        'N° VO': item.numeroVo,
-        INFRA: item.infra,
-        TOWN: item.town,
-        LATITUDE: item.latitude,
-        LONGITUDE: item.longitude,
-        REG: item.reg,
-        DDD: item.ddd,
+      // Simula um pequeno delay para mostrar o loading
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-        'ENVIO DA DEMANDA': item.envioDaDemanda,
-        'MOS PLANNED': item.mosPlanned,
-        'MOS REAL': item.mosReal,
-        'SEMANA MOS': item.semanaMos,
-        'MOS STATUS': item.mosStatus,
+      const excelData = totalacionamento
+        .map((item) => ({
+          ID: item.id,
+          NAME: item.name,
+          PROJETO: item.projeto,
+          'END SITE': item.endSite,
+          DU: item.du,
+          'STATUS GERAL': item.statusGeral,
+          'LÍDER RESPONSÁVEL': item.liderResponsavel,
+          EMPRESA: item.empresa,
+          'ATIVO NO PERÍODO': item.ativoNoPeriodo,
 
-        'INTEGRATION PLANNED': item.integrationPlanned,
-        'TESTE TX': item.testeTx,
-        'INTEGRATION REAL': item.integrationReal,
-        'SEMANA INTEGRATION': item.semanaIntegration,
-        'STATUS INTEGRAÇÃO': item.statusIntegracao,
+          FECHAMENTO: item.fechamento,
+          'ANO/SEMANA FECHAMENTO': item.anoSemanaFechamento,
+          'CONFIRMAÇÃO PAGAMENTO': item.confirmacaoPagamento,
+          'DESCRIÇÃO ADD': item.descricaoAdd,
+          'N° VO': item.numeroVo,
+          INFRA: item.infra,
+          TOWN: item.town,
+          LATITUDE: item.latitude,
+          LONGITUDE: item.longitude,
+          REG: item.reg,
+          DDD: item.ddd,
 
-        ITI: item.iti,
-        'QC PLANNED': item.qcPlanned,
-        'QC REAL': item.qcReal,
-        'SEMANA QC': item.semanaQc,
-        'QC STATUS': item.qcStatus,
+          'ENVIO DA DEMANDA': item.envioDaDemanda,
+          'MOS PLANNED': item.mosPlanned,
+          'MOS REAL': item.mosReal,
+          'SEMANA MOS': item.semanaMos,
+          'MOS STATUS': item.mosStatus,
 
-        OBSERVAÇÃO: item.observacao,
-        'LOGÍSTICA REVERSA STATUS': item.logisticaReversaStatus,
-        DETENTORA: item.detentora,
-        'ID DETENTORA': item.idDententora,
-        'FORMA DE ACESSO': item.formaDeAcesso,
+          'INTEGRATION PLANNED': item.integrationPlanned,
+          'TESTE TX': item.testeTx,
+          'INTEGRATION REAL': item.integrationReal,
+          'SEMANA INTEGRATION': item.semanaIntegration,
+          'STATUS INTEGRAÇÃO': item.statusIntegracao,
 
-        FATURAMENTO: item.faturamento,
-        'FATURAMENTO STATUS': item.faturamentoStatus,
-        'ID ORIGINAL': item.idOriginal,
-        'CHANGE HISTORY': item.changeHistory,
-        'REP OFFICE': item.repOffice,
-        'PROJECT CODE': item.projectCode,
-        'SITE CODE': item.siteCode,
-        'SITE NAME': item.siteName,
-        'SITE ID': item.siteId,
-        'SUB CONTRACT NO.': item.subContractNo,
-        'PR NO.': item.prNo,
-        'PO NO.': item.poNo,
-        'PO LINE NO.': item.poLineNo,
-        'SHIPMENT NO.': item.shipmentNo,
-        'ITEM CODE': item.itemCode,
-        'ITEM DESCRIPTION': item.itemDescription,
-        'ITEM DESCRIPTION LOCAL': item.itemDescriptionLocal,
-        'UNIT PRICE': item.unitPrice,
-        'REQUESTED QTY': item.requestedQty,
-        'VALOR TELEQUIPE': item.valorTelequipe,
-        'VALOR EQUIPE': item.valorEquipe,
-        'BILLED QUANTITY': item.billedQuantity,
-        'QUANTITY CANCEL': item.quantityCancel,
-        'DUE QTY': item.dueQty,
-        'NOTE TO RECEIVER': item.noteToReceiver,
-        'FOB LOOKUP CODE': item.fobLookupCode,
-        'ACCEPTANCE DATE': item.acceptanceDate,
-        'PR/PO AUTOMATION SOLUTION (ONLY CHINA)': item.prPoAutomationSolutionOnlyChina,
+          ITI: item.iti,
+          'QC PLANNED': item.qcPlanned,
+          'QC REAL': item.qcReal,
+          'SEMANA QC': item.semanaQc,
+          'QC STATUS': item.qcStatus,
 
-        PESSOA: item.pessoa,
-        'ÚLTIMA ATUALIZAÇÃO': item.ultimaAtualizacao,
-      }))
-      .map(formatDatesBR) // converte datas para dd/MM/yyyy
-      .map(upperStrings); // caixa-alta
+          OBSERVAÇÃO: item.observacao,
+          'LOGÍSTICA REVERSA STATUS': item.logisticaReversaStatus,
+          DETENTORA: item.detentora,
+          'ID DETENTORA': item.idDententora,
+          'FORMA DE ACESSO': item.formaDeAcesso,
 
-    exportExcel({ excelData, fileName: 'ROLLOUT HUAWEI' });
+          FATURAMENTO: item.faturamento,
+          'FATURAMENTO STATUS': item.faturamentoStatus,
+          'ID ORIGINAL': item.idOriginal,
+          'CHANGE HISTORY': item.changeHistory,
+          'REP OFFICE': item.repOffice,
+          'PROJECT CODE': item.projectCode,
+          'SITE CODE': item.siteCode,
+          'SITE NAME': item.siteName,
+          'SITE ID': item.siteId,
+          'SUB CONTRACT NO.': item.subContractNo,
+          'PR NO.': item.prNo,
+          'PO NO.': item.poNo,
+          'PO LINE NO.': item.poLineNo,
+          'SHIPMENT NO.': item.shipmentNo,
+          'ITEM CODE': item.itemCode,
+          'ITEM DESCRIPTION': item.itemDescription,
+          'ITEM DESCRIPTION LOCAL': item.itemDescriptionLocal,
+          'UNIT PRICE': item.unitPrice,
+          'REQUESTED QTY': item.requestedQty,
+          'VALOR TELEQUIPE': item.valorTelequipe,
+          'VALOR EQUIPE': item.valorEquipe,
+          'BILLED QUANTITY': item.billedQuantity,
+          'QUANTITY CANCEL': item.quantityCancel,
+          'DUE QTY': item.dueQty,
+          'NOTE TO RECEIVER': item.noteToReceiver,
+          'FOB LOOKUP CODE': item.fobLookupCode,
+          'ACCEPTANCE DATE': item.acceptanceDate,
+          'PR/PO AUTOMATION SOLUTION (ONLY CHINA)': item.prPoAutomationSolutionOnlyChina,
+
+          PESSOA: item.pessoa,
+          'ÚLTIMA ATUALIZAÇÃO': item.ultimaAtualizacao,
+        }))
+        .map(formatDatesBR) // converte datas para dd/MM/yyyy
+        .map(upperStrings); // caixa-alta
+
+      exportExcel({ excelData, fileName: 'ROLLOUT HUAWEI' });
+      toast.success('Arquivo Excel gerado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao gerar Excel:', error);
+      toast.error('Erro ao gerar arquivo Excel');
+    } finally {
+      setLoading(false);
+    }
   };
   const handleProcessRowUpdateError = (error) => {
     console.error('Erro ao salvar:', error);
@@ -821,6 +842,7 @@ const Rollouthuawei = ({ setshow, show }) => {
       setmensagem('');
     } catch (err) {
       setmensagem(err.message);
+      toast.error(`Erro ao aplicar filtros: ${err.message}`);
     } finally {
       setLoading(false);
       toggle1();
@@ -868,11 +890,11 @@ const Rollouthuawei = ({ setshow, show }) => {
             draggable
             pauseOnHover
           />
-          {mensagem.length > 0 ? (
-            <div className="alert alert-danger mt-2" role="alert">
+          {mensagem.length > 0 && (
+            <Alert severity="error" sx={{ mb: 2 }}>
               {mensagem}
-            </div>
-          ) : null}
+            </Alert>
+          )}
           {loading ? (
             <Loader />
           ) : (
@@ -925,14 +947,28 @@ const Rollouthuawei = ({ setshow, show }) => {
 
               <div className="row g-3">
                 <div className="col-sm-3">
-                  <Button color="link" onClick={gerarexcel}>
-                    Exportar Excel
+                  <Button color="link" onClick={gerarexcel} disabled={loading}>
+                    {loading ? (
+                      <>
+                        <CircularProgress size={16} sx={{ mr: 1 }} />
+                        Carregando...
+                      </>
+                    ) : (
+                      'Exportar Excel'
+                    )}
                   </Button>
                 </div>
                 <div className="col-sm-9">
                   <div className=" col-sm-12 d-flex flex-row-reverse">
-                    <Button color="primary" onClick={chamarfiltro}>
-                      Aplicar Filtros
+                    <Button color="primary" onClick={chamarfiltro} disabled={loading || loading}>
+                      {loading ? (
+                        <>
+                          <CircularProgress size={16} sx={{ mr: 1 }} />
+                          Aplicando...
+                        </>
+                      ) : (
+                        'Aplicar Filtros'
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -945,6 +981,7 @@ const Rollouthuawei = ({ setshow, show }) => {
                   loading={loading}
                   pageSize={pageSize}
                   checkboxSelection
+                  getRowId={(row) => row.idgeral}
                   onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
                   disableSelectionOnClick
                   processRowUpdate={handleProcessRowUpdate}
@@ -971,7 +1008,6 @@ const Rollouthuawei = ({ setshow, show }) => {
                   selectionModel={selectionModel}
                   components={{
                     Pagination: CustomPagination,
-                    LoadingOverlay: LinearProgress,
                     NoRowsOverlay: CustomNoRowsOverlay,
                   }}
                   localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}

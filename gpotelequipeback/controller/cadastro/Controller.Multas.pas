@@ -18,12 +18,12 @@ implementation
 
 procedure Registry;
 begin
-  THorse.get('v1/multas', Lista);
-  THorse.get('v1/multasid', Listaid);
-  THorse.get('v1/multas/placadata', BuscaMultaPorPlacaData);
-  THorse.post('v1/multas', Salva);
-  THorse.post('v1/multas/debitados', DebitarMulta);
-  THorse.post('v1/multas/novocadastro', Novocadastro);
+  THorse.Get('v1/multas', Lista);
+  THorse.Get('v1/multasid', Listaid);
+  THorse.Get('v1/multas/placadata', BuscaMultaPorPlacaData);
+  THorse.Post('v1/multas', Salva);
+  THorse.Post('v1/multas/debitados', DebitarMulta);
+  THorse.Post('v1/multas/novocadastro', Novocadastro);
 end;
 
 function TentarConverterData(const DataStr: string; out DataConvertida: TDateTime): Boolean;
@@ -33,7 +33,6 @@ begin
   Result := False;
   if DataStr = '' then Exit;
 
-  // 1) dd/mm/yyyy (e com hora)
   FS := TFormatSettings.Create;
   FS.DateSeparator  := '/';
   FS.TimeSeparator  := ':';
@@ -44,7 +43,6 @@ begin
     Exit(True);
   except end;
 
-  // 2) yyyy-mm-dd (e com hora)
   FS := TFormatSettings.Create;
   FS.DateSeparator  := '-';
   FS.TimeSeparator  := ':';
@@ -55,22 +53,18 @@ begin
     Exit(True);
   except end;
 
-  // 3) ISO 8601 (ex.: 2025-10-05T21:37)
   {$IF Declared(TryISO8601ToDate)}
   if TryISO8601ToDate(DataStr, DataConvertida) then
     Exit(True);
   {$IFEND}
 
   try
-    // algumas versões só têm ISO8601ToDate(String) com 1 parâmetro
     DataConvertida := ISO8601ToDate(DataStr);
     Exit(True);
   except
-    // continua falso
   end;
 end;
 
-// Busca multas por placa e data da infração
 procedure BuscaMultaPorPlacaData(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TMultas;
@@ -125,15 +119,15 @@ begin
   servico := TMultas.Create;
   try
     try
-      body := Req.body<TJSONObject>;
-      servico.idcliente := body.getvalue<integer>('idcliente', 0);
-      servico.idloja := body.getvalue<integer>('idloja', 0);
+      body := Req.Body<TJSONObject>;
+      servico.idcliente := body.GetValue<Integer>('idcliente', 0);
+      servico.idloja := body.GetValue<Integer>('idloja', 0);
       if servico.NovoCadastro(erro) > 0 then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.idmultas)).Status(THTTPStatus.Created)
       else
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
@@ -163,7 +157,7 @@ begin
       else
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
@@ -177,7 +171,23 @@ var
   servico: TMultas;
   qry: TFDQuery;
   erro: string;
-  arraydados: TJSONObject;
+  obj: TJSONObject;
+  rateios: TJSONArray;
+  item: TJSONObject;
+  first: Boolean;
+
+  procedure AddIfField(const AName: string);
+  begin
+    if (qry.FindField(AName) <> nil) and (not qry.FieldByName(AName).IsNull) then
+      obj.AddPair(AName, qry.FieldByName(AName).AsString);
+  end;
+
+  procedure AddIfInt(const AName: string);
+  begin
+    if (qry.FindField(AName) <> nil) and (not qry.FieldByName(AName).IsNull) then
+      obj.AddPair(AName, TJSONNumber.Create(qry.FieldByName(AName).AsInteger));
+  end;
+
 begin
   try
     servico := TMultas.Create;
@@ -185,17 +195,89 @@ begin
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
     Exit;
   end;
+
   qry := servico.Listaid(Req.Query.Dictionary, erro);
   try
+    if erro <> '' then
+    begin
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      Exit;
+    end;
+
+    obj := TJSONObject.Create;
+    rateios := TJSONArray.Create;
+    first := True;
+
     try
-      arraydados := qry.ToJSONObject;
-      if erro = '' then
-        Res.Send<TJSONObject>(arraydados).Status(THTTPStatus.OK)
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      qry.First;
+      while not qry.Eof do
+      begin
+        if first then
+        begin
+          // Campos principais da multa
+          AddIfInt('idmultas');         // m.idmultas
+          AddIfField('placa');
+          AddIfField('numeroait');
+          AddIfField('datainfracao');
+          AddIfField('local');
+          AddIfField('infracao');
+          AddIfField('valor');
+          AddIfField('dataindicacao');
+          AddIfField('natureza');
+          AddIfInt('pontuacao');
+          AddIfField('datacolaborador');
+          AddIfField('statusmulta');
+          AddIfInt('idcliente');
+          AddIfInt('idloja');
+          AddIfField('debitado');
+          AddIfField('nomeindicacao');
+
+          // Enriquecimentos / joins
+          AddIfField('empresa');
+          AddIfField('funcionario');
+
+          // Despesa vinculada (se houver)
+          AddIfInt('iddespesas');
+          AddIfField('valordespesa');
+          AddIfField('categoria');
+          AddIfInt('idmulta'); // d.idmulta
+
+          first := False;
+        end;
+
+        // Cada linha pode conter um item de rateio (r.*)
+        if (qry.FindField('percentual') <> nil) and
+           (not qry.FieldByName('percentual').IsNull) then
+        begin
+          item := TJSONObject.Create;
+          item.AddPair('percentual', TJSONNumber.Create(qry.FieldByName('percentual').AsFloat));
+
+          if (qry.FindField('tipo') <> nil) and (not qry.FieldByName('tipo').IsNull) then
+            item.AddPair('tipo', qry.FieldByName('tipo').AsString);
+
+          // Um dos dois pode vir preenchido
+          if (qry.FindField('departamento') <> nil) and (not qry.FieldByName('departamento').IsNull) then
+            item.AddPair('departamento', qry.FieldByName('departamento').AsString);
+
+          if (qry.FindField('idsite') <> nil) and (not qry.FieldByName('idsite').IsNull) then
+            item.AddPair('idsite', qry.FieldByName('idsite').AsString);
+
+          rateios.AddElement(item);
+        end;
+
+        qry.Next;
+      end;
+
+      // Anexa o array de rateios (vazio se não houver)
+      obj.AddPair('rateio', rateios);
+
+      Res.Send<TJSONObject>(obj).Status(THTTPStatus.OK);
     except
-      on ex: exception do
+      on ex: Exception do
+      begin
+        obj.Free; // rateios é liberado junto pois está anexado
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+      end;
     end;
   finally
     qry.Free;
@@ -238,24 +320,33 @@ begin
   try
     try
       body := Req.Body<TJSONObject>;
-      servico.idcliente := body.GetValue<Integer>('idcliente', 0);
-      servico.idloja := body.GetValue<Integer>('idloja', 0);
-      servico.idmultas := body.GetValue<Integer>('idmultas', 0);
-      servico.idempresa := body.GetValue<Integer>('idempresa', 0);
-      servico.idpessoa := body.GetValue<Integer>('idpessoa', 0);
-      servico.numeroait := body.getvalue<string>('numeroait', '');
-      servico.pontuacao := body.GetValue<Integer>('pontuacao', 0);
-      servico.placa := body.getvalue<string>('placa', '');
-      servico.datainfracao := body.getvalue<string>('datainfracao', '');
-      servico.local := body.getvalue<string>('local', '');
-      servico.infracao := body.getvalue<string>('infracao', '');
-      servico.valor := body.getvalue<string>('valor', '');
-      servico.dataindicacao := body.getvalue<string>('dataindicacao', '');
-      servico.natureza := body.getvalue<string>('natureza', '');
-      servico.datacolaborador := body.getvalue<string>('datacolaborador', '');
-      servico.statusmulta := body.getvalue<string>('statusmulta', '');
 
-      // departamento e idsite (tratando null)
+      servico.idcliente       := body.GetValue<Integer>('idcliente', 0);
+      servico.idloja          := body.GetValue<Integer>('idloja', 0);
+      servico.idmultas        := body.GetValue<Integer>('idmultas', 0);
+      servico.idempresa       := body.GetValue<Integer>('idempresa', 0);
+      servico.idpessoa        := body.GetValue<Integer>('idpessoa', 0);
+      servico.numeroait       := body.GetValue<string>('numeroait', '');
+      servico.pontuacao       := body.GetValue<Integer>('pontuacao', 0);
+      servico.placa           := body.GetValue<string>('placa', '');
+      servico.datainfracao    := body.GetValue<string>('datainfracao', '');
+      servico.local           := body.GetValue<string>('local', '');
+      servico.infracao        := body.GetValue<string>('infracao', '');
+      servico.valor           := body.GetValue<string>('valor', '');
+      servico.dataindicacao   := body.GetValue<string>('dataindicacao', '');
+      servico.natureza        := body.GetValue<string>('natureza', '');
+      servico.datacolaborador := body.GetValue<string>('datacolaborador', '');
+      servico.statusmulta     := body.GetValue<string>('statusmulta', '');
+
+      // nomeindicacao (aceita "nomeindicacao" ou "nomeindicado")
+      V := body.GetValue('nomeindicacao');
+      if not Assigned(V) then V := body.GetValue('nomeindicado');
+      if Assigned(V) and not (V is TJSONNull) then
+        servico.nomeindicacao := V.Value
+      else
+        servico.nomeindicacao := '';
+
+      // rateio vem do corpo, mas será persistido em gesdespesas_rateio (não em gesmultas)
       V := body.GetValue('departamento');
       if Assigned(V) and not (V is TJSONNull) then
         servico.departamento := V.Value

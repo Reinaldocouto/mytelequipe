@@ -85,8 +85,9 @@ export default function Clientehuawei() {
 
   const loadingoptionsregional = async () => {
     try {
-      const response = await api.get('v1/projetohuawei/regionalhuawei');
-      setoptionsregional(response.data);
+      //const response = await api.get('v1/projetohuawei/regionalhuawei');
+      //setoptionsregional(response.data);
+      setoptionsregional([]);
     } catch (err) {
       console.error(err.message);
     }

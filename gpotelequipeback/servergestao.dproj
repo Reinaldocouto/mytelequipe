@@ -258,7 +258,6 @@
                 <DeployFile LocalName="..\servergpo2exec\Win32\Debug\servergestao.exe" Configuration="Debug" Class="ProjectOutput"/>
                 <DeployFile LocalName="C:\trabalho\cliente\GPO2Dev\servergpo2exec\Win32\Debug\servergestao.exe" Configuration="Debug" Class="ProjectOutput"/>
                 <DeployFile LocalName="C:\trabalho\cliente\gpo2renovado\exe\Win32\Debug\servergestao.exe" Configuration="Debug" Class="ProjectOutput"/>
-                <DeployFile LocalName="C:\trabalho\cliente\gpo2renovado\exe\Win32\Debug\servergestao.exe" Configuration="Debug" Class="ProjectOutput"/>
                 <DeployFile LocalName="documents\cartataf.xlsm" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="documents\cartatafcsv.csv" Configuration="Debug" Class="ProjectFile"/>
                 <DeployFile LocalName="documents\~$cartataf.xlsm" Configuration="Debug" Class="ProjectFile"/>

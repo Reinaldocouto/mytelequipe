@@ -3,7 +3,7 @@
 interface
 
 uses
-  FireDAC.Comp.Client, Data.DB, FireDAC.Stan.Param, System.SysUtils, model.connection,Math,
+  FireDAC.Comp.Client, Data.DB, FireDAC.Stan.Param, System.SysUtils, model.connection,Math, UtFuncao,
   System.StrUtils, FireDAC.DApt, System.Generics.Collections, System.JSON,  FireDAC.Stan.Error;
 
 type
@@ -56,6 +56,7 @@ type
     function EditarT2(const Dados: TJSONObject; const periodo: String; out erro: string): Integer;
     function LogEvento(const Tipo, Arquivo, Mensagem: string): Boolean;
     function LogProcessamentoObra(const data: string; const arquivo: string; out erro: string): TFDQuery;
+    function InserirTelefonicaConsolidado(const jsonData: TJSONArray; out erro: string): Integer;
 
   end;
 
@@ -849,15 +850,16 @@ begin
 
         // Qty ordered
         if jsonObject.TryGetValue<string>('Qty ordered', poStr) then
-        begin
-          sNorm := StringReplace(poStr, '.', '', [rfReplaceAll]);
-          sNorm := StringReplace(sNorm, ',', '.', [rfReplaceAll]);
-          if TryStrToFloat(sNorm, tempFloat, fs) then
-            qry.ParamByName('qtyordered').AsFloat := tempFloat
-          else
           begin
-            qry.ParamByName('qtyordered').Clear;
-             LogEvento('Error', 'ProcessarArquivoObra',(Format('Qty ordered inválido na linha %d: %s', [i + 1, poStr])));
+            sNorm := StringReplace(poStr, '.', '', [rfReplaceAll]);
+            sNorm := StringReplace(sNorm, ',', '.', [rfReplaceAll]);
+            if TryStrToFloat(sNorm, tempFloat, fs) then
+              qry.ParamByName('qtyordered').AsFloat := tempFloat
+            else
+            begin
+             qry.ParamByName('qtyordered').Clear;
+             LogEvento('Error', 'ProcessarArquivoObra',
+               Format('Qty ordered inválido na linha %d: %s', [i + 1, poStr]));
           end;
         end
         else
@@ -4485,6 +4487,165 @@ begin
       FConn.Free;
 
     resultados.Free;
+  end;
+end;
+
+function TUpload.InserirTelefonicaConsolidado(const jsonData: TJSONArray; out erro: string): Integer;
+var
+  qry: TFDQuery;
+  i: Integer;
+  jsonObject: TJSONObject;
+  poStr: string;
+  FConn: TFDConnection;
+  poValue: Int64;
+begin
+  Result := 0;
+  erro := '';
+
+  if (jsonData = nil) or (jsonData.Count = 0) then
+  begin
+    erro := 'JSON vazio ou inválido.';
+    Exit;
+  end;
+
+  qry := TFDQuery.Create(nil);
+  try
+    FConn := TConnection.CreateConnection;
+    qry.Connection := FConn;
+    FConn.StartTransaction;
+
+    try
+      // Limpa tabela temporária
+      qry.SQL.Text := 'DELETE FROM consolidadotelefonicaatualiza';
+      qry.ExecSQL;
+
+      // Insere todos os registros do JSON
+      for i := 0 to jsonData.Count - 1 do
+      begin
+        jsonObject := jsonData.Items[i] as TJSONObject;
+        if jsonObject = nil then
+          Continue;
+
+        qry.SQL.Clear;
+        qry.SQL.Add('INSERT INTO consolidadotelefonicaatualiza (');
+        qry.SQL.Add('idtlqp, codid, Linha, SITE, NUMERODOCONTRATO, T2CODMATSERVSW, T2DESCRICAOCOD, REGIAO,');
+        qry.SQL.Add('Atividade, codservico, Cidade, UF, QTD, Valor, Valortotal, StatusT2, Data,');
+        qry.SQL.Add('REQAPROVT2, IDPMTS, IDT2CPOM, IDObra, PEPNIVEL3, StatusT4, DataT4, PO, CartaTAF,');
+        qry.SQL.Add('Dataenvio, AutCPOMGestor, StatusFinan, NF, Pagto, Obs, RequisicaoSAP, DataFlag, Chave, DataDoc, Coluna1)');
+        qry.SQL.Add('VALUES (');
+        qry.SQL.Add(':idtlqp, :codid, :Linha, :SITE, :NUMERODOCONTRATO, :T2CODMATSERVSW, :T2DESCRICAOCOD, :REGIAO,');
+        qry.SQL.Add(':Atividade, :codservico, :Cidade, :UF, :QTD, :Valor, :Valortotal, :StatusT2, :Data,');
+        qry.SQL.Add(':REQAPROVT2, :IDPMTS, :IDT2CPOM, :IDObra, :PEPNIVEL3, :StatusT4, :DataT4, :PO, :CartaTAF,');
+        qry.SQL.Add(':Dataenvio, :AutCPOMGestor, :StatusFinan, :NF, :Pagto, :Obs, :RequisicaoSAP, :DataFlag, :Chave, :DataDoc, :Coluna1)');
+
+        // --- Definição dos tipos dos parâmetros ---
+        qry.ParamByName('idtlqp').DataType := ftString;
+        qry.ParamByName('codid').DataType := ftString;
+        qry.ParamByName('Linha').DataType := ftString;
+        qry.ParamByName('SITE').DataType := ftString;
+        qry.ParamByName('NUMERODOCONTRATO').DataType := ftLargeInt;
+        qry.ParamByName('T2CODMATSERVSW').DataType := ftString;
+        qry.ParamByName('T2DESCRICAOCOD').DataType := ftString;
+        qry.ParamByName('REGIAO').DataType := ftString;
+        qry.ParamByName('Atividade').DataType := ftString;
+        qry.ParamByName('codservico').DataType := ftString;
+        qry.ParamByName('Cidade').DataType := ftString;
+        qry.ParamByName('UF').DataType := ftString;
+        qry.ParamByName('QTD').DataType := ftFloat;
+        qry.ParamByName('Valor').DataType := ftFloat;
+        qry.ParamByName('Valortotal').DataType := ftFloat;
+        qry.ParamByName('StatusT2').DataType := ftString;
+        qry.ParamByName('Data').DataType := ftDateTime;
+        qry.ParamByName('REQAPROVT2').DataType := ftString;
+        qry.ParamByName('IDPMTS').DataType := ftString;
+        qry.ParamByName('IDT2CPOM').DataType := ftString;
+        qry.ParamByName('IDObra').DataType := ftString;
+        qry.ParamByName('PEPNIVEL3').DataType := ftString;
+        qry.ParamByName('StatusT4').DataType := ftString;
+        qry.ParamByName('DataT4').DataType := ftDateTime;
+        qry.ParamByName('PO').DataType := ftLargeInt;
+        qry.ParamByName('CartaTAF').DataType := ftString;
+        qry.ParamByName('Dataenvio').DataType := ftDateTime;
+        qry.ParamByName('AutCPOMGestor').DataType := ftString;
+        qry.ParamByName('StatusFinan').DataType := ftString;
+        qry.ParamByName('NF').DataType := ftString;
+        qry.ParamByName('Pagto').DataType := ftString;
+        qry.ParamByName('Obs').DataType := ftString;
+        qry.ParamByName('RequisicaoSAP').DataType := ftString;
+        qry.ParamByName('DataFlag').DataType := ftDateTime;
+        qry.ParamByName('Chave').DataType := ftString;
+        qry.ParamByName('DataDoc').DataType := ftDateTime;
+        qry.ParamByName('Coluna1').DataType := ftString;
+
+        // --- Atribuição dos valores do JSON ---
+        qry.ParamByName('idtlqp').AsString := GetJSONValueStr(jsonObject, 'Enviado');
+        qry.ParamByName('codid').AsString := GetJSONValueStr(jsonObject, 'Enviado');
+        qry.ParamByName('Linha').AsString := GetJSONValueStr(jsonObject, 'Linha');
+        qry.ParamByName('SITE').AsString := GetJSONValueStr(jsonObject, 'SITE');
+        qry.ParamByName('NUMERODOCONTRATO').AsLargeInt := GetJSONValueInt(jsonObject, 'NUMERO DO CONTRATO');
+        qry.ParamByName('T2CODMATSERVSW').AsString := GetJSONValueStr(jsonObject, 'T2 - COD MAT_SERV_SW');
+        qry.ParamByName('T2DESCRICAOCOD').AsString := GetJSONValueStr(jsonObject, 'T2 - DESCRIÇÃO COD');
+        qry.ParamByName('REGIAO').AsString := GetJSONValueStr(jsonObject, 'REGIÃO');
+        qry.ParamByName('Atividade').AsString := GetJSONValueStr(jsonObject, 'Atividade');
+        qry.ParamByName('codservico').AsString := GetJSONValueStr(jsonObject, 'codservico');
+        qry.ParamByName('Cidade').AsString := GetJSONValueStr(jsonObject, 'Cidade');
+        qry.ParamByName('UF').AsString := GetJSONValueStr(jsonObject, 'UF');
+        qry.ParamByName('QTD').AsFloat := GetJSONValueFloat(jsonObject, 'QTD');
+        qry.ParamByName('Valor').AsFloat := GetJSONValueFloat(jsonObject, 'Valor R$');
+        qry.ParamByName('Valortotal').AsFloat := GetJSONValueFloat(jsonObject, 'Valor total');
+        qry.ParamByName('StatusT2').AsString := GetJSONValueStr(jsonObject, 'Status T2');
+        qry.ParamByName('Data').AsDateTime := GetJSONValueDate(jsonObject, 'Data');
+        qry.ParamByName('REQAPROVT2').AsString := GetJSONValueStr(jsonObject, 'REQAPROVT2');
+        qry.ParamByName('IDPMTS').AsString := GetJSONValueStr(jsonObject, 'ID PMTS');
+        qry.ParamByName('IDT2CPOM').AsString := GetJSONValueStr(jsonObject, 'ID T2 (CPOM)');
+        qry.ParamByName('IDObra').AsString := GetJSONValueStr(jsonObject, 'ID. Obra');
+        qry.ParamByName('PEPNIVEL3').AsString := GetJSONValueStr(jsonObject, 'PEP NÍVEL 3');
+        qry.ParamByName('StatusT4').AsString := GetJSONValueStr(jsonObject, 'Status T4');
+        qry.ParamByName('DataT4').AsDateTime := GetJSONValueDate(jsonObject, 'Data T4');
+
+        // PO
+        poStr := Trim(GetJSONValueStr(jsonObject, 'PO'));
+        if (poStr = '') or not TryStrToInt64(poStr, poValue) then
+          qry.ParamByName('PO').Clear
+        else
+          qry.ParamByName('PO').AsLargeInt := poValue;
+
+        qry.ParamByName('CartaTAF').AsString := GetJSONValueStr(jsonObject, 'Carta TAF');
+        qry.ParamByName('Dataenvio').AsDateTime := GetJSONValueDate(jsonObject, 'Data envio');
+        qry.ParamByName('AutCPOMGestor').AsString := GetJSONValueStr(jsonObject, 'AutCPOMGestor');
+        qry.ParamByName('StatusFinan').AsString := GetJSONValueStr(jsonObject, 'Status Finan.');
+        qry.ParamByName('NF').AsString := GetJSONValueStr(jsonObject, 'NF');
+        qry.ParamByName('Pagto').AsString := GetJSONValueStr(jsonObject, 'Pagto');
+        qry.ParamByName('Obs').AsString := GetJSONValueStr(jsonObject, 'Obs.');
+        qry.ParamByName('RequisicaoSAP').AsString := GetJSONValueStr(jsonObject, 'Requisição SAP');
+        qry.ParamByName('DataFlag').AsDateTime := GetJSONValueDate(jsonObject, 'Data Flag');
+        qry.ParamByName('Chave').AsString := GetJSONValueStr(jsonObject, 'Chave');
+        qry.ParamByName('DataDoc').AsDateTime := GetJSONValueDate(jsonObject, 'Data Doc.');
+        qry.ParamByName('Coluna1').AsString := GetJSONValueStr(jsonObject, 'Coluna1');
+
+        qry.ExecSQL;
+      end;
+
+      // 🔹 Chamada da procedure apenas uma vez
+      qry.SQL.Clear;
+      qry.SQL.Add('CALL AtualizaConsolidaTelefonica()');
+      qry.ExecSQL;
+
+      FConn.Commit;
+      Result := jsonData.Count;
+
+    except
+      on E: Exception do
+      begin
+        erro := Format('Erro ao inserir dados: %s', [E.Message]);
+        Writeln(erro);
+        FConn.Rollback;
+        Result := 0;
+      end;
+    end;
+
+  finally
+    qry.Free;
   end;
 end;
 end.

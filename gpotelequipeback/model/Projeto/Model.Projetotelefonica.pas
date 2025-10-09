@@ -5,7 +5,7 @@ interface
 uses
   FireDAC.Comp.Client, Data.DB, System.SysUtils, model.connection, ComObj,
   System.StrUtils, FireDAC.DApt, System.Generics.Collections, UtFuncao,
-  DateUtils, System.JSON, System.Classes, Model.Email;
+  DateUtils, System.JSON, System.Classes, Model.Email, System.Math;
 
 type
   TProjetotelefonica = class
@@ -783,8 +783,8 @@ begin
         SQL.Clear;
         SQL.Add('Select  ');
         SQL.Add('acionamentovivo.id, ');
-        SQL.Add('acionamentovivo.valor,  ');
-        SQL.Add('coalesce(Sum(telefonicapagamento.valorpagamento),0) As Sum_valorpagamento  ');
+        SQL.Add('TRUNCATE(acionamentovivo.valor, 2) AS valor,  ');
+        SQL.Add('COALESCE(TRUNCATE(SUM(telefonicapagamento.valorpagamento), 2), 0) AS Sum_valorpagamento ');
         SQL.Add('From  ');
         SQL.Add('acionamentovivo left Join   ');
         SQL.Add('telefonicapagamento On telefonicapagamento.idacionamentovivo = acionamentovivo.id ');
@@ -899,6 +899,7 @@ begin
     qry.Free;
   end;
 end;
+
 
 
 function TProjetotelefonica.Listaparadocumentacao(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
@@ -5428,7 +5429,7 @@ begin
       Add('telefonicacontrolet2.T2DESCRICAOCOD AS atividade, ');
       Add('acionamentovivo.quantidade AS quantidade, ');
       Add('lpuvivo.BREVEDESCRICAO AS tarefas, ');
-      Add('acionamentovivo.valor AS valor, ');
+      Add('ROUND(coalesce(Sum(acionamentovivo.valor),0),2) As valor, ');
       Add('acionamentovivo.dataacionamento AS dataacionamento, ');
       Add('acionamentovivo.dataenvioemail AS dataenvioemail, ');
       Add('gesempresas.nome AS nome, ');
@@ -5456,9 +5457,9 @@ begin
       Add('lpuvivo.CODIGOLPUVIVO AS CODIGOLPUVIVO, ');
       Add('acionamentovivo.idcolaborador AS idcolaborador, ');
       Add('telefonicapagamento.tipopagamento  AS status, ');
-      Add('coalesce(Sum(telefonicapagamento.valorpagamento),0) As valorpago, ');
       Add('max(telefonicapagamento.observacao) as observacao, ');
-      Add('coalesce(Sum(telefonicapagamento.porcentagem),0) As porcentagem ');
+      Add('ROUND(coalesce(Sum(telefonicapagamento.valorpagamento),0),2) As valorpago, ');
+      Add('ROUND(coalesce(Sum(telefonicapagamento.porcentagem),0),2) As porcentagem ');
       Add('FROM acionamentovivo ');
       Add('LEFT JOIN telefonicapagamento ON telefonicapagamento.idacionamentovivo = acionamentovivo.id ');
       Add('LEFT JOIN telefonicacontrolet2 ON telefonicacontrolet2.ID = acionamentovivo.idatividade ');
@@ -5514,20 +5515,20 @@ begin
     with qry.SQL do
     begin
       Clear;
-      Add('select   ');
-      Add('telefonicapagamento.idgeral as id,  ');
+      Add('SELECT ');
+      Add('telefonicapagamento.idgeral AS id,  ');
       Add('acionamentovivo.idpmts,  ');
       Add('rolloutvivo.pmoregional,  ');
       Add('acionamentovivo.po,  ');
       Add('rolloutvivo.pmosigla,  ');
       Add('rolloutvivo.ufsigla,  ');
-      Add('telefonicacontrolet2.t2descricaocod as atividade,  ');
+      Add('telefonicacontrolet2.t2descricaocod AS atividade,  ');
       Add('acionamentovivo.quantidade,  ');
       Add('lpuvivo.codigolpuvivo,  ');
-      Add('lpuvivo.brevedescricao as escopo,  ');
-      Add('lpuvivo.brevedescricao as brevedescricao,  ');
-      Add('lpuvivo.brevedescricao as tarefas,  ');
-      Add('acionamentovivo.valor,  ');
+      Add('lpuvivo.brevedescricao AS escopo,  ');
+      Add('lpuvivo.brevedescricao AS brevedescricao,  ');
+      Add('lpuvivo.brevedescricao AS tarefas,  ');
+      Add('ROUND(acionamentovivo.valor,2) AS valor,  ');
       Add('acionamentovivo.dataacionamento,  ');
       Add('acionamentovivo.dataenvioemail,  ');
       Add('rolloutvivo.entregareal,  ');
@@ -5544,19 +5545,19 @@ begin
       Add('rolloutvivo.vistoriareal, ');
       Add('rolloutvivo.statusobra,  ');
       Add('telefonicapagamento.mespagamento,  ');
-      Add('telefonicapagamento.porcentagem,  ');
-      Add('telefonicapagamento.valorpagamento,  ');
+      Add('ROUND(telefonicapagamento.porcentagem,2) AS porcentagem,  ');
+      Add('ROUND(telefonicapagamento.valorpagamento,2) AS valorpagamento,  ');
       Add('telefonicapagamento.datapagamento,  ');
-      Add('telefonicapagamento.observacao as observacao,  ');
+      Add('telefonicapagamento.observacao AS observacao,  ');
       Add('telefonicapagamento.tipopagamento  ');
-      Add('from  ');
-      Add('telefonicapagamento left join  ');
-      Add('acionamentovivo on acionamentovivo.id = telefonicapagamento.idacionamentovivo left join  ');
-      Add('rolloutvivo on rolloutvivo.id = acionamentovivo.idrollout left join  ');
-      Add('telefonicacontrolet2 on telefonicacontrolet2.id = acionamentovivo.idatividade left join  ');
-      Add('lpuvivo on acionamentovivo.idpacote = lpuvivo.id ');
+      Add('FROM telefonicapagamento ');
+      Add('LEFT JOIN acionamentovivo ON acionamentovivo.id = telefonicapagamento.idacionamentovivo ');
+      Add('LEFT JOIN rolloutvivo ON rolloutvivo.id = acionamentovivo.idrollout ');
+      Add('LEFT JOIN telefonicacontrolet2 ON telefonicacontrolet2.id = acionamentovivo.idatividade ');
+      Add('LEFT JOIN lpuvivo ON acionamentovivo.idpacote = lpuvivo.id ');
       Add('WHERE acionamentovivo.deletado = 0 ');
-      Add('AND  acionamentovivo.idcolaborador = :idcolaborador  ');
+      Add('AND acionamentovivo.idcolaborador = :idcolaborador ');
+
       qry.ParamByName('idcolaborador').AsString := AQuery['idempresalocal'];
       if AQuery.ContainsKey('pmo') and (AQuery['pmo'] <> '') then
       begin
@@ -5828,9 +5829,9 @@ begin
       SQL.Add('telefonicacontrolet2.T2DESCRICAOCOD As atividade, ');
       SQL.Add('acionamentovivo.quantidade, ');
       SQL.Add('lpuvivo.BREVEDESCRICAO As tarefas, ');
-      SQL.Add('acionamentovivo.valor, ');
+      SQL.Add('ROUND(acionamentovivo.valor,2) AS valor,  ');
       SQL.Add('COALESCE(SUM(telefonicapagamento.valorpagamento),0) AS valorpago, ');
-      SQL.Add('(acionamentovivo.valor - COALESCE(SUM(telefonicapagamento.valorpagamento),0)) AS valorapagar, ');
+      SQL.Add('ROUND((acionamentovivo.valor - COALESCE(SUM(telefonicapagamento.valorpagamento),0)),2) AS valorapagar, ');
       SQL.Add('acionamentovivo.dataacionamento, ');
       SQL.Add('acionamentovivo.dataenvioemail, ');
       SQL.Add('gesempresas.nome, ');

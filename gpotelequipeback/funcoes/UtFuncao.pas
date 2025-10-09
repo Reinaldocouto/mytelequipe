@@ -4,7 +4,7 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
-  System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Horse,
+  System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Horse,System.Character,
   System.JSON, DataSet.Serialize,
   System.Generics.Collections, System.IOUtils,
   ComObj, ActiveX, StrUtils,  System.RegularExpressions;
@@ -41,6 +41,13 @@ function LerExcelParaJSONMonitoramento(const vXLSFile: string): TJSONArray;
 function LerExcelParaJSONLpuValidar(const vXLSFile: string): TJSONArray;
 function ISO8601ToDate(const ISO8601Str: string): TDateTime;
 function ForcarLiberacaoArquivo(const nomeArquivo: string): Boolean;
+
+function GetJSONValueStr(obj: TJSONObject; const key: string): string;
+function GetJSONValueFloatString(obj: TJSONObject; const key: string): Double;
+function GetJSONValueInt(obj: TJSONObject; const key: string): Int64;
+function GetJSONValueDate(const AJSON: TJSONObject; const AKey: string): TDateTime;
+function GetJSONValueFloat(obj: TJSONObject; const key: string): Double;
+
 
 
 
@@ -832,14 +839,37 @@ var
   sucesso: Boolean;
   ultimoErro: string;
 
+
+  function IsOnlySpecialChars(const S: string): Boolean;
+  var
+    C: Char;
+    HasLetterOrDigit: Boolean;
+  begin
+    HasLetterOrDigit := False;
+    for C in S do
+      if C.IsLetterOrDigit then
+      begin
+        HasLetterOrDigit := True;
+        Break;
+      end;
+    Result := not HasLetterOrDigit;
+  end;
+
   function GetUniqueHeaderName(const BaseName: string; Index: Integer): string;
   var
-    UniqueName: string;
+    UniqueName, CleanBase: string;
     Counter: Integer;
     Exists: Boolean;
   begin
-    UniqueName := BaseName;
+    CleanBase := Trim(BaseName);
+
+    // 🔹 Caso o nome esteja vazio, seja "\\//", ou só tenha símbolos, usar "Linha"
+    if (CleanBase = '') or IsOnlySpecialChars(CleanBase) then
+      CleanBase := 'Linha';
+
+    UniqueName := CleanBase;
     Counter := 1;
+
     repeat
       Exists := False;
       for var i := 0 to Index - 1 do
@@ -847,10 +877,11 @@ var
         begin
           Exists := True;
           Inc(Counter);
-          UniqueName := BaseName + '_' + IntToStr(Counter);
+          UniqueName := CleanBase + '_' + IntToStr(Counter);
           Break;
         end;
     until not Exists;
+
     Result := UniqueName;
   end;
 
@@ -891,7 +922,7 @@ var
       // Tenta abrir o arquivo
       vWorkbook := vExcelApp.Workbooks.Open(vXLSFile, False, True); // ReadOnly = True
       vSheet := vWorkbook.Sheets[1];
-      
+
       Result := True;
       Writeln('[SUCESSO] Arquivo Excel aberto com sucesso');
     except
@@ -899,7 +930,7 @@ var
       begin
         ultimoErro := E.Message;
         Writeln(Format('[ERRO] Tentativa %d falhou: %s', [tentativas + 1, E.Message]));
-        
+
         // Limpa objetos em caso de erro
         try
           if not VarIsEmpty(vWorkbook) then
@@ -908,11 +939,11 @@ var
             vExcelApp.Quit;
         except
         end;
-        
+
         vWorkbook := Unassigned;
         vSheet := Unassigned;
         vExcelApp := Unassigned;
-        
+
         Result := False;
       end;
     end;
@@ -997,7 +1028,10 @@ begin
 
         for k := 1 to ColCount do
         begin
-          valor := Trim(VarToStr(DataMatrix[j, k]));
+          if VarIsError(DataMatrix[j, k]) then
+            valor := ''
+          else
+            valor := Trim(VarToStr(DataMatrix[j, k]));
           if valor <> '' then
           begin
             linhaVazia := False;
@@ -1036,6 +1070,7 @@ begin
 
   Result := jsonArray;
 end;
+
 
 function LerExcelParaJSONMonitoramento(const vXLSFile: string): TJSONArray;
 var
@@ -1586,6 +1621,99 @@ begin
   if not Result then
     Writeln(Format('[FALHA] Não foi possível liberar o arquivo após %d tentativas', [tentativas]));
 end;
+
+function GetJSONValueStr(obj: TJSONObject; const key: string): string;
+var
+  val: TJSONValue;
+begin
+  val := obj.GetValue(key);
+  if (val <> nil) and (val is TJSONString) then
+    Result := TJSONString(val).Value
+  else
+    Result := '';
+end;
+
+function GetJSONValueFloatString(obj: TJSONObject; const key: string): Double;
+var
+  strValue: string;
+  floatValue: Double;
+begin
+  strValue := GetJSONValueStr(obj, key).Trim.Replace(',', '.');
+
+  // Tenta converter para número, se falhar, retorna 0.0
+  if TryStrToFloat(strValue, floatValue, TFormatSettings.Invariant) then
+    Result := floatValue
+  else
+    Result := 0.0;
+end;
+
+function GetJSONValueInt(obj: TJSONObject; const key: string): Int64;
+var
+  val: TJSONValue;
+  s: string;
+  i64: Int64;
+begin
+  Result := 0;
+  val := obj.GetValue(key);
+  if val = nil then
+    Exit;
+
+  s := Trim(val.Value);
+  s := StringReplace(s, '.', '', [rfReplaceAll]);
+  s := StringReplace(s, ',', '', [rfReplaceAll]);
+
+  if TryStrToInt64(s, i64) then
+    Result := i64
+  else
+    Result := 0; // ou -1 se quiser identificar erro
+end;
+
+function GetJSONValueDate(const AJSON: TJSONObject; const AKey: string): TDateTime;
+var
+  vStr: string;
+  FS: TFormatSettings;
+begin
+  Result := 0;
+  try
+    vStr := Trim(AJSON.GetValue<string>(AKey, ''));
+    if vStr = '' then
+      Exit(0); // retorna 0 se estiver vazio (campo fica NULL no banco)
+
+    FS := TFormatSettings.Create;
+    FS.DateSeparator := '/';
+    FS.ShortDateFormat := 'dd/mm/yyyy';
+    FS.LongDateFormat := 'dd/mm/yyyy hh:nn:ss';
+
+    // tenta converter com hora
+    if not TryStrToDateTime(vStr, Result, FS) then
+    begin
+      // tenta só data
+      if not TryStrToDate(vStr, Result, FS) then
+        Result := 0; // falhou
+    end;
+  except
+    Result := 0;
+  end;
+end;
+
+function GetJSONValueFloat(obj: TJSONObject; const key: string): Double;
+var
+  val: TJSONValue;
+  strValue: string;
+begin
+  val := obj.GetValue(key);
+  if val = nil then
+    Exit(0.0);
+
+  strValue := val.Value.Trim.Replace(',', '.'); // trata vírgula como ponto decimal
+
+  try
+    Result := StrToFloat(strValue, TFormatSettings.Invariant);
+  except
+    Result := 0.0; // fallback em caso de erro de conversão
+  end;
+end;
+
 
 
 end.

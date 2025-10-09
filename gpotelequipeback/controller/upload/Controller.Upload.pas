@@ -47,6 +47,8 @@ procedure UploadZteLpu(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure logsObraEricsson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
+procedure UploadTelefonicaConsolidado(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
 implementation
 
 procedure Registry;
@@ -70,6 +72,7 @@ begin
   THorse.Post('v1/uploadt4', UploadT4);
   THorse.Post('v1/upload/ztelpu', UploadZteLpu);
   THorse.Get('v1/upload/acompanharimportacaoericsson', logsObraEricsson);
+  THorse.Post('v1/upload/telefonica/consolidado', UploadTelefonicaConsolidado);
 end;
 procedure logsObraEricsson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -1808,6 +1811,53 @@ begin
   finally
     servico.Free; // Libera a instância do serviço
   end;
+end;
+
+procedure UploadTelefonicaConsolidado(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+const
+  DIRETORIO_UPLOAD = 'C:\servidorgpo\despesas\';
+var
+  servico: TUpload;
+  LUploadConfig: TUploadConfig;
+  Inseridos: Integer;
+  erro: string;
+begin
+  LUploadConfig := TUploadConfig.Create(DIRETORIO_UPLOAD);
+  LUploadConfig.ForceDir := True;
+  LUploadConfig.OverrideFiles := True;
+
+      //Optional: Callback for each file received
+  LUploadConfig.UploadFileCallBack :=
+    procedure(Sender: TObject; AFile: TUploadFileInfo)
+    var
+      jsonData: TJSONArray;
+      vXLSFile: string;
+      periodo: string;
+      i: Integer;
+      jsonObject: TJSONObject;
+      jsonPair: TJSONPair;
+    begin
+      Writeln('');
+      Writeln('Upload file: ' + AFile.filename + ' ' + AFile.size.ToString);
+      vXLSFile := DIRETORIO_UPLOAD + AFile.FileName;
+      jsonData := LerExcelParaJSON(vXLSFile);
+      if (jsonData.Count > 0) and (jsonData.Items[0] is TJSONObject) then
+      begin
+        Inseridos := servico.InserirTelefonicaConsolidado(jsonData, erro);
+      end;
+
+    end;
+
+      //Optional: Callback on end of all files
+  LUploadConfig.UploadsFishCallBack :=
+    procedure(Sender: TObject; AFiles: TUploadFiles)
+    begin
+      Writeln('');
+      Writeln('Finish ' + AFiles.Count.ToString + ' files.');
+    end;
+
+  Res.Send<TUploadConfig>(LUploadConfig);
+
 end;
 
 end.

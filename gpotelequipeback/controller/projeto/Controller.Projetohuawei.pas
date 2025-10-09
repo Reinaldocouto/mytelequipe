@@ -3,7 +3,7 @@
 interface
 
 uses
-  Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,
+  Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,System.DateUtils,
   Model.Huawei, UtFuncao, Controller.Auth, DataSet.Serialize, System.Generics.Collections;
 
 procedure Registry;
@@ -61,7 +61,6 @@ procedure rollouthuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure EditarEmMassa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 function InserirSeNaoExistirRollout(id: string; obj: TJSONObject): Boolean;
-
 
 implementation
 
@@ -669,6 +668,7 @@ begin
   end;
 end;
 
+
 procedure rollouthuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: Thuawei;
@@ -677,7 +677,7 @@ var
 begin
   servico := Thuawei.Create;
   try
-    qry := servico.rollouthuawei(Req.Query.Dictionary, erro);
+    qry := servico.Rollouthuawei(Req.Query.Dictionary, erro);
     try
       if Assigned(qry) then
       begin

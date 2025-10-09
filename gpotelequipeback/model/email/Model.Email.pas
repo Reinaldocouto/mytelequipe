@@ -624,13 +624,13 @@ begin
                    '      <tr><th>Numero:</th><td>' + HtmlEncode(dadosDiaria.Numero) + '</td></tr>' +
                    '      <tr><th>Data:</th><td>' + FormatDateTime('dd/mm/yyyy', dadosDiaria.DataSolicitacao) + '</td></tr>' +
                    '      <tr><th>Colaborador:</th><td>' + HtmlEncode(dadosDiaria.NomeColaborador) + '</td></tr>' +
-                   '      <tr><th>Projeto:</th><td>' + HtmlEncode(projetoFormatado) + '</td></tr>' +
+                   '      <tr><th>Cliente:</th><td>' + HtmlEncode(dadosDiaria.Cliente) + '</td></tr>' +
                    '      <tr><th>Site ID:</th><td>' + HtmlEncode(dadosDiaria.SiteId) + '</td></tr>' +
                    '      <tr><th>Sigla Site:</th><td>' + HtmlEncode(dadosDiaria.SiglaSite) + '</td></tr>' +
                    '      <tr><th>PO:</th><td>' + HtmlEncode(dadosDiaria.PO) + '</td></tr>' +
                    '      <tr><th>Local:</th><td>' + HtmlEncode(dadosDiaria.Local) + '</td></tr>' +
                    '      <tr><th>Descrição:</th><td>' + HtmlEncode(dadosDiaria.Descricao) + '</td></tr>' +
-                   '      <tr><th>Cliente:</th><td>' + HtmlEncode(dadosDiaria.Cliente) + '</td></tr>' +
+                   '      <tr><th>Projeto:</th><td>' + HtmlEncode(projetoFormatado) + '</td></tr>' +
                    '      <tr><th>Outras Solicitacoes:</th><td class="valor">' + FormatFloat('R$ #,##0.00', dadosDiaria.ValorOutrasSolicitacoes) + '</td></tr>' +
                    '      <tr><th>Diarias:</th><td class="valor">' + HtmlEncode(dadosDiaria.Diarias.ToString) + '</td></tr>' +
                    '      <tr><th>Valor Total:</th><td class="valor"><strong>' + FormatFloat('R$ #,##0.00', dadosDiaria.ValorTotal) + '</strong></td></tr>' +

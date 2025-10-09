@@ -113,7 +113,7 @@ const Telefonicaconsolidado = ({ setshow, show }) => {
     };
     try {
       setloading(true);
-      const response = await api.post('v1/uploadobrazte', formData, header);
+      const response = await api.post('v1/upload/telefonica/consolidado', formData, header);
       if (response && response.data) {
         console.log(response);
         if (response.status === 200) {

@@ -13,13 +13,11 @@ import { toast, ToastContainer } from 'react-toastify';
 import PropTypes from 'prop-types';
 import Select from 'react-select';
 import { NumericFormat } from 'react-number-format';
-//import InfoIcon from '@mui/icons-material/Info';
 import * as Icon from 'react-feather';
 import api from '../../../services/api';
 import Loader from '../../../layouts/loader/Loader';
 import Mensagemescolha from '../../Mensagemescolha';
 import Mensagemsimples from '../../Mensagemsimples';
-//import Parcelas from '../parcelamento/Parcela';
 
 const VALOR_DIARIA = 120;
 const VALOR_DIARIA_FORMATADO = new Intl.NumberFormat('pt-BR', {
@@ -43,21 +41,17 @@ const Solicitardiaria = ({
   function dataHojeISO() {
     return new Date().toISOString().split('T')[0];
   }
+
   function formatarDataBrasilComVerificacao(data) {
     if (!data) return '';
-
-    // Já está no formato dd/MM/yyyy?
     const regexDataBR = /^\d{2}\/\d{2}\/\d{4}$/;
     if (typeof data === 'string' && regexDataBR.test(data.trim())) {
       return data.trim();
     }
-
-    // Tenta converter para Date
     const dataObj = new Date(data);
     if (Number.isNaN(dataObj.getTime())) {
       return '';
     }
-
     return dataObj.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -90,46 +84,24 @@ const Solicitardiaria = ({
   const [diaria, setdiaria] = useState(0);
   const [total, settotal] = useState(0);
 
-  /*
-      const [nitens, setnitens] = useState(0);
-      const [somaqtdes, setsomaqtdes] = useState(0);
-      const [totalprodutos, settotalprodutos] = useState(0);
-      const [desconto, setdesconto] = useState(0);
-      const [frete, setfrete] = useState(0);
-      const [totalipi, settotalipi] = useState(0);
-      const [totalicmsst, settotalicmsst] = useState(0);
-      const [totalgeral, settotalgeral] = useState(0);
-      const [dataprevista, setdataprevista] = useState('');
-      const [numerofornecedor, setnumerofornecedor] = useState(0);
-      const [datacompra, setdatacompra] = useState('');
-      const [idtransportadora, setidtransportadora] = useState('');
-      const [idtipofrete, setidtipofrete] = useState('');
-       */
-  //const [observacao, setobservacao] = useState('');
-
-  //const [numero, setnumero] = useState('');
-
   const togglecadastro = () => {
     setshow(!show);
   };
 
-  //Parametros
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
     idusuario: localStorage.getItem('sessionId'),
     idloja: localStorage.getItem('sessionloja'),
-    idnome: localStorage.getItem('sessionNome'), //localStorage.setItem('sessionNome', response.data.nome);
+    idnome: localStorage.getItem('sessionNome'),
     obra: numero,
     deletado: 0,
   };
 
-  //Funções
   const listacolaboradorclt = async () => {
     try {
       setloading(true);
-      await api.get('v1/projetoericsson/selectcolaboradorclt', { params }).then((response) => {
-        setcolaboradorcltlista(response.data);
-      });
+      const response = await api.get('v1/projetoericsson/selectcolaboradorclt', { params });
+      setcolaboradorcltlista(response.data);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -137,10 +109,25 @@ const Solicitardiaria = ({
     }
   };
 
+  const resetForm = () => {
+    setidcolaboradorclt('');
+    setselectedoptioncolaboradorclt(null);
+    setpo('');
+    setlocal('');
+    setdescricao('');
+    setvalorsolicitacao(0);
+    setdiaria(0);
+    settotal(0);
+    setdatasol(dataHojeISO());
+  };
+
   function ProcessaCadastro() {
     const datasolicitacao = formatarDataBrasilComVerificacao(datasol);
     const colaborador = colaboradorcltlista.find((item) => item.value === idcolaboradorclt);
-    if (!colaborador) {toast.error('Selecione um colaborador válido'); return;}
+    if (!colaborador) {
+      toast.error('Selecione um colaborador válido');
+      return;
+    }
     setloading(true);
     api
       .post('v1/solicitacao/editardiaria', {
@@ -168,7 +155,10 @@ const Solicitardiaria = ({
       .then((response) => {
         if (response.status === 201) {
           toast.success('Registro Salvo');
-          console.log(atualiza());
+          resetForm();
+          if (typeof atualiza === 'function') {
+            atualiza();
+          }
         } else {
           toast.error(response.status);
         }
@@ -179,20 +169,13 @@ const Solicitardiaria = ({
         } else {
           toast.error('Ocorreu um erro na requisição.');
         }
-      }).finally(() => {
-        setloading(false) ;
-  })  }
-
-  function limpacampos() {
-    //setnitens('0');
-    // setsomaqtdes('0.00');
-    // settotalprodutos('0.00');
-    //setdesconto('0.00');
-    //setfrete('0.00');
-    //settotalipi('0.00');
-    //settotalicmsst('0.00');
-    //settotalgeral('0.00');
+      })
+      .finally(() => {
+        setloading(false);
+      });
   }
+
+  function limpacampos() { }
 
   const handleChangecolaboradorclt = (stat) => {
     if (stat !== null) {
@@ -205,16 +188,13 @@ const Solicitardiaria = ({
   };
 
   function confirmacao(resposta) {
-    //  setmensagemmostrar(true);
     if (resposta === 1) {
-      //  setverparcelas(false);
-      // setcondicaopagamento('');
-      // setdesabilita(false);
       settitulomensagem('Sucesso');
       setmensagemdados('Sucesso');
       settelamensagem(true);
     }
   }
+
   const handleDiarias = (valor) => {
     const quantidade = Number(valor) || 0;
     const descricaoQuantidade = valor === '' ? '' : quantidade;
@@ -227,16 +207,15 @@ const Solicitardiaria = ({
     limpacampos();
     setidsolicitacao(ididentificador);
     setprojeto(projetousual);
-    console.log(ididentificador);
     listacolaboradorclt();
-    setsolicitante(localStorage.getItem('sessionNome'));
-    setidsolicitante(localStorage.getItem('sessionId'));
+    setsolicitante(localStorage.getItem('sessionNome') || '');
+    setidsolicitante(localStorage.getItem('sessionId') || '');
   };
-  console.log(setidsolicitante);
 
   useEffect(() => {
     iniciatabelas();
   }, []);
+
   return (
     <Modal
       isOpen={show}
@@ -261,25 +240,23 @@ const Solicitardiaria = ({
         />
         {telamensagem && (
           <>
-            {' '}
             <Mensagemsimples
               show={telamensagem}
               setshow={settelamensagem}
               mensagem={mensagemdados}
               titulo={titulomensagem}
-            />{' '}
+            />
           </>
         )}
         {mensagemmostrar && (
           <>
-            {' '}
             <Mensagemescolha
               show={mensagemmostrar}
               setshow={setmensagemmostrar}
               titulotopo="Confirmação"
               mensagem="O Parcelamento anterior será apagado. Deseja realmente editar o parcelamento? "
               respostapergunta={confirmacao}
-            />{' '}
+            />
           </>
         )}
         {loading ? (
@@ -367,12 +344,7 @@ const Solicitardiaria = ({
               </div>
               <div className="col-2">
                 PO
-                <Input
-                  type="text"
-                  onChange={(e) => setpo(e.target.value)}
-                  value={po}
-                  placeholder=""
-                />
+                <Input type="text" onChange={(e) => setpo(e.target.value)} value={po} placeholder="" />
               </div>
 
               <div className="col-4">
@@ -411,7 +383,7 @@ const Solicitardiaria = ({
                 <NumericFormat
                   value={valorsolicitacao}
                   onValueChange={(values) => {
-                    const { floatValue = 0 } = values; 
+                    const { floatValue = 0 } = values;
                     setvalorsolicitacao(floatValue);
                     const quantidade = Number(diaria) || 0;
                     settotal(quantidade * VALOR_DIARIA + floatValue);
@@ -422,24 +394,20 @@ const Solicitardiaria = ({
                   decimalScale={2}
                   fixedDecimalScale
                   allowNegative={false}
-                  customInput={Input} // Mantém o estilo do Bootstrap
+                  customInput={Input}
                 />
               </div>
 
               <div className="col-sm-2">
                 Diarias
-                <Input
-                  type="number"
-                  onChange={(e) => handleDiarias(e.target.value)}
-                  value={diaria}
-                />
+                <Input type="number" onChange={(e) => handleDiarias(e.target.value)} value={diaria} />
               </div>
               <div className="col-sm-3">
                 Valor Total
                 <NumericFormat
                   value={total}
                   onValueChange={(values) => {
-                    const { floatValue } = values; // Aqui usamos const
+                    const { floatValue } = values;
                     settotal(floatValue);
                   }}
                   thousandSeparator="."
@@ -448,12 +416,12 @@ const Solicitardiaria = ({
                   decimalScale={2}
                   fixedDecimalScale
                   allowNegative={false}
-                  customInput={Input} // Mantém o estilo do Bootstrap
+                  customInput={Input}
                   disabled
                 />
               </div>
               <div className=" col-sm-3 d-flex flex-row-reverse">
-                <Button color="primary" onClick={ProcessaCadastro}>
+                <Button color="primary" onClick={ProcessaCadastro} disabled={loading}>
                   Adicionar Solicitação <Icon.Plus />
                 </Button>
               </div>

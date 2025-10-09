@@ -212,9 +212,9 @@ var
     valorDiaria := FormatCurrencyBR(VALOR_DIARIA);
 
     if Quantidade = 1 then
-      Result := Format('%d Diria %s', [Quantidade, valorDiaria])
+      Result := Format('%d Diária %s', [Quantidade, valorDiaria])
     else
-      Result := Format('%d Dirias %s', [Quantidade, valorDiaria]);
+      Result := Format('%d Diárias %s', [Quantidade, valorDiaria]);
   end;
 
 begin

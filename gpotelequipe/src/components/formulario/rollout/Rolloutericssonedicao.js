@@ -865,9 +865,9 @@ const Rolloutericssonedicao = ({
       formData.append('idsolicitacaodiaria', novoId);
       //formData.append('anexo', modeloDiaria, 'Solicitação Adiantamento.xlsx');
 
-      await api.post('v1/solicitardiaria', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // await api.post('v1/solicitardiaria', formData, {
+      //   headers: { 'Content-Type': 'multipart/form-data' },
+      // });
     } catch (err) {
       if (err.response?.data?.erro) {
         toast.error(err.response.data.erro);
@@ -1431,10 +1431,10 @@ const Rolloutericssonedicao = ({
           porcentagem === null || porcentagem === 0
             ? grey[350]
             : porcentagem > 0 && porcentagem < 1
-            ? yellow[500]
-            : porcentagem >= 1
-            ? green[500]
-            : undefined;
+              ? yellow[500]
+              : porcentagem >= 1
+                ? green[500]
+                : undefined;
 
         return <PaidIcon style={{ color }} />;
       },

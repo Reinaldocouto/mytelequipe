@@ -481,29 +481,28 @@ begin
     Sheet := WorkBook.Worksheets[1];
 
     // Cabeçalhos
-    Sheet.Cells[4, 1] := 'DATA';
-    Sheet.Cells[4, 2] := 'NOME COLABORADOR';
-    Sheet.Cells[4, 3] := 'CLIENTE';
-    Sheet.Cells[4, 4] := 'SITE ID ';
-    Sheet.Cells[4, 5] := 'ID';
+    Sheet.Cells[4, 1] := 'NÚMERO';
+    Sheet.Cells[4, 2] := 'DATA';
+    Sheet.Cells[4, 3] := 'COLABORADOR';
+    Sheet.Cells[4, 4] := 'CLIENTE';
+    Sheet.Cells[4, 5] := 'SITE ID';
     Sheet.Cells[4, 6] := 'SIGLA SITE';
     Sheet.Cells[4, 7] := 'PO';
     Sheet.Cells[4, 8] := 'LOCAL';
     Sheet.Cells[4, 9] := 'DESCRIÇÃO';
     Sheet.Cells[4, 10] := 'PROJETO';
-    Sheet.Cells[4, 11] := 'VALOR OUTRAS SOLICITAÇÕES';
-    Sheet.Cells[4, 12] := 'QTDE  DIÁRIAS';
+    Sheet.Cells[4, 11] := 'OUTRAS SOLICITAÇÕES';
+    Sheet.Cells[4, 12] := 'DIÁRIAS';
     Sheet.Cells[4, 13] := 'VALOR TOTAL';
     Sheet.Cells[4, 14] := 'SOLICITANTE';
 
-
     // Dados
     projetoFormatado := FormatProjectName(projeto, ResolveRegionalSuffix);
-    Sheet.Cells[5, 1] := StrToDateTime(datasolicitacao);
-    Sheet.Cells[5, 2] := nomecolaborador;
-    Sheet.Cells[5, 3] := cliente;
-    Sheet.Cells[5, 4] := siteid;
-    Sheet.Cells[5, 5] := '';
+    Sheet.Cells[5, 1] := numero;
+    Sheet.Cells[5, 2] := StrToDateTime(datasolicitacao);
+    Sheet.Cells[5, 3] := nomecolaborador;
+    Sheet.Cells[5, 4] := cliente;
+    Sheet.Cells[5, 5] := siteid;
     Sheet.Cells[5, 6] := siglasite;
     Sheet.Cells[5, 7] := podiaria;
     Sheet.Cells[5, 8] := local;

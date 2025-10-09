@@ -3,11 +3,17 @@ unit Controller.Despesas;
 interface
 
 uses
-  Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,
-  DataSet.Serialize, Model.Despesas, UtFuncao, Controller.Auth;
+  Horse,
+  System.JSON,
+  System.SysUtils,
+  FireDAC.Comp.Client,
+  Data.DB,
+  DataSet.Serialize,
+  Model.Despesas,
+  UtFuncao,
+  Controller.Auth;
 
 procedure Registry;
-
 procedure Lista(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure Listaid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure Salva(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -38,14 +44,14 @@ begin
 
       if servico.NovoCadastro(erro) > 0 then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.iddespesas))
-           .Status(THTTPStatus.Created)
+          .Status(THTTPStatus.Created)
       else
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro))
-           .Status(THTTPStatus.InternalServerError);
+          .Status(THTTPStatus.InternalServerError);
     except
       on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message))
-           .Status(THTTPStatus.InternalServerError);
+          .Status(THTTPStatus.InternalServerError);
     end;
   finally
     servico.Free;
@@ -73,10 +79,12 @@ begin
       if erro = '' then
         Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
       else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro))
+          .Status(THTTPStatus.InternalServerError);
     except
       on ex: Exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message))
+          .Status(THTTPStatus.InternalServerError);
     end;
   finally
     qry.Free;
@@ -107,8 +115,6 @@ begin
     try
       objDespesa := qry.ToJSONObject;
 
-      // --- Enriquecer com "rateio" ---
-      // 1) Setar chaves necessárias no model (ele usa para resolver idgeral)
       if Req.Query.ContainsKey('idpessoabusca') then
         idBusca := StrToIntDef(Req.Query.Items['idpessoabusca'], 0)
       else
@@ -118,7 +124,7 @@ begin
       servico.idcliente  := objDespesa.GetValue<Integer>('idcliente', 0);
       servico.idloja     := objDespesa.GetValue<Integer>('idloja', 0);
 
-      // 2) Carregar rateios da tabela gesdespesas_rateio (via model)
+      // carrega rateios com base no idgeral da despesa
       if (servico.iddespesas > 0) and servico.CarregarRateios then
       begin
         arrRateio := TJSONArray.Create;
@@ -140,11 +146,11 @@ begin
         Res.Send<TJSONObject>(objDespesa).Status(THTTPStatus.OK)
       else
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro))
-           .Status(THTTPStatus.InternalServerError);
+          .Status(THTTPStatus.InternalServerError);
     except
       on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message))
-           .Status(THTTPStatus.InternalServerError);
+          .Status(THTTPStatus.InternalServerError);
     end;
   finally
     qry.Free;
@@ -166,29 +172,27 @@ begin
     try
       body := Req.Body<TJSONObject>;
 
-      // iddespesas (aceita vazio -> insert)
       iddespesasStr := body.GetValue<string>('iddespesas', '');
       if (iddespesasStr <> '') and StrIsInt(iddespesasStr) then
         servico.iddespesas := body.GetValue<Integer>('iddespesas', 0)
       else
         servico.iddespesas := 0;
 
-      // campos principais
-      servico.datalancamento      := body.GetValue<string>('datalancamento', '');
-      servico.valordespesa        := body.GetValue<string>('valordespesa', '');
-      servico.descricao           := body.GetValue<string>('descricao', '');
-      servico.comprovante         := body.GetValue<string>('comprovante', '');
-      servico.observacao          := body.GetValue<string>('observacao', '');
-      servico.periodicidade       := body.GetValue<string>('periodicidade', '');
-      servico.categoria           := body.GetValue<string>('categoria', '');
-      servico.periodo             := body.GetValue<string>('periodo', '');
-      servico.valordaparcela      := body.GetValue<string>('valordaparcela', '');
-      servico.dataInicio          := body.GetValue<string>('dataInicio', '');
-      servico.parceladoEm         := body.GetValue<string>('parceladoEm', '');
-      servico.despesacadastradapor:= body.GetValue<string>('despesacadastradapor', '');
+      servico.datalancamento := body.GetValue<string>('datalancamento', '');
+      servico.valordespesa    := body.GetValue<string>('valordespesa', '');
+      servico.descricao       := body.GetValue<string>('descricao', '');
+      servico.comprovante     := body.GetValue<string>('comprovante', '');
+      servico.observacao      := body.GetValue<string>('observacao', '');
+      servico.periodicidade   := body.GetValue<string>('periodicidade', '');
+      servico.categoria       := body.GetValue<string>('categoria', '');
+      servico.periodo         := body.GetValue<string>('periodo', '');
+      servico.valordaparcela  := body.GetValue<string>('valordaparcela', '');
+      servico.dataInicio      := body.GetValue<string>('dataInicio', '');
+      servico.parceladoEm     := body.GetValue<string>('parceladoEm', '');
+      servico.despesacadastradapor := body.GetValue<string>('despesacadastradapor', '');
 
-      servico.idcliente           := body.GetValue<Integer>('idcliente', 0);
-      servico.idloja              := body.GetValue<Integer>('idloja', 0);
+      servico.idcliente := body.GetValue<Integer>('idcliente', 0);
+      servico.idloja    := body.GetValue<Integer>('idloja', 0);
 
       idEmpresaStr := body.GetValue<string>('idempresa', '');
       if (idEmpresaStr <> '') and StrIsInt(idEmpresaStr) then
@@ -206,25 +210,23 @@ begin
       else
         servico.idveiculo := 0;
 
-      // ===== RATEIO (pega array do body e manda pro model) =====
+      // RATEIO (array com itens -> salva por idgeral)
       arrRateio := body.GetValue<TJSONArray>('rateio', nil);
       if Assigned(arrRateio) then
         servico.LoadRateiosFromJSONArray(arrRateio)
       else
         servico.ClearRateios;
 
-      // ===== persiste =====
       if servico.Editar(erro) then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.iddespesas))
-           .Status(THTTPStatus.Created)
+          .Status(THTTPStatus.Created)
       else
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro))
-           .Status(THTTPStatus.InternalServerError);
-
+          .Status(THTTPStatus.InternalServerError);
     except
       on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message))
-           .Status(THTTPStatus.InternalServerError);
+          .Status(THTTPStatus.InternalServerError);
     end;
   finally
     servico.Free;

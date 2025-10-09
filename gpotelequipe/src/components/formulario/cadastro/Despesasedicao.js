@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { Box } from '@mui/material';
 import Typography from '@mui/material/Typography';
@@ -9,7 +9,6 @@ import api from '../../../services/api';
 import S3Service from '../../../services/s3Service';
 import modoVisualizador from '../../../services/modovisualizador';
 
-// --- Custom MultiValue (sem defaultProps) para React 19 ---
 const CustomMultiValue = ({ children, innerProps, removeProps }) => {
   return (
     <div
@@ -49,7 +48,6 @@ CustomMultiValue.propTypes = {
   removeProps: PropTypes.object,
 };
 
-// Opcional: estilo para o container dos valores
 const multiStyles = {
   multiValue: (base) => ({
     ...base,
@@ -134,36 +132,45 @@ const Despesasedicao = ({
   const [mensagem, setmensagem] = useState('');
   const [mensagemsucesso, setmensagemsucesso] = useState('');
   const [loading, setloading] = useState(true);
+
   const [empresalista, setempresalista] = useState([]);
   const [veiculoslista, setveiculoslista] = useState([]);
+
   const [iddespesas, setiddespesas] = useState();
-  const [datalancamento, setdatalancamento] = useState(() => {
-    const ontem = new Date();
-    ontem.setDate(ontem.getDate());
-    return ontem.toISOString().split('T')[0];
-  });
+  const [datalancamento, setdatalancamento] = useState(() => new Date().toISOString().split('T')[0]);
   const [valordespesa, setvalordespesa] = useState('');
   const [descricao, setdescricao] = useState('');
   const [comprovante, setcomprovante] = useState('');
   const [observacao, setobservacao] = useState('');
   const [idempresa, setidempresa] = useState();
   const [idveiculo, setidveiculo] = useState();
+
   const [selectedoptionempresa, setselectedoptionempresa] = useState(null);
   const [selectedoptionveiculo, setselectedoptionveiculo] = useState(null);
+
   const [funcionariolista, setfuncionariolista] = useState([]);
   const [selectedoptionfuncionario, setselectedoptionfuncionario] = useState(null);
   const [idpessoa, setidpessoa] = useState('');
+
   const [file, setFile] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+
   const [periodicidade, setPeriodicidade] = useState('');
   const [categoriaDespesa, setCategoriaDespesa] = useState('');
   const [parceladoEm, setParceladoEm] = useState('');
   const [valordaparcela, setvalordaparcela] = useState('');
   const [dataInicio, setDataInicio] = useState('');
+
   const [siteInput, setSiteInput] = useState('');
   const [sitesOptions, setSitesOptions] = useState([]);
   const [alocacoesSelecionadas, setAlocacoesSelecionadas] = useState([]);
   const [rateioItens, setRateioItens] = useState([]);
+
+  const [idmulta, setIdmulta] = useState(null);
+  const isEditing = !!iddespesas;
+  const isFromMulta = !!idmulta;
+
+  const mountedRef = useRef(true);
 
   const params = {
     idcliente: 1,
@@ -183,7 +190,7 @@ const Despesasedicao = ({
           return { name: filee.Key.split('/').pop(), url, key: filee.Key };
         }),
       );
-      setUploadedFiles(fileUrls);
+      if (mountedRef.current) setUploadedFiles(fileUrls);
     } catch {
       console.log('Erro ao listar arquivos no S3');
     }
@@ -191,117 +198,56 @@ const Despesasedicao = ({
 
   const listafuncionario = async (id) => {
     try {
-      setloading(true);
       const res = await api.get(`v1/pessoa/selectfuncionario/${id}`);
-      setfuncionariolista(res.data);
-      setmensagem('');
+      if (mountedRef.current) {
+        setfuncionariolista(res.data);
+        setmensagem('');
+      }
     } catch (err) {
-      setmensagem(err.message);
-    } finally {
-      setloading(false);
+      if (mountedRef.current) setmensagem(err.message);
     }
   };
 
   const listaempresa = async () => {
     try {
-      setloading(true);
       const res = await api.get('v1/empresas/selectpj', { params });
-      setempresalista(res.data ?? null);
-      setmensagem('');
+      return res.data ?? [];
     } catch (err) {
       setmensagem(err.message);
-    } finally {
-      setloading(false);
+      return [];
     }
   };
 
   const listaveiculos = async () => {
     try {
-      setloading(true);
       const response = await api.get('v1/veiculos', { params });
       const lista = response.data.map((item) => ({
         value: item.id,
-        label: item.placa,
+        label: `${item.placa}${item.modelo ? ` - ${item.modelo}` : ''}`,
         empresaId: item.idempresa,
         pessoaId: item.idpessoa,
       }));
-      setveiculoslista(lista);
+      return lista;
     } catch (err) {
       setmensagem(err.message);
-    } finally {
-      setloading(false);
+      return [];
     }
   };
 
-  const iniciatabelas = async () => {
+  const listadespesas = async (veiculosArg) => {
     try {
-      setloading(true);
-      await Promise.all([listaempresa(), listaveiculos()]);
-    } catch {
-      setmensagem('Erro ao carregar os dados iniciais.');
-    } finally {
-      setloading(false);
-    }
-  };
-
-  function initialPage() {
-    const initializeS3Service = async () => {
-      await fetchS3Credentials();
-      iniciatabelas();
-    };
-    const ontem = new Date();
-    ontem.setDate(ontem.getDate());
-    const data = ontem.toISOString().split('T')[0];
-    setdatalancamento(data);
-    initializeS3Service();
-  }
-
-  const parseSiteId = (raw) => {
-    const s = String(raw).trim();
-    if (!s) return '';
-    const m = s.match(/^(?:SITE[\s:-]+)?(.+)$/i);
-    return m ? m[1].trim() : '';
-  };
-
-  const addSite = () => {
-    const id = parseSiteId(siteInput);
-    if (!id) return;
-    const value = `SITE:${id}`;
-    const label = `SITE-${id}`;
-    const existsInOptions = sitesOptions.some((o) => o.value === value);
-    const existsInSelection = alocacoesSelecionadas.some((o) => o.value === value);
-    if (!existsInOptions) {
-      setSitesOptions((prev) => [...prev, { value, label }]);
-    }
-    if (!existsInSelection) {
-      setAlocacoesSelecionadas((prev) => [...prev, { value, label }]);
-    }
-    setSiteInput('');
-  };
-
-  const removeSiteOption = (value) => {
-    setSitesOptions((prev) => prev.filter((o) => o.value !== value));
-    setAlocacoesSelecionadas((prev) => prev.filter((o) => o.value !== value));
-    setRateioItens((prev) => prev.filter((i) => i.key !== value));
-  };
-
-  const combinedOptions = useMemo(() => [...regionaisBase, ...sitesOptions], [sitesOptions]);
-
-  const listadespesas = async () => {
-    try {
-      setloading(true);
       const response = await api.get('v1/despesasid', { params });
       const { data } = response;
       if (!data?.iddespesas) return;
 
       const id = data.iddespesas || ididentificador;
-      await listFilesFromS3(id);
+      if (s3Service && id) await listFilesFromS3(id);
 
-      const veiculoSelecionado = veiculoslista.find((item) => Number(item?.value) === Number(data.idveiculo));
-      setselectedoptionveiculo({
-        value: veiculoSelecionado?.value || '',
-        label: veiculoSelecionado?.label || '',
-      });
+      setIdmulta((data.idmulta || data.categoria.toLowerCase() === 'multas') ?? null);
+
+      const source = Array.isArray(veiculosArg) && veiculosArg.length ? veiculosArg : veiculoslista;
+      const veiculoSelecionado = source.find((item) => Number(item?.value) === Number(data.idveiculo));
+      setselectedoptionveiculo(veiculoSelecionado ? { value: veiculoSelecionado.value, label: veiculoSelecionado.label } : null);
 
       setiddespesas(data.iddespesas);
       setdatalancamento(data.datalancamento);
@@ -315,126 +261,79 @@ const Despesasedicao = ({
       setParceladoEm(data.parceladoem);
       setPeriodicidade(data.periodicidade);
       setDataInicio(data.datainicio);
-      setCategoriaDespesa(data.categoria);
+      setCategoriaDespesa((data.idmulta ? 'Multas' : data.categoria) || '');
       setidpessoa(data.idpessoa);
       setmensagem('');
 
       if (data.idempresa) {
-        listafuncionario(data.idempresa);
+        await listafuncionario(data.idempresa);
         setselectedoptionempresa({ value: data.idempresa, label: data.empresa });
       }
 
+
       if (Array.isArray(data.rateio) && data.rateio.length > 0) {
-        const siteOpts = data.rateio
+        const sitesFromApi = data.rateio
           .filter((r) => r.tipo === 'SITE' && r.idsite != null)
           .map((r) => ({ value: `SITE:${r.idsite}`, label: `SITE-${r.idsite}` }));
-        if (siteOpts.length) {
+        if (sitesFromApi.length) {
           setSitesOptions((prev) => {
             const mapPrev = new Map(prev.map((o) => [o.value, o]));
-            siteOpts.forEach((o) => mapPrev.set(o.value, o));
+            sitesFromApi.forEach((o) => mapPrev.set(o.value, o));
             return Array.from(mapPrev.values());
           });
         }
 
-        const selections = data.rateio.map((r) =>
-          r.tipo === 'DEPARTAMENTO'
-            ? { value: `DEP:${r.departamento}`, label: r.departamento }
-            : { value: `SITE:${r.idsite}`, label: `SITE-${r.idsite}` },
-        );
-        setAlocacoesSelecionadas(selections);
-
-        setRateioItens(
-          data.rateio.map((r) =>
-            r.tipo === 'DEPARTAMENTO'
-              ? {
-                key: `DEP:${r.departamento}`,
-                tipo: 'DEPARTAMENTO',
-                iddepartamento: r.departamento,
-                idsite: null,
-                label: r.departamento,
-                percentual: String(r.percentual ?? ''),
-              }
-              : {
-                key: `SITE:${r.idsite}`,
-                tipo: 'SITE',
-                iddepartamento: null,
-                idsite: String(r.idsite),
-                label: `SITE-${r.idsite}`,
-                percentual: String(r.percentual ?? ''),
-              },
-          ),
-        );
+        const depsSelections = data.rateio
+          .filter((r) => r.tipo === 'DEPARTAMENTO')
+          .map((r) => ({ value: `DEP:${r.departamento}`, label: r.departamento }));
+        setAlocacoesSelecionadas(depsSelections);
       } else {
+        setSitesOptions([]);
         setAlocacoesSelecionadas([]);
-        setRateioItens([]);
       }
     } catch (err) {
       setmensagem(err.message || 'Erro inesperado ao buscar despesas.');
-    } finally {
-      setloading(false);
     }
   };
 
   useEffect(() => {
-    setRateioItens((prev) => {
-      const prevMap = new Map(prev.map((p) => [p.key, p]));
-      const next = [];
-      alocacoesSelecionadas.forEach((opt) => {
-        const val = String(opt.value);
-        if (val.startsWith('DEP:')) {
-          const depName = val.slice(4);
-          const key = `DEP:${depName}`;
-          const found = prevMap.get(key);
-          next.push(
-            found
-              ? { ...found, tipo: 'DEPARTAMENTO', iddepartamento: depName, label: depName }
-              : { key, tipo: 'DEPARTAMENTO', iddepartamento: depName, idsite: null, label: depName, percentual: '' },
-          );
-        } else if (val.startsWith('SITE:')) {
-          const siteId = val.slice(5);
-          const key = `SITE:${siteId}`;
-          const found = prevMap.get(key);
-          next.push(
-            found
-              ? { ...found, tipo: 'SITE', idsite: siteId, label: `SITE-${siteId}` }
-              : { key, tipo: 'SITE', iddepartamento: null, idsite: siteId, label: `SITE-${siteId}`, percentual: '' },
-          );
+    mountedRef.current = true;
+    const init = async () => {
+      setloading(true);
+      setmensagem('');
+      try {
+        await fetchS3Credentials();
+
+        const [empresas, veiculos] = await Promise.all([listaempresa(), listaveiculos()]);
+        if (!mountedRef.current) return;
+
+        setempresalista(empresas);
+        setveiculoslista(veiculos);
+
+        if (selectedLancarDespesas) {
+          const veiculoSelecionado = veiculos.find((item) => Number(item?.value) === Number(selectedLancarDespesas.id));
+          setselectedoptionveiculo(veiculoSelecionado ? { value: veiculoSelecionado.value, label: veiculoSelecionado.label } : null);
+          setidveiculo(veiculoSelecionado?.value ?? null);
+
+          if (selectedLancarDespesas.idempresa) {
+            const empId = selectedLancarDespesas.idempresa;
+            await listafuncionario(empId);
+            const empresa = empresas.find((item) => Number(item?.value) === Number(empId));
+            setselectedoptionempresa(empresa ? { value: empresa.value, label: empresa.label } : null);
+            setidempresa(empId);
+          }
         }
-      });
-      return next;
-    });
-  }, [alocacoesSelecionadas]);
 
-  useEffect(() => {
-    listadespesas();
-    if (selectedLancarDespesas) {
-      const veiculoSelecionado = veiculoslista.find((item) => Number(item?.value) === Number(selectedLancarDespesas.id));
-      setselectedoptionveiculo({
-        value: veiculoSelecionado?.value || '',
-        label: veiculoSelecionado?.label || '',
-      });
-      setidveiculo(veiculoSelecionado?.value || veiculoSelecionado?.label);
-      if (selectedLancarDespesas.idempresa) {
-        listafuncionario(selectedLancarDespesas.idempresa);
-        const empresa = empresalista.find((item) => Number(item?.value) === Number(selectedLancarDespesas.idempresa));
-        setselectedoptionempresa({
-          value: empresa?.value || '',
-          label: empresa?.label || '',
-        });
+        await listadespesas(veiculos);
+      } finally {
+        if (mountedRef.current) setloading(false);
       }
-    }
-  }, [veiculoslista, empresalista]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (iddespesas) {
-      const id = iddespesas || ididentificador;
-      listFilesFromS3(id);
-    }
-  }, [iddespesas]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    initialPage();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    };
+    init();
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (idempresa && empresalista && empresalista.length > 0) {
@@ -454,9 +353,7 @@ const Despesasedicao = ({
 
   const validarCampos = () => {
     if (!datalancamento) {
-      const ontem = new Date();
-      ontem.setDate(ontem.getDate());
-      setdatalancamento(ontem.toISOString().split('T')[0]);
+      setdatalancamento(new Date().toISOString().split('T')[0]);
     }
     if (!valordespesa) {
       setmensagem("O campo 'Valor da Despesa' é obrigatório.");
@@ -488,10 +385,24 @@ const Despesasedicao = ({
         return false;
       }
     }
-    if (rateioItens.length === 0) {
+
+
+    const totalItensRateio = (alocacoesSelecionadas?.length || 0) + (sitesOptions?.length || 0);
+
+    if (categoriaDespesa === 'Multas') {
+      if (!isEditing) {
+        setmensagem('Multas não pode ser criada normalmente. Salve a despesa e edite a partir de um lançamento de multa.');
+        return false;
+      }
+      if (totalItensRateio !== 1) {
+        setmensagem('Para a categoria Multas, selecione exatamente um departamento OU informe exatamente um site.');
+        return false;
+      }
+    } else if (totalItensRateio === 0) {
       setmensagem('Adicione pelo menos um departamento ou um site ao rateio.');
       return false;
     }
+
     const soma = rateioItens.reduce((acc, cur) => {
       const v = parseFloat(String(cur.percentual).replace(',', '.')) || 0;
       return acc + v;
@@ -514,9 +425,7 @@ const Despesasedicao = ({
 
   function ProcessaCadastro(e) {
     e.preventDefault();
-    const ontem = new Date();
-    ontem.setDate(ontem.getDate());
-    const dataNow = ontem.toISOString().split('T')[0];
+    const dataNow = new Date().toISOString().split('T')[0];
 
     if (!validarCampos()) return;
 
@@ -537,7 +446,7 @@ const Despesasedicao = ({
       tipo: r.tipo,
       iddepartamento: r.tipo === 'DEPARTAMENTO' ? r.iddepartamento : null,
       idsite: r.tipo === 'SITE' ? r.idsite : null,
-      percentual: parseFloat(String(r.percentual).replace(',', '.')) || 0,
+      percentual: (categoriaDespesa === 'Multas' || isFromMulta) ? 100 : parseFloat(String(r.percentual).replace(',', '.')) || 0,
     }));
 
     api
@@ -552,25 +461,26 @@ const Despesasedicao = ({
         dataInicio,
         valordaparcela: moedaParaNumero(valordaparcela),
         parceladoEm,
-        categoria: categoriaDespesa,
+        categoria: (isFromMulta ? 'Multas' : categoriaDespesa),
         periodicidade,
         idempresa,
         idpessoa,
+        idmulta,
         rateio: payloadRateio,
         despesacadastradapor: localStorage.getItem('sessionNome'),
         idcliente: 1,
         idusuario: 1,
         idloja: 1,
       })
-      .then((response) => {
+      .then(async (response) => {
         if (response.status === 201) {
           setmensagem('');
           setmensagemsucesso('Registro Salvo');
-          setTimeout(() => {
-            if (atualiza) atualiza();
-            initialPage();
-          }, 1000);
-          togglecadastro.bind(null);
+          if (atualiza) atualiza();
+          if (s3Service && (ididentificador || iddespesas)) {
+            const id = ididentificador || iddespesas;
+            await listFilesFromS3(id);
+          }
         } else {
           setmensagem(response.status);
           setmensagemsucesso('');
@@ -585,7 +495,7 @@ const Despesasedicao = ({
         setmensagemsucesso('');
       })
       .finally(() => {
-        setloading(false);
+        if (mountedRef.current) setloading(false);
       });
   }
 
@@ -640,14 +550,14 @@ const Despesasedicao = ({
   };
 
   const handleFileUpload = async () => {
-    if (file) {
+    if (file && (ididentificador || iddespesas)) {
       try {
-        const key = `despesas/${ididentificador}/${file.name}`;
+        const id = ididentificador || iddespesas;
+        const key = `despesas/${id}/${file.name}`;
         await s3Service.uploadFile(file, key);
         const url = await s3Service.getFileUrl(key);
         setUploadedFiles((prev) => [...prev, { name: file.name, url, key }]);
-        const id = ididentificador;
-        listFilesFromS3(id);
+        await listFilesFromS3(id);
       } catch {
         console.log('Erro ao enviar arquivo ao S3');
       }
@@ -665,7 +575,8 @@ const Despesasedicao = ({
 
   const handleGenerateDownloadLink = async (fileName) => {
     try {
-      const key = `despesas/${ididentificador}/${fileName}`;
+      const id = ididentificador || iddespesas;
+      const key = `despesas/${id}/${fileName}`;
       const url = await s3Service.getFileUrl(key);
       if (!url) throw new Error('URL não gerado corretamente');
       const link = document.createElement('a');
@@ -680,25 +591,154 @@ const Despesasedicao = ({
     }
   };
 
+  const parseSiteId = (raw) => {
+    const s = String(raw).trim();
+    if (!s) return '';
+    const m = s.match(/^(?:SITE[\s:-]+)?(.+)$/i);
+    return m ? m[1].trim() : '';
+  };
+
+  const addSite = () => {
+    const id = parseSiteId(siteInput);
+    if (!id) return;
+    const value = `SITE:${id}`;
+    const label = `SITE-${id}`;
+    const existsInOptions = sitesOptions.some((o) => o.value === value);
+
+    if (isFromMulta || categoriaDespesa === 'Multas') {
+
+      setAlocacoesSelecionadas([]);
+      setSitesOptions(existsInOptions ? sitesOptions : [{ value, label }]);
+    } else if (!existsInOptions) {
+      setSitesOptions((prev) => [...prev, { value, label }]);
+    }
+    setSiteInput('');
+  };
+
+  const removeSiteOption = (value) => {
+    setSitesOptions((prev) => prev.filter((o) => o.value !== value));
+  };
+
+
+  const combinedOptions = useMemo(() => [...regionaisBase], []);
+
+  const onChangeAlocacoes = (vals) => {
+
+    if (categoriaDespesa === 'Multas' || isFromMulta) {
+      const last = Array.isArray(vals) && vals.length ? vals[vals.length - 1] : null;
+
+      if (last) setSitesOptions([]);
+      setAlocacoesSelecionadas(last ? [last] : []);
+    } else {
+      setAlocacoesSelecionadas(vals || []);
+    }
+  };
+
+
+  useEffect(() => {
+    setRateioItens((prev) => {
+      const prevMap = new Map(prev.map((p) => [p.key, p]));
+      let next = [];
+
+
+      (alocacoesSelecionadas || []).forEach((opt) => {
+        const val = String(opt.value);
+        if (val.startsWith('DEP:')) {
+          const depName = val.slice(4);
+          const key = `DEP:${depName}`;
+          const found = prevMap.get(key);
+          next.push(
+            found
+              ? { ...found, tipo: 'DEPARTAMENTO', iddepartamento: depName, label: depName }
+              : { key, tipo: 'DEPARTAMENTO', iddepartamento: depName, idsite: null, label: depName, percentual: '' },
+          );
+        }
+      });
+
+
+      (sitesOptions || []).forEach((opt) => {
+        const val = String(opt.value);
+        if (val.startsWith('SITE:')) {
+          const siteId = val.slice(5);
+          const key = `SITE:${siteId}`;
+          const found = prevMap.get(key);
+          next.push(
+            found
+              ? { ...found, tipo: 'SITE', idsite: siteId, label: `SITE-${siteId}` }
+              : { key, tipo: 'SITE', iddepartamento: null, idsite: siteId, label: `SITE-${siteId}`, percentual: '' },
+          );
+        }
+      });
+
+
+      if ((categoriaDespesa === 'Multas' || isFromMulta) && next.length) {
+        const first = { ...next[0], percentual: '100' };
+        next = [first];
+      }
+
+      return next;
+    });
+  }, [alocacoesSelecionadas, sitesOptions, categoriaDespesa, isFromMulta]);
+
   const somaPercentuais = useMemo(() => {
+    if (categoriaDespesa === 'Multas' || isFromMulta) return 100;
     const soma = rateioItens.reduce((acc, cur) => acc + (parseFloat(String(cur.percentual).replace(',', '.')) || 0), 0);
     return Math.round(soma * 100) / 100;
-  }, [rateioItens]);
+  }, [rateioItens, categoriaDespesa, isFromMulta]);
 
   const handlePercentualChange = (key, value) => {
+    if (categoriaDespesa === 'Multas' || isFromMulta) {
+      setRateioItens((prev) => prev.map((i) => (i.key === key ? { ...i, percentual: '100' } : i)));
+      setmensagem('');
+      return;
+    }
     setRateioItens((prev) => prev.map((i) => (i.key === key ? { ...i, percentual: value } : i)));
     setmensagem('');
   };
 
   const removerItemRateio = (key) => {
-    setAlocacoesSelecionadas((prev) => prev.filter((o) => o.value !== key));
-    setRateioItens((prev) => prev.filter((i) => i.key !== key));
+
+    if (key.startsWith('DEP:')) {
+      setAlocacoesSelecionadas((prev) => prev.filter((o) => o.value !== key));
+    }
+
+    if (key.startsWith('SITE:')) {
+      setSitesOptions((prev) => prev.filter((o) => o.value !== key));
+    }
   };
 
-  // IDs para associar labels (acessibilidade)
-  const allocSelectId = 'alocacoes-select';
-  const siteInputId = 'site-input';
-  const rateioLabelId = 'rateio-label';
+  const onChangeCategoria = (e) => {
+    const { value } = e.target;
+
+    if (value === 'Multas' && !isEditing) {
+      setmensagem('Multas não pode ser criado normalmente.');
+      return;
+    }
+
+    if (isFromMulta) {
+      setmensagem('Despesa vinculada a multa: a categoria é fixa em "Multas".');
+      setCategoriaDespesa('Multas');
+      return;
+    }
+
+    setCategoriaDespesa(value);
+
+    if (value === 'Unica') {
+      setParceladoEm('1');
+      setvalordaparcela(valordespesa);
+    }
+
+    if (value === 'Multas') {
+
+      const temSite = sitesOptions.length > 0;
+      if (temSite) {
+        setAlocacoesSelecionadas([]);
+      } else if (alocacoesSelecionadas.length > 1) {
+        const last = alocacoesSelecionadas[alocacoesSelecionadas.length - 1];
+        setAlocacoesSelecionadas(last ? [last] : []);
+      }
+    }
+  };
 
   return (
     <Modal isOpen={show} toggle={togglecadastro.bind(null)} backdrop="static" keyboard={false} className="modal-dialog modal-xl modal-fullscreen ">
@@ -729,7 +769,6 @@ const Despesasedicao = ({
                   name="veiculo"
                   options={veiculoslista}
                   placeholder="Selecione"
-                  isLoading={loading}
                   onChange={handleveiculo}
                   value={selectedoptionveiculo}
                 />
@@ -743,7 +782,6 @@ const Despesasedicao = ({
                   name="empresa"
                   options={empresalista}
                   placeholder="Selecione"
-                  isLoading={loading}
                   onChange={handleempresa}
                   value={selectedoptionempresa}
                 />
@@ -757,7 +795,6 @@ const Despesasedicao = ({
                   name="funcionario"
                   options={funcionariolista}
                   placeholder="Selecione"
-                  isLoading={loading}
                   onChange={handlefuncionario}
                   value={selectedoptionfuncionario}
                 />
@@ -766,14 +803,26 @@ const Despesasedicao = ({
               <Col md="3">
                 <FormGroup>
                   Categoria
-                  <Input type="select" onChange={(e) => setCategoriaDespesa(e.target.value)} value={categoriaDespesa}>
+                  <Input
+                    type="select"
+                    onChange={onChangeCategoria}
+                    value={categoriaDespesa}
+                    disabled={isFromMulta}
+                  >
                     <option value="">Selecione</option>
                     <option value="Combustível">COMBUSTÍVEL</option>
                     <option value="Locação">LOCAÇÃO</option>
                     <option value="Manutenção">MANUTENÇÃO</option>
                     <option value="Pedágio">PEDÁGIO</option>
+                    <option value="Multas" disabled={!isEditing && !isFromMulta}>Multas</option>
                     <option value="Outros">OUTROS</option>
                   </Input>
+                  {!isEditing && !isFromMulta && (
+                    <small className="text-muted">Para lançar Multas, não crie manualmente — crie um lançamento de multa.</small>
+                  )}
+                  {isFromMulta && (
+                    <small className="text-muted">Despesa vinculada a multa (categoria fixa).</small>
+                  )}
                 </FormGroup>
               </Col>
 
@@ -874,21 +923,21 @@ const Despesasedicao = ({
             <div className="row g-3 mt-2">
               <Col md="12">
                 <FormGroup>
-                  {/* Label para Departamentos e Sites */}
-                  Departamentos e Sites
+                  {/* Título ajustado: apenas Departamentos */}
+                  Departamentos
                   <div className="d-flex align-items-end gap-2">
                     <div className="flex-grow-1">
                       <Select
-                        inputId={allocSelectId}
-                        instanceId={allocSelectId}
+                        inputId="alocacoes-select"
+                        instanceId="alocacoes-select"
                         isMulti
                         isClearable
                         isSearchable
                         name="alocacoes"
                         options={combinedOptions}
-                        placeholder="Selecione departamentos e sites"
+                        placeholder="Selecione departamentos"
                         value={alocacoesSelecionadas}
-                        onChange={(vals) => setAlocacoesSelecionadas(vals || [])}
+                        onChange={onChangeAlocacoes}
                         components={{ MultiValue: CustomMultiValue }}
                         styles={multiStyles}
                       />
@@ -899,7 +948,7 @@ const Despesasedicao = ({
                     <div className="flex-grow-1">
                       Site
                       <Input
-                        id={siteInputId}
+                        id="site-input"
                         type="text"
                         placeholder='Adicionar Site (ex.: "123" ou "SITE-123")'
                         value={siteInput}
@@ -907,7 +956,12 @@ const Despesasedicao = ({
                       />
                     </div>
                     <div>
-                      <Button color="primary" onClick={addSite} style={{ marginTop: 24 }}>
+                      <Button
+                        color="primary"
+                        onClick={addSite}
+                        style={{ marginTop: 24 }}
+                        disabled={(categoriaDespesa === 'Multas' || isFromMulta) && (alocacoesSelecionadas.length + sitesOptions.length) >= 1}
+                      >
                         Adicionar Site
                       </Button>
                     </div>
@@ -929,9 +983,8 @@ const Despesasedicao = ({
 
             <div className="row g-3">
               <div className="col-sm-12">
-                {/* Label para Rateio */}
                 Rateio
-                <table className="table table-white-bg" aria-labelledby={rateioLabelId}>
+                <table className="table table-white-bg" aria-labelledby="rateio-label">
                   <thead>
                     <tr>
                       <th>Tipo</th>
@@ -950,13 +1003,20 @@ const Despesasedicao = ({
                             type="number"
                             min="0"
                             step="0.01"
-                            value={item.percentual}
+                            value={(categoriaDespesa === 'Multas' || isFromMulta) ? '100' : item.percentual}
                             onChange={(e) => handlePercentualChange(item.key, e.target.value)}
                             placeholder="0"
+                            disabled={categoriaDespesa === 'Multas' || isFromMulta}
                           />
                         </td>
                         <td>
-                          <Button color="danger" onClick={() => removerItemRateio(item.key)}>Remover</Button>
+                          <Button
+                            color="danger"
+                            onClick={() => removerItemRateio(item.key)}
+                            disabled={(categoriaDespesa === 'Multas' || isFromMulta) && rateioItens.length <= 1}
+                          >
+                            Remover
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -966,14 +1026,14 @@ const Despesasedicao = ({
                           <strong>Total</strong>
                         </td>
                         <td>
-                          <strong>{somaPercentuais.toFixed(2)}</strong>
+                          <strong>{((categoriaDespesa === 'Multas' || isFromMulta) ? 100 : somaPercentuais).toFixed(2)}</strong>
                         </td>
                         <td></td>
                       </tr>
                     )}
                   </tbody>
                 </table>
-                {rateioItens.length > 0 && somaPercentuais !== 100 && (
+                {rateioItens.length > 0 && somaPercentuais !== 100 && !(categoriaDespesa === 'Multas' || isFromMulta) && (
                   <div className="alert alert-warning">A soma dos percentuais deve ser igual a 100%.</div>
                 )}
               </div>
@@ -998,9 +1058,9 @@ const Despesasedicao = ({
                 <FormGroup>
                   <div className="d-flex align-items-center">
                     <Input type="file" onChange={(e) => setFile(e.target.files[0])} />
-                    <Button color="primary" onClick={handleFileUpload} className="ms-0" disabled={!ididentificador}>Upload</Button>
+                    <Button color="primary" onClick={handleFileUpload} className="ms-0" disabled={!(ididentificador || iddespesas)}>Upload</Button>
                   </div>
-                  {!ididentificador && (
+                  {!(ididentificador || iddespesas) && (
                     <div className="mt-2 mt-md-0 ms-md-2 small text-muted">
                       Salve a despesa para adicionar os novos arquivos.
                     </div>
