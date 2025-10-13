@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Modal, ModalHeader, ModalBody, Input, CardBody, Button, InputGroup, ModalFooter } from 'reactstrap';
+import {
+  Modal,
+  ModalHeader,
+  ModalBody,
+  Input,
+  CardBody,
+  Button,
+  InputGroup,
+  ModalFooter,
+} from 'reactstrap';
 import * as Icon from 'react-feather';
 import { Box } from '@mui/material';
 import {
@@ -28,10 +37,15 @@ import Solicitacaoedicao from '../suprimento/Solicitacaoedicao';
 import Mensagemsimples from '../../Mensagemsimples';
 import Solicitardiaria from '../projeto/Solicitardiaria';
 
-
-
-const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, pmuf, idr, idpmtslocal }) => {
-
+const Rollouttelefonicaedicao = ({
+  setshow,
+  show,
+  titulotopo,
+  ididentificador,
+  pmuf,
+  idr,
+  idpmtslocal,
+}) => {
   const [acompanhamentofinanceiro, setacompanhamentofinanceiro] = useState([]);
   const [pacotes, setpacotes] = useState([]);
   const [pacotesacionadospj, setpacotesacionadospj] = useState([]);
@@ -384,7 +398,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
     } finally {
       setloading(false);
     }
-  }
+  };
 
   const listalpu = async () => {
     try {
@@ -440,8 +454,8 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
         setdatafinalclt(integracaoreal);
       }
       if (stat === 'VISTORIA') {
-        setdatainicioclt(integracaoreal)
-        setdatafinalclt(vistoriareal)
+        setdatainicioclt(integracaoreal);
+        setdatafinalclt(vistoriareal);
       }
     }
   };
@@ -523,36 +537,36 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
 
     ...(modofinanceiro()
       ? [
-        {
-          field: 'valor',
-          headerName: 'VALOR R$',
-          type: 'currency',
-          width: 150,
-          align: 'left',
-          editable: false,
-          valueFormatter: (parametros) => {
-            if (parametros.value == null) return '';
-            return parametros.value.toLocaleString('pt-BR', {
-              style: 'currency',
-              currency: 'BRL',
-            });
+          {
+            field: 'valor',
+            headerName: 'VALOR R$',
+            type: 'currency',
+            width: 150,
+            align: 'left',
+            editable: false,
+            valueFormatter: (parametros) => {
+              if (parametros.value == null) return '';
+              return parametros.value.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              });
+            },
           },
-        },
-        {
-          field: 'valortotal',
-          headerName: 'VALOR TOTAL',
-          width: 150,
-          align: 'left',
-          editable: false,
-          valueFormatter: (parametros) => {
-            if (parametros.value == null) return '';
-            return parametros.value.toLocaleString('pt-BR', {
-              style: 'currency',
-              currency: 'BRL',
-            });
+          {
+            field: 'valortotal',
+            headerName: 'VALOR TOTAL',
+            width: 150,
+            align: 'left',
+            editable: false,
+            valueFormatter: (parametros) => {
+              if (parametros.value == null) return '';
+              return parametros.value.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              });
+            },
           },
-        },
-      ]
+        ]
       : []),
     {
       field: 'statust2',
@@ -1037,7 +1051,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
     },
   ];
 
-
   const colunasmaterialeservico = [
     {
       field: 'actions',
@@ -1081,7 +1094,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
       editable: false,
     },
   ];
-
 
   const salvarpj = async (pacoteid, atividadeid) => {
     api
@@ -1140,7 +1152,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
           sethora50clt('0');
           sethora100clt('0');
           listapacotesacionadosclt();
-
         }
       })
       .catch((err) => {
@@ -1168,6 +1179,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
         latitude: sciencelatitude,
         longitude: sciencelongitude,
         acessoobs,
+        idpmts: idpmtslocal,
         acessodatainicial,
         acessodatafinal,
         acessodatasolicitacao,
@@ -1185,7 +1197,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
         statusobra,
         docaplan,
         ov,
-        uididcpomrf
+        uididcpomrf,
       })
       .then((response) => {
         if (response.status === 201) {
@@ -1224,7 +1236,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
           } catch (erro) {
             console.error(`Erro ao salvar pacote ${poite}:`, erro);
           }
-        })
+        }),
       );
 
       if (sucesso) {
@@ -1240,7 +1252,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
 
   const execacionamentoclt = async () => {
     try {
-      if ((datainicioclt === null) || (datafinalclt === null)) {
+      if (datainicioclt === null || datafinalclt === null) {
         toast.error('Não é possível salvar sem data de início ou fim do CLT');
         return;
       }
@@ -1248,7 +1260,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
         toast.error('Selecione um item na lista de Atividade');
         return; // Sai da função
       }
-
 
       if (!rowSelectionModel || rowSelectionModel.length === 0) {
         toast.error('Selecione um item na lista de Atividade');
@@ -1379,7 +1390,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
     }
   };
 
-
   //tabela de dados de despesa diarias
   const colunasdiarias = [
     {
@@ -1408,7 +1418,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',      
+          : '',
       editable: false,
     },
     {
@@ -1584,43 +1594,23 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
               <div className="row g-3">
                 <div className="col-sm-2">
                   UID_IDPMTS
-                  <Input
-                    type="text"
-                    value={uididpmts}
-                    disabled
-                  />
+                  <Input type="text" value={uididpmts} disabled />
                 </div>
                 <div className="col-sm-2">
                   UF/SIGLA
-                  <Input
-                    type="text"
-                    value={ufsigla}
-                    disabled
-                  />
+                  <Input type="text" value={ufsigla} disabled />
                 </div>
                 <div className="col-sm-2">
                   UID_IDCPOMRF
-                  <Input
-                    type="text"
-                    value={uididcpomrf}
-                    disabled
-                  />
+                  <Input type="text" value={uididcpomrf} disabled />
                 </div>
                 <div className="col-sm-2">
                   PMO_UF
-                  <Input
-                    type="text"
-                    value={pmouf}
-                    disabled
-                  />
+                  <Input type="text" value={pmouf} disabled />
                 </div>
                 <div className="col-sm-2">
                   PMO_REGIONAL
-                  <Input
-                    type="text"
-                    value={pmoregional}
-                    disabled
-                  />
+                  <Input type="text" value={pmoregional} disabled />
                 </div>
               </div>
             </CardBody>
@@ -1632,11 +1622,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
               <div className="row g-3">
                 <div className="col-sm-2">
                   ID_VIVO
-                  <Input
-                    type="text"
-                    value={pmosigla}
-                    disabled
-                  />
+                  <Input type="text" value={pmosigla} disabled />
                 </div>
                 <div className="col-sm-2">
                   INFRA
@@ -1659,35 +1645,19 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                 </div>
                 <div className="col-sm-2">
                   DETENTORA
-                  <Input
-                    type="text"
-                    value={rsorsadetentora}
-                    disabled
-                  />
+                  <Input type="text" value={rsorsadetentora} disabled />
                 </div>
                 <div className="col-sm-2">
                   ID DETENTORA
-                  <Input
-                    type="text"
-                    value={rsorsaiddetentora}
-                    disabled
-                  />
+                  <Input type="text" value={rsorsaiddetentora} disabled />
                 </div>
                 <div className="col-sm-2">
                   FCU
-                  <Input
-                    type="text"
-                    value={rsorsasci}
-                    disabled
-                  />
+                  <Input type="text" value={rsorsasci} disabled />
                 </div>
                 <div className="col-sm-2">
                   RSO_RSA_SCI_STATUS
-                  <Input
-                    type="text"
-                    value={rsorsascistatus}
-                    disabled
-                  />
+                  <Input type="text" value={rsorsascistatus} disabled />
                 </div>
                 <div className="col-sm-6">
                   ATIVIDADE
@@ -1752,7 +1722,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                     type="text"
                     onChange={(e) => setscienceendereco(e.target.value)}
                     value={scienceendereco}
-
                   />
                 </div>
                 <div className="col-sm-2">
@@ -1868,7 +1837,8 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
               <div className="row g-3">
                 <div className="col-sm-2">
                   Vistoria Plan
-                  <Input type="date"
+                  <Input
+                    type="date"
                     onChange={(e) => setvistoriaplan(e.target.value)}
                     value={vistoriaplan}
                   />
@@ -1883,11 +1853,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                 </div>
                 <div className="col-sm-2">
                   Doc Plan
-                  <Input
-                    type="date"
-                    onChange={(e) => setdocplan(e.target.value)}
-                    value={docplan}
-                  />
+                  <Input type="date" onChange={(e) => setdocplan(e.target.value)} value={docplan} />
                 </div>
                 <div className="col-sm-2">
                   Documentação Vistoria Real
@@ -1899,11 +1865,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                 </div>
                 <div className="col-sm-2">
                   REQ
-                  <Input
-                    type="date"
-                    onChange={(e) => setreq(e.target.value)}
-                    value={req}
-                  />
+                  <Input type="date" onChange={(e) => setreq(e.target.value)} value={req} />
                 </div>
               </div>
               <br />
@@ -1919,11 +1881,7 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                 </div>
                 <div className="col-sm-2">
                   OV
-                  <Input
-                    type="text"
-                    onChange={(e) => setov(e.target.value)}
-                    value={ov}
-                  />
+                  <Input type="text" onChange={(e) => setov(e.target.value)} value={ov} />
                 </div>
               </div>
               <br />
@@ -1994,19 +1952,11 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                 </div>
                 <div className="col-sm-2">
                   DT Plan
-                  <Input
-                    type="date"
-                    onChange={(e) => setdtplan(e.target.value)}
-                    value={dtplan}
-                  />
+                  <Input type="date" onChange={(e) => setdtplan(e.target.value)} value={dtplan} />
                 </div>
                 <div className="col-sm-2">
                   DT Real
-                  <Input
-                    type="date"
-                    onChange={(e) => setdtreal(e.target.value)}
-                    value={dtreal}
-                  />
+                  <Input type="date" onChange={(e) => setdtreal(e.target.value)} value={dtreal} />
                 </div>
                 <div className="col-sm-2">
                   Status Obra
@@ -2227,8 +2177,6 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                 </Box>
                 <br></br>
               </div>
-
-
               <br />
               Dados do Colaborador PJ
               <hr style={{ marginTop: '0px', width: '100%' }} />
@@ -2409,10 +2357,13 @@ const Rollouttelefonicaedicao = ({ setshow, show, titulotopo, ididentificador, p
                   <div className="col-sm-6"></div>
                   <div className=" col-sm-6 d-flex flex-row-reverse">
                     <div className=" col-sm-6 d-flex flex-row-reverse">
-                      <Button color="primary" onClick={() => novocadastro()} disabled={modoVisualizador()}>
+                      <Button
+                        color="primary"
+                        onClick={() => novocadastro()}
+                        disabled={modoVisualizador()}
+                      >
                         Solicitar Material/Serviço <Icon.Plus />
                       </Button>
-
                     </div>
                   </div>
                 </div>

@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Modal, ModalBody, ModalHeader, ModalFooter } from 'reactstrap';
-import { Box } from '@mui/material';
+import PropTypes from 'prop-types';
+import {
+  Button,
+  Modal,
+  ModalBody,
+  ModalHeader,
+  ModalFooter,
+  Card,
+  CardBody,
+  Input,
+  InputGroup,
+} from 'reactstrap';
+import { Box, Typography } from '@mui/material';
 import {
   DataGrid,
   gridPageCountSelector,
@@ -11,11 +22,9 @@ import {
   GridOverlay,
   ptBR,
 } from '@mui/x-data-grid';
-import EditIcon from '@mui/icons-material/Edit';
-import PropTypes from 'prop-types';
-import Typography from '@mui/material/Typography';
 import Pagination from '@mui/material/Pagination';
 import LinearProgress from '@mui/material/LinearProgress';
+import EditIcon from '@mui/icons-material/Edit';
 import { ToastContainer, toast } from 'react-toastify';
 import ConfirmaModal from '../../components/modals/ConfirmacaoModal';
 import exportExcel from '../../data/exportexcel/Excelexport';
@@ -25,6 +34,10 @@ import Rolloutericssonedicao from '../../components/formulario/rollout/Rollouter
 import Excluirregistro from '../../components/Excluirregistro';
 import ConfiguracaoCamposVisiveis from '../../components/modals/ConfiguracaoCamposVisiveis';
 import FiltroRolloutEricsson from '../../components/modals/filtros/FiltroRolloutEricsson';
+import Ericssonedicao from '../../components/formulario/projeto/Ericssonedicao';
+import Notpermission from '../../layouts/notpermission/notpermission';
+import modoVisualizador from '../../services/modovisualizador';
+import ImportLogModal from '../../components/modals/filtros/ImportLogModalProps';
 
 const Rolloutericsson = ({ setshow, show }) => {
   const [pageSize, setPageSize] = useState(10);
@@ -40,10 +53,10 @@ const Rolloutericsson = ({ setshow, show }) => {
   const [formValues, setFormValues] = useState({});
   const [rowSelectionModel, setRowSelectionModel] = useState([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [changedField, setChangedField] = useState();
-
+  const [changedField, setChangedField] = useState('');
   const [rowToUpdate, setRowToUpdate] = useState(null);
-  // Estado para controlar a visibilidade dos campos
+  const [ErirssonSelecionado, setericssonSelecionado] = useState(null);
+
   const [fieldVisibility, setFieldVisibility] = useState({
     rfp: true,
     numero: true,
@@ -92,12 +105,49 @@ const Rolloutericsson = ({ setshow, show }) => {
     sitepossuirisco: true,
   });
 
+  const [, setprojeto] = useState([]);
+  const [, setloadingAc] = useState(false);
+  const [pesqgeral, setpesqgeral] = useState('');
+  const [mensagemsucesso, setmensagemsucesso] = useState('');
+  const [ididentificadorAc,] = useState(0);
+  const [telacadastroedicaoAc, settelacadastroedicaoAc] = useState('');
+  const [siteAc,] = useState('');
+  const [arquivoobra, setarquivoobra] = useState('');
+  const [permissionAc, setpermissionAc] = useState(false);
+  const [showLogModal, setShowLogModal] = useState(false);
+
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
     idusuario: localStorage.getItem('sessionId'),
     idloja: localStorage.getItem('sessionloja'),
     deletado: 0,
   };
+
+  const paramsAc = {
+    ...params,
+    busca: pesqgeral,
+  };
+
+  function CustomNoRowsOverlay() {
+    return (
+      <GridOverlay>
+        <div>Nenhum dado encontrado</div>
+      </GridOverlay>
+    );
+  }
+
+  function CustomPagination() {
+    const apiRef = useGridApiContext();
+    const page = useGridSelector(apiRef, gridPageSelector);
+    const pageCount = useGridSelector(apiRef, gridPageCountSelector);
+    const rowCount = apiRef.current.getRowsCount();
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', p: 1.5 }}>
+        <Typography variant="body2">Total de itens: {rowCount}</Typography>
+        <Pagination color="primary" count={pageCount} page={page + 1} onChange={(e, v) => apiRef.current.setPage(v - 1)} />
+      </Box>
+    );
+  }
 
   const listarolloutericsson = async () => {
     try {
@@ -111,6 +161,7 @@ const Rolloutericsson = ({ setshow, show }) => {
       setLoading(false);
     }
   };
+
   const limparFiltro = () => {
     setFormValues({});
     setLoading(true);
@@ -118,17 +169,16 @@ const Rolloutericsson = ({ setshow, show }) => {
       setLoading(false);
     });
     toast.success('Filtros limpos com sucesso!');
-    setTimeout(() => setmensagem(''), 3000); // Remove a mensagem após 3 segundos
+    setTimeout(() => setmensagem(''), 3000);
   };
+
   function alterarUser(stat) {
     settitulo('Editar Rollout Ericsson');
     settelacadastroedicao(true);
     setididentificador(stat);
   }
 
-  const [ErirssonSelecionado, setericssonSelecionado] = useState(null);
-
-  const columns = [
+  const columnsRollout = [
     {
       field: 'actions',
       headerName: 'Ação',
@@ -139,8 +189,6 @@ const Rolloutericsson = ({ setshow, show }) => {
         <GridActionsCellItem
           icon={<EditIcon />}
           label="Alterar"
-          name="Alterar"
-          hint="Alterar"
           onClick={() => {
             alterarUser(parametros.id);
             setericssonSelecionado(parametros.row);
@@ -148,18 +196,19 @@ const Rolloutericsson = ({ setshow, show }) => {
         />,
       ],
     },
-    { field: 'rfp', headerName: 'RFP', width: 120 },
-    { field: 'id', headerName: 'Número', width: 100 },
-    { field: 'cliente', headerName: 'Cliente', width: 150, editable: true },
-    { field: 'regiona', headerName: 'Regional', width: 150, editable: true },
-    { field: 'site', headerName: 'Site', width: 150, editable: true },
-    { field: 'fornecedor', headerName: 'Fornecedor', width: 150, editable: true },
+    { field: 'rfp', headerName: 'RFP', width: 120, hide: !fieldVisibility.rfp },
+    { field: 'id', headerName: 'Número', width: 100, hide: !fieldVisibility.numero },
+    { field: 'cliente', headerName: 'Cliente', width: 150, editable: true, hide: !fieldVisibility.cliente },
+    { field: 'regiona', headerName: 'Regional', width: 150, editable: true, hide: !fieldVisibility.regional },
+    { field: 'site', headerName: 'Site', width: 150, editable: true, hide: !fieldVisibility.site },
+    { field: 'fornecedor', headerName: 'Fornecedor', width: 150, editable: true, hide: !fieldVisibility.fornecedor },
     {
       field: 'situacaoimplantacao',
       headerName: 'Situação Impl.',
       width: 300,
       editable: true,
-      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+      hide: !fieldVisibility.situacaoimplantacao,
+      renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>,
       type: 'singleSelect',
       valueOptions: [
         { value: 'Aguardando aceite do ASP', label: 'Aguardando aceite do ASP' },
@@ -182,7 +231,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       headerName: 'Situação Int.',
       width: 200,
       editable: true,
-      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+      hide: !fieldVisibility.situacaodaintegracao,
+      renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>,
       type: 'singleSelect',
       valueOptions: ['Completa', 'Em Andamento', 'Não Iniciou'],
     },
@@ -191,13 +241,8 @@ const Rolloutericsson = ({ setshow, show }) => {
     { field: 'ddd', headerName: 'DDD', width: 80, editable: true },
     { field: 'municipio', headerName: 'Município', width: 200, editable: true },
     { field: 'nomeericsson', headerName: 'Nome Ericsson', width: 200, editable: true },
-    { field: 'localizacaositeendereco', headerName: 'Endereço Site', width: 300, editable: true },
-    {
-      field: 'localizacaositecidade',
-      headerName: 'Cidade Site',
-      width: 300,
-      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
-    },
+    { field: 'localizacaositeendereco', headerName: 'Endereço Site', width: 300, editable: true, hide: !fieldVisibility.localizacaositeendereco },
+    { field: 'localizacaositecidade', headerName: 'Cidade Site', width: 300, renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>, hide: !fieldVisibility.localizacaositecidade },
     {
       field: 'datasolicitacao',
       headerName: 'Data Solicitação',
@@ -240,11 +285,11 @@ const Rolloutericsson = ({ setshow, show }) => {
     {
       field: 'datainicioentregamosplanejadodia',
       headerName: 'Data Início (Entrega Planejada)',
-      edit: true,
       width: 250,
       type: 'date',
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.datainicioentregamosplanejadodia,
     },
     {
       field: 'datarecebimentodositemosreportadodia',
@@ -253,6 +298,7 @@ const Rolloutericsson = ({ setshow, show }) => {
       type: 'date',
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.datarecebimentodositemosreportadodia,
     },
     {
       field: 'datadacriacaodademandadia',
@@ -262,6 +308,7 @@ const Rolloutericsson = ({ setshow, show }) => {
       editable: true,
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.datadacriacaodademandadia,
     },
     {
       field: 'datalimiteaceitedia',
@@ -271,6 +318,7 @@ const Rolloutericsson = ({ setshow, show }) => {
       editable: true,
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.datalimiteaceitedia,
     },
     {
       field: 'dataaceitedemandadia',
@@ -280,6 +328,7 @@ const Rolloutericsson = ({ setshow, show }) => {
       editable: true,
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.dataaceitedemandadia,
     },
     {
       field: 'datainicioprevistasolicitantebaselinemosdia',
@@ -288,6 +337,7 @@ const Rolloutericsson = ({ setshow, show }) => {
       type: 'date',
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.datainicioprevistasolicitantebaselinemosdia,
     },
     {
       field: 'datafimprevistabaselinefiminstalacaodia',
@@ -296,15 +346,16 @@ const Rolloutericsson = ({ setshow, show }) => {
       type: 'date',
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.datafimprevistabaselinefiminstalacaodia,
     },
     {
       field: 'datafiminstalacaoplanejadodia',
       headerName: 'Fim Inst. Planejada',
       width: 160,
       type: 'date',
-      edit: true,
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.datafiminstalacaoplanejadodia,
     },
     {
       field: 'dataconclusaoreportadodia',
@@ -313,6 +364,7 @@ const Rolloutericsson = ({ setshow, show }) => {
       type: 'date',
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.dataconclusaoreportadodia,
     },
     {
       field: 'datavalidacaoinstalacaodia',
@@ -321,6 +373,7 @@ const Rolloutericsson = ({ setshow, show }) => {
       type: 'date',
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.datavalidacaoinstalacaodia,
     },
     {
       field: 'dataintegracaobaselinedia',
@@ -329,15 +382,16 @@ const Rolloutericsson = ({ setshow, show }) => {
       type: 'date',
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.dataintegracaobaselinedia,
     },
     {
       field: 'dataintegracaoplanejadodia',
       headerName: 'Integração Planejada',
       width: 160,
       type: 'date',
-      edit: true,
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.dataintegracaoplanejadodia,
     },
     {
       field: 'datavalidacaoeriboxedia',
@@ -346,13 +400,14 @@ const Rolloutericsson = ({ setshow, show }) => {
       type: 'date',
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.datavalidacaoeriboxedia,
     },
-    { field: 'listadepos', headerName: 'Lista de POS', width: 150 },
-    { field: 'gestordeimplantacaonome', headerName: 'Gestor Impl.', width: 300 },
-    { field: 'statusrsa', headerName: 'Status RSA', width: 300 },
-    { field: 'rsarsa', headerName: 'RSA', width: 100 },
-    { field: 'arqsvalidadapelocliente', headerName: 'Docs Validados', width: 140 },
-    { field: 'statusaceitacao', headerName: 'Status Aceite', width: 140 },
+    { field: 'listadepos', headerName: 'Lista de POS', width: 150, hide: !fieldVisibility.listadepos },
+    { field: 'gestordeimplantacaonome', headerName: 'Gestor Impl.', width: 300, hide: !fieldVisibility.gestordeimplantacaonome },
+    { field: 'statusrsa', headerName: 'Status RSA', width: 300, hide: !fieldVisibility.statusrsa },
+    { field: 'rsarsa', headerName: 'RSA', width: 100, hide: !fieldVisibility.rsarsa },
+    { field: 'arqsvalidadapelocliente', headerName: 'Docs Validados', width: 140, hide: !fieldVisibility.arqsvalidadapelocliente },
+    { field: 'statusaceitacao', headerName: 'Status Aceite', width: 140, hide: !fieldVisibility.statusaceitacao },
     {
       field: 'datadefimdaaceitacaosydledia',
       headerName: 'Fim Aceite Sydle',
@@ -360,9 +415,10 @@ const Rolloutericsson = ({ setshow, show }) => {
       type: 'date',
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.datadefimdaaceitacaosydledia,
     },
-    { field: 'ordemdevenda', headerName: 'Ordem de Venda', width: 200 },
-    { field: 'coordenadoaspnome', headerName: 'Coordenador ASP', width: 300 },
+    { field: 'ordemdevenda', headerName: 'Ordem de Venda', width: 200, hide: !fieldVisibility.ordemdevenda },
+    { field: 'coordenadoaspnome', headerName: 'Coordenador ASP', width: 300, hide: !fieldVisibility.coordenadoaspnome },
     {
       field: 'rsavalidacaorsanrotrackerdatafimdia',
       headerName: 'Fim Validação RSA Tracker',
@@ -370,6 +426,7 @@ const Rolloutericsson = ({ setshow, show }) => {
       type: 'date',
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.rsavalidacaorsanrotrackerdatafimdia,
     },
     {
       field: 'fimdeobraplandia',
@@ -378,6 +435,7 @@ const Rolloutericsson = ({ setshow, show }) => {
       type: 'date',
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.fimdeobraplandia,
     },
     {
       field: 'fimdeobrarealdia',
@@ -386,219 +444,43 @@ const Rolloutericsson = ({ setshow, show }) => {
       type: 'date',
       valueGetter: ({ value }) => (value ? new Date(value) : null),
       valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      hide: !fieldVisibility.fimdeobrarealdia,
     },
-    { field: 'tipoatualizacaofam', headerName: 'Tipo Atualização FAM', width: 200 },
-    { field: 'sinergia', headerName: 'Sinergia', width: 100 },
-    { field: 'sinergia5g', headerName: 'Sinergia 5G', width: 100 },
-    {
-      field: 'escoponome',
-      headerName: 'Escopo',
-      width: 300,
-      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
-    },
-    { field: 'slapadraoescopodias', headerName: 'SLA Padrão (dias)', width: 140 },
-    { field: 'tempoparalisacaoinstalacaodias', headerName: 'Tempo Paralisação (dias)', width: 180 },
-    { field: 'documentacaosituacao', headerName: 'Situação Doc.', width: 300 },
-    { field: 'statusdoc', headerName: 'Status Doc', width: 150 },
-    { field: 'aprovacaotodosdocs', headerName: 'Aprovação Todos Docs', width: 200 },
-    { field: 'sitepossuirisco', headerName: 'Site Possui Risco', width: 150 },
+    { field: 'tipoatualizacaofam', headerName: 'Tipo Atualização FAM', width: 200, hide: !fieldVisibility.tipoatualizacaofam },
+    { field: 'sinergia', headerName: 'Sinergia', width: 100, hide: !fieldVisibility.sinergia },
+    { field: 'sinergia5g', headerName: 'Sinergia 5G', width: 100, hide: !fieldVisibility.sinergia5g },
+    { field: 'escoponome', headerName: 'Escopo', width: 300, renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>, hide: !fieldVisibility.escoponome },
+    { field: 'slapadraoescopodias', headerName: 'SLA Padrão (dias)', width: 140, hide: !fieldVisibility.slapadraoescopodias },
+    { field: 'tempoparalisacaoinstalacaodias', headerName: 'Tempo Paralisação (dias)', width: 180, hide: !fieldVisibility.tempoparalisacaoinstalacaodias },
+    { field: 'documentacaosituacao', headerName: 'Situação Doc.', width: 300, hide: !fieldVisibility.documentacaosituacao },
+    { field: 'statusdoc', headerName: 'Status Doc', width: 150, hide: !fieldVisibility.statusdoc },
+    { field: 'aprovacaotodosdocs', headerName: 'Aprovação Todos Docs', width: 200, hide: !fieldVisibility.aprovacaotodosdocs },
+    { field: 'sitepossuirisco', headerName: 'Site Possui Risco', width: 150, hide: !fieldVisibility.sitepossuirisco },
   ];
 
-  function CustomNoRowsOverlay() {
-    return (
-      <GridOverlay>
-        <div>Nenhum dado encontrado</div>
-      </GridOverlay>
-    );
-  }
-  const dateFields = new Set([
-    // já existentes
-    'ENTRGA_REQUEST',
-    'ENTREGA_PLAN',
-    'ENTREGA_REAL',
-    'FIM_INSTALACAO_PLAN',
-    'FIM_INSTALACAO_REAL',
-    'INTEGRACAO_PLAN',
-    'INTEGRACAO_REAL',
-    'DT_PLAN',
-    'DT_REAL',
-    'DELIVERY_PLAN',
-    'REGIONAL_LIB_SITE_P',
-    'REGIONAL_LIB_SITE_R',
-    'EQUIPAMENTO_ENTREGA_P',
-    'REGIONAL_CARIMBO',
-    'ATIVACAO_REAL',
-    'DOCUMENTACAO',
-    'INITIAL_TUNNING_REAL',
-    'INITIAL_TUNNING_STATUS',
-    'VISTORIA_PLAN',
-    'VISTORIA_REAL',
-    'DOCUMENTACAO_VISTORIA_PLAN',
-    'DOCUMENTACAO_VISTORIA_REAL',
-    'REQ',
-  ]);
-
-  const toBRDate = (v) => {
-    if (!v) return v;
-    // “datas nulas” → vazio
-    if (/^(1899-12-(30|31)|0000-00-00)/.test(v)) return '';
-
-    // "YYYY-MM-DD HH:MM:SS" ⇒ "YYYY-MM-DDTHH:MM:SS"
-    const spaced = typeof v === 'string' && v.includes(' ') ? v.replace(' ', 'T') : v;
-
-    const d = spaced instanceof Date ? spaced : new Date(spaced);
-    if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('pt-BR'); // 28/04/2025
-
-    // dd/mm/aaaa ou dd-mm-aaaa
-    const br = typeof v === 'string' && v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-    if (br) {
-      const [, dd, mm, yyyy] = br;
-      const normal = `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}`;
-      if (normal === '31/12/1899' || normal === '30/12/1899') return '';
-      return normal;
-    }
-    return v; // valor não reconhecido
-  };
-  function CustomPagination() {
-    const apiRef = useGridApiContext();
-    const page = useGridSelector(apiRef, gridPageSelector);
-    const pageCount = useGridSelector(apiRef, gridPageCountSelector);
-    const rowCount = apiRef.current.getRowsCount();
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          width: '100%',
-          padding: '10px',
-        }}
-      >
-        <Typography variant="body2">Total de itens: {rowCount}</Typography>
-        <Pagination
-          color="primary"
-          count={pageCount}
-          page={page + 1}
-          onChange={(event, value1) => apiRef.current.setPage(value1 - 1)}
-        />
-      </Box>
-    );
-  }
-
-  const toggle = () => {
-    setshow(!show);
-  };
-
-  const toggle1 = () => {
-    setshow1(!show1);
-  };
-
-  const toggleConfigModal = () => {
-    setConfigModalOpen(!configModalOpen);
-  };
-
-  const iniciatabelas = () => {
-    listarolloutericsson();
-  };
-
-  const chamarfiltro = () => {
-    setshow1(true);
-  };
-
-  const aplicarFiltro = async () => {
-    try {
-      setLoading(true);
-
-      // Preparar os parâmetros de filtro
-      const filtroParams = {
-        ...params, // seus parâmetros existentes
-        ...formValues, // valores dos campos do formulário
-      };
-
-      // Remover campos vazios ou nulos
-      Object.keys(filtroParams).forEach((key) => {
-        if (
-          filtroParams[key] === '' ||
-          filtroParams[key] === null ||
-          filtroParams[key] === undefined
-        ) {
-          delete filtroParams[key];
-        }
-      });
-
-      const response = await api.get('v1/projetoericsson', {
-        params: filtroParams,
-      });
-
-      setrollout(response.data);
-      toast.success('Filtro aplicado com sucesso!');
-    } catch (err) {
-      setmensagem(err.message);
-    } finally {
-      setLoading(false);
-      toggle1(); // Fecha o modal de filtro
-    }
-  };
-  const handleProcessRowUpdateError = (error) => {
-    console.error('Erro ao salvar:', error);
+  const handleProcessRowUpdateError = () => {
     setmensagem('Erro ao salvar a edição!');
   };
+
   const handleProcessRowUpdate = async (newRow, oldRow) => {
     if (rowSelectionModel.length === 0) {
       setmensagem('Selecione pelo menos um item');
       return oldRow;
     }
-
-    // Find all changed fields (more robust than just finding the first one)
-    const changedFields = Object.keys(newRow).filter(
-      (key) => newRow[key] !== oldRow[key] && key !== 'id', // Exclude ID field from changes if needed
-    );
-
-    if (changedFields.length === 0) {
-      return oldRow; // No actual changes detected
-    }
-
+    const changedFields = Object.keys(newRow).filter((k) => newRow[k] !== oldRow[k] && k !== 'id');
+    if (!changedFields.length) return oldRow;
     React.startTransition(() => {
       setChangedField(changedFields[0]);
-      setRowToUpdate({
-        newRow,
-        oldRow,
-        changedFields,
-      });
+      setRowToUpdate({ newRow, oldRow, changedFields });
       setConfirmOpen(true);
     });
-
     return newRow;
   };
 
-  useEffect(() => {
-    iniciatabelas();
-  }, []);
-
-  const formatDatesBR = (row) =>
-    Object.fromEntries(
-      Object.entries(row).map(([k, v]) => [k, dateFields.has(k) ? toBRDate(v) : v]),
-    );
-
-  const upperStrings = (row) =>
-    Object.fromEntries(
-      Object.entries(row).map(([k, v]) => [k, typeof v === 'string' ? v.toUpperCase() : v]),
-    );
   const handleConfirmSave = async () => {
-    if (!rowSelectionModel.length) {
-      console.warn('Nenhuma atividade selecionada.');
-      return;
-    }
-    console.log(rowSelectionModel);
+    if (!rowSelectionModel.length || !rowToUpdate) return;
     setLoading(true);
-
     try {
-      // Filtra os IDs das atividades selecionadas
-      // const atividadeSelecionada = totalacionamento
-      //   .filter((item) => rowSelectionModel.includes(item.id))
-      //   .map((item) => item.uididpmts)
-      //   .join(',');
-      // Espera a resposta da API
       await api.post('v1/projetoericsson/editaremmassarollout', {
         ...params,
         numeros: rowSelectionModel,
@@ -607,93 +489,112 @@ const Rolloutericsson = ({ setshow, show }) => {
       await listarolloutericsson();
       toast.success('Atualizado com sucesso');
     } catch (error) {
-      console.error('Erro ao salvar alterações em massa:', error);
       toast.error('Erro ao salvar as suas alterações');
-      // Opcional: mostrar feedback visual ao usuário
     } finally {
       setLoading(false);
       setConfirmOpen(false);
+      setRowToUpdate(null);
+      setChangedField('');
     }
   };
 
   const handleCancelSave = () => {
-    console.log('Cancelado pelo usuário.');
     setConfirmOpen(false);
+    setRowToUpdate(null);
+    setChangedField('');
   };
 
-  const gerarexcel = () => {
-    const excelData = rollout
-      .map((item) => ({
-        RFP: item.rfp,
-        NÚMERO: item.id,
-        CLIENTE: item.cliente,
-        REGIONAL: item.regiona,
-        SITE: item.site,
-        FORNECEDOR: item.fornecedor,
-        'SITUAÇÃO IMPL.': item.situacaoimplantacao,
-        'SITUAÇÃO INT.': item.situacaodaintegracao,
-        OUTROS: item.outros,
-        'FORMA DE ACESSO': item.formadeacesso,
-        DDD: item.ddd,
-        MUNICÍPIO: item.municipio,
-        'NOME ERICSSON': item.nomeericsson,
-        'ENDEREÇO SITE': item.localizacaositeendereco,
-        'CIDADE SITE': item.localizacaositecidade,
-        'DATA SOLICITAÇÃO': item.datasolicitacao,
-        SOLICITAÇÃO: item.solicitacao,
-        LATITUDE: item.latitude,
-        LONGITUDE: item.longitude,
-        OBSERVAÇÃO: item.obs,
-        'STATUS ACESSO': item.statusacesso,
-        'DATA INICIAL': item.datainicial,
-        'DATA FINAL': item.datafinal,
-        'DATA CRIAÇÃO DEMANDA': item.datadacriacaodademandadia,
-        'DATA LIMITE ACEITE': item.datalimiteaceitedia,
-        'DATA ACEITE DEMANDA': item.dataaceitedemandadia,
-        'INÍCIO PREV. SOLICITANTE': item.datainicioprevistasolicitantebaselinemosdia,
-        'INÍCIO ENTREGA PLANEJADA': item.datainicioentregamosplanejadodia,
-        'RECEBIMENTO REPORTADO': item.datarecebimentodositemosreportadodia,
-        'FIM PREV. BASELINE INST.': item.datafimprevistabaselinefiminstalacaodia,
-        'FIM INST. PLANEJADA': item.datafiminstalacaoplanejadodia,
-        'CONCLUSÃO REPORTADA': item.dataconclusaoreportadodia,
-        'VALIDAÇÃO INSTALAÇÃO': item.datavalidacaoinstalacaodia,
-        'INTEGRAÇÃO BASELINE': item.dataintegracaobaselinedia,
-        'INTEGRAÇÃO PLANEJADA': item.dataintegracaoplanejadodia,
-        'VALIDAÇÃO ERIBOXE': item.datavalidacaoeriboxedia,
-        'LISTA DE POS': item.listadepos,
-        'GESTOR IMPL.': item.gestordeimplantacaonome,
-        'STATUS RSA': item.statusrsa,
-        RSA: item.rsarsa,
-        'DOCS VALIDADOS': item.arqsvalidadapelocliente,
-        'STATUS ACEITE': item.statusaceitacao,
-        'FIM ACEITE SYDLE': item.datadefimdaaceitacaosydledia,
-        'ORDEM DE VENDA': item.ordemdevenda,
-        'COORDENADOR ASP': item.coordenadoaspnome,
-        'FIM VAL. RSA TRACKER': item.rsavalidacaorsanrotrackerdatafimdia,
-        'FIM OBRA PLAN.': item.fimdeobraplandia,
-        'FIM OBRA REAL': item.fimdeobrarealdia,
-        'TIPO ATUALIZAÇÃO FAM': item.tipoatualizacaofam,
-        SINERGIA: item.sinergia,
-        'SINERGIA 5G': item.sinergia5g,
-        ESCOPO: item.escoponome,
-        'SLA PADRÃO (DIAS)': item.slapadraoescopodias,
-        'TEMPO PARALISAÇÃO (DIAS)': item.tempoparalisacaoinstalacaodias,
-        'SIT. DOC.': item.documentacaosituacao,
-        'STATUS DOC': item.statusdoc,
-        'APROVAÇÃO TODOS DOCS': item.aprovacaotodosdocs,
-        'SITE POSSUI RISCO': item.sitepossuirisco,
-      }))
-      .map(formatDatesBR) // converte datas e zera 1899-12-xx
-      .map(upperStrings); // caixa-alta
+  const toggleLogModal = () => setShowLogModal(!showLogModal);
 
-    exportExcel({ excelData, fileName: 'ROLLOUT ERICSSON' });
+  const userpermissionAc = () => {
+    const permissionstorage = JSON.parse(localStorage.getItem('permission'));
+    setpermissionAc(permissionstorage?.ericacionamento === 1);
+  };
+
+  const listaAcionamento = async () => {
+    setmensagemsucesso('');
+    try {
+      setloadingAc(true);
+      const response = await api.get('v1/projetoericsson', { params: paramsAc });
+      setprojeto(response.data);
+      setpesqgeral('');
+      setmensagem('');
+    } catch (err) {
+      setmensagem(err.message);
+    } finally {
+      setloadingAc(false);
+    }
+  };
+
+  const uploadarquivo = async (e) => {
+    e.preventDefault();
+    if (!arquivoobra) {
+      setmensagem('Nenhum arquivo selecionado para atualizar!');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('files', arquivoobra);
+    const header = { headers: { 'Custom-Header': 'value' } };
+    try {
+      setloadingAc(true);
+      const response = await api.post('v1/uploadobraericson', formData, header);
+      if (response && response.data) {
+        if (response.status === 200) {
+          setmensagemsucesso('Upload concluído. A atualização está sendo processada.');
+          setmensagem('');
+        } else {
+          setmensagemsucesso('');
+          setmensagem('Erro ao fazer upload!');
+        }
+      } else {
+        throw new Error('Resposta inválida do servidor');
+      }
+    } catch (err) {
+      if (err.response) {
+        setmensagem(err.message);
+        setmensagemsucesso('');
+      } else {
+        setmensagem('Erro: Tente novamente mais tarde!');
+        setmensagemsucesso('');
+      }
+    } finally {
+      setloadingAc(false);
+    }
   };
 
   useEffect(() => {
-    if (rowToUpdate) {
-      setConfirmOpen(true);
+    listarolloutericsson();
+    userpermissionAc();
+  }, []);
+
+  useEffect(() => {
+    if (rowToUpdate && changedField) setConfirmOpen(true);
+  }, [rowToUpdate, changedField]);
+
+  const toggle = () => setshow(!show);
+  const toggle1 = () => setshow1(!show1);
+  const toggleConfigModal = () => setConfigModalOpen(!configModalOpen);
+  const chamarfiltro = () => setshow1(true);
+
+  const aplicarFiltro = async () => {
+    try {
+      setLoading(true);
+      const filtroParams = { ...params, ...formValues };
+      Object.keys(filtroParams).forEach((k) => {
+        if (filtroParams[k] === '' || filtroParams[k] === null || filtroParams[k] === undefined) {
+          delete filtroParams[k];
+        }
+      });
+      const response = await api.get('v1/projetoericsson', { params: filtroParams });
+      setrollout(response.data);
+      toast.success('Filtro aplicado com sucesso!');
+    } catch (err) {
+      setmensagem(err.message);
+    } finally {
+      setLoading(false);
+      toggle1();
     }
-  }, [rowToUpdate]);
+  };
 
   return (
     <>
@@ -704,17 +605,7 @@ const Rolloutericsson = ({ setshow, show }) => {
         setFieldVisibility={setFieldVisibility}
         LOCAL_STORAGE_KEY="rolloutericsson"
       />
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />{' '}
+      <ToastContainer position="top-right" autoClose={5000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
       <FiltroRolloutEricsson
         show1={show1}
         toggle1={toggle1}
@@ -725,20 +616,16 @@ const Rolloutericsson = ({ setshow, show }) => {
         limparFiltro={limparFiltro}
         aplicarFiltro={aplicarFiltro}
       />
-      <ConfirmaModal
-        open={confirmOpen}
-        quantity={rowSelectionModel.length}
-        onConfirm={handleConfirmSave}
-        onCancel={handleCancelSave}
-        campo={changedField}
-      />
-      <Modal
-        isOpen={show}
-        toggle={toggle}
-        backdrop="static"
-        keyboard={false}
-        className="modal-dialog modal-fullscreen modal-dialog-scrollable"
-      >
+      {confirmOpen && changedField && (
+        <ConfirmaModal
+          open={confirmOpen}
+          quantity={rowSelectionModel.length}
+          onConfirm={handleConfirmSave}
+          onCancel={handleCancelSave}
+          campo={changedField}
+        />
+      )}
+      <Modal isOpen={show} toggle={toggle} backdrop="static" keyboard={false} className="modal-dialog modal-fullscreen modal-dialog-scrollable">
         <ModalHeader>Rollout - Ericsson</ModalHeader>
         <ModalBody>
           {mensagem.length > 0 ? (
@@ -760,7 +647,6 @@ const Rolloutericsson = ({ setshow, show }) => {
                   titulotopo={titulo}
                 />
               )}
-
               {telaexclusao && (
                 <Excluirregistro
                   show={telaexclusao}
@@ -770,22 +656,137 @@ const Rolloutericsson = ({ setshow, show }) => {
                   atualiza={listarolloutericsson}
                 />
               )}
-
+              {permissionAc ? (
+                <Card>
+                  <CardBody style={{ backgroundColor: 'white' }}>
+                    {mensagem.length !== 0 ? (
+                      <div className="alert alert-danger mt-2" role="alert">
+                        {mensagem}
+                      </div>
+                    ) : null}
+                    {mensagemsucesso.length > 0 ? (
+                      <div className="alert alert-success" role="alert">
+                        {mensagemsucesso}
+                      </div>
+                    ) : null}
+                    {telacadastroedicaoAc ? (
+                      <Ericssonedicao
+                        show={telacadastroedicaoAc}
+                        setshow={settelacadastroedicaoAc}
+                        ididentificador={ididentificadorAc}
+                        atualiza={listaAcionamento}
+                        idsite={siteAc}
+                      />
+                    ) : null}
+                    <div className="row g-3">
+                      <div className="col-sm-6 d-flex align-items-center gap-2">
+                        <Button color="primary" onClick={toggleLogModal}>
+                          Acompanhar Importação
+                        </Button>
+                      </div>
+                      <div className="col-sm-6">
+                        Selecione o arquivo de atualização
+                        <div className="d-flex flex-row-reverse custom-file">
+                          <InputGroup>
+                            <Input
+                              type="file"
+                              onChange={(e) => setarquivoobra(e.target.files[0])}
+                              className="custom-file-input"
+                              id="customFile3"
+                              disabled={modoVisualizador()}
+                            />
+                            <Button
+                              color="primary"
+                              onClick={uploadarquivo}
+                              disabled={modoVisualizador()}
+                            >
+                              Atualizar
+                            </Button>
+                          </InputGroup>
+                        </div>
+                      </div>
+                    </div>
+                  </CardBody>
+                </Card>
+              ) : (
+                <Notpermission />
+              )}
               <div className="row g-3">
                 <div className="col-sm-3">
-                  <Button color="link" onClick={gerarexcel}>
+                  <Button
+                    color="link"
+                    onClick={() => {
+                      const excelData = rollout.map((item) => ({
+                        RFP: item.rfp,
+                        NÚMERO: item.id,
+                        CLIENTE: item.cliente,
+                        REGIONAL: item.regiona,
+                        SITE: item.site,
+                        FORNECEDOR: item.fornecedor,
+                        'SITUAÇÃO IMPL.': item.situacaoimplantacao,
+                        'SITUAÇÃO INT.': item.situacaodaintegracao,
+                        OUTROS: item.outros,
+                        'FORMA DE ACESSO': item.formadeacesso,
+                        DDD: item.ddd,
+                        MUNICÍPIO: item.municipio,
+                        'NOME ERICSSON': item.nomeericsson,
+                        'ENDEREÇO SITE': item.localizacaositeendereco,
+                        'CIDADE SITE': item.localizacaositecidade,
+                        'DATA SOLICITAÇÃO': item.datasolicitacao,
+                        SOLICITAÇÃO: item.solicitacao,
+                        LATITUDE: item.latitude,
+                        LONGITUDE: item.longitude,
+                        OBSERVAÇÃO: item.obs,
+                        'STATUS ACESSO': item.statusacesso,
+                        'DATA INICIAL': item.datainicial,
+                        'DATA FINAL': item.datafinal,
+                        'DATA CRIAÇÃO DEMANDA': item.datadacriacaodademandadia,
+                        'DATA LIMITE ACEITE': item.datalimiteaceitedia,
+                        'DATA ACEITE DEMANDA': item.dataaceitedemandadia,
+                        'INÍCIO PREV. SOLICITANTE': item.datainicioprevistasolicitantebaselinemosdia,
+                        'INÍCIO ENTREGA PLANEJADA': item.datainicioentregamosplanejadodia,
+                        'RECEBIMENTO REPORTADO': item.datarecebimentodositemosreportadodia,
+                        'FIM PREV. BASELINE INST.': item.datafimprevistabaselinefiminstalacaodia,
+                        'FIM INST. PLANEJADA': item.datafiminstalacaoplanejadodia,
+                        'CONCLUSÃO REPORTADA': item.dataconclusaoreportadodia,
+                        'VALIDAÇÃO INSTALAÇÃO': item.datavalidacaoinstalacaodia,
+                        'INTEGRAÇÃO BASELINE': item.dataintegracaobaselinedia,
+                        'INTEGRAÇÃO PLANEJADA': item.dataintegracaoplanejadodia,
+                        'VALIDAÇÃO ERIBOXE': item.datavalidacaoeriboxedia,
+                        'LISTA DE POS': item.listadepos,
+                        'GESTOR IMPL.': item.gestordeimplantacaonome,
+                        'STATUS RSA': item.statusrsa,
+                        RSA: item.rsarsa,
+                        'DOCS VALIDADOS': item.arqsvalidadapelocliente,
+                        'STATUS ACEITE': item.statusaceitacao,
+                        'FIM ACEITE SYDLE': item.datadefimdaaceitacaosydledia,
+                        'ORDEM DE VENDA': item.ordemdevenda,
+                        'COORDENADOR ASP': item.coordenadoaspnome,
+                        'FIM VAL. RSA TRACKER': item.rsavalidacaorsanrotrackerdatafimdia,
+                        'FIM OBRA PLAN.': item.fimdeobraplandia,
+                        'FIM OBRA REAL': item.fimdeobrarealdia,
+                        'TIPO ATUALIZAÇÃO FAM': item.tipoatualizacaofam,
+                        SINERGIA: item.sinergia,
+                        'SINERGIA 5G': item.sinergia5g,
+                        ESCOPO: item.escoponome,
+                        'SLA PADRÃO (DIAS)': item.slapadraoescopodias,
+                        'TEMPO PARALISAÇÃO (DIAS)': item.tempoparalisacaoinstalacaodias,
+                        'SIT. DOC.': item.documentacaosituacao,
+                        'STATUS DOC': item.statusdoc,
+                        'APROVAÇÃO TODOS DOCS': item.aprovacaotodosdocs,
+                        'SITE POSSUI RISCO': item.sitepossuirisco,
+                      }));
+                      exportExcel({ excelData, fileName: 'ROLLOUT ERICSSON' });
+                    }}
+                  >
                     Exportar Excel
                   </Button>
                 </div>
                 <div className="col-sm-9">
                   <div className="col-sm-12 d-flex flex-row-reverse">
-                    <Button color="secondary" onClick={limparFiltro}>
-                      Limpar Filtros
-                    </Button>
-                    <div style={{ width: '10px' }}></div>
-                    <Button color="primary" onClick={chamarfiltro}>
-                      Aplicar Filtros
-                    </Button>
+                    <Button color="secondary" onClick={limparFiltro}>Limpar Filtros</Button>
+                    <div style={{ width: 10 }} />
+                    <Button color="primary" onClick={chamarfiltro}>Aplicar Filtros</Button>
                   </div>
                 </div>
               </div>
@@ -793,7 +794,7 @@ const Rolloutericsson = ({ setshow, show }) => {
               <Box sx={{ height: '85%', width: '100%' }}>
                 <DataGrid
                   rows={rollout}
-                  columns={columns}
+                  columns={columnsRollout}
                   loading={loading}
                   pageSize={pageSize}
                   onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
@@ -802,7 +803,7 @@ const Rolloutericsson = ({ setshow, show }) => {
                   rowSelectionModel={rowSelectionModel}
                   onRowSelectionModelChange={setRowSelectionModel}
                   disableSelectionOnClick
-                  isRowSelectable={(rowSelectable) => rowSelectable.row.deletado !== 1}
+                  isRowSelectable={(p) => p.row.deletado !== 1}
                   checkboxSelection
                   components={{
                     Pagination: CustomPagination,
@@ -821,6 +822,7 @@ const Rolloutericsson = ({ setshow, show }) => {
           </Button>
         </ModalFooter>
       </Modal>
+      <ImportLogModal show1={showLogModal} toggle1={toggleLogModal} />
     </>
   );
 };

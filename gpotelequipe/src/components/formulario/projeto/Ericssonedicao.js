@@ -141,7 +141,6 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
   const [titulodiaria, settitulodiaria] = useState('');
   const [telacadastrosolicitacaodiaria, settelacadastrosolicitacaodiaria] = useState(false);
 
-
   const [totalhorasclt, settotalhorasclt] = useState('');
   const [observacaoclt, setobservacaoclt] = useState('');
   const [observacaopj, setobservacaopj] = useState('');
@@ -350,7 +349,6 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
     }
   };
 
-
   const listasolicitacao = async () => {
     try {
       setloading(true);
@@ -375,8 +373,6 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
     }
     setloading(false);
   };
-
-
 
   const columnsFinanceiro = [
     {
@@ -716,10 +712,10 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
           porcentagem === null || porcentagem === 0
             ? grey[350]
             : porcentagem > 0 && porcentagem < 1
-              ? yellow[500]
-              : porcentagem >= 1
-                ? green[500]
-                : undefined;
+            ? yellow[500]
+            : porcentagem >= 1
+            ? green[500]
+            : undefined;
 
         return <PaidIcon style={{ color }} />;
       },
@@ -1000,7 +996,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
       type: 'string',
       width: 120,
       align: 'left',
-      valueGetter: (parametros) => parametros.value ? new Date(`${parametros.value}T00:00:00`) : null,
+      valueGetter: (parametros) =>
+        parametros.value ? new Date(`${parametros.value}T00:00:00`) : null,
       valueFormatter: (parametros) =>
         parametros.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
@@ -1416,29 +1413,36 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
     }
   };
 
-  const novocadastrotarefa = () => {
-    api
-      .post('v1/projetoericsson/novocadastrotarefa', {
-        idcliente: localStorage.getItem('sessionCodidcliente'),
-        idusuario: localStorage.getItem('sessionId'),
-        idloja: localStorage.getItem('sessionloja'),
-      })
-      .then((response) => {
-        if (response.status === 201) {
-          setididentificadortarefa(response.data.retorno);
-          settitulotarefa('Cadastro nova tarefa');
-          settelacadastrotarefa(true);
-        } else {
-          toast.error(response.status);
-        }
-      })
-      .catch((err) => {
-        if (err.response) {
-          toast.error(err.response.data.erro);
-        } else {
-          toast.error('Ocorreu um erro na requisição.');
-        }
+  const novocadastrotarefa = async () => {
+    console.log('Chaamda da tarefa');
+    const idcliente = localStorage.getItem('sessionCodidcliente');
+    const idusuario = localStorage.getItem('sessionId');
+    const idloja = localStorage.getItem('sessionloja');
+
+    try {
+      const response = await api.post('v1/projetoericsson/novocadastrotarefa', {
+        idcliente,
+        idusuario,
+        idloja,
       });
+      console.log('Retorno da tarefa');
+      console.log(response);
+
+      if (response && response.data) {
+        setididentificadortarefa(response.data.retorno);
+        settitulotarefa('Cadastro nova tarefa');
+        settelacadastrotarefa(true);
+        console.log('Tarefa criada com sucesso:', response.data.retorno);
+      } else {
+        toast.error('Resposta inválida do servidor.');
+      }
+    } catch (err) {
+      if (err.response && err.response.data && err.response.data.erro) {
+        toast.error(err.response.data.erro);
+      } else {
+        toast.error('Ocorreu um erro na requisição.');
+      }
+    }
   };
 
   function adicionaratividadeclt(e) {
@@ -2458,8 +2462,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                   LoadingOverlay: LinearProgress,
                                   NoRowsOverlay: CustomNoRowsOverlay,
                                 }}
-                              //opções traduzidas da tabela
-                              // localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                                //opções traduzidas da tabela
+                                // localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                               />
                             </Box>
                             <br></br>
@@ -2580,8 +2584,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                   LoadingOverlay: LinearProgress,
                                   NoRowsOverlay: CustomNoRowsOverlay,
                                 }}
-                              //opções traduzidas da tabela
-                              //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                                //opções traduzidas da tabela
+                                //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                               />
                             </Box>
                           </div>
@@ -2643,8 +2647,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                   LoadingOverlay: LinearProgress,
                                   NoRowsOverlay: CustomNoRowsOverlay,
                                 }}
-                              //opções traduzidas da tabela
-                              //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                                //opções traduzidas da tabela
+                                //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                               />
                             </Box>
                           </div>
@@ -2894,8 +2898,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                   LoadingOverlay: LinearProgress,
                                   NoRowsOverlay: CustomNoRowsOverlay,
                                 }}
-                              //opções traduzidas da tabela
-                              // localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                                //opções traduzidas da tabela
+                                // localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                               />
                             </Box>
                             <br></br>
@@ -3014,8 +3018,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                   LoadingOverlay: LinearProgress,
                                   NoRowsOverlay: CustomNoRowsOverlay,
                                 }}
-                              //opções traduzidas da tabela
-                              //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                                //opções traduzidas da tabela
+                                //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                               />
                             </Box>
                           </div>
@@ -3078,8 +3082,8 @@ const Ericssonedicao = ({ setshow, show, ididentificador, ididentificador2, atua
                                   LoadingOverlay: LinearProgress,
                                   NoRowsOverlay: CustomNoRowsOverlay,
                                 }}
-                              //opções traduzidas da tabela
-                              //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                                //opções traduzidas da tabela
+                                //localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                               />
                             </Box>
                           </div>

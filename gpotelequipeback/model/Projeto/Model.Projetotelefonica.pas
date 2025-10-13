@@ -114,7 +114,7 @@ type
     Fpmoaceitacaoplan: string;
     Fpmoaceitacaoreal: string;
     FOV: string;
-    FUIDIDCPOMRF: string;
+    Fuididcpomrf: string;
     Fresumodafase: string;
     Frollout: string;
     Fvistoriaplan: string;
@@ -270,7 +270,7 @@ type
     property pmoaceitacaoplan: string read Fpmoaceitacaoplan write Fpmoaceitacaoplan;
     property pmoaceitacaoreal: string read Fpmoaceitacaoreal write Fpmoaceitacaoreal;
     property OV: string read FOV write FOV;
-    property UIDIDCPOMRF: string read FUIDIDCPOMRF write FUIDIDCPOMRF;
+    property uididcpomrf: string read Fuididcpomrf write Fuididcpomrf;
     property resumodafase: string read Fresumodafase write Fresumodafase;
     property rollout: string read Frollout write Frollout;
     property vistoriaplan: string read Fvistoriaplan write Fvistoriaplan;
@@ -765,7 +765,7 @@ var
   id: Integer;
   FS: TFormatSettings;
   valorp, porcent, valorpg, valorpgexistente,
-  valorpagamentoexistente, valorpagamentonovo: Real;
+  total, valorpagamentoexistente, valorpagamentonovo: Real;
 begin
   try
     qry := TFDQuery.Create(nil);
@@ -815,7 +815,8 @@ begin
           valorpagamentoexistente := FieldByName('valorpagamento').AsFloat;
 
         valorpagamentonovo := valorp * (porcentagem / 100);
-        if (valorpgexistente - valorpagamentoexistente + valorpagamentonovo) > valorp then
+        total := valorpgexistente - valorpagamentoexistente + valorpagamentonovo;
+        if total > valorp then
         begin
           FConn.Rollback;
           erro := 'Pagamento inválido: o valor informado ultrapassa 100% do valor do site.';
@@ -1910,6 +1911,7 @@ var
   ufsigla, OldStatusDocumentacao, OLDUIDIDPMTS, OldDTReal, PEDIDO, OldVistoriaReal, OldIntegracaoReal, OldDocVitoriaReal: string;
   EmailEnviado: Boolean;
   servicoEmail: TEmail;
+  HasUIDIDCPOMRF, HasUIDIDPMTS: Boolean;
 begin
   Result := False;
   EmailEnviado := False;
@@ -1919,6 +1921,14 @@ begin
     qryOld := TFDQuery.Create(nil);
     qry.connection := FConn;
     qryOld.connection := FConn;
+    HasUIDIDCPOMRF := Trim(uididcpomrf) <> '';
+    HasUIDIDPMTS := Trim(idpmts) <> '';
+    if (not HasUIDIDCPOMRF) and (not HasUIDIDPMTS) then
+    begin
+      // Nenhum dos dois foi informado
+      Exit; // ou Result := False; ou qualquer retorno que faça sentido no seu contexto
+    end;
+
     try
       with qryOld do
       begin
@@ -1926,8 +1936,22 @@ begin
         sql.Clear;
         SQL.Add('SELECT statusdocumentacao, DTReal, vistoriareal, IntegracaoReal, docvitoriareal, pedido, ');
         SQL.Add('ufsigla, UIDIDPMTS ');
-        SQL.Add('FROM rolloutvivo WHERE UIDIDCPOMRF = :UIDIDCPOMRF');
-        ParamByName('UIDIDCPOMRF').AsString := UIDIDCPOMRF;
+        SQL.Add('FROM rolloutvivo');
+        SQL.Add('WHERE 1=1');
+//         WHERE UIDIDCPOMRF = :UIDIDCPOMRF
+        if HasUIDIDCPOMRF then
+        begin
+          SQL.Add('  AND rolloutvivo.UIDIDCPOMRF = :UIDIDCPOMRF');
+          ParamByName('UIDIDCPOMRF').AsString := uididcpomrf;
+        end;
+        if HasUIDIDPMTS then
+        begin
+          SQL.Add('  AND rolloutvivo.UIDIDPMTS = :UIDIDPMTS');
+          ParamByName('UIDIDPMTS').AsString := idpmts;
+        end;
+
+
+
         Open;
 
         if not IsEmpty then
@@ -2005,7 +2029,20 @@ begin
         SQL.Add('statusdocumentacao=:statusdocumentacao, observacaodocumentacao=:observacaodocumentacao, ');
         SQL.Add('datapostagemdoc=:datapostagemdoc , dataexecucaodocvdvm=:dataexecucaodocvdvm, ');
         SQL.Add('datapostagemdocvdvm=:datapostagemdocvdvm, dataexecucaodoc=:dataexecucaodoc');
-        SQL.Add('where UIDIDCPOMRF=:UIDIDCPOMRF ');
+//        SQL.Add('where UIDIDCPOMRF=:UIDIDCPOMRF ');
+        SQL.Add('WHERE 1=1');
+//         WHERE UIDIDCPOMRF = :UIDIDCPOMRF
+        if HasUIDIDCPOMRF then
+        begin
+          SQL.Add('  AND rolloutvivo.UIDIDCPOMRF = :UIDIDCPOMRF');
+          ParamByName('UIDIDCPOMRF').AsString := uididcpomrf;
+        end;
+        if HasUIDIDPMTS then
+        begin
+          SQL.Add('  AND rolloutvivo.UIDIDPMTS = :UIDIDPMTS');
+          ParamByName('UIDIDPMTS').AsString := idpmts;
+        end;
+
         ParamByName('infra').asstring := infra;
         ParamByName('acessoatividade').asstring := acessoatividade;
         ParamByName('acessocomentario').asstring := acessocomentario;
@@ -2199,7 +2236,6 @@ begin
 
         end;
         ParamByName('OV').asstring := OV;
-        ParamByName('UIDIDCPOMRF').asstring := UIDIDCPOMRF;
         ParamByName('resumodafase').asstring := resumodafase;
         ParamByName('rollout').asstring := rollout;
         try
@@ -2806,7 +2842,7 @@ function TProjetotelefonica.Editart2(out erro: string): Boolean;
 var
   qry, qry1, qry2: TFDQuery;
   cont: Integer;
-  descricao, regional: string;
+  descricao, regional, idmpts: string;
   posTraco: Integer;
 begin
   Result := False;
@@ -2817,6 +2853,7 @@ begin
   
   try
     // Verificar se a conexão está válida
+    idmpts := idmpts;
     if not Assigned(FConn) then
     begin
       erro := 'Conexão com banco de dados não está disponível';
@@ -2893,10 +2930,10 @@ begin
       begin
         active := false;
         SQL.Clear;
-        SQL.Add('insert into telefonicacontrolet2(empresa, regional, site,itemt2,codfornecedor,fabricante,numerodocontrato,t2codmatservsw,t2descricaocod,vlrunitarioliqliq, ');
+        SQL.Add('insert into telefonicacontrolet2(UID_IDPMTS, empresa, regional, site,itemt2,codfornecedor,fabricante,numerodocontrato,t2codmatservsw,t2descricaocod,vlrunitarioliqliq, ');
         SQL.Add('vlrunitarioliq,quant,unid,vlrunitariocimposto,vlrcimpsicms,vlrtotalcimpostos,itemt4,t4codeqmatswserv,t4descricaocod, ');
         SQL.Add('pepnivel2,idlocalidade,pepnivel3,descricaoobra,idobra,enlace,gestor,tipo,responsavel,categoria,tecnologia,datainclusao) ');
-        SQL.Add('                         values(:empresa,:regional, :site,:itemt2,:codfornecedor,:fabricante,:numerodocontrato,:t2codmatservsw,:t2descricaocod,:vlrunitarioliqliq, ');
+        SQL.Add('                         values(:UID_IDPMTS, :empresa,:regional, :site,:itemt2,:codfornecedor,:fabricante,:numerodocontrato,:t2codmatservsw,:t2descricaocod,:vlrunitarioliqliq, ');
         SQL.Add(':vlrunitarioliq,:quant,:unid,:vlrunitariocimposto,:vlrcimpsicms,:vlrtotalcimpostos,:itemt4,:t4codeqmatswserv,:t4descricaocod, ');
         SQL.Add(':pepnivel2,:idlocalidade,:pepnivel3,:descricaoobra,:idobra,:enlace,:gestor,:tipo,:responsavel,:categoria,:tecnologia,:datainclusao) ');
         
@@ -2911,7 +2948,7 @@ begin
           else
             regional := descricao;
         end;
-        
+        ParamByName('UID_IDPMTS').AsString := idpmts;
         ParamByName('empresa').AsString := qry.fieldbyname('empresa').asstring;
         ParamByName('regional').AsString := regional;
         ParamByName('site').AsString := qry1.fieldbyname('PMO_sigla').asstring;
@@ -3624,7 +3661,7 @@ end;
 function TProjetotelefonica.listat2(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
-  idobraValor, uf: string;
+  idobraValor, idpmts, uf: string;
 begin
   Result := nil;
   erro := '';
@@ -3634,21 +3671,24 @@ begin
     qry.Connection := FConn;
 
     qry.SQL.Clear;
-    qry.SQL.Add('SELECT *');
-    qry.SQL.Add('FROM telefonicacontrolet2');
+      qry.SQL.Add('SELECT *');
+      qry.SQL.Add('FROM telefonicacontrolet2');
+      qry.SQL.Add('WHERE 1 =1');
 
-    if AQuery.ContainsKey('idobraloca') and (Trim(AQuery.Items['idobraloca']) <> '') then
-    begin
-      idobraValor := AQuery.Items['idobraloca'];
+      if AQuery.ContainsKey('idobraloca') and (Trim(AQuery.Items['idobraloca']) <> '') then
+      begin
+        idobraValor := AQuery.Items['idobraloca'];
+        qry.SQL.Add('AND  IDOBRA = :idobra');
+        qry.ParamByName('idobra').AsString := idobraValor;
 
-      qry.SQL.Add('WHERE (');
+      end;
+      if AQuery.ContainsKey('idpmts') and (Trim(AQuery.Items['idpmts']) <> '') then
+      begin
+        idpmts := AQuery.Items['idpmts'];
+        qry.SQL.Add('AND  UID_IDPMTS = :idpmts');
+        qry.ParamByName('idpmts').AsString := idpmts;
 
-      qry.SQL.Add('  IDOBRA = :idobra');
-
-      qry.SQL.Add(' )');
-      qry.ParamByName('idobra').AsString := idobraValor;
-
-    end;
+      end;
 
     qry.Active := True;
     Result := qry;
@@ -4341,61 +4381,105 @@ begin
   end;
 end;
 
-function TProjetotelefonica.Listaacompanhamentofinanceiro(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+function TProjetotelefonica.Listaacompanhamentofinanceiro(
+  const AQuery: TDictionary<string, string>;
+  out erro: string
+): TFDQuery;
 var
   qry: TFDQuery;
-  a, b: string;
+  HasUIDIDCPOMRF, HasUIDODBRA: Boolean;
 begin
+  Result := nil;
+  erro := '';
+  qry := TFDQuery.Create(nil);
+
   try
-    qry := TFDQuery.Create(nil);
-    qry.connection := FConn;
-    with qry do
-    begin
-      Active := false;
-      SQL.Clear;
-      SQL.Add('Select ');
-      SQL.Add('* ');
-      SQL.Add('From ');
-      SQL.Add('consolidadotelefonica where IDObra=:idpmts ');
-      ParamByName('idpmts').asstring := AQuery.Items['idpmts'];
-      Active := true;
-    end;
-    erro := '';
+    qry.Connection := FConn;
+    HasUIDIDCPOMRF := AQuery.ContainsKey('idpmts');
+    HasUIDODBRA  := AQuery.ContainsKey('osouobra');
+
+    qry.SQL.Clear;
+    qry.SQL.Add('SELECT *');
+    qry.SQL.Add('FROM consolidadotelefonica');
+//    qry.SQL.Add('WHERE (IDObra = :idpmts)');
+    qry.SQL.Add('WHERE 1=1');
+   if HasUIDIDCPOMRF then
+    qry.SQL.Add('  AND consolidadotelefonica.IDPMTS = :idpmts');
+   if HasUIDODBRA then
+    qry.SQL.Add(' AND consolidadotelefonica.Idobra = :Idobra');
+
+    if HasUIDIDCPOMRF then
+      qry.ParamByName('idpmts').AsString := AQuery.Items['idpmts'];
+    if HasUIDODBRA then
+      qry.ParamByName('Idobra').AsString := AQuery.Items['osouobra'];
+    qry.Open;
     Result := qry;
   except
-    on ex: exception do
+    on ex: Exception do
     begin
-      erro := 'Erro ao consultar : ' + ex.Message;
+      erro := 'Erro ao consultar consolidadotelefonica: ' + ex.Message;
+      FreeAndNil(qry);
       Result := nil;
     end;
   end;
 end;
 
+
 function TProjetotelefonica.Listaatividade(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
-  a, b: string;
+  idpmts, osouobra: string;
+  HasUIDIDCPOMRF, HasUIDODBRA: Boolean;
 begin
+  Result := nil;
+  erro := '';
+
   try
+    // Verifica se a conexão foi criada
+    if not Assigned(FConn) then
+      raise Exception.Create('Conexão FConn não inicializada.');
+
     qry := TFDQuery.Create(nil);
-    qry.connection := FConn;
-    with qry do
+    qry.Connection := FConn;
+
+    // Verifica chaves
+    HasUIDIDCPOMRF := AQuery.ContainsKey('idpmts');
+    HasUIDODBRA := AQuery.ContainsKey('osouobra');
+
+    // Monta SQL
+    with qry.SQL do
     begin
-      Active := false;
-      SQL.Clear;
-      SQL.Add('Select');
-      SQL.Add('  telefonicacontrolet2.*');
-      SQL.Add('From');
-      SQL.Add('  telefonicacontrolet2 where IDObra=:idpmts');
-      ParamByName('idpmts').asstring := AQuery.Items['idpmts'];
-      Active := true;
+      Clear;
+      Add('SELECT telefonicacontrolet2.*');
+      Add('FROM telefonicacontrolet2');
+      Add('WHERE 1=1');
+
+      if HasUIDIDCPOMRF then
+        Add('  AND telefonicacontrolet2.IDObra = :idpmts');
+
+      // ⚠️ Corrigido: não existe "consolidadotelefonica" no FROM
+      if HasUIDODBRA then
+        Add('  AND telefonicacontrolet2.UID_IDPMTS = :UID_IDPMTS');
     end;
-    erro := '';
+
+    // Define parâmetros com segurança
+    if HasUIDIDCPOMRF then
+      if AQuery.TryGetValue('idpmts', idpmts) then
+        qry.ParamByName('idpmts').AsString := idpmts;
+
+    if HasUIDODBRA then
+      if AQuery.TryGetValue('osouobra', osouobra) then
+        qry.ParamByName('UID_IDPMTS').AsString := osouobra;
+
+    qry.Open; // abre o dataset
+
     Result := qry;
   except
-    on ex: exception do
+    on E: Exception do
     begin
-      erro := 'Erro ao consultar : ' + ex.Message;
+      erro := 'Erro ao consultar: ' + E.Message;
+      if Assigned(qry) then
+        qry.Free;
       Result := nil;
     end;
   end;
@@ -5162,86 +5246,117 @@ end;
 function TProjetotelefonica.Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
-  a: string;
+  FieldList: TStringList;
+  HasUIDIDCPOMRF, HasUIDIDPMTS: Boolean;
 begin
   try
     qry := TFDQuery.Create(nil);
-    qry.connection := FConn;
+    qry.Connection := FConn;
+
+    // 🔹 Cria e carrega a lista de campos da tabela rolloutvivo
+    FieldList := TStringList.Create;
+    try
+      FConn.GetFieldNames('', '', 'rolloutvivo', '', FieldList);
+      HasUIDIDCPOMRF := AQuery.ContainsKey('idpmts');
+      HasUIDIDPMTS   := AQuery.ContainsKey('osouobra');
+    finally
+      FieldList.Free;
+    end;
+
     with qry do
     begin
-      Active := false;
+      Active := False;
       SQL.Clear;
-      SQL.Add('Select  ');
-      SQL.Add('rolloutvivo.UIDIDPMTS,  ');
-      SQL.Add('rolloutvivo.UFSIGLA,  ');
-      SQL.Add('rolloutvivo.PMOSIGLA,  ');
-      SQL.Add('rolloutvivo.PMOUF,  ');
-      SQL.Add('rolloutvivo.PMOREGIONAL,  ');
-      SQL.Add('rolloutvivo.uididcpomrf,  ');
-      SQL.Add('rolloutvivo.infra,  ');
-      SQL.Add('rolloutvivo.RSORSASCI,  ');
-      SQL.Add('rolloutvivo.RSORSASCISTATUS,  ');
-      SQL.Add('rolloutvivo.RSORSADETENTORA,  ');
-      SQL.Add('rolloutvivo.RSORSAIDDETENTORA,  ');
-      SQL.Add('rolloutvivo.ddd,  ');
-      SQL.Add('rolloutvivo.Cidade,  ');
-      SQL.Add('rolloutvivo.nomedosite As SCIENCENOME,  ');
-      SQL.Add('rolloutvivo.endereco As SCIENCEENDERECO, ');
-      SQL.Add('rolloutvivo.LATITUDE as SCIENCELATITUDE, ');
-      SQL.Add('rolloutvivo.LONGITUDE as SCIENCELONGITUDE, ');
-      SQL.Add('rolloutvivo.acessoobs, ');
-      SQL.Add('rolloutvivo.acessostatus, ');
-      SQL.Add('rolloutvivo.initialtunnigstatus, ');
-      SQL.Add('rolloutvivo.acessosolicitacao, ');
-      SQL.Add('rolloutvivo.acessodatasolicitacao, ');
-      SQL.Add('rolloutvivo.acessodatainicial, ');
-      SQL.Add('rolloutvivo.acessodatafinal, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.dataimprodutiva, ''%Y-%m-%d'') as dataimprodutiva, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.EntregaPlan, ''%Y-%m-%d'') as EntregaPlan, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.EntregaReal, ''%Y-%m-%d'') as EntregaReal, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.FimInstalacaoPlan, ''%Y-%m-%d'') as FimInstalacaoPlan, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.FimInstalacaoReal, ''%Y-%m-%d'') as FimInstalacaoReal, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.IntegracaoPlan, ''%Y-%m-%d'') as IntegracaoPlan, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.IntegracaoReal, ''%Y-%m-%d'') as IntegracaoReal, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.Ativacao, ''%Y-%m-%d'') as Ativacao, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.Documentacao, ''%Y-%m-%d'') as Documentacao, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.datainventariodesinstalacao, ''%Y-%m-%d'') as datainventariodesinstalacao, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.DTPlan, ''%Y-%m-%d'') as DTPlan, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.DTReal, ''%Y-%m-%d'') as DTReal, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.AprovacaoSSV, ''%Y-%m-%d'') as AprovacaoSSV, ');
-      SQL.Add('rolloutvivo.StatusAprovacaoSSV, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.vistoriaplan, ''%Y-%m-%d'') as vistoriaplan, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.vistoriareal, ''%Y-%m-%d'') as vistoriareal, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.docplan, ''%Y-%m-%d'') as docplan, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.docvitoriareal, ''%Y-%m-%d'') as docvitoriareal, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.req, ''%Y-%m-%d'') as req, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.initialtunningreal, ''%Y-%m-%d'') as initialtunningreal, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.InitialTunningRealFinal, ''%Y-%m-%d'') as InitialTunningRealFinal, ');
-      SQL.Add('rolloutvivo.resumodafase, ');
-      SQL.Add('rolloutvivo.Rollout, ');
-      SQL.Add('rolloutvivo.infravivo, ');
-      SQL.Add('rolloutvivo.equipe, rolloutvivo.dataExecucaoDoc , rolloutvivo.datapostagemdoc , rolloutvivo.statusDocumentacao, rolloutvivo.dataexecucaodocvdvm, rolloutvivo.datapostagemdocvdvm, rolloutvivo.observacaoDocumentacao, ');
-      SQL.Add('rolloutvivo.acompanhamentofisicoobservacao, ');
-      SQL.Add('UPPER(rolloutvivo.StatusObra) as statusobra, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.docaplan, ''%Y-%m-%d'') as docaplan, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAO, ''%Y-%m-%d'') as PMOACEITACAO, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAOP, ''%Y-%m-%d'') as PMOACEITACAOP, ');
-      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAOR, ''%Y-%m-%d'') as PMOACEITACAOR, ');
-      SQL.Add('rolloutvivo.OV ');
-      SQL.Add(' ');
-      SQL.Add('From ');
-      SQL.Add('rolloutvivo where rolloutvivo.uididcpomrf=:uididcpomrf ');
-      ParamByName('uididcpomrf').asstring := AQuery.Items['idpmts'];
-      a := AQuery.Items['idpmts'];
-      Active := true;
+
+      SQL.Add('SELECT');
+      SQL.Add('  rolloutvivo.UIDIDPMTS,');
+      SQL.Add('  rolloutvivo.UFSIGLA,');
+      SQL.Add('  rolloutvivo.PMOSIGLA,');
+      SQL.Add('  rolloutvivo.PMOUF,');
+      SQL.Add('  rolloutvivo.PMOREGIONAL,');
+      SQL.Add('  rolloutvivo.uididcpomrf,');
+      SQL.Add('  rolloutvivo.infra,');
+      SQL.Add('  rolloutvivo.RSORSASCI,');
+      SQL.Add('  rolloutvivo.RSORSASCISTATUS,');
+      SQL.Add('  rolloutvivo.RSORSADETENTORA,');
+      SQL.Add('  rolloutvivo.RSORSAIDDETENTORA,');
+      SQL.Add('  rolloutvivo.ddd,');
+      SQL.Add('  rolloutvivo.Cidade,');
+      SQL.Add('  rolloutvivo.nomedosite AS SCIENCENOME,');
+      SQL.Add('  rolloutvivo.endereco AS SCIENCEENDERECO,');
+      SQL.Add('  rolloutvivo.LATITUDE AS SCIENCELATITUDE,');
+      SQL.Add('  rolloutvivo.LONGITUDE AS SCIENCELONGITUDE,');
+      SQL.Add('  rolloutvivo.acessoobs,');
+      SQL.Add('  rolloutvivo.acessostatus,');
+      SQL.Add('  rolloutvivo.initialtunnigstatus,');
+      SQL.Add('  rolloutvivo.acessosolicitacao,');
+      SQL.Add('  rolloutvivo.acessodatasolicitacao,');
+      SQL.Add('  rolloutvivo.acessodatainicial,');
+      SQL.Add('  rolloutvivo.acessodatafinal,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.dataimprodutiva, ''%Y-%m-%d'') AS dataimprodutiva,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.EntregaPlan, ''%Y-%m-%d'') AS EntregaPlan,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.EntregaReal, ''%Y-%m-%d'') AS EntregaReal,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.FimInstalacaoPlan, ''%Y-%m-%d'') AS FimInstalacaoPlan,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.FimInstalacaoReal, ''%Y-%m-%d'') AS FimInstalacaoReal,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.IntegracaoPlan, ''%Y-%m-%d'') AS IntegracaoPlan,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.IntegracaoReal, ''%Y-%m-%d'') AS IntegracaoReal,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.Ativacao, ''%Y-%m-%d'') AS Ativacao,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.Documentacao, ''%Y-%m-%d'') AS Documentacao,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.datainventariodesinstalacao, ''%Y-%m-%d'') AS datainventariodesinstalacao,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.DTPlan, ''%Y-%m-%d'') AS DTPlan,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.DTReal, ''%Y-%m-%d'') AS DTReal,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.AprovacaoSSV, ''%Y-%m-%d'') AS AprovacaoSSV,');
+      SQL.Add('  rolloutvivo.StatusAprovacaoSSV,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.vistoriaplan, ''%Y-%m-%d'') AS vistoriaplan,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.vistoriareal, ''%Y-%m-%d'') AS vistoriareal,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.docplan, ''%Y-%m-%d'') AS docplan,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.docvitoriareal, ''%Y-%m-%d'') AS docvitoriareal,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.req, ''%Y-%m-%d'') AS req,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.initialtunningreal, ''%Y-%m-%d'') AS initialtunningreal,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.InitialTunningRealFinal, ''%Y-%m-%d'') AS InitialTunningRealFinal,');
+      SQL.Add('  rolloutvivo.resumodafase,');
+      SQL.Add('  rolloutvivo.Rollout,');
+      SQL.Add('  rolloutvivo.infravivo,');
+      SQL.Add('  rolloutvivo.equipe,');
+      SQL.Add('  rolloutvivo.dataExecucaoDoc,');
+      SQL.Add('  rolloutvivo.datapostagemdoc,');
+      SQL.Add('  rolloutvivo.statusDocumentacao,');
+      SQL.Add('  rolloutvivo.dataexecucaodocvdvm,');
+      SQL.Add('  rolloutvivo.datapostagemdocvdvm,');
+      SQL.Add('  rolloutvivo.observacaoDocumentacao,');
+      SQL.Add('  rolloutvivo.acompanhamentofisicoobservacao,');
+      SQL.Add('  UPPER(rolloutvivo.StatusObra) AS statusobra,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.docaplan, ''%Y-%m-%d'') AS docaplan,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.PMOACEITACAO, ''%Y-%m-%d'') AS PMOACEITACAO,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.PMOACEITACAOP, ''%Y-%m-%d'') AS PMOACEITACAOP,');
+      SQL.Add('  DATE_FORMAT(rolloutvivo.PMOACEITACAOR, ''%Y-%m-%d'') AS PMOACEITACAOR,');
+      SQL.Add('  rolloutvivo.OV');
+      SQL.Add('FROM rolloutvivo');
+      SQL.Add('WHERE 1=1');
+
+       if HasUIDIDCPOMRF then
+        SQL.Add('  AND rolloutvivo.uididcpomrf = :uididcpomrf');
+       if HasUIDIDPMTS then
+        SQL.Add(' AND rolloutvivo.UIDIDPMTS = :UIDIDPMTS');
+
+      if HasUIDIDCPOMRF then
+        ParamByName('uididcpomrf').AsString := AQuery.Items['idpmts'];
+      if HasUIDIDPMTS then
+        ParamByName('UIDIDPMTS').AsString := AQuery.Items['osouobra'];
+
+
+      Active := True;
     end;
+
     erro := '';
     Result := qry;
+
   except
-    on ex: exception do
+    on Ex: Exception do
     begin
-      erro := 'Erro ao consultar : ' + ex.Message;
+      erro := 'Erro ao consultar: ' + Ex.Message;
       Writeln(erro);
+      qry.Free;
       Result := nil;
     end;
   end;

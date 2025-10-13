@@ -1695,6 +1695,7 @@ const Rollouttelefonicaedicao = ({
     api
       .post('v1/projetotelefonica', {
         infra,
+        idpmts: idpmtslocal,
         infraviv: infravivo,
         acessoatividade,
         acessocomentario,

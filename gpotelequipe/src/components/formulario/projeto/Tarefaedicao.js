@@ -30,12 +30,11 @@ const Tarefaedicao = ({ setshow, show, ididentificador, atualiza, titulotopo, ob
   const listaplanoconta = async () => {
     try {
       setLoading(true);
-      await api.get('/v1/planocontaid', { params }).then((response) => {
-        setdata(response.data.datacriacaopo);
-        setdescricao(response.data.descricaoservico);
-        setcodigoservico(response.data.codigoservico);
-        setMensagem('');
-      });
+      const response = await api.get('/v1/planocontaid', { params });
+      setdata(response.data.datacriacaopo);
+      setdescricao(response.data.descricaoservico);
+      setcodigoservico(response.data.codigoservico);
+      setMensagem('');
     } catch (err) {
       setMensagem(err.message);
     } finally {
@@ -61,8 +60,9 @@ const Tarefaedicao = ({ setshow, show, ididentificador, atualiza, titulotopo, ob
           setMensagem('');
           setMensagemsucesso('Registro Salvo');
           setshow(!show);
-          togglecadastro.bind(null);
-          atualiza();
+          if (atualiza) {
+            atualiza();
+          }
         } else {
           setMensagem(response.status);
           setMensagemsucesso('');
@@ -79,8 +79,9 @@ const Tarefaedicao = ({ setshow, show, ididentificador, atualiza, titulotopo, ob
   }
 
   useEffect(() => {
-    listaplanoconta();
-  }, []);
+    console.log(ididentificador);
+    if (ididentificador) listaplanoconta();
+  }, [ididentificador]);
   return (
     <Modal isOpen={show} toggle={togglecadastro.bind(null)} className="modal-dialog modal-sm">
       <ModalHeader toggle={togglecadastro.bind(null)}>{titulotopo}</ModalHeader>
@@ -148,7 +149,7 @@ Tarefaedicao.propTypes = {
   show: PropTypes.bool.isRequired,
   setshow: PropTypes.func.isRequired,
   ididentificador: PropTypes.number,
-  atualiza: PropTypes.node,
+  atualiza: PropTypes.func,
   obra: PropTypes.string,
   siteid: PropTypes.string,
   titulotopo: PropTypes.string,

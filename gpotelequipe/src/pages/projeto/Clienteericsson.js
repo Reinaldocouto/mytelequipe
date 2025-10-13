@@ -60,9 +60,9 @@ export default function Clienteericsson() {
   }
   console.log(rolloutericsson);
 
-  function acionamentoericsson() {
-    settelaacionamento(true);
-  }
+  // function acionamentoericsson() {
+  //   settelaacionamento(true);
+  // }
 
   function adicionalericsson() {
     settelaadicional(true);
@@ -91,7 +91,7 @@ export default function Clienteericsson() {
     settelarelatoriofechamento(true);
   }
 
-  function limparFiltros() {}
+  function limparFiltros() { }
   const handleFilteroptionsregionalselectedChange = (event) => {
     const {
       target: { value },
@@ -496,10 +496,10 @@ export default function Clienteericsson() {
               Rollout
             </Button>
             <br></br>
-            <Button color="link" onClick={() => acionamentoericsson()}>
+            {/* <Button color="link" onClick={() => acionamentoericsson()}>
               Acionamento
             </Button>
-            <br></br>
+            <br></br> */}
             <Button color="link" onClick={() => adicionalericsson()}>
               Adicional
             </Button>

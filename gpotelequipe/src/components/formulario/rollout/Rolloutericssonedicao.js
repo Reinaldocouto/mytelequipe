@@ -95,10 +95,10 @@ const Rolloutericssonedicao = ({
   const [aceitacao, setaceitacao] = useState('');
   const [pendencia, setpendencia] = useState('');
   const [telacadastrotarefa, settelacadastrotarefa] = useState(false);
-  const [ididentificadortarefa] = useState('');
+  const [ididentificadortarefa, setididentificadortarefa] = useState('');
   const [loading, setloading] = useState(false);
   const [listamigo, setlistamigo] = useState([]);
-  const [titulotarefa] = useState('');
+  const [titulotarefa, settitulotarefa] = useState('');
   const [pageSize, setPageSize] = useState(10);
   const [valorhora, setvalorhora] = useState('');
   const [paginationModeldiarias, setPaginationModeldiarias] = useState({
@@ -425,18 +425,36 @@ const Rolloutericssonedicao = ({
     }
   };
 
-  const novocadastrotarefa = () => {
-    api
-      .post('v1/projetoericsson/novocadastrotarefa', {
-        idcliente: localStorage.getItem('sessionCodidcliente'),
-        idusuario: localStorage.getItem('sessionId'),
-        idloja: localStorage.getItem('sessionloja'),
-      })
-      .then((response) => {
-        if (response.status === 201) {
-          settelacadastrotarefa(true);
-        }
+  const novocadastrotarefa = async () => {
+    console.log('Chaamda da tarefa');
+    const idcliente = localStorage.getItem('sessionCodidcliente');
+    const idusuario = localStorage.getItem('sessionId');
+    const idloja = localStorage.getItem('sessionloja');
+
+    try {
+      const response = await api.post('v1/projetoericsson/novocadastrotarefa', {
+        idcliente,
+        idusuario,
+        idloja,
       });
+      console.log('Retorno da tarefa');
+      console.log(response);
+
+      if (response && response.data) {
+        setididentificadortarefa(response.data.retorno);
+        settitulotarefa('Cadastro nova tarefa');
+        settelacadastrotarefa(true);
+        console.log('Tarefa criada com sucesso:', response.data.retorno);
+      } else {
+        toast.error('Resposta inválida do servidor.');
+      }
+    } catch (err) {
+      if (err.response && err.response.data && err.response.data.erro) {
+        toast.error(err.response.data.erro);
+      } else {
+        toast.error('Ocorreu um erro na requisição.');
+      }
+    }
   };
 
   const handleChangelpu = (stat) => {
@@ -1431,10 +1449,10 @@ const Rolloutericssonedicao = ({
           porcentagem === null || porcentagem === 0
             ? grey[350]
             : porcentagem > 0 && porcentagem < 1
-              ? yellow[500]
-              : porcentagem >= 1
-                ? green[500]
-                : undefined;
+            ? yellow[500]
+            : porcentagem >= 1
+            ? green[500]
+            : undefined;
 
         return <PaidIcon style={{ color }} />;
       },

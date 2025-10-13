@@ -2134,6 +2134,7 @@ begin
       servico.equipe := body.getvalue<string>('equipe', '');
       servico.initialtunningstatus := body.getvalue<string>('initialtunningstatus', '');
       servico.initialtunningreal := body.getvalue<string>('initialtunningreal', '');
+      servico.idpmts := body.getvalue<string>('idpmts', '');
 
       servico.dataExecucaoDoc := body.getvalue<string>('dataExecucaoDoc', '');
       servico.dataPostagemDoc := body.getvalue<string>('dataPostagemDoc', '');
