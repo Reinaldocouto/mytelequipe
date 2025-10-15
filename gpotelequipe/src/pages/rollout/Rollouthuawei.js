@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Box, CircularProgress, Alert } from '@mui/material';
 import { Button, Modal, ModalBody, ModalHeader, ModalFooter } from 'reactstrap';
 import {
@@ -14,10 +14,10 @@ import {
 import { ToastContainer, toast } from 'react-toastify';
 import EditIcon from '@mui/icons-material/Edit';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-//import DeleteIcon from '@mui/icons-material/Delete';
 import PropTypes from 'prop-types';
 import Typography from '@mui/material/Typography';
 import Pagination from '@mui/material/Pagination';
+import createLocalDate from '../../services/data';
 import api from '../../services/api';
 import exportExcel from '../../data/exportexcel/Excelexport';
 import Rollouthuaweiedicao from '../../components/formulario/rollout/Rollouthuaweiedicao';
@@ -96,8 +96,8 @@ const Rollouthuawei = ({ setshow, show }) => {
 
       // IDs selecionados
       const idsSelecionados = totalacionamento
-        .filter((item) => rowSelectionModel.includes(item.id))
-        .map((item) => item.id)
+        .filter((item) => rowSelectionModel.includes(item.idgeral))
+        .map((item) => item.idgeral)
         .join(',');
 
       if (!idsSelecionados) {
@@ -123,8 +123,29 @@ const Rollouthuawei = ({ setshow, show }) => {
             }
           : r,
       );
+      if (updatedRows.length === 0) {
+        toast.error('Registro não encontrado!');
+        return;
+      }
 
-      settotalacionamento(updatedRows);
+      const filtroParams = {
+        ...params, // seus parâmetros existentes
+        ...formValues, // valores dos campos do formulário
+      };
+      Object.keys(filtroParams).forEach((key) => {
+        if (
+          filtroParams[key] === '' ||
+          filtroParams[key] === null ||
+          filtroParams[key] === undefined
+        ) {
+          delete filtroParams[key];
+        }
+      });
+
+      const response = await api.get('v1/rollouthuawei', {
+        params: filtroParams,
+      });
+      settotalacionamento(response.data);
 
       toast.success('Registro atualizado com sucesso!');
     } catch (err) {
@@ -185,7 +206,7 @@ const Rollouthuawei = ({ setshow, show }) => {
     console.log(stat);
   }
 
-  function t2editar(stat, pmuflocal, idrlocal, ipmts) {
+  const t2editar = useCallback((stat, pmuflocal, idrlocal, ipmts) => {
     setididentificador(stat);
     setpmuf(pmuflocal);
     setidr(idrlocal);
@@ -193,12 +214,32 @@ const Rollouthuawei = ({ setshow, show }) => {
     setidpmtslocal(ipmts);
     settitulot2(`T2 - ${ipmts}`);
     setidobra(stat);
-  }
+  }, []);
 
   const [HuaweiSelecionado, sethuaweiSelecionado] = useState(null);
-  const [selectionModel, setSelectionModel] = useState([]);
+  const rowsById = useMemo(
+    () => new Map(totalacionamento.map((r) => [r.idgeral, r])),
+    [totalacionamento],
+  );
 
-  const columns = [
+  const handleRowSelectionChange = useCallback(
+    (newSelectionModel) => {
+      if (newSelectionModel.length > 0) {
+        const selectedRow = rowsById.get(newSelectionModel[0]);
+        if (selectedRow) {
+          sethuaweiSelecionado(selectedRow);
+          setididentificador(selectedRow.id);
+          setpmuf(selectedRow.projeto);
+          setidr(selectedRow.siteCode);
+          setidpmtslocal(selectedRow.siteId);
+        }
+      }
+      setRowSelectionModel(newSelectionModel);
+    },
+    [rowsById],
+  );
+
+  const columns = useMemo(() => [
     {
       field: 'actions',
       headerName: 'Ação',
@@ -239,7 +280,7 @@ const Rollouthuawei = ({ setshow, show }) => {
       valueOptions: ['Tim WL SP', 'Tim WL Adicional'],
     },
     { field: 'endSite', headerName: 'End Site', width: 200, editable: true },
-    { field: 'du', headerName: 'DU', width: 120, editable: true },
+    { field: 'du', headerName: 'DU', width: 250, editable: true },
     {
       field: 'statusGeral',
       headerName: 'Status Geral',
@@ -326,28 +367,26 @@ const Rollouthuawei = ({ setshow, show }) => {
     { field: 'longitude', headerName: 'Longitude', width: 120, editable: true },
     { field: 'reg', headerName: 'Reg', width: 100, editable: true },
     { field: 'ddd', headerName: 'DDD', width: 80, editable: true },
-
-    // MOS
     {
       field: 'envioDaDemanda',
       headerName: 'Envio da Demanda',
       type: 'date',
       width: 160,
-      valueGetter: (cell) => (cell.value ? new Date(cell.value) : null),
+      valueGetter: (cell) => (cell.value ? createLocalDate(cell.value) : null),
     },
     {
       field: 'mosPlanned',
       headerName: 'MOS Planned',
       type: 'date',
       width: 160,
-      valueGetter: (cell) => (cell.value ? new Date(cell.value) : null),
+      valueGetter: (cell) => (cell.value ? createLocalDate(cell.value) : null),
     },
     {
       field: 'mosReal',
       headerName: 'MOS Real',
       type: 'date',
       width: 160,
-      valueGetter: (cell) => (cell.value ? new Date(cell.value) : null),
+      valueGetter: (cell) => (cell.value ? createLocalDate(cell.value) : null),
     },
     { field: 'semanaMos', headerName: 'Semana MOS', width: 150, editable: true },
     {
@@ -358,14 +397,12 @@ const Rollouthuawei = ({ setshow, show }) => {
       type: 'singleSelect',
       valueOptions: ['Finalizado', 'Cancelado', 'Pendente'],
     },
-
-    // Integração
     {
       field: 'integrationPlanned',
       headerName: 'Integration Planned',
       type: 'date',
       width: 180,
-      valueGetter: (cell) => (cell.value ? new Date(cell.value) : null),
+      valueGetter: (cell) => (cell.value ? createLocalDate(cell.value) : null),
     },
     {
       field: 'testeTx',
@@ -380,7 +417,7 @@ const Rollouthuawei = ({ setshow, show }) => {
       headerName: 'Integration Real',
       type: 'date',
       width: 180,
-      valueGetter: (cell) => (cell.value ? new Date(cell.value) : null),
+      valueGetter: (cell) => (cell.value ? createLocalDate(cell.value) : null),
     },
     { field: 'semanaIntegration', headerName: 'Semana Integration', width: 180, editable: true },
     {
@@ -406,14 +443,14 @@ const Rollouthuawei = ({ setshow, show }) => {
       headerName: 'QC Planned',
       type: 'date',
       width: 160,
-      valueGetter: (cell) => (cell.value ? new Date(cell.value) : null),
+      valueGetter: (cell) => (cell.value ? createLocalDate(cell.value) : null),
     },
     {
       field: 'qcReal',
       headerName: 'QC Real',
       type: 'date',
       width: 160,
-      valueGetter: (cell) => (cell.value ? new Date(cell.value) : null),
+      valueGetter: (cell) => (cell.value ? createLocalDate(cell.value) : null),
     },
     { field: 'semanaQc', headerName: 'Semana QC', width: 150, editable: true },
     {
@@ -461,8 +498,6 @@ const Rollouthuawei = ({ setshow, show }) => {
       type: 'singleSelect',
       valueOptions: ['Não faturar', 'Pendente', 'Cancelado', 'Finalizado', 'Parcial'],
     },
-
-    // Identificadores e projeto
     { field: 'changeHistory', headerName: 'Change History', width: 200, editable: true },
     { field: 'repOffice', headerName: 'Rep Office', width: 180, editable: true },
     { field: 'projectCode', headerName: 'Project Code', width: 150, editable: true },
@@ -541,9 +576,9 @@ const Rollouthuawei = ({ setshow, show }) => {
       headerName: 'Última Atualização',
       type: 'dateTime',
       width: 200,
-      valueGetter: (cell) => (cell.value ? new Date(cell.value) : null),
+      valueGetter: (cell) => (cell.value ? createLocalDate(cell.value) : null),
     },
-  ];
+  ]);
 
   function CustomNoRowsOverlay() {
     return (
@@ -772,14 +807,30 @@ const Rollouthuawei = ({ setshow, show }) => {
     console.error('Erro ao salvar:', error);
     setmensagem('Erro ao salvar a edição!');
   };
-  const limparFiltro = () => {
+  const limparFiltro = async () => {
     setFormValues({});
     setLoading(true);
-    // listarolloutericsson().finally(() => {
-    //   setLoading(false);
-    // });
+    const filtroParams = {
+      ...params, // seus parâmetros existentes
+      ...formValues, // valores dos campos do formulário
+    };
+    Object.keys(filtroParams).forEach((key) => {
+      if (
+        filtroParams[key] === '' ||
+        filtroParams[key] === null ||
+        filtroParams[key] === undefined
+      ) {
+        delete filtroParams[key];
+      }
+    });
+
+    const response = await api.get('v1/rollouthuawei', {
+      params: filtroParams,
+    });
+    settotalacionamento(response.data);
     toast.success('Filtros limpos com sucesso!');
     setTimeout(() => setmensagem(''), 3000); // Remove a mensagem após 3 segundos
+    setLoading(false);
   };
 
   const handleProcessRowUpdate = async (newRow, oldRow) => {
@@ -987,25 +1038,9 @@ const Rollouthuawei = ({ setshow, show }) => {
                   processRowUpdate={handleProcessRowUpdate}
                   onProcessRowUpdateError={handleProcessRowUpdateError}
                   rowSelectionModel={rowSelectionModel}
-                  onRowSelectionModelChange={setRowSelectionModel}
                   onCellEditCommit={handleCellEditCommit}
                   editMode="cell"
-                  onSelectionModelChange={(newSelectionModel) => {
-                    if (newSelectionModel.length > 0) {
-                      const selectedRow = totalacionamento.find(
-                        (row) => row.id === newSelectionModel[0],
-                      );
-                      if (selectedRow) {
-                        sethuaweiSelecionado(selectedRow);
-                        setididentificador(selectedRow.id);
-                        setpmuf(selectedRow.projeto);
-                        setidr(selectedRow.siteCode);
-                        setidpmtslocal(selectedRow.siteId);
-                      }
-                    }
-                    setSelectionModel(newSelectionModel);
-                  }}
-                  selectionModel={selectionModel}
+                  onRowSelectionModelChange={handleRowSelectionChange}
                   components={{
                     Pagination: CustomPagination,
                     NoRowsOverlay: CustomNoRowsOverlay,

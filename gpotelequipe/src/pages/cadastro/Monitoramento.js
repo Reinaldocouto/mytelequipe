@@ -83,7 +83,24 @@ export default function Pessoas() {
       return;
     }
     const formData = new FormData();
-    const nomeSemAcento = `monitoramento.xls`;
+    const nomeArquivo = arquivo.name.toLowerCase();
+    const isExcel =
+      nomeArquivo.endsWith('.xls') ||
+      nomeArquivo.endsWith('.xlsx') ||
+      arquivo.type.includes('sheet');
+    const isZip =
+      nomeArquivo.endsWith('.zip') ||
+      arquivo.type === 'application/zip' ||
+      arquivo.type === 'application/x-zip-compressed';
+
+    if (!isExcel && !isZip) {
+      setmensagem('Formato inválido! Envie um arquivo Excel (.xls, .xlsx) ou ZIP (.zip).');
+      return;
+    }
+
+    // 🔄 Monta o nome final (mantém extensão original)
+    const extensao = nomeArquivo.split('.').pop();
+    const nomeSemAcento = `monitoramento.${extensao}`;
     const arquivoModificado = new File([arquivo], nomeSemAcento, { type: arquivo.type });
     formData.append('files', arquivoModificado);
     const header = {

@@ -11,9 +11,10 @@ import {
   ModalFooter,
   Col,
   FormGroup,
+  Label,
 } from 'reactstrap';
 import * as Icon from 'react-feather';
-import { Box } from '@mui/material';
+import { Box, FormControl } from '@mui/material';
 import {
   DataGrid,
   gridPageCountSelector,
@@ -232,6 +233,13 @@ const Rollouttelefonicaedicao = ({
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [permissionStorage, setPermssionStorage] = useState();
   const [selectedRowsPackage, setSelectedRowsPackage] = useState([]);
+  const [observacaoDeAcesso, setobservacaoDeAcesso] = useState('');
+  const [ativoAtc, setativoAtc] = useState('');
+  const [obs, setobs] = useState('');
+  const [uf, setuf] = useState('');
+  const [equipeResponsavel, setEquipeResponsavel] = useState([]);
+  const [responsibleTeamOptions, setResponsibleTeamOptions] = useState([]);
+
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
     idusuario: localStorage.getItem('sessionId'),
@@ -392,7 +400,35 @@ const Rollouttelefonicaedicao = ({
         setacessodatasolicitacao(trataData(response.data.acessodatasolicitacao));
         setacessodatainicial(trataData(response.data.acessodatainicial));
         setacessodatafinal(trataData(response.data.acessodatafinal));
-
+        setativoAtc(response.data.ativoatc);
+        setobs(response.data.obs);
+        setuf(response.data.uf);
+        console.log(responsibleTeamOptions);
+        const splitEquipeResponsavel = response.data?.equiperesponsavel?.split(',');
+        console.log(splitEquipeResponsavel);
+        console.log(responsibleTeamOptions);
+        if (
+          splitEquipeResponsavel &&
+          splitEquipeResponsavel.length > 0 &&
+          responsibleTeamOptions.length > 0
+        ) {
+          console.log('-------------------------------');
+          const selectedOptions = splitEquipeResponsavel
+            .map((id) => {
+              const option = responsibleTeamOptions.find(
+                (opt) => String(opt.value) === String(id.trim()),
+              );
+              return option;
+            })
+            .filter(Boolean);
+          console.log('-------------------------------');
+          console.log('-------------------------------');
+          console.log(selectedOptions);
+          setEquipeResponsavel(selectedOptions);
+        } else {
+          setEquipeResponsavel([]);
+        }
+        setobservacaoDeAcesso(response.data.observacaodeacesso);
         setacessostatus(response.data.acessostatus);
         setentregaplan(trataData(response.data.entregaplan));
         setentregareal(trataData(response.data.entregareal));
@@ -486,6 +522,24 @@ const Rollouttelefonicaedicao = ({
       setregiao(stat);
     }
   };
+
+  const listapessoasresponsavel = async () => {
+    try {
+      const response = await api.get('/v1/pessoa', { params: {} });
+      const options = response.data.map((item) => ({
+        label: item.nome,
+        value: String(item.idpessoa),
+      }));
+      setResponsibleTeamOptions(options);
+    } catch (err) {
+      if (err.response) {
+        toast.error(err.response.data.erro);
+      } else {
+        toast.error('Ocorreu um erro na requisição.');
+      }
+    }
+  };
+
   async function listaValorTotal() {
     try {
       const response = await api.get('v1/projetotelefonica/ListaDespesas', {
@@ -588,6 +642,13 @@ const Rollouttelefonicaedicao = ({
       }
     }
   };
+
+  const handleResponsibleTeamChange = (selectedOptions) => {
+    const arr = Array.isArray(selectedOptions) ? selectedOptions : [];
+    console.log(arr);
+    setEquipeResponsavel(arr);
+  };
+
   const handleDeleteFile = async (fileKey) => {
     try {
       await s3Service.deleteFile(fileKey);
@@ -1708,6 +1769,11 @@ const Rollouttelefonicaedicao = ({
         latitude: sciencelatitude,
         longitude: sciencelongitude,
         acessoobs,
+        obs,
+        observacaoDeAcesso,
+        uf,
+        ativoAtc,
+        equipeResponsavel: equipeResponsavel?.map((item) => item.value).join(','),
         acessodatainicial,
         acessodatafinal,
         acessodatasolicitacao,
@@ -2190,18 +2256,40 @@ const Rollouttelefonicaedicao = ({
     }
   };
 
+  const carregarDadosSecundarios = debounce(async () => {
+    try {
+      // Carrega dados principais em paralelo
+      await Promise.all([listaid(), listaacompanhamentofinanceiro(), listaatividades()]);
+
+      // Carrega dados secundários em paralelo
+      await Promise.all([
+        listacolaboradorpj(),
+        listacolaboradorclt(),
+        listapacotesacionados(),
+        listapacotesacionadosclt(),
+      ]);
+
+      // Carrega dados finais em paralelo
+      await Promise.all([listasolicitacao(), listasolicitacaodiaria(), emailadicional()]);
+
+      setusuario(localStorage.getItem('sessionId'));
+    } catch (error) {
+      console.error('Erro ao carregar tabelas secundárias:', error);
+      toast.error('Erro ao carregar alguns dados. Por favor, tente novamente.');
+    }
+  }, 2000);
+
   const iniciatabelas = async () => {
-    await listaid();
-    await listaacompanhamentofinanceiro();
-    await listaatividades();
-    await listacolaboradorpj();
-    await listacolaboradorclt();
-    await listapacotesacionados();
-    await listapacotesacionadosclt();
-    await listasolicitacao();
-    await listasolicitacaodiaria();
-    await emailadicional();
-    setusuario(localStorage.getItem('sessionId'));
+    try {
+      // Primeiro carrega a lista de pessoas responsáveis
+      await listapessoasresponsavel();
+
+      // Carrega os outros dados com debounce de 300ms
+      carregarDadosSecundarios();
+    } catch (error) {
+      console.error('Erro ao carregar tabelas:', error);
+      toast.error('Erro ao carregar dados. Por favor, tente novamente.');
+    }
   };
 
   useEffect(() => {
@@ -2416,6 +2504,7 @@ const Rollouttelefonicaedicao = ({
                     value={infra}
                   >
                     <option value="">Selecione</option>
+                    <option value="Caixa  D&#39; água">Caixa D&#39;água</option>
                     <option value="CAMUFLADO">CAMUFLADO</option>
                     <option value="GREENFIELD">GREENFIELD</option>
                     <option value="INDOOR">INDOOR</option>
@@ -2582,7 +2671,65 @@ const Rollouttelefonicaedicao = ({
                     <option value="SSV ENTREGUE">SSV ENTREGUE</option>
                   </Input>
                 </div>
+
+                <div className="col-sm-4">
+                  Observações de Acesso
+                  <Input
+                    type="text"
+                    name="observacaoDeAcesso"
+                    onChange={(e) => setobservacaoDeAcesso(e.target.value)}
+                    value={observacaoDeAcesso}
+                  ></Input>
+                </div>
+
+                <div className="col-sm-2">
+                  Ativo ATC
+                  <Input
+                    type="text"
+                    name="ativoAtc"
+                    onChange={(e) => setativoAtc(e.target.value)}
+                    value={ativoAtc}
+                  ></Input>
+                </div>
+
+                <div className="col-sm-2">
+                  UF
+                  <Input type="select" name="uf" onChange={(e) => setuf(e.target.value)} value={uf}>
+                    <option value="">Selecione</option>
+                    <option value="AM">AM</option>
+                    <option value="AP">AP</option>
+                    <option value="BA">BA</option>
+                    <option value="MA">MA</option>
+                    <option value="MG">MG</option>
+                    <option value="PA">PA</option>
+                    <option value="SE">SE</option>
+                    <option value="SP">SP</option>
+                  </Input>
+                </div>
+                <div className="col-sm-4">
+                  OBS
+                  <Input
+                    type="text"
+                    name="obs"
+                    onChange={(e) => setobs(e.target.value)}
+                    value={obs}
+                  ></Input>
+                </div>
               </div>
+              <FormControl fullWidth size="small" margin="dense">
+                <Label htmlFor="statusSelect">Equipe Responsável</Label>
+                <Select
+                  isClearable
+                  isSearchable
+                  isMulti
+                  name="equipeResponsavel"
+                  options={responsibleTeamOptions}
+                  placeholder="Selecione"
+                  isLoading={loading}
+                  onChange={handleResponsibleTeamChange}
+                  value={equipeResponsavel}
+                />
+              </FormControl>
             </CardBody>
           </div>
 

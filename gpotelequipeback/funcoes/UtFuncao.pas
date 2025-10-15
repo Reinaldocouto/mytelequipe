@@ -1074,130 +1074,128 @@ end;
 
 function LerExcelParaJSONMonitoramento(const vXLSFile: string): TJSONArray;
 var
-  vExcelApp, vWorkbook, vSheet: OleVariant;
-  j, k, ColCount, RowCount: Integer;
-  jsonArray: TJSONArray;
-  jsonRow: TJSONObject;
+  ExcelApp, Workbook, Sheet: OleVariant;
+  DataRange, HeaderRange: OleVariant;
+  RowCount, ColCount, j, k: Integer;
+  JsonArray: TJSONArray;
+  JsonRow: TJSONObject;
   ColHeaders: array of string;
-  cellValue, infoCell: Variant;
-  placa, dataInicio, dataFim: string;
-  regex: TRegEx;
-  match: TMatch;
-  headerRow: Integer;
+  InfoCell, CellValue: Variant;
+  Placa, DataInicio, DataFim: string;
+  Regex: TRegEx;
+  Match: TMatch;
+  HeaderRow: Integer;
 begin
-  jsonArray := TJSONArray.Create;
+  JsonArray := TJSONArray.Create;
   CoInitialize(nil);
 
   try
-    vExcelApp := CreateOleObject('Excel.Application');
-    vExcelApp.Visible := False;
-    vExcelApp.DisplayAlerts := False;
+    ExcelApp := CreateOleObject('Excel.Application');
+    ExcelApp.Visible := False;
+    ExcelApp.DisplayAlerts := False;
 
+    Workbook := ExcelApp.Workbooks.Open(vXLSFile);
+    Sheet := Workbook.Sheets[1];
+
+    // 🔹 Tenta ler célula [1,3] de forma segura
+    InfoCell := Unassigned;
     try
-      vWorkbook := vExcelApp.Workbooks.Open(vXLSFile);
-      vSheet := vWorkbook.Sheets[1];
-      infoCell := vSheet.Cells[1, 3].Value;
-      if not VarIsNull(infoCell) then
-      begin
-        regex := TRegEx.Create('Posições do Veículo (\w+) de\s+(\d{2}/\d{2}/\d{4} \d{2}:\d{2}) a\s+(\d{2}/\d{2}/\d{4} \d{2}:\d{2})');
-        match := regex.Match(VarToStr(infoCell));
-        if match.Success then
-        begin
-          placa := match.Groups[1].Value;
-          dataInicio := match.Groups[2].Value;
-          dataFim := match.Groups[3].Value;
-        end
-        else
-        begin
-          placa := 'Desconhecida';
-          dataInicio := '';
-          dataFim := '';
-        end;
-      end;
-
-      headerRow := 2;
-
-      // Obter contagem de colunas e linhas
-      RowCount := vSheet.UsedRange.Rows.Count;
-      ColCount := vSheet.UsedRange.Columns.Count;
-      SetLength(ColHeaders, ColCount);
-
-      // Ler os cabeçalhos da linha 3
-      for k := 1 to ColCount do
-      begin
-        cellValue := vSheet.Cells[headerRow, k].Value;
-        if not VarIsNull(cellValue) and not VarIsEmpty(cellValue) then
-          ColHeaders[k - 1] := Trim(VarToStr(cellValue))
-        else
-          ColHeaders[k - 1] := Format('Coluna_%d', [k]);
-      end;
-
-      // Ler os dados a partir da linha 4 (após o cabeçalho)
-      for j := headerRow + 1 to RowCount do
-      begin
-        jsonRow := TJSONObject.Create;
-        try
-          // Adiciona informações fixas
-          jsonRow.AddPair('Placa', placa);
-          jsonRow.AddPair('DataInicio', dataInicio);
-          jsonRow.AddPair('DataFim', dataFim);
-
-          // Dados da linha
-          for k := 1 to ColCount do
-          begin
-            cellValue := vSheet.Cells[j, k].Value;
-            if not VarIsNull(cellValue) and not VarIsEmpty(cellValue) then
-              jsonRow.AddPair(ColHeaders[k - 1], Trim(VarToStr(cellValue)))
-            else
-              jsonRow.AddPair(ColHeaders[k - 1], TJSONNull.Create);
-          end;
-
-          // Verifica se a linha está vazia
-          var isEmpty := True;
-          for var pair in jsonRow do
-          begin
-            if not (pair.JsonValue is TJSONNull) and
-               not pair.JsonString.Value.StartsWith('Coluna_') then
-            begin
-              isEmpty := False;
-              Break;
-            end;
-          end;
-
-          if not isEmpty then
-            jsonArray.AddElement(jsonRow)
-          else
-            jsonRow.Free;
-
-        except
-          on E: Exception do
-          begin
-            jsonRow.Free;
-            Writeln('❌ Erro na linha ' + IntToStr(j) + ': ' + E.Message);
-          end;
-        end;
-      end;
-
-    finally
-      vWorkbook.Close(False);
-      vExcelApp.Quit;
-      vWorkbook := Unassigned;
-      vSheet := Unassigned;
-      vExcelApp := Unassigned;
+      InfoCell := Sheet.Cells[1, 3].Value;
+    except
+      InfoCell := Null;
     end;
-  except
-    on E: Exception do
+
+    if not (VarIsNull(InfoCell) or VarIsEmpty(InfoCell) or VarIsClear(InfoCell)) then
     begin
-      Writeln('❌ Erro ao processar o Excel: ' + E.Message);
-      jsonArray.Free;
-      raise;
+      Regex := TRegEx.Create('Posições do Veículo (\w+) de\s+(\d{2}/\d{2}/\d{4} \d{2}:\d{2}) a\s+(\d{2}/\d{2}/\d{4} \d{2}:\d{2})');
+      Match := Regex.Match(VarToStr(InfoCell));
+      if Match.Success then
+      begin
+        Placa := Match.Groups[1].Value;
+        DataInicio := Match.Groups[2].Value;
+        DataFim := Match.Groups[3].Value;
+      end
+      else
+      begin
+        Placa := 'Desconhecida';
+        DataInicio := '';
+        DataFim := '';
+      end;
     end;
+
+    HeaderRow := 2;
+
+    RowCount := Sheet.UsedRange.Rows.Count;
+    ColCount := Sheet.UsedRange.Columns.Count;
+    SetLength(ColHeaders, ColCount);
+
+    // 🔹 Lê cabeçalhos de uma vez só
+    HeaderRange := Sheet.Range[Sheet.Cells[HeaderRow, 1], Sheet.Cells[HeaderRow, ColCount]].Value;
+
+    for k := 1 to ColCount do
+    begin
+      if not VarIsNull(HeaderRange[1, k]) and not VarIsEmpty(HeaderRange[1, k]) then
+        ColHeaders[k - 1] := Trim(VarToStr(HeaderRange[1, k]))
+      else
+        ColHeaders[k - 1] := Format('Coluna_%d', [k]);
+    end;
+
+    // 🔹 Lê todos os dados de uma vez só — enorme ganho de desempenho
+    DataRange := Sheet.Range[Sheet.Cells[HeaderRow + 1, 1], Sheet.Cells[RowCount, ColCount]].Value;
+
+    // 🔹 Processa as linhas
+    for j := 1 to VarArrayHighBound(DataRange, 1) do
+    begin
+      JsonRow := TJSONObject.Create;
+      try
+        JsonRow.AddPair('Placa', Placa);
+        JsonRow.AddPair('DataInicio', DataInicio);
+        JsonRow.AddPair('DataFim', DataFim);
+
+        var IsEmpty := True;
+
+        for k := 1 to ColCount do
+        begin
+          CellValue := DataRange[j, k];
+          if not VarIsNull(CellValue) and not VarIsEmpty(CellValue) then
+          begin
+            JsonRow.AddPair(ColHeaders[k - 1], Trim(VarToStr(CellValue)));
+            IsEmpty := False;
+          end
+          else
+            JsonRow.AddPair(ColHeaders[k - 1], TJSONNull.Create);
+        end;
+
+        if not IsEmpty then
+          JsonArray.AddElement(JsonRow)
+        else
+          JsonRow.Free;
+
+      except
+        on E: Exception do
+        begin
+          JsonRow.Free;
+          Writeln(Format('❌ Erro na linha %d: %s', [j + HeaderRow, E.Message]));
+        end;
+      end;
+    end;
+
+  finally
+    try
+      Workbook.Close(False);
+    except end;
+
+    ExcelApp.Quit;
+
+    Workbook := Unassigned;
+    Sheet := Unassigned;
+    ExcelApp := Unassigned;
+
+    CoUninitialize;
   end;
 
-  CoUninitialize;
-  Result := jsonArray;
+  Result := JsonArray;
 end;
-
 
 function LerExcelParaJSONSemTotal(const vXLSFile: string): TJSONArray;
 var

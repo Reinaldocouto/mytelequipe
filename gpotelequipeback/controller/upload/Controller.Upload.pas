@@ -668,12 +668,14 @@ begin
   erro := '';
 
   try
-    LUploadConfig.UploadFileCallBack :=
+      LUploadConfig.UploadFileCallBack :=
       procedure(Sender: TObject; AFile: TUploadFileInfo)
       var
         vZipFile: TZipFile;
         i: Integer;
       begin
+        vZipFile := nil;
+        jsonData := nil;
         try
           Writeln('Upload file: ' + AFile.FileName + ' (' + IntToStr(AFile.Size) + ' bytes)');
           vDiretorio := DIRETORIO_BASE + AFile.FileName;
@@ -683,47 +685,47 @@ begin
           begin
             Writeln('Arquivo ZIP detectado. Iniciando descompactação...');
             vZipFile := TZipFile.Create;
-            try
-              vZipFile.Open(vDiretorio, zmRead);
-              for i := 0 to vZipFile.FileCount - 1 do
-              begin
-                Writeln(TimeToStr(Now) + ' - Processando arquivo: ' + vZipFile.FileNames[i]);
-                vXLSFile := IncludeTrailingPathDelimiter(DIRETORIO_BASE) + ExtractFileName(vZipFile.FileNames[i]);
-                vZipFile.Extract(vZipFile.FileNames[i], ExtractFilePath(vXLSFile));
+            vZipFile.Open(vDiretorio, zmRead);
+            vZipFile.ExtractAll(DIRETORIO_BASE);
+            Writeln('Arquivos extraídos para: ' + DIRETORIO_BASE);
 
-                if FileExists(vXLSFile) then
-                begin
-                  Writeln(TimeToStr(Now) + ' - Lendo dados do arquivo: ' + vXLSFile);
-                  jsonData := LerExcelParaJSONMonitoramento(vXLSFile);
-                  try
-                    Writeln(TimeToStr(Now) + ' - Inserindo dados no banco: ' + vXLSFile);
-                    erro := '';
-                    resultado := servico.InserirMonitoramento(jsonData, erro);
-                    if erro <> '' then
-                      Writeln('Erro: ' + erro)
-                    else
-                      Writeln('Dados inseridos com sucesso!');
-                  finally
-                    jsonData.Free;
-                  end;
-                  if not DeleteFile(vXLSFile) then
-                    Writeln('Aviso: Não foi possível excluir o arquivo ' + vXLSFile);
-                end
-                else
-                  Writeln('Arquivo extraído não encontrado: ' + vXLSFile);
-              end;
-            finally
-              vZipFile.Free;
+            for i := 0 to vZipFile.FileCount - 1 do
+            begin
+              vXLSFile := IncludeTrailingPathDelimiter(DIRETORIO_BASE) + ExtractFileName(vZipFile.FileNames[i]);
+
+              if FileExists(vXLSFile) then
+              begin
+                Writeln(TimeToStr(Now) + ' - Lendo dados do arquivo: ' + vXLSFile);
+                jsonData := LerExcelParaJSONMonitoramento(vXLSFile);
+                if Assigned(jsonData) then
+                try
+                  Writeln(TimeToStr(Now) + ' - Inserindo dados no banco...');
+                  erro := '';
+                  resultado := servico.InserirMonitoramento(jsonData, erro);
+                  if erro <> '' then
+                    Writeln('Erro: ' + erro)
+                  else
+                    Writeln('Dados inseridos com sucesso!');
+                finally
+                  jsonData.Free;
+                  jsonData := nil;
+                end;
+
+                if not DeleteFile(vXLSFile) then
+                  Writeln('Aviso: Não foi possível excluir o arquivo ' + vXLSFile);
+              end
+              else
+                Writeln('Arquivo extraído não encontrado: ' + vXLSFile);
             end;
           end
-          else if (vExtensao = '.xls') or (vExtensao = '. ') then
+          else if (vExtensao = '.xls') or (vExtensao = '.xlsx') then
           begin
             Writeln('Arquivo Excel detectado. Processando diretamente...');
             if FileExists(vDiretorio) then
             begin
               jsonData := LerExcelParaJSONMonitoramento(vDiretorio);
+              if Assigned(jsonData) then
               try
-                Writeln(TimeToStr(Now) + ' - Inserindo dados no banco: ' + vDiretorio);
                 erro := '';
                 resultado := servico.InserirMonitoramento(jsonData, erro);
                 if erro <> '' then
@@ -732,27 +734,28 @@ begin
                   Writeln('Dados inseridos com sucesso!');
               finally
                 jsonData.Free;
+                jsonData := nil;
               end;
-              if not DeleteFile(vDiretorio) then
-                Writeln('Aviso: Não foi possível excluir o arquivo ' + vDiretorio);
-            end
-            else
-              Writeln('Arquivo Excel não encontrado: ' + vDiretorio);
+              DeleteFile(vDiretorio);
+            end;
           end
           else
           begin
-            Writeln('Extensão não suportada: ' + vExtensao + ' - Ignorando: ' + AFile.FileName);
             erro := 'Extensão não suportada: ' + vExtensao;
+            Writeln(erro);
           end;
         except
           on E: Exception do
           begin
             erro := 'Erro no processamento do arquivo: ' + AFile.FileName + ' - ' + E.Message;
             Writeln(erro);
-            Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
           end;
         end;
+
+        if Assigned(vZipFile) then
+          vZipFile.Free;
       end;
+
 
     LUploadConfig.UploadsFishCallBack :=
       procedure(Sender: TObject; AFiles: TUploadFiles)

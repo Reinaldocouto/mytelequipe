@@ -1633,6 +1633,7 @@ const Rollouttelefonicaedicao = ({
                     value={infra}
                   >
                     <option value="">Selecione</option>
+                    <option value="Caixa D' água">Caixa D&#39;água</option>
                     <option value="CAMUFLADO">CAMUFLADO</option>
                     <option value="GREENFIELD">GREENFIELD</option>
                     <option value="INDOOR">INDOOR</option>

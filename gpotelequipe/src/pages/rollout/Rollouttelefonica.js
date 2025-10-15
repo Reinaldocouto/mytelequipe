@@ -1162,13 +1162,14 @@ const Rollouttelefonica = ({ setshow, show }) => {
       editable: true,
       type: 'singleSelect',
       valueOptions: [
+        "Caixa D'água",
         'CAMUFLADO',
         'GREENFIELD',
         'INDOOR',
         'MASTRO',
         'POSTE METÁLICO',
         'ROOFTOP',
-        'TORRE METALICA',
+        'TORRE METÁLICA',
         'SLS',
       ],
     },
@@ -1579,7 +1580,6 @@ const Rollouttelefonica = ({ setshow, show }) => {
   const gerarexcel = () => {
     const excelData = totalacionamento
       .map((item) => ({
-       
         'PMO - REF': item.pmoref,
         'PMO - CATEGORIA': item.pmocategoria,
         UIDIDPMTS: item.uididpmts,
@@ -1999,7 +1999,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
                       fontSize: '14px', // Ajusta o tamanho da fonte para caber melhor
                       lineHeight: '32px',
                     },
-                    
+
                     "& .MuiDataGrid-columnHeader[data-field='pmoref']": {
                       backgroundColor: '#000000', // preto
                       color: 'white',

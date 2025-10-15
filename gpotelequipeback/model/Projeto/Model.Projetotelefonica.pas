@@ -1925,7 +1925,6 @@ begin
     HasUIDIDPMTS := Trim(idpmts) <> '';
     if (not HasUIDIDCPOMRF) and (not HasUIDIDPMTS) then
     begin
-      // Nenhum dos dois foi informado
       Exit; // ou Result := False; ou qualquer retorno que faça sentido no seu contexto
     end;
 
@@ -3681,13 +3680,12 @@ begin
         qry.SQL.Add('AND  IDOBRA = :idobra');
         qry.ParamByName('idobra').AsString := idobraValor;
 
-      end;
+      end else
       if AQuery.ContainsKey('idpmts') and (Trim(AQuery.Items['idpmts']) <> '') then
       begin
         idpmts := AQuery.Items['idpmts'];
         qry.SQL.Add('AND  UID_IDPMTS = :idpmts');
         qry.ParamByName('idpmts').AsString := idpmts;
-
       end;
 
     qry.Active := True;
@@ -4387,43 +4385,65 @@ function TProjetotelefonica.Listaacompanhamentofinanceiro(
 ): TFDQuery;
 var
   qry: TFDQuery;
+  idpmts, osouobra: string;
   HasUIDIDCPOMRF, HasUIDODBRA: Boolean;
 begin
   Result := nil;
   erro := '';
-  qry := TFDQuery.Create(nil);
 
   try
+    if not Assigned(FConn) then
+      raise Exception.Create('Conexão FConn não inicializada.');
+
+    qry := TFDQuery.Create(nil);
     qry.Connection := FConn;
+
+    // Verifica chaves
     HasUIDIDCPOMRF := AQuery.ContainsKey('idpmts');
-    HasUIDODBRA  := AQuery.ContainsKey('osouobra');
+    HasUIDODBRA := AQuery.ContainsKey('osouobra');
 
-    qry.SQL.Clear;
-    qry.SQL.Add('SELECT *');
-    qry.SQL.Add('FROM consolidadotelefonica');
-//    qry.SQL.Add('WHERE (IDObra = :idpmts)');
-    qry.SQL.Add('WHERE 1=1');
-   if HasUIDIDCPOMRF then
-    qry.SQL.Add('  AND consolidadotelefonica.IDPMTS = :idpmts');
-   if HasUIDODBRA then
-    qry.SQL.Add(' AND consolidadotelefonica.Idobra = :Idobra');
+    // Monta SQL
+    with qry.SQL do
+    begin
+      Clear;
+      Add('SELECT *');
+      Add('FROM consolidadotelefonica');
+      Add('WHERE 1=1');
 
+      if HasUIDIDCPOMRF then
+      begin
+        Add('  AND consolidadotelefonica.IDPMTS = :idpmts');
+      end
+      else if HasUIDODBRA then
+      begin
+        Add('  AND consolidadotelefonica.IDObra = :Idobra');
+      end;
+    end;
+
+    // Define parâmetros com segurança
     if HasUIDIDCPOMRF then
-      qry.ParamByName('idpmts').AsString := AQuery.Items['idpmts'];
-    if HasUIDODBRA then
-      qry.ParamByName('Idobra').AsString := AQuery.Items['osouobra'];
+    begin
+      if AQuery.TryGetValue('idpmts', idpmts) then
+        qry.ParamByName('idpmts').AsString := idpmts;
+    end
+    else if HasUIDODBRA then
+    begin
+      if AQuery.TryGetValue('osouobra', osouobra) then
+        qry.ParamByName('Idobra').AsString := osouobra;
+    end;
+
     qry.Open;
     Result := qry;
   except
-    on ex: Exception do
+    on Ex: Exception do
     begin
-      erro := 'Erro ao consultar consolidadotelefonica: ' + ex.Message;
-      FreeAndNil(qry);
+      erro := 'Erro ao consultar consolidadotelefonica: ' + Ex.Message;
+      if Assigned(qry) then
+        qry.Free;
       Result := nil;
     end;
   end;
 end;
-
 
 function TProjetotelefonica.Listaatividade(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
@@ -4455,21 +4475,26 @@ begin
       Add('WHERE 1=1');
 
       if HasUIDIDCPOMRF then
+      begin
         Add('  AND telefonicacontrolet2.IDObra = :idpmts');
-
-      // ⚠️ Corrigido: não existe "consolidadotelefonica" no FROM
-      if HasUIDODBRA then
+      end
+      else if HasUIDODBRA then
+      begin
         Add('  AND telefonicacontrolet2.UID_IDPMTS = :UID_IDPMTS');
+      end;
     end;
 
     // Define parâmetros com segurança
     if HasUIDIDCPOMRF then
+    begin
       if AQuery.TryGetValue('idpmts', idpmts) then
         qry.ParamByName('idpmts').AsString := idpmts;
-
-    if HasUIDODBRA then
+    end
+    else if HasUIDODBRA then
+    begin
       if AQuery.TryGetValue('osouobra', osouobra) then
         qry.ParamByName('UID_IDPMTS').AsString := osouobra;
+    end;
 
     qry.Open; // abre o dataset
 
@@ -4484,6 +4509,7 @@ begin
     end;
   end;
 end;
+
 
 function TProjetotelefonica.Listaatividades(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
@@ -5248,17 +5274,24 @@ var
   qry: TFDQuery;
   FieldList: TStringList;
   HasUIDIDCPOMRF, HasUIDIDPMTS: Boolean;
+  idpmts, osouobra: string;
 begin
+  Result := nil;
+  erro := '';
+
   try
+    if not Assigned(FConn) then
+      raise Exception.Create('Conexão FConn não inicializada.');
+
     qry := TFDQuery.Create(nil);
     qry.Connection := FConn;
 
-    // 🔹 Cria e carrega a lista de campos da tabela rolloutvivo
+    // 🔹 Verifica chaves
     FieldList := TStringList.Create;
     try
       FConn.GetFieldNames('', '', 'rolloutvivo', '', FieldList);
       HasUIDIDCPOMRF := AQuery.ContainsKey('idpmts');
-      HasUIDIDPMTS   := AQuery.ContainsKey('osouobra');
+      HasUIDIDPMTS := AQuery.ContainsKey('osouobra');
     finally
       FieldList.Free;
     end;
@@ -5334,33 +5367,42 @@ begin
       SQL.Add('FROM rolloutvivo');
       SQL.Add('WHERE 1=1');
 
-       if HasUIDIDCPOMRF then
-        SQL.Add('  AND rolloutvivo.uididcpomrf = :uididcpomrf');
-       if HasUIDIDPMTS then
-        SQL.Add(' AND rolloutvivo.UIDIDPMTS = :UIDIDPMTS');
-
       if HasUIDIDCPOMRF then
-        ParamByName('uididcpomrf').AsString := AQuery.Items['idpmts'];
-      if HasUIDIDPMTS then
-        ParamByName('UIDIDPMTS').AsString := AQuery.Items['osouobra'];
+      begin
+        SQL.Add('  AND rolloutvivo.uididcpomrf = :uididcpomrf');
+      end
+      else if HasUIDIDPMTS then
+      begin
+        SQL.Add('  AND rolloutvivo.UIDIDPMTS = :UIDIDPMTS');
+      end;
 
+      // 🔹 Define parâmetros de forma segura
+      if HasUIDIDCPOMRF then
+      begin
+        if AQuery.TryGetValue('idpmts', idpmts) then
+          ParamByName('uididcpomrf').AsString := idpmts;
+      end
+      else if HasUIDIDPMTS then
+      begin
+        if AQuery.TryGetValue('osouobra', osouobra) then
+          ParamByName('UIDIDPMTS').AsString := osouobra;
+      end;
 
       Active := True;
     end;
 
-    erro := '';
     Result := qry;
-
   except
     on Ex: Exception do
     begin
       erro := 'Erro ao consultar: ' + Ex.Message;
-      Writeln(erro);
-      qry.Free;
+      if Assigned(qry) then
+        qry.Free;
       Result := nil;
     end;
   end;
 end;
+
 
 function TProjetotelefonica.Listaiddocumentacao(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var

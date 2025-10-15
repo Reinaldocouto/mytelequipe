@@ -983,6 +983,7 @@ var
   tempDate: TDateTime;
   tempFloat: Double;
   poStr: string;
+  Fmt: TFormatSettings;
 begin
   Result := 0;
   erro := '';
@@ -999,6 +1000,14 @@ begin
     Exit;
   end;
 
+  // Define formatação pt-BR (para datas e floats)
+  Fmt := TFormatSettings.Create;
+  Fmt.DateSeparator := '/';
+  Fmt.TimeSeparator := ':';
+  Fmt.ShortDateFormat := 'dd/MM/yyyy';
+  Fmt.LongDateFormat := 'dd/MM/yyyy HH:mm:ss';
+  Fmt.DecimalSeparator := ',';
+
   qry := TFDQuery.Create(nil);
   try
     qry.Connection := FConn;
@@ -1009,28 +1018,12 @@ begin
       qry.SQL.Text := 'DELETE FROM monitoramento';
       qry.ExecSQL;
 
-      // Prepara a query de inserção
+      // Prepara inserção
       qry.SQL.Text :=
         'INSERT INTO monitoramento ' +
         '(horario, data_inicio, data_fim, placa, endereco, latitude, longitude, velocidade, ignicao, bateria, sinal, gps, evento, hodometro) ' +
         'VALUES ' +
         '(:horario, :data_inicio, :data_fim, :placa, :endereco, :latitude, :longitude, :velocidade, :ignicao, :bateria, :sinal, :gps, :evento, :hodometro)';
-
-      // Define os tipos dos parâmetros antecipadamente
-      qry.Params.ParamByName('horario').DataType := ftDateTime;
-      qry.Params.ParamByName('data_inicio').DataType := ftDateTime;
-      qry.Params.ParamByName('data_fim').DataType := ftDateTime;
-      qry.Params.ParamByName('placa').DataType := ftString;
-      qry.Params.ParamByName('endereco').DataType := ftString;
-      qry.Params.ParamByName('latitude').DataType := ftString;
-      qry.Params.ParamByName('longitude').DataType := ftString;
-      qry.Params.ParamByName('velocidade').DataType := ftString;
-      qry.Params.ParamByName('ignicao').DataType := ftString;
-      qry.Params.ParamByName('bateria').DataType := ftString;
-      qry.Params.ParamByName('sinal').DataType := ftString;
-      qry.Params.ParamByName('gps').DataType := ftString;
-      qry.Params.ParamByName('evento').DataType := ftString;
-      qry.Params.ParamByName('hodometro').DataType := ftString;
 
       qry.Prepare;
 
@@ -1040,57 +1033,31 @@ begin
         if jsonObject = nil then
           Continue;
 
-        Writeln(jsonObject.ToString);
-
         try
           // Horário
-          if jsonObject.TryGetValue<string>('Horário', poStr) and TryStrToDateTime(poStr, tempDate) then
+          poStr := jsonObject.GetValue<string>('Horário', '');
+          if (poStr <> '') and TryStrToDateTime(poStr, tempDate, Fmt) then
             qry.ParamByName('horario').AsDateTime := tempDate
           else
             qry.ParamByName('horario').Clear;
 
           // Data Início
-          if jsonObject.TryGetValue<string>('DataInicio', poStr) and TryStrToDateTime(poStr, tempDate) then
+          poStr := jsonObject.GetValue<string>('DataInicio', '');
+          if (poStr <> '') and TryStrToDateTime(poStr, tempDate, Fmt) then
             qry.ParamByName('data_inicio').AsDateTime := tempDate
           else
             qry.ParamByName('data_inicio').Clear;
 
           // Data Fim
-          if jsonObject.TryGetValue<string>('DataFim', poStr) and TryStrToDateTime(poStr, tempDate) then
+          poStr := jsonObject.GetValue<string>('DataFim', '');
+          if (poStr <> '') and TryStrToDateTime(poStr, tempDate, Fmt) then
             qry.ParamByName('data_fim').AsDateTime := tempDate
           else
             qry.ParamByName('data_fim').Clear;
 
-          // Placa
+          // Campos texto
           qry.ParamByName('placa').AsString := jsonObject.GetValue<string>('Placa', '');
-
-          // Endereço
           qry.ParamByName('endereco').AsString := jsonObject.GetValue<string>('Endereço', '');
-
-          if jsonObject.TryGetValue<string>('Latitude', poStr) then
-          begin
-            poStr := StringReplace(poStr, ',', '.', [rfReplaceAll]);
-            if TryStrToFloat(poStr, tempFloat) then
-              qry.ParamByName('latitude').AsString := poStr
-            else
-              qry.ParamByName('latitude').Clear;
-          end
-          else
-            qry.ParamByName('latitude').Clear;
-
-          // Longitude
-          if jsonObject.TryGetValue<string>('Longitude', poStr) then
-          begin
-            poStr := StringReplace(poStr, ',', '.', [rfReplaceAll]);
-            if TryStrToFloat(poStr, tempFloat) then
-              qry.ParamByName('longitude').AsString := poStr
-            else
-              qry.ParamByName('longitude').Clear;
-          end
-          else
-            qry.ParamByName('longitude').Clear;
-
-          // Demais parâmetros simples
           qry.ParamByName('velocidade').AsString := jsonObject.GetValue<string>('Velocidade', '');
           qry.ParamByName('ignicao').AsString := jsonObject.GetValue<string>('Ignição', '');
           qry.ParamByName('bateria').AsString := jsonObject.GetValue<string>('Bateria', '');
@@ -1099,11 +1066,31 @@ begin
           qry.ParamByName('evento').AsString := jsonObject.GetValue<string>('Evento', '');
           qry.ParamByName('hodometro').AsString := jsonObject.GetValue<string>('Hodômetro', '');
 
+          // Latitude
+          poStr := jsonObject.GetValue<string>('Latitude', '');
+          if poStr <> '' then
+          begin
+            poStr := StringReplace(poStr, ',', '.', [rfReplaceAll]);
+            qry.ParamByName('latitude').AsString := poStr;
+          end
+          else
+            qry.ParamByName('latitude').Clear;
+
+          // Longitude
+          poStr := jsonObject.GetValue<string>('Longitude', '');
+          if poStr <> '' then
+          begin
+            poStr := StringReplace(poStr, ',', '.', [rfReplaceAll]);
+            qry.ParamByName('longitude').AsString := poStr;
+          end
+          else
+            qry.ParamByName('longitude').Clear;
+
           qry.ExecSQL;
         except
           on E: Exception do
           begin
-            erro := 'Erro ao inserir dados na linha ' + IntToStr(i + 1) + ': ' + E.Message;
+            erro := Format('Erro ao inserir linha %d: %s', [i + 1, E.Message]);
             FConn.Rollback;
             Exit(0);
           end;
@@ -1121,10 +1108,11 @@ begin
       end;
     end;
   finally
-    if FConn <> nil then FConn.Free;
     qry.Free;
+    // ❌ NÃO liberar FConn aqui — ela é controlada pela classe principal.
   end;
 end;
+
 
 procedure ProcessarCampoData(jsonObject: TJSONObject; campoJSON, campoBD: string; qry: TFDQuery; formatSettings: TFormatSettings);
 var

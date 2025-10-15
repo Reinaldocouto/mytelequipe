@@ -75,6 +75,10 @@ const TelatT4Editar = ({ setshow, show, titulo, pmuf, idobra }) => {
   const toggle = () => {
     setshow(!show);
   };
+
+  const sanitizeFileName = (name) => `${name}`.replace(/[\\/:*?"<>|]/g, '_');
+
+
   const handleFileUploadT2 = async (e) => {
     e.preventDefault();
 
@@ -510,42 +514,52 @@ const TelatT4Editar = ({ setshow, show, titulo, pmuf, idobra }) => {
   }, []);
 
   const gerarT4Excel = async () => {
+    if (rowSelectionModel.length === 0) {
+      toast.warning('Selecione ao menos um item para gerar T4 XLSM');
+      return;
+    }
+
+    const selecionados = rowSelectionModel
+      .map((id) => atividades.find((i) => i.id === id))
+      .filter(Boolean);
+    const invalidos = selecionados.filter((s) => s.statusfaturamento === 'Gerada T2');
+    const validos = selecionados.filter((s) => s.statusfaturamento !== 'Gerada T2');
+
+    if (invalidos.length > 0) {
+      toast.info(`${invalidos.length} item(ns) ignorado(s) por não estar(em) na etapa correta`);
+    }
+
+    if (validos.length === 0) {
+      toast.warning('Nenhum item válido para gerar T4 XLSM');
+      return;
+    }
+
     try {
-      if (rowSelectionModel.length === 0) {
-        toast.warning('Selecione um item para gerar a T4');
-        return;
-      }
+      setloading(true);
 
-      if (rowSelectionModel.length > 1) {
-        toast.warning('Selecione apenas um item para gerar a T4');
-        return;
-      }
+      await Promise.all(
+        validos.map(async (selected) => {
+          const response = await api.get('v1/gerart4excel', {
+            responseType: 'blob',
+            params: selected,
+          });
 
-      const selected = atividades.find((item) => item.id === rowSelectionModel[0]);
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', `${sanitizeFileName(selected.pepnivel3)}.xlsm`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        }),
+      );
 
-      if (selected.statusfaturamento === 'Gerada T2') {
-        toast.warning('Não é possivel gerar o Excel para esse item, não esta na etapa correta');
-        return;
-      }
-      const response = await api.get('v1/gerart4excel', {
-        responseType: 'blob',
-        params: selected,
-      });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-
-      const link = document.createElement('a');
-      link.href = url;
-      const fileName = `${selected.pepnivel3}.xlsm`.replace(/[\\/:*?"<>|]/g, '_');
-
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      toast.success(`Gerado(s) ${validos.length} arquivo(s) T4 XLSM`);
     } catch (err) {
-      console.error('Erro ao gerar Excel:', err);
-      toast.error('Erro ao gerar Excel');
+      toast.error('Erro ao gerar T4 XLSM');
+    } finally {
+      setloading(false);
     }
   };
 
@@ -606,42 +620,89 @@ const TelatT4Editar = ({ setshow, show, titulo, pmuf, idobra }) => {
   };
 
   const gerarT4CSV = async () => {
+    if (rowSelectionModel.length === 0) {
+      toast.warning('Selecione ao menos um item para gerar T4 CSV');
+      return;
+    }
+
+    const selecionados = rowSelectionModel
+      .map((id) => atividades.find((i) => i.id === id))
+      .filter(Boolean);
+    const invalidos = selecionados.filter((s) => s.statusfaturamento === 'Gerada T2');
+    const validos = selecionados.filter((s) => s.statusfaturamento !== 'Gerada T2');
+
+    if (invalidos.length > 0) {
+      toast.info(`${invalidos.length} item(ns) ignorado(s) por não estar(em) na etapa correta`);
+    }
+
+    if (validos.length === 0) {
+      toast.warning('Nenhum item válido para gerar T4 CSV');
+      return;
+    }
+
     try {
-      if (rowSelectionModel.length === 0) {
-        toast.warning('Selecione um item para gerar o T4');
-        return;
-      }
+      setloading(true);
 
-      if (rowSelectionModel.length > 1) {
-        toast.warning('Selecione apenas um item para gerar o T4');
-        return;
-      }
+      await Promise.all(
+        validos.map(async (selected) => {
+          const response = await api.get('v1/gerart4csv', {
+            responseType: 'blob',
+            params: selected,
+          });
 
-      const selected = atividades.find((item) => item.id === rowSelectionModel[0]);
-      if (selected.statusfaturamento === 'Gerada T2') {
-        toast.warning('Não é possivel gerar o CSV para esse item, não esta na etapa correta');
-        return;
-      }
-      const response = await api.get('v1/gerart4csv', {
-        responseType: 'blob',
-        params: selected,
-      });
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', `${sanitizeFileName(selected.pepnivel3)}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        }),
+      );
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-
-      const link = document.createElement('a');
-      link.href = url;
-      const fileName = `${selected.pepnivel3}.csv`.replace(/[\\/:*?"<>|]/g, '_');
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      toast.success(`Gerado(s) ${validos.length} arquivo(s) T4 CSV`);
     } catch (err) {
-      console.error('Erro ao gerar Excel:', err);
-      toast.error('Erro ao gerar Excel');
+      toast.error('Erro ao gerar T4 CSV');
+    } finally {
+      setloading(false);
     }
   };
+
+  const hasValue = (v) => v !== null && v !== undefined && String(v).trim() !== '';
+
+  const hasT4 = (r) =>
+    hasValue(r.itemt4) || hasValue(r.t4codeqmatswserv) || hasValue(r.t4descricaocod);
+
+  const isSemT4PorRegra = (r) => {
+    if (hasT4(r)) return false;
+
+    const tipo = (r.tipo || '').toUpperCase();
+
+    if (tipo === 'INSTALLATION') {
+      const statusDoc =
+        (r.rolloutStatusDocumentacao ||
+          r.rollout_status_documentacao ||
+          r.statusdoc ||
+          '').toUpperCase();
+      return statusDoc === 'APROVADO';
+    }
+
+    if (tipo === 'DRIVE TEST') {
+      const dtExec =
+        r.rolloutDtReal || r.rollout_data_execucao || r.dtReal || r.dt_real;
+      return hasValue(dtExec);
+    }
+
+    if (tipo === 'SURVEY') {
+      const dtVist =
+        r.rolloutDataVistoria || r.rollout_data_vistoria || r.dataVistoria;
+      return hasValue(dtVist);
+    }
+
+    return false;
+  };
+
 
   const handleFaturado = () => {
     if (rowSelectionModel.length === 0) {
@@ -937,6 +998,7 @@ const TelatT4Editar = ({ setshow, show, titulo, pmuf, idobra }) => {
                 return newRow;
               }}
               getRowClassName={({ row }) => {
+                if (isSemT4PorRegra(row)) return 'row-sem-t4';
                 switch (row.statussite) {
                   case 'T4 criada':
                     return 'row-t4';
@@ -950,6 +1012,7 @@ const TelatT4Editar = ({ setshow, show, titulo, pmuf, idobra }) => {
                     return '';
                 }
               }}
+
               localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
               components={{
                 Pagination: CustomPagination,
@@ -957,6 +1020,31 @@ const TelatT4Editar = ({ setshow, show, titulo, pmuf, idobra }) => {
                 NoRowsOverlay: CustomNoRowsOverlay,
               }}
             />
+
+            <div className="mt-3">
+              <Typography variant="subtitle1" className="mb-2">
+                Legenda de cores:
+              </Typography>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: 20, height: 20, backgroundColor: '#a5d6a7', borderRadius: 4 }}></div>
+                  <span>T4 criada</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: 20, height: 20, backgroundColor: '#ffcc80', borderRadius: 4 }}></div>
+                  <span>Serviço acionado, mas ainda sem T4</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: 20, height: 20, backgroundColor: '#90caf9', borderRadius: 4 }}></div>
+                  <span>T2 criada, mas ainda não acionada</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: 20, height: 20, backgroundColor: '#ef9a9a', borderRadius: 4 }}></div>
+                  <span>Serviço executado sem T4</span>
+                </div>
+              </div>
+            </div>
+
           </Box>
         </ModalBody>
         <ModalFooter>

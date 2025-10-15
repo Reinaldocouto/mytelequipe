@@ -281,14 +281,6 @@ begin
   // --- 1. Garante que a conexão exista ---
   if not Assigned(FConn) then
   begin
-    FConn := TFDConnection.Create(nil);
-    FConn.DriverName := 'MySQL';
-    FConn.Params.Clear;
-    FConn.Params.Add('Server=localhost');    // troque pelo host correto
-    FConn.Params.Add('Database=seuBanco');   // troque pelo banco correto
-    FConn.Params.Add('User_Name=usuario');   // troque pelo usuário correto
-    FConn.Params.Add('Password=senha');      // troque pela senha correta
-    FConn.Params.Add('CharacterSet=utf8mb4');
     FConn.LoginPrompt := False;
   end;
 
@@ -419,11 +411,180 @@ begin
   end;
 end;
 
-
 function THuawei.EditarEmMassa(const AJsonBody: string; out erro: string): Boolean;
+var
+  Obj: TJSONObject;
+  Qry: TFDQuery;
+  IdsStr: string;
+  Ids: TArray<string>;
+  SetSQL, IdsSQL, Key, ColName: string;
+  ParamIdx, i, AffectedCount: Integer;
+  Val: TJSONValue;
+  ColMap: TDictionary<string, string>;
+  IncludedKeys: TStringList;
+  TransActive: Boolean;
 begin
   Result := False;
-  erro := 'Implementação pendente';
+  erro := '';
+
+  if Trim(AJsonBody) = '' then
+  begin
+    erro := 'JSON vazio';
+    Exit;
+  end;
+
+  Obj := TJSONObject.ParseJSONValue(AJsonBody) as TJSONObject;
+  if not Assigned(Obj) then
+  begin
+    erro := 'JSON inválido';
+    Exit;
+  end;
+
+  ColMap := TDictionary<string, string>.Create;
+  IncludedKeys := TStringList.Create;
+  try
+    // Mapeamento frontend -> banco
+    ColMap.Add('endSite', 'End_Site');
+    ColMap.Add('name', 'Name');
+    ColMap.Add('projeto', 'Projeto');
+    ColMap.Add('du', 'DU');
+    ColMap.Add('statusGeral', 'Status_geral');
+    ColMap.Add('liderResponsavel', 'Lider_responsavel');
+    ColMap.Add('empresa', 'Empresa');
+    ColMap.Add('fechamento', 'Fechamento');
+    ColMap.Add('confirmacaoPagamento', 'Confirmacao_pagamento');
+    ColMap.Add('faturamento', 'Faturamento');
+    ColMap.Add('faturamentoStatus', 'Faturamento_Status');
+    ColMap.Add('observacao', 'Observacao');
+    ColMap.Add('siteCode', 'Site_Code');
+    ColMap.Add('siteId', 'Site_ID');
+    ColMap.Add('acceptanceDate', 'Acceptance_Date');
+    ColMap.Add('ultimaAtualizacao', 'Ultima_atualizacao');
+
+    // IDs obrigatórios
+    Val := Obj.GetValue('id');
+    if not Assigned(Val) then
+    begin
+      erro := 'Campo "id" não informado';
+      Exit;
+    end;
+    IdsStr := Trim(Val.Value);
+    Ids := SplitString(IdsStr, ',');
+
+    // monta placeholders de ID
+    IdsSQL := '';
+    for i := 0 to High(Ids) do
+    begin
+      if Trim(Ids[i]) <> '' then
+      begin
+        if IdsSQL <> '' then
+          IdsSQL := IdsSQL + ', ';
+        IdsSQL := IdsSQL + ':id' + IntToStr(i + 1);
+      end;
+    end;
+
+    if IdsSQL = '' then
+    begin
+      erro := 'IDs inválidos';
+      Exit;
+    end;
+
+    SetSQL := '';
+    for i := 0 to Obj.Count - 1 do
+    begin
+      Key := Obj.Pairs[i].JsonString.Value;
+      Val := Obj.Pairs[i].JsonValue;
+      if SameText(Key, 'id') then
+        Continue;
+
+      if ColMap.ContainsKey(Key) then
+        ColName := ColMap[Key]
+      else
+        ColName := Key;
+
+      if SetSQL <> '' then
+        SetSQL := SetSQL + ', ';
+      SetSQL := SetSQL + Format('%s = :%s', [ColName, Key]);
+      IncludedKeys.Add(Key);
+    end;
+
+    if SetSQL = '' then
+    begin
+      erro := 'Nenhum campo válido para atualizar';
+      Exit;
+    end;
+
+    Qry := TFDQuery.Create(nil);
+    try
+      Qry.Connection := FConn;
+      Qry.SQL.Text :=
+        'UPDATE rollouthuawei SET ' + SetSQL +
+        ' WHERE idgeral IN (' + IdsSQL + ')';
+      Writeln(Qry.SQL.Text);
+      // parâmetros dos campos
+      for i := 0 to IncludedKeys.Count - 1 do
+      begin
+        Key := IncludedKeys[i];
+        Val := Obj.GetValue(Key);
+
+        // 🔸 define tipo conforme o valor ou nome da coluna
+        if (ColName.Contains('Date')) or
+           (ColName.Contains('Data')) or
+           (ColName.Contains('Fechamento')) then
+        begin
+          try
+            Qry.ParamByName(Key).AsDateTime := ISO8601ToDate(Val.Value);
+          except
+            Qry.ParamByName(Key).AsDateTime := Now; // fallback
+          end;
+        end
+        else if (ColName.Contains('Valor')) or
+                (ColName.Contains('Faturamento')) or
+                (ColName.Contains('Unit_Price')) then
+          Qry.ParamByName(Key).AsFloat := StrToFloatDef(Val.Value, 0)
+        else if (ColName.Contains('Qty')) or
+                (ColName.Contains('Quantidade')) then
+          Qry.ParamByName(Key).AsInteger := StrToIntDef(Val.Value, 0)
+        else
+          Qry.ParamByName(Key).AsString := Val.Value;
+      end;
+
+      // parâmetros dos IDs
+      for i := 0 to High(Ids) do
+        if Trim(Ids[i]) <> '' then
+          Qry.ParamByName('id' + IntToStr(i + 1)).AsInteger := StrToIntDef(Ids[i], 0);
+
+      // executa dentro de transação
+      TransActive := False;
+      FConn.StartTransaction;
+      TransActive := True;
+      try
+        Qry.ExecSQL;
+        AffectedCount := Qry.RowsAffected;
+        FConn.Commit;
+        TransActive := False;
+
+        if AffectedCount = 0 then
+          erro := 'Nenhum registro atualizado';
+
+        Result := True;
+      except
+        on E: Exception do
+        begin
+          if TransActive then
+            FConn.Rollback;
+          erro := 'Erro ao atualizar em massa: ' + E.Message;
+          Result := False;
+        end;
+      end;
+    finally
+      Qry.Free;
+    end;
+  finally
+    Obj.Free;
+    ColMap.Free;
+    IncludedKeys.Free;
+  end;
 end;
 
 function THuawei.InserirHuaweiRollout(obj: TJSONObject; out erro: string): boolean;
@@ -467,6 +628,4 @@ begin
   Result := nil;
   erro := 'Implementação pendente';
 end;
-
 end.
-
