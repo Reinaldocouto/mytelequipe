@@ -1025,6 +1025,22 @@ begin
         'VALUES ' +
         '(:horario, :data_inicio, :data_fim, :placa, :endereco, :latitude, :longitude, :velocidade, :ignicao, :bateria, :sinal, :gps, :evento, :hodometro)';
 
+      // Define os tipos de dados dos parâmetros antes de preparar a query
+      qry.Params.ParamByName('horario').DataType := ftDateTime;
+      qry.Params.ParamByName('data_inicio').DataType := ftDateTime;
+      qry.Params.ParamByName('data_fim').DataType := ftDateTime;
+      qry.Params.ParamByName('latitude').DataType := ftString;
+      qry.Params.ParamByName('longitude').DataType := ftString;
+      qry.Params.ParamByName('velocidade').DataType := ftString;
+      qry.Params.ParamByName('ignicao').DataType := ftString;
+      qry.Params.ParamByName('bateria').DataType := ftString;
+      qry.Params.ParamByName('sinal').DataType := ftString;
+      qry.Params.ParamByName('gps').DataType := ftString;
+      qry.Params.ParamByName('evento').DataType := ftString;
+      qry.Params.ParamByName('hodometro').DataType := ftString;
+      qry.Params.ParamByName('placa').DataType := ftString;
+      qry.Params.ParamByName('endereco').DataType := ftString;
+
       qry.Prepare;
 
       for i := 0 to jsonData.Count - 1 do
@@ -1035,9 +1051,14 @@ begin
 
         try
           // Horário
-          poStr := jsonObject.GetValue<string>('Horário', '');
-          if (poStr <> '') and TryStrToDateTime(poStr, tempDate, Fmt) then
-            qry.ParamByName('horario').AsDateTime := tempDate
+
+          if jsonObject.TryGetValue<string>('Horário', poStr) then
+          begin
+            if (poStr <> '') and TryStrToDateTime(poStr, tempDate, Fmt) then
+              qry.ParamByName('horario').AsDateTime := tempDate
+            else
+              qry.ParamByName('horario').Clear;
+          end
           else
             qry.ParamByName('horario').Clear;
 

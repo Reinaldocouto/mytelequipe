@@ -403,6 +403,7 @@ const Rollouttelefonicaedicao = ({
         setativoAtc(response.data.ativoatc);
         setobs(response.data.obs);
         setuf(response.data.uf);
+        setDataInventarioDesinstalacao(trataData(response.data.datainventariodesinstalacao));
         console.log(responsibleTeamOptions);
         const splitEquipeResponsavel = response.data?.equiperesponsavel?.split(',');
         console.log(splitEquipeResponsavel);
@@ -2825,10 +2826,10 @@ const Rollouttelefonicaedicao = ({
                     />
                   </div>
                   <div className="col-sm-2">
-                    Data Inventário Desinstalação
+                    Data do Inventário de Desinstalação
                     <Input
                       type="date"
-                      onChange={(e) => e.target.value}
+                      onChange={(e) => setDataInventarioDesinstalacao(e.target.value)}
                       value={dataInventarioDesinstalacao}
                     />
                   </div>

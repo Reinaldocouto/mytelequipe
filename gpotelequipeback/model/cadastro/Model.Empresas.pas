@@ -329,69 +329,71 @@ end;
 function TEmpresas.Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
+  rgBusca: string;
 begin
+  Result := nil;
+  erro := '';
+  qry := TFDQuery.Create(nil);
   try
-    qry := TFDQuery.Create(nil);
-    qry.connection := FConn;
-    with qry do
+    qry.Connection := FConn;
+    qry.Active := False;
+    qry.SQL.Clear;
+    qry.SQL.Add('SELECT ');
+    qry.SQL.Add('  gesempresas.idempresa AS id, ');
+    qry.SQL.Add('  gesempresas.* ');
+    qry.SQL.Add('FROM gesempresas ');
+    qry.SQL.Add('WHERE gesempresas.idempresa IS NOT NULL ');
+
+    // --- FILTRO: STATUS ---
+    if AQuery.ContainsKey('status1') then
     begin
-      Active := false;
-      SQL.Clear;
-      SQL.Add('Select ');
-      SQL.Add('gesempresas.idempresa as id, ');
-      SQL.Add('gesempresas.* ');
-      SQL.Add('From ');
-      SQL.Add('gesempresas WHERE gesempresas.idempresa is not null ');
-      //pesquisar
-      if AQuery.ContainsKey('status1') then
+      if (AQuery.Items['status1'].Trim <> '') then
       begin
-        if Length(AQuery.Items['status1']) > 0 then
+        if not SameText(AQuery.Items['status1'], 'TODOS') then
         begin
-          if AQuery.Items['status1'] <> 'TODOS' then
-          begin
-            SQL.Add(' and gesempresas.statustelequipe =:status ');
-            ParamByName('status').asstring := AQuery.Items['status1'];
-          end;
-        end
-        else
-        begin
-            SQL.Add(' and gesempresas.statustelequipe =:status ');
-            ParamByName('status').asstring := 'ATIVO';
+          qry.SQL.Add('AND gesempresas.statustelequipe = :status ');
+          qry.ParamByName('status').AsString := AQuery.Items['status1'];
         end;
-      end;
-
-
-     // SQL.Add('
-
-      //pesquisar
-      if AQuery.ContainsKey('busca') then
+      end
+      else
       begin
-        if Length(AQuery.Items['busca']) > 0 then
-        begin
-          var rgBusca := StringReplace(AQuery.Items['busca'], '.', '', [rfReplaceAll]);
-          rgBusca := StringReplace(rgBusca, '-', '', [rfReplaceAll]);
-
-          SQL.Add('AND (gesempresas.nome LIKE ''%' + AQuery.Items['busca'] + '%'' ');
-          SQL.Add('OR REPLACE(REPLACE(gesempresas.cnpj, ''.'', ''''), ''-'', '''') LIKE ''%' + rgBusca + '%'')');
-        end;
+        qry.SQL.Add('AND gesempresas.statustelequipe = :status ');
+        qry.ParamByName('status').AsString := 'ATIVO';
       end;
-
-      if AQuery.ContainsKey('deletado') then
-      begin
-        if Length(AQuery.Items['deletado']) > 0 then
-        begin
-          SQL.Add('AND gesempresas.deletado = :deletado');
-          ParamByName('deletado').Value := AQuery.Items['deletado'].ToInteger;
-        end;
-      end;
-      Active := true;
     end;
-    erro := '';
+
+    // --- FILTRO: BUSCA ---
+    if AQuery.ContainsKey('busca') then
+    begin
+      if (AQuery.Items['busca'].Trim <> '') then
+      begin
+        rgBusca := StringReplace(AQuery.Items['busca'], '.', '', [rfReplaceAll]);
+        rgBusca := StringReplace(rgBusca, '-', '', [rfReplaceAll]);
+
+        qry.SQL.Add('AND (gesempresas.nome LIKE :busca ');
+        qry.SQL.Add('OR REPLACE(REPLACE(gesempresas.cnpj, ''.'', ''''), ''-'', '''') LIKE :cnpj)');
+        qry.ParamByName('busca').AsString := '%' + AQuery.Items['busca'] + '%';
+        qry.ParamByName('cnpj').AsString := '%' + rgBusca + '%';
+      end;
+    end;
+
+    // --- FILTRO: DELETADO ---
+    if AQuery.ContainsKey('deletado') then
+    begin
+      if (AQuery.Items['deletado'].Trim <> '') then
+      begin
+        qry.SQL.Add('AND gesempresas.deletado = :deletado');
+        qry.ParamByName('deletado').AsInteger := AQuery.Items['deletado'].ToInteger;
+      end;
+    end;
+
+    qry.Active := True;
     Result := qry;
   except
-    on ex: exception do
+    on E: Exception do
     begin
-      erro := 'Erro ao consultar : ' + ex.Message;
+      erro := 'Erro ao consultar empresas: ' + E.Message;
+      qry.Free; // garante liberação de memória
       Result := nil;
     end;
   end;

@@ -3,8 +3,9 @@
 interface
 
 uses
-  Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,System.DateUtils,
-  Model.Huawei, UtFuncao, Controller.Auth, DataSet.Serialize, System.Generics.Collections;
+  Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,System.DateUtils, System.Classes,
+  System.NetEncoding,
+  Model.Huawei, UtFuncao, Controller.Auth, DataSet.Serialize, System.Generics.Collections, System.IOUtils;
 
 procedure Registry;
 
@@ -62,6 +63,8 @@ procedure EditarEmMassa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 function InserirSeNaoExistirRollout(id: string; obj: TJSONObject): Boolean;
 
+procedure ExportarExcelHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
 implementation
 
 procedure Registry;
@@ -87,6 +90,7 @@ begin
   THorse.get('v1/projetohuawei/ListaDespesas', ListaDespesas);
   THorse.get('v1/projetohuaweiid/extrato', extratopagamento);
   THorse.get('v1/projetohuawei/totalacionamento', totalacionamento);
+  THorse.get('v1/projetohuawei/exportarExcelHuawei', ExportarExcelHuawei);
 end;
 
 
@@ -696,6 +700,72 @@ begin
     servico.Free;
   end;
 end;
+
+
+procedure ExportarExcelHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  Params: TDictionary<string, string>;
+  Key, Value, QueryText, ExcelFile, Erro: string;
+  huawei: THuawei;
+  Pairs: TArray<string>;
+  Pair: string;
+begin
+  Params := TDictionary<string, string>.Create;
+  try
+    // Captura os parâmetros da URL
+    QueryText := Req.RawWebRequest.Query;
+
+    if QueryText <> '' then
+    begin
+      Pairs := QueryText.Split(['&']);
+      for Pair in Pairs do
+      begin
+        if Pos('=', Pair) > 0 then
+        begin
+          Key := Copy(Pair, 1, Pos('=', Pair) - 1);
+          Value := Copy(Pair, Pos('=', Pair) + 1, MaxInt);
+          Params.AddOrSetValue(Key, TNetEncoding.URL.Decode(Value));
+        end;
+      end;
+    end;
+
+    huawei := THuawei.Create;
+    try
+      // ✅ Chama apenas o método que já gera o Excel
+      ExcelFile := huawei.ExportRolloutHuawei(Params, Erro);
+
+      if (ExcelFile = '') or not FileExists(ExcelFile) then
+      begin
+        Res.Status(400).Send('❌ Erro ao exportar: ' + Erro);
+        Exit;
+      end;
+
+      Res.RawWebResponse.ContentType :=
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      Res.RawWebResponse.SetCustomHeader(
+        'Content-Disposition',
+        'attachment; filename="' + ExtractFileName(ExcelFile) + '"'
+      );
+
+      Res.SendFile(ExcelFile);
+      Sleep(1000);
+
+      DeleteFile(ExcelFile);
+    finally
+      huawei.Free;
+    end;
+  except
+    on E: Exception do
+    begin
+      Writeln(E.Message);
+      Res.Status(500).Send('Erro inesperado ao exportar Excel: ' + E.Message);
+    end;
+  end;
+
+  Params.Free;
+end;
+
+
 
 procedure EditarEmMassa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var

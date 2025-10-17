@@ -1137,7 +1137,7 @@ const FiltroRolloutHuawei = ({
                 Última Atualização
               </Label>
               <Input
-                type="datetime-local"
+                type="date"
                 id="ultimaAtualizacao"
                 name="ultimaAtualizacao"
                 value={

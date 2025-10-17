@@ -6,7 +6,7 @@ uses
   Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,
   DataSet.Serialize, Model.Projetoericsson, UtFuncao,
   Horse.Commons, System.IOUtils, System.Classes, Variants, System.DateUtils,
-  System.Generics.Collections;
+  FireDAC.Stan.Param, System.Generics.Collections, model.connection;
 
 procedure Registry;
 
@@ -824,80 +824,338 @@ begin
   end;
 end;
 
+
 procedure Salva(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
-  servico: TProjetoericsson;
-  body: TJSONValue;
-  JSON: TJSONObject;
-  erro: string;
-begin
-  servico := TProjetoericsson.Create;
-  try
-    erro := '';
+  Body: TJSONObject;
+  Conn: TFDConnection;
+  Q: TFDQuery;
+  IdGeral, IdLookup: Integer;
+  Numero: string;
+
+  function JStr(const K: string; const Default: string = ''): string;
+  begin
+    if Assigned(Body.Values[K]) then Result := Body.GetValue<string>(K, Default)
+    else Result := Default;
+  end;
+
+  function JInt(const K: string; const Default: Integer = 0): Integer;
+  begin
+    if Assigned(Body.Values[K]) then Result := Body.GetValue<Integer>(K, Default)
+    else Result := Default;
+  end;
+
+  // Lê Int64 mesmo se vier como string no JSON
+  function JInt64Loose(const K: string; const Default: Int64 = 0): Int64;
+  var
+    V: TJSONValue;
+    S: string;
+  begin
+    Result := Default;
+    V := Body.Values[K];
+    if not Assigned(V) then Exit;
+    if V is TJSONNumber then
+      Exit(TJSONNumber(V).AsInt64);
+    S := Trim(V.Value);
+    if S = '' then Exit(Default);
     try
-      body := Req.Body<TJSONObject>;
+      Result := StrToInt64(S);
+    except
+      Result := Default;
+    end;
+  end;
 
-      // campos principais
-      servico.numero := body.GetValue<string>('numero', '');
-      servico.cliente := body.GetValue<string>('cliente', '');
-      servico.regiona := body.GetValue<string>('regiona', '');
-      servico.site := body.GetValue<string>('site', '');
-      servico.situacaoimplantacao := body.GetValue<string>('situacaoimplantacao', '');
-      servico.situacaodaintegracao := body.GetValue<string>('situacaodaintegracao', '');
+  // Normaliza o valor "booleano" em texto para a coluna VARCHAR
+  // Regras:
+  // - true/1/sim/ok  -> 'Ok'
+  // - false/0/nao/não -> 'Não'
+  // - se vier outro texto, grava como veio
+  function JObraPreenchida(const K: string): string;
+  var
+    V: TJSONValue;
+    S: string;
+    B: Boolean;
+  begin
+    V := Body.Values[K];
+    if not Assigned(V) then Exit('');
 
-      // datas principais
-      servico.datadacriacaodademandadia := body.GetValue<string>('datadacriacaodademandadia', '');
-      servico.dataaceitedemandadia := body.GetValue<string>('dataaceitedemandadia', '');
-      servico.datainicioentregamosplanejadodia := body.GetValue<string>('datainicioentregamosplanejadodia', '');
-      servico.datarecebimentodositemosreportadodia := body.GetValue<string>('datarecebimentodositemosreportadodia', '');
-      servico.datafiminstalacaoplanejadodia := body.GetValue<string>('datafiminstalacaoplanejadodia', '');
-      servico.dataconclusaoreportadodia := body.GetValue<string>('dataconclusaoreportadodia', '');
-      servico.datavalidacaoinstalacaodia := body.GetValue<string>('datavalidacaoinstalacaodia', '');
-      servico.dataintegracaoplanejadodia := body.GetValue<string>('dataintegracaoplanejadodia', '');
-      servico.datavalidacaoeriboxedia := body.GetValue<string>('datavalidacaoeriboxedia', '');
-      servico.dataintegracaoreportadodia := body.GetValue<string>('dataintegracaoreportadodia', '');
-      servico.dataaceitereportadodia := body.GetValue<string>('dataaceitereportadodia', '');
-      servico.dataativacaoplanejadodia := body.GetValue<string>('dataativacaoplanejadodia', '');
-      servico.dataativacaoreportadodia := body.GetValue<string>('dataativacaoreportadodia', '');
-      servico.datavalidacaoativacaodia := body.GetValue<string>('datavalidacaoativacaodia', '');
-      servico.dataaceiteeriboxedia := body.GetValue<string>('dataaceiteeriboxedia', '');
-      servico.dataativacaoeriboxedia := body.GetValue<string>('dataativacaoeriboxedia', '');
-      servico.datainicial := body.GetValue<string>('dataInicial', '');
-      servico.datafinal := body.GetValue<string>('dataFinal', '');
-      servico.datasolicitacao := body.GetValue<string>('dataSolicitacao', '');
-      servico.enderecoSite := body.GetValue<string>('enderecoSite', '');
-      servico.obs := body.GetValue<string>('obs', '');
+    // Se for boolean nativo
+    if (V is TJSONTrue) or (V is TJSONFalse) then
+    begin
+      B := Body.GetValue<Boolean>(K);
+      if B then
+        Exit('Ok')
+      else
+        Exit('Não');
+    end;
 
-      // novos campos do ALTER TABLE
-      servico.outros := body.GetValue<string>('outros', '');
-      servico.formadeacesso := body.GetValue<string>('formaAcesso', '');
-      servico.ddd := body.GetValue<string>('ddd', '');
-      servico.municipio := body.GetValue<string>('municipio', '');
-      servico.nomeericsson := body.GetValue<string>('nomeEricsson', '');
-      servico.latitude := body.GetValue<string>('latitude', '');
-      servico.longitude := body.GetValue<string>('longitude', '');
-      servico.obs := body.GetValue<string>('obs', '');
-      servico.solicitacao := body.GetValue<string>('solicitacao', '');
+    // Se vier texto/numérico, normaliza
+    S := LowerCase(Trim(V.Value));
+    if (S = '1') or (S = 'true') or (S = 'sim') or (S = 'ok') then Exit('Ok');
+    if (S = '0') or (S = 'false') or (S = 'nao') or (S = 'não') then Exit('Não');
 
-      servico.statusacesso := body.GetValue<string>('statusAcesso', '');
+    // qualquer outro texto: grava como veio
+    Result := V.Value;
+  end;
 
+  procedure SetDateParam(const PName, V: string);
+  var
+    D: TDateTime;
+    P: TFDParam;
+    ok: Boolean;
+    Y,M,DD: Word;
+  begin
+    P := Q.ParamByName(PName);
+    P.DataType := ftDate;
 
-      if Length(erro) = 0 then
+    if Trim(V) = '' then
+    begin
+      P.Clear;
+      Exit;
+    end;
+
+    ok := TryStrToDate(V, D); // dd/mm/yyyy
+    if not ok then
+    begin
+      ok := (Length(V) >= 10) and (V[5]='-') and (V[8]='-'); // yyyy-mm-dd
+      if ok then
+      try
+        Y := StrToInt(Copy(V,1,4));
+        M := StrToInt(Copy(V,6,2));
+        DD:= StrToInt(Copy(V,9,2));
+        D := EncodeDate(Y,M,DD);
+      except
+        ok := False;
+      end;
+    end;
+
+    if ok then P.AsDate := D else P.Clear;
+  end;
+
+  procedure BindParamsObra;
+  var
+    P: TFDParam;
+    IdDet: Int64;
+  begin
+    // básicos
+    Q.ParamByName('numero').AsString := Numero;
+    Q.ParamByName('cliente').AsString := JStr('cliente');
+    Q.ParamByName('regiona').AsString := JStr('regiona');
+    Q.ParamByName('site').AsString := JStr('site');
+    Q.ParamByName('situacaoimplantacao').AsString := JStr('situacaoimplantacao');
+    Q.ParamByName('situacaodaintegracao').AsString := JStr('situacaodaintegracao');
+
+    // datas existentes
+    SetDateParam('datadacriacaodademandadia',        JStr('datadacriacaodademandadia'));
+    SetDateParam('dataaceitedemandadia',             JStr('dataaceitedemandadia'));
+    SetDateParam('datainicioentregamosplanejadodia', JStr('datainicioentregamosplanejadodia'));
+    SetDateParam('datarecebimentodositemosreportadodia', JStr('datarecebimentodositemosreportadodia'));
+    SetDateParam('datafiminstalacaoplanejadodia',    JStr('datafiminstalacaoplanejadodia'));
+    SetDateParam('dataconclusaoreportadodia',        JStr('dataconclusaoreportadodia'));
+    SetDateParam('datavalidacaoinstalacaodia',       JStr('datavalidacaoinstalacaodia'));
+    SetDateParam('dataintegracaoplanejadodia',       JStr('dataintegracaoplanejadodia'));
+    SetDateParam('datavalidacaoeriboxedia',          JStr('datavalidacaoeriboxedia'));
+
+    // novos
+    Q.ParamByName('statussydle').AsString := JStr('statussydle');
+    Q.ParamByName('atividade').AsString   := JStr('atividade');
+    Q.ParamByName('tipoinstalacao').AsString := JStr('tipoinstalacao');
+    Q.ParamByName('impacto').AsString     := JStr('impacto');
+    Q.ParamByName('ncrq').AsString        := JStr('ncrq');
+    SetDateParam('iniciocrq',             JStr('iniciocrq'));
+    SetDateParam('fimcrq',                JStr('fimcrq'));
+    Q.ParamByName('statuscrq').AsString   := JStr('statuscrq');
+    Q.ParamByName('crqdeinstalacao').AsString := JStr('crqdeinstalacao');
+    Q.ParamByName('observacoes').AsString := JStr('observacoes');
+    Q.ParamByName('central').AsString     := JStr('central');
+    Q.ParamByName('detentora').AsString   := JStr('detentora');
+
+    // iddentedora (pode vir string ou número)
+    IdDet := JInt64Loose('iddentedora', 0);
+    P := Q.ParamByName('iddentedora');
+    P.DataType := ftLargeint;
+    if IdDet = 0 then P.Clear else P.AsLargeInt := IdDet;
+
+    Q.ParamByName('numeroativo').AsString := JStr('numeroativo');
+
+    // >>> AQUI O AJUSTE PRINCIPAL <<<
+    // coluna é VARCHAR, então gravamos string normal (normalizando quando boolean-like)
+    Q.ParamByName('obraPreenchidaNaSydle').AsString := JObraPreenchida('obraPreenchidaNaSydle');
+
+    Q.ParamByName('enderecoSite').AsString := JStr('enderecoSite');
+
+    SetDateParam('dataativacaoplanejadodia', JStr('dataativacaoplanejadodia'));
+    SetDateParam('dataativacaoreportadodia', JStr('dataativacaoreportadodia'));
+    SetDateParam('datavalidacaoativacaodia', JStr('datavalidacaoativacaodia'));
+    SetDateParam('dataaceiteeriboxedia',     JStr('dataaceiteeriboxedia'));
+    SetDateParam('dataativacaoeriboxedia',   JStr('dataativacaoeriboxedia'));
+
+    // acesso/geo
+    Q.ParamByName('outros').AsString        := JStr('outros');
+    Q.ParamByName('formadeacesso').AsString := JStr('formaAcesso');
+    Q.ParamByName('ddd').AsString           := JStr('ddd');
+    Q.ParamByName('municipio').AsString     := JStr('municipio');
+    Q.ParamByName('nomeericsson').AsString  := JStr('nomeEricsson');
+    Q.ParamByName('latitude').AsString      := JStr('latitude');
+    Q.ParamByName('longitude').AsString     := JStr('longitude');
+    Q.ParamByName('obs').AsString           := JStr('obs');
+    Q.ParamByName('solicitacao').AsString   := JStr('solicitacao');
+    Q.ParamByName('statusacesso').AsString  := JStr('statusAcesso');
+
+    // camelCase -> snake (datas adicionais)
+    SetDateParam('datasolicitacao', JStr('dataSolicitacao'));
+    SetDateParam('datainicial',     JStr('dataInicial'));
+    SetDateParam('datafinal',       JStr('dataFinal'));
+  end;
+
+  procedure SaveEquipeFixa(const ObraId: Integer);
+  var
+    ArrIds, ArrNomes: TJSONArray;
+    I: Integer;
+    PessoaId: Integer;
+    PessoaNome: string;
+  begin
+    ArrIds := nil; ArrNomes := nil;
+    Body.TryGetValue<TJSONArray>('equipefixaIds', ArrIds);
+    Body.TryGetValue<TJSONArray>('equipefixaNomes', ArrNomes);
+
+    // limpa atuais
+    Q.SQL.Text := 'DELETE FROM obraericsson_equipe_fixa WHERE obraericsson_id = :id';
+    Q.ParamByName('id').AsInteger := ObraId;
+    Q.ExecSQL;
+
+    if (ArrIds = nil) or (ArrIds.Count = 0) then Exit;
+
+    // insere os novos
+    Q.SQL.Text :=
+      'INSERT INTO obraericsson_equipe_fixa (obraericsson_id, pessoa_id, pessoa_nome) '+
+      'VALUES (:obra, :pessoa, :nome) '+
+      'ON DUPLICATE KEY UPDATE pessoa_nome = VALUES(pessoa_nome)';
+
+    for I := 0 to ArrIds.Count - 1 do
+    begin
+      if ArrIds.Items[I] is TJSONNumber then
+        PessoaId := TJSONNumber(ArrIds.Items[I]).AsInt
+      else
+        PessoaId := StrToIntDef(ArrIds.Items[I].Value, 0);
+
+      if (ArrNomes <> nil) and (I < ArrNomes.Count) then
+        PessoaNome := ArrNomes.Items[I].Value
+      else
+        PessoaNome := '';
+
+      Q.ParamByName('obra').AsInteger := ObraId;
+      Q.ParamByName('pessoa').AsInteger := PessoaId;
+      Q.ParamByName('nome').AsString := PessoaNome;
+      Q.ExecSQL;
+    end;
+  end;
+
+begin
+  Body := Req.Body<TJSONObject>;
+  Numero := JStr('numero');
+  IdGeral := JInt('id', 0);
+
+  Conn := TConnection.CreateConnection;
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := Conn;
+
+    // lookup por NUMERO quando id não veio
+    if (IdGeral = 0) and (Trim(Numero) <> '') then
+    begin
+      Q.SQL.Text := 'SELECT id FROM obraericsson WHERE numero = :numero LIMIT 1';
+      Q.ParamByName('numero').AsString := Numero;
+      Q.Open;
+      if not Q.IsEmpty then
+        IdGeral := Q.FieldByName('id').AsInteger;
+      Q.Close;
+    end;
+
+    Conn.StartTransaction;
+    try
+      if IdGeral > 0 then
       begin
-        if servico.Editar(erro) then
-          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.numero)).Status(THTTPStatus.Created)
-        else
-          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+        // UPDATE
+        Q.SQL.Text :=
+          'UPDATE obraericsson SET '+
+          'numero=:numero, cliente=:cliente, regiona=:regiona, site=:site, '+
+          'situacaoimplantacao=:situacaoimplantacao, situacaodaintegracao=:situacaodaintegracao, '+
+          'datadacriacaodademandadia=:datadacriacaodademandadia, dataaceitedemandadia=:dataaceitedemandadia, '+
+          'datainicioentregamosplanejadodia=:datainicioentregamosplanejadodia, '+
+          'datarecebimentodositemosreportadodia=:datarecebimentodositemosreportadodia, '+
+          'datafiminstalacaoplanejadodia=:datafiminstalacaoplanejadodia, dataconclusaoreportadodia=:dataconclusaoreportadodia, '+
+          'datavalidacaoinstalacaodia=:datavalidacaoinstalacaodia, dataintegracaoplanejadodia=:dataintegracaoplanejadodia, '+
+          'datavalidacaoeriboxedia=:datavalidacaoeriboxedia, '+
+          'statussydle=:statussydle, atividade=:atividade, tipoinstalacao=:tipoinstalacao, impacto=:impacto, '+
+          'ncrq=:ncrq, iniciocrq=:iniciocrq, fimcrq=:fimcrq, statuscrq=:statuscrq, crqdeinstalacao=:crqdeinstalacao, '+
+          'observacoes=:observacoes, central=:central, detentora=:detentora, iddentedora=:iddentedora, numeroativo=:numeroativo, '+
+          'obraPreenchidaNaSydle=:obraPreenchidaNaSydle, enderecoSite=:enderecoSite, '+
+          'dataativacaoplanejadodia=:dataativacaoplanejadodia, dataativacaoreportadodia=:dataativacaoreportadodia, '+
+          'datavalidacaoativacaodia=:datavalidacaoativacaodia, dataaceiteeriboxedia=:dataaceiteeriboxedia, '+
+          'dataativacaoeriboxedia=:dataativacaoeriboxedia, '+
+          'outros=:outros, formadeacesso=:formadeacesso, ddd=:ddd, municipio=:municipio, nomeericsson=:nomeericsson, '+
+          'latitude=:latitude, longitude=:longitude, obs=:obs, solicitacao=:solicitacao, statusacesso=:statusacesso, '+
+          'datasolicitacao=:datasolicitacao, datainicial=:datainicial, datafinal=:datafinal '+
+          'WHERE id=:id';
+        BindParamsObra;
+        Q.ParamByName('id').AsInteger := IdGeral;
+        Q.ExecSQL;
       end
       else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+      begin
+        // INSERT
+        Q.SQL.Text :=
+          'INSERT INTO obraericsson ('+
+          'numero, cliente, regiona, site, situacaoimplantacao, situacaodaintegracao, '+
+          'datadacriacaodademandadia, dataaceitedemandadia, datainicioentregamosplanejadodia, '+
+          'datarecebimentodositemosreportadodia, datafiminstalacaoplanejadodia, dataconclusaoreportadodia, '+
+          'datavalidacaoinstalacaodia, dataintegracaoplanejadodia, datavalidacaoeriboxedia, '+
+          'statussydle, atividade, tipoinstalacao, impacto, ncrq, iniciocrq, fimcrq, statuscrq, crqdeinstalacao, '+
+          'observacoes, central, detentora, iddentedora, numeroativo, obraPreenchidaNaSydle, enderecoSite, '+
+          'dataativacaoplanejadodia, dataativacaoreportadodia, datavalidacaoativacaodia, dataaceiteeriboxedia, dataativacaoeriboxedia, '+
+          'outros, formadeacesso, ddd, municipio, nomeericsson, latitude, longitude, obs, solicitacao, statusacesso, '+
+          'datasolicitacao, datainicial, datafinal) '+
+          'VALUES ('+
+          ':numero, :cliente, :regiona, :site, :situacaoimplantacao, :situacaodaintegracao, '+
+          ':datadacriacaodademandadia, :dataaceitedemandadia, :datainicioentregamosplanejadodia, '+
+          ':datarecebimentodositemosreportadodia, :datafiminstalacaoplanejadodia, :dataconclusaoreportadodia, '+
+          ':datavalidacaoinstalacaodia, :dataintegracaoplanejadodia, :datavalidacaoeriboxedia, '+
+          ':statussydle, :atividade, :tipoinstalacao, :impacto, :ncrq, :iniciocrq, :fimcrq, :statuscrq, :crqdeinstalacao, '+
+          ':observacoes, :central, :detentora, :iddentedora, :numeroativo, :obraPreenchidaNaSydle, :enderecoSite, '+
+          ':dataativacaoplanejadodia, :dataativacaoreportadodia, :datavalidacaoativacaodia, :dataaceiteeriboxedia, :dataativacaoeriboxedia, '+
+          ':outros, :formadeacesso, :ddd, :municipio, :nomeericsson, :latitude, :longitude, :obs, :solicitacao, :statusacesso, '+
+          ':datasolicitacao, :datainicial, :datafinal)';
+        BindParamsObra;
+        Q.ExecSQL;
+
+        Q.SQL.Text := 'SELECT LAST_INSERT_ID() AS id';
+        Q.Open;
+        IdGeral := Q.FieldByName('id').AsInteger;
+        Q.Close;
+      end;
+
+      // equipe fixa
+      SaveEquipeFixa(IdGeral);
+
+      Conn.Commit;
+
+      Res.Send<TJSONObject>(
+        TJSONObject.Create
+          .AddPair('retorno', Numero)
+          .AddPair('id', TJSONNumber.Create(IdGeral))
+      ).Status(THTTPStatus.Created);
 
     except
-      on ex: Exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+      on E: Exception do
+      begin
+        Conn.Rollback;
+        Res.Send<TJSONObject>(CreateJsonObj('erro', E.Message)).Status(THTTPStatus.InternalServerError);
+      end;
     end;
+
   finally
-    servico.Free;
+    Q.Free;
   end;
 end;
 
@@ -976,39 +1234,192 @@ begin
   end;
 end;
 
-
 procedure Lista(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TProjetoericsson;
-  qry: TFDQuery;
-  erro: string;
+  qry, qEquipes: TFDQuery;
+  erro, msg: string;
   arraydados: TJSONArray;
-  body: TJSONValue;
+  i, vObraId: Integer;
+  obj: TJSONObject;
+  obraIds: TList<Integer>;
+  idsSet: TDictionary<Integer, Byte>;
+  mapIds: TObjectDictionary<Integer, TJSONArray>;
+  mapNomes: TObjectDictionary<Integer, TJSONArray>;
+  arrIds, arrNomes: TJSONArray;
+  Conn: TFDConnection;
+
+  function GetJsonInt(const O: TJSONObject; const Keys: array of string): Integer;
+  var
+    k: string;
+    V: TJSONValue;
+    S: string;
+  begin
+    Result := 0;
+    for k in Keys do
+    begin
+      V := O.Values[k];
+      if (V = nil) or V.Null then Continue;
+      if V is TJSONNumber then Exit(TJSONNumber(V).AsInt);
+      S := Trim(V.Value);
+      if S <> '' then Exit(StrToIntDef(S, 0));
+    end;
+  end;
+
+  function BuildInList(const L: TList<Integer>): string;
+  var
+    j: Integer;
+    sb: TStringBuilder;
+  begin
+    sb := TStringBuilder.Create;
+    try
+      sb.Append('(');
+      for j := 0 to L.Count - 1 do
+      begin
+        if j > 0 then sb.Append(',');
+        sb.Append(IntToStr(L[j]));
+      end;
+      sb.Append(')');
+      Result := sb.ToString;
+    finally
+      sb.Free;
+    end;
+  end;
+
 begin
+  // cria o serviço (conexão do model)
   try
     servico := TProjetoericsson.Create;
   except
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
+    Res.Send<TJSONObject>(CreateJsonObj('erro','Erro ao conectar com o banco')).Status(500);
+    Exit;
   end;
+
+  // busca a lista base
   qry := servico.Lista(Req.Query.Dictionary, erro);
   try
-
-    try
-      arraydados := qry.ToJSONArray();
-      if erro = '' then
-        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-    except
-      on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    if (erro <> '') or (qry = nil) then
+    begin
+      if erro <> '' then msg := erro else msg := 'Falha ao executar consulta';
+      Res.Send<TJSONObject>(CreateJsonObj('erro', msg)).Status(THTTPStatus.InternalServerError);
+      Exit;
     end;
-  finally
-    qry.Free;
-    servico.Free;
+
+    arraydados := qry.ToJSONArray;
+
+    // 1) Coleta obraIds únicos
+    obraIds := TList<Integer>.Create;
+    idsSet  := TDictionary<Integer, Byte>.Create;
+    try
+      for i := 0 to arraydados.Count - 1 do
+        if arraydados.Items[i] is TJSONObject then
+        begin
+          obj := TJSONObject(arraydados.Items[i]);
+          vObraId := GetJsonInt(obj, ['obraId','obraid','obra_id','id']);
+          if (vObraId > 0) and (not idsSet.ContainsKey(vObraId)) then
+          begin
+            idsSet.Add(vObraId, 0);
+            obraIds.Add(vObraId);
+          end;
+        end;
+
+      // 2) Mapeia todas as equipes em uma única query
+      mapIds   := TObjectDictionary<Integer, TJSONArray>.Create([doOwnsValues]);
+      mapNomes := TObjectDictionary<Integer, TJSONArray>.Create([doOwnsValues]);
+      try
+        if obraIds.Count > 0 then
+        begin
+          Conn := TConnection.CreateConnection;  // conexão local, rápida e independente
+          try
+            qEquipes := TFDQuery.Create(nil);
+            try
+              qEquipes.Connection := Conn;
+              qEquipes.SQL.Text :=
+                'SELECT obraericsson_id, pessoa_id, pessoa_nome '+
+                'FROM obraericsson_equipe_fixa '+
+                'WHERE obraericsson_id IN ' + BuildInList(obraIds) + ' '+
+                'ORDER BY obraericsson_id, id';
+              qEquipes.Open;
+
+              while not qEquipes.Eof do
+              begin
+                vObraId := qEquipes.FieldByName('obraericsson_id').AsInteger;
+
+                if not mapIds.TryGetValue(vObraId, arrIds) then
+                begin
+                  arrIds := TJSONArray.Create;
+                  mapIds.Add(vObraId, arrIds);
+                end;
+                if not mapNomes.TryGetValue(vObraId, arrNomes) then
+                begin
+                  arrNomes := TJSONArray.Create;
+                  mapNomes.Add(vObraId, arrNomes);
+                end;
+
+                arrIds.AddElement(TJSONNumber.Create(qEquipes.FieldByName('pessoa_id').AsInteger));
+                arrNomes.AddElement(TJSONString.Create(qEquipes.FieldByName('pessoa_nome').AsString));
+
+                qEquipes.Next;
+              end;
+            finally
+              qEquipes.Free;
+            end;
+          finally
+            Conn.Free;
+          end;
+        end;
+
+        // 3) Anexa os arrays (ou vazios) em cada item do JSON
+        for i := 0 to arraydados.Count - 1 do
+          if arraydados.Items[i] is TJSONObject then
+          begin
+            obj := TJSONObject(arraydados.Items[i]);
+            vObraId := GetJsonInt(obj, ['obraId','obraid','obra_id','id']);
+
+            // normaliza chaves do id da obra
+            if (vObraId > 0) and (obj.Values['obraId'] = nil) then
+              obj.AddPair('obraId', TJSONNumber.Create(vObraId));
+            if (vObraId > 0) and (obj.Values['id'] = nil) then
+              obj.AddPair('id', TJSONNumber.Create(vObraId));
+
+            // remove pares antigos se existirem (evita duplicar)
+            if obj.Values['equipefixaIds'] <> nil then
+              obj.RemovePair('equipefixaIds').Free;
+            if obj.Values['equipefixaNomes'] <> nil then
+              obj.RemovePair('equipefixaNomes').Free;
+
+            // pega arrays mapeadas ou cria vazias
+            if not mapIds.TryGetValue(vObraId, arrIds) then
+              arrIds := TJSONArray.Create;
+            if not mapNomes.TryGetValue(vObraId, arrNomes) then
+              arrNomes := TJSONArray.Create;
+
+            // adiciona cópias (Clone) para não compartilhar instância entre itens
+            obj.AddPair('equipefixaIds',  arrIds.Clone as TJSONArray);
+            obj.AddPair('equipefixaNomes', arrNomes.Clone as TJSONArray);
+          end;
+
+      finally
+        mapIds.Free;
+        mapNomes.Free;
+      end;
+
+    finally
+      obraIds.Free;
+      idsSet.Free;
+    end;
+
+    Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK);
+
+  except
+    on ex: Exception do
+      Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
   end;
+
+  qry.Free;
+  servico.Free;
 end;
+
 
 procedure Listafechamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -1341,37 +1752,93 @@ begin
   end;
 end;
 
+
 procedure Listaid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TProjetoericsson;
-  qry: TFDQuery;
+  qry, qEquipe: TFDQuery;
   erro: string;
-  arraydados: TJSONObject;
-  body: TJSONValue;
+  dados: TJSONObject;
+  arrIds, arrNomes: TJSONArray;
+  Conn: TFDConnection;
+  ObraId: Integer;
+  SId: string;
 begin
   try
     servico := TProjetoericsson.Create;
   except
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
+    Exit;
   end;
+
   qry := servico.Listaid(Req.Query.Dictionary, erro);
   try
-    try
-      arraydados := qry.ToJSONObject;
-      if erro = '' then
-        Res.Send<TJSONObject>(arraydados).Status(THTTPStatus.OK)
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-    except
-      on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    if erro <> '' then
+    begin
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      Exit;
     end;
-  finally
-    qry.Free;
-    servico.Free;
+
+    dados := qry.ToJSONObject;
+
+    // tenta obraId (camelCase), depois obra_id (snake), depois id
+    if Assigned(dados.Values['obraId']) then
+      ObraId := dados.GetValue<Integer>('obraId', 0)
+    else if Assigned(dados.Values['obra_id']) then
+      ObraId := dados.GetValue<Integer>('obra_id', 0)
+    else if Assigned(dados.Values['id']) then
+      ObraId := dados.GetValue<Integer>('id', 0)
+    else if Req.Query.TryGetValue('id', SId) then
+      ObraId := StrToIntDef(SId, 0)
+    else
+      ObraId := 0;
+
+    arrIds := TJSONArray.Create;
+    arrNomes := TJSONArray.Create;
+
+    if ObraId > 0 then
+    begin
+      Conn := TConnection.CreateConnection;
+      try
+        qEquipe := TFDQuery.Create(nil);
+        try
+          qEquipe.Connection := Conn;
+          qEquipe.SQL.Text :=
+            'SELECT pessoa_id, pessoa_nome ' +
+            'FROM obraericsson_equipe_fixa ' +
+            'WHERE obraericsson_id = :id ' +
+            'ORDER BY id';
+          qEquipe.ParamByName('id').AsInteger := ObraId;
+          qEquipe.Open;
+
+          while not qEquipe.Eof do
+          begin
+            arrIds.AddElement(TJSONNumber.Create(qEquipe.FieldByName('pessoa_id').AsInteger));
+            arrNomes.AddElement(TJSONString.Create(qEquipe.FieldByName('pessoa_nome').AsString));
+            qEquipe.Next;
+          end;
+        finally
+          qEquipe.Free;
+        end;
+      finally
+        Conn.Free;
+      end;
+    end;
+
+    dados.AddPair('equipefixaIds', arrIds);
+    dados.AddPair('equipefixaNomes', arrNomes);
+
+    Res.Send<TJSONObject>(dados).Status(THTTPStatus.OK);
+  except
+    on ex: Exception do
+      Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
   end;
+
+  qry.Free;
+  servico.Free;
 end;
+
+
 
 procedure Listaadicid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var

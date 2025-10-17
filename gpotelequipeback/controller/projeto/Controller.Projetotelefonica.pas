@@ -2070,91 +2070,96 @@ end;
 procedure editar(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TProjetotelefonica;
-  body: TJSONValue;
-  JSONArray: TJSONArray;
-  JSONObj: TJSONObject;
-  JSONItem: TJSONValue;
-  erro, retorno: string;
-  i: integer;
+  body: TJSONObject;
+  erro: string;
 begin
   servico := TProjetotelefonica.Create;
   try
     erro := '';
-    retorno := '';
     try
       // Lê o corpo da requisição como TJSONObject
-      body := Req.body<tjsonobject>;
-      servico.infra := body.getvalue<string>('infra', '');
-      servico.infravivo := body.getvalue<string>('infraviv', '');
-      servico.acessoatividade := body.getvalue<string>('acessoatividade', '');
-      servico.acessocomentario := body.getvalue<string>('acessocomentario', '');
-      servico.acessooutros := body.getvalue<string>('acessooutros', '');
-      servico.acessostatus := body.getvalue<string>('acessostatus', '');
-      servico.acessoformaacesso := body.getvalue<string>('acessoformaacesso', '');
-      servico.ddd := body.getvalue<string>('ddd', '');
-      servico.cidade := body.getvalue<string>('cidade', '');
-      servico.nomedosite := body.getvalue<string>('nomedosite', '');
-      servico.endereco := body.getvalue<string>('endereco', '');
-      servico.latitude := body.getvalue<string>('latitude', '');
-      servico.longitude := body.getvalue<string>('longitude', '');
-      servico.acessoobs := body.getvalue<string>('acessoobs', '');
-      servico.acessodatainicial := body.getvalue<string>('acessodatainicial', '');
-      servico.acessodatafinal := body.getvalue<string>('acessodatafinal', '');
-      servico.acessodatasolicitacao := body.getvalue<string>('acessodatasolicitacao', '');
-      servico.acessosolicitacao := body.getvalue<string>('acessosolicitacao', '');
-      servico.entregaplan := body.getvalue<string>('entregaplan', '');
-      servico.entregareal := body.getvalue<string>('entregareal', '');
-      servico.fiminstalacaoplan := body.getvalue<string>('fiminstalacaoplan', '');
-      servico.fiminstalacaoreal := body.getvalue<string>('fiminstalacaoreal', '');
-      servico.integracaoplan := body.getvalue<string>('integracaoplan', '');
-      servico.integracaoreal := body.getvalue<string>('integracaoreal', '');
-      servico.ativacao := body.getvalue<string>('ativacao', '');
-      servico.documentacao := body.getvalue<string>('documentacao', '');
-      servico.dtplan := body.getvalue<string>('dtplan', '');
-      servico.dtreal := body.getvalue<string>('dtreal', '');
-      servico.dataInventarioDesinstalacao := body.getvalue<string>('dataInventarioDesinstalacao', '');
-      servico.aprovacaossv := body.getvalue<string>('aprovacaossv', '');
-      servico.statusaprovacaossv := body.getvalue<string>('statusaprovacaossv', '');
-      servico.initialtunningrealfinal := body.getvalue<string>('initialtunningrealfinal', '');
-      servico.statusobra := body.getvalue<string>('statusobra', '');
-      servico.docaplan := body.getvalue<string>('docaplan', '');
-      servico.pmoaceitacaoplan := body.getvalue<string>('pmoaceitacaoplan', '');
-      servico.pmoaceitacaoreal := body.getvalue<string>('pmoaceitacaoreal', '');
-      servico.ov := body.getvalue<string>('ov', '');
-      servico.uididcpomrf := body.getvalue<string>('uididcpomrf', '');
-      servico.resumodafase := body.getvalue<string>('resumodafase', '');
-      servico.rollout := body.getvalue<string>('rollout', '');
-      servico.vistoriaplan := body.getvalue<string>('vistoriaplan', '');
-      servico.vistoriareal := body.getvalue<string>('vistoriareal', '');
-      servico.docplan := body.getvalue<string>('docplan', '');
-      servico.docvitoriareal := body.getvalue<string>('docvitoriareal', '');
-      servico.req := body.getvalue<string>('req', '');
-      servico.dataimprodutiva := body.getvalue<string>('dataimprodutiva', '');
-      servico.acompanhamentofisicoobservacao := body.getvalue<string>('acompanhamentofisicoobservacao', '');
-      servico.equipe := body.getvalue<string>('equipe', '');
-      servico.initialtunningstatus := body.getvalue<string>('initialtunningstatus', '');
-      servico.initialtunningreal := body.getvalue<string>('initialtunningreal', '');
-      servico.idpmts := body.getvalue<string>('idpmts', '');
+      body := Req.Body<TJSONObject>;
 
-      servico.dataExecucaoDoc := body.getvalue<string>('dataExecucaoDoc', '');
-      servico.dataPostagemDoc := body.getvalue<string>('dataPostagemDoc', '');
-      servico.selectedOptionStatusDocumentacao := body.getvalue<string>('selectedOptionStatusDocumentacao', '');
-      servico.dataExecucaoDocVDVM := body.getvalue<string>('dataExecucaoDocVDVM', '');
-      servico.dataPostagemDocVDVM := body.getvalue<string>('dataPostagemDocVDVM', '');
-      servico.observacaoDocumentacao := body.getvalue<string>('observacaoDocumentacao', '');
+      servico.infra := body.GetValue<string>('infra', '');
+      servico.infravivo := body.GetValue<string>('infraviv', '');
+      servico.acessoatividade := body.GetValue<string>('acessoatividade', '');
+      servico.acessocomentario := body.GetValue<string>('acessocomentario', '');
+      servico.acessooutros := body.GetValue<string>('acessooutros', '');
+      servico.acessostatus := body.GetValue<string>('acessostatus', '');
+      servico.acessoformaacesso := body.GetValue<string>('acessoformaacesso', '');
+      servico.ddd := body.GetValue<string>('ddd', '');
+      servico.cidade := body.GetValue<string>('cidade', '');
+      servico.nomedosite := body.GetValue<string>('nomedosite', '');
+      servico.endereco := body.GetValue<string>('endereco', '');
+      servico.latitude := body.GetValue<string>('latitude', '');
+      servico.longitude := body.GetValue<string>('longitude', '');
+      servico.acessoobs := body.GetValue<string>('acessoobs', '');
+      servico.acessodatainicial := body.GetValue<string>('acessodatainicial', '');
+      servico.acessodatafinal := body.GetValue<string>('acessodatafinal', '');
+      servico.acessodatasolicitacao := body.GetValue<string>('acessodatasolicitacao', '');
+      servico.acessosolicitacao := body.GetValue<string>('acessosolicitacao', '');
+      servico.entregaplan := body.GetValue<string>('entregaplan', '');
+      servico.entregareal := body.GetValue<string>('entregareal', '');
+      servico.fiminstalacaoplan := body.GetValue<string>('fiminstalacaoplan', '');
+      servico.fiminstalacaoreal := body.GetValue<string>('fiminstalacaoreal', '');
+      servico.integracaoplan := body.GetValue<string>('integracaoplan', '');
+      servico.integracaoreal := body.GetValue<string>('integracaoreal', '');
+      servico.ativacao := body.GetValue<string>('ativacao', '');
+      servico.documentacao := body.GetValue<string>('documentacao', '');
+      servico.dtplan := body.GetValue<string>('dtplan', '');
+      servico.dtreal := body.GetValue<string>('dtreal', '');
+      servico.dataInventarioDesinstalacao := body.GetValue<string>('dataInventarioDesinstalacao', '');
+      servico.aprovacaossv := body.GetValue<string>('aprovacaossv', '');
+      servico.statusaprovacaossv := body.GetValue<string>('statusaprovacaossv', '');
+      servico.initialtunningrealfinal := body.GetValue<string>('initialtunningrealfinal', '');
+      servico.statusobra := body.GetValue<string>('statusobra', '');
+      servico.docaplan := body.GetValue<string>('docaplan', '');
+      servico.pmoaceitacaoplan := body.GetValue<string>('pmoaceitacaoplan', '');
+      servico.pmoaceitacaoreal := body.GetValue<string>('pmoaceitacaoreal', '');
+      servico.ov := body.GetValue<string>('ov', '');
+      servico.uididcpomrf := body.GetValue<string>('uididcpomrf', '');
+      servico.resumodafase := body.GetValue<string>('resumodafase', '');
+      servico.rollout := body.GetValue<string>('rollout', '');
+      servico.vistoriaplan := body.GetValue<string>('vistoriaplan', '');
+      servico.vistoriareal := body.GetValue<string>('vistoriareal', '');
+      servico.docplan := body.GetValue<string>('docplan', '');
+      servico.docvitoriareal := body.GetValue<string>('docvitoriareal', '');
+      servico.req := body.GetValue<string>('req', '');
+      servico.dataimprodutiva := body.GetValue<string>('dataimprodutiva', '');
+      servico.acompanhamentofisicoobservacao := body.GetValue<string>('acompanhamentofisicoobservacao', '');
+      servico.equipe := body.GetValue<string>('equipe', '');
+      servico.initialtunningstatus := body.GetValue<string>('initialtunningstatus', '');
+      servico.initialtunningreal := body.GetValue<string>('initialtunningreal', '');
+      servico.obs := body.GetValue<string>('obs', '');
+      servico.observacaoAcesso := body.GetValue<string>('observacaoDeAcesso', '');
+      servico.ativoAtc := body.GetValue<string>('ativoAtc', '');
+      servico.uf := body.GetValue<string>('uf', '');
+      servico.equipeResponsavel := body.GetValue<string>('equipeResponsavel', '');
+      servico.dataExecucaoDoc := body.GetValue<string>('dataExecucaoDoc', '');
+      servico.dataPostagemDoc := body.GetValue<string>('dataPostagemDoc', '');
+      servico.selectedOptionStatusDocumentacao := body.GetValue<string>('selectedOptionStatusDocumentacao', '');
+      servico.dataExecucaoDocVDVM := body.GetValue<string>('dataExecucaoDocVDVM', '');
+      servico.dataPostagemDocVDVM := body.GetValue<string>('dataPostagemDocVDVM', '');
+      servico.observacaoDocumentacao := body.GetValue<string>('observacaoDocumentacao', '');
 
-      if Length(erro) = 0 then
+      // Execução principal
+      if servico.Editar(erro) then
       begin
-        if servico.Editar(erro) then
-          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.UIDIDCPOMRF)).Status(THTTPStatus.Created)
-        else
-          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+        // Envia e-mail somente se houver responsável definido
+        if Trim(servico.equipeResponsavel) <> '' then
+          servico.SendEmailEquipeResponsavel(erro);
+
+        Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.uididcpomrf))
+          .Status(THTTPStatus.Created);
       end
       else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro))
+          .Status(THTTPStatus.BadRequest);
+
     except
-      on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+      on Ex: Exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', Ex.Message))
+          .Status(THTTPStatus.InternalServerError);
     end;
   finally
     servico.Free;
@@ -2821,7 +2826,7 @@ begin
             operacao := Copy(ParamValue, pos + 1, MaxInt);
 
           Sheet.Cells[23, 11].NumberFormat := '@';
-          Sheet.Cells[23, 11].Value := operacao;
+          Sheet.Cells[23, 11].Value := '10'+ operacao;
         end;
 
 
@@ -2833,8 +2838,12 @@ begin
         begin
           ErrorStage := 'Filling cells I7 and C16';
           Sheet.Cells[9, 8].Value := ParamValue;
-          Sheet.Cells[17, 4].Value := ParamValue;
         end;
+
+      ErrorStage := 'Filling cell A10 with current date (string)';
+      Sheet.Cells[10, 1].NumberFormat := '@';
+      Sheet.Cells[10, 1].Value := FormatDateTime('dd/mm/yyyy', Date);
+
 
         ErrorStage := 'Filling cell K7';
         if Req.Query.TryGetValue('empresa', ParamValue) then
@@ -2853,17 +2862,14 @@ begin
           var operacao: string := 'S';
           if Length(ParamValue) > 3 then
             operacao := operacao + Copy(ParamValue, 4, Length(ParamValue) - 3);
-          Sheet.Cells[17, 4].Value := operacao; // Assumindo coluna D (4) para Operação
         end;
 
         ErrorStage := 'Filling cell D16';
         // Campo Descrição - padronizando para 'M_REDE ACESSO RÁDIO-RAN-SERV-NAC'
         Sheet.Cells[17, 5].Value := 'M_REDE ACESSO RÁDIO-RAN-SERV-NAC';
 
-        ErrorStage := 'Filling cell E16';
-        if Req.Query.TryGetValue('t2codmatservsw', ParamValue) then
-          Sheet.Cells[17, 6].Value := ParamValue;
-
+        ErrorStage := 'Clearing cell F17';
+        Sheet.Cells[17, 6].ClearContents;
 
 
         ErrorStage := 'Filling cell J16';
@@ -3110,7 +3116,32 @@ begin
 
       // Nome da planilha = pepnivel3 (ignora erro em CSV)
       if pepnivel3 <> '' then
-        try Sheet.Name := pepnivel3; except end;
+      begin
+        Sheet.Cells[6, 26].Value := pepnivel3;
+
+        try
+          Sheet.Name := pepnivel3;
+        except
+        end;
+
+        var operacao: string := 'S';
+        var pos := LastDelimiter('-', pepnivel3);
+        if (pos > 0) and (pos < Length(pepnivel3)) then
+          operacao := Copy(pepnivel3, pos + 1, MaxInt);
+
+        Sheet.Cells[23, 11].NumberFormat := '@';
+        Sheet.Cells[23, 11].Value := '10' + operacao;
+      end;
+
+
+      ErrorStage := 'Filling cell A10 with current date (string)';
+      Sheet.Cells[10, 1].NumberFormat := '@';
+      Sheet.Cells[10, 1].Value := FormatDateTime('dd/mm/yyyy', Date);
+
+      ErrorStage := 'Clearing cell F17';
+      Sheet.Cells[17, 6].ClearContents;
+      Sheet.Cells[17, 4].Value := 14069263;
+
 
       // E9 = número do contrato
       if TryGetAnyQS(['numerodocontrato'], s) then
@@ -3120,8 +3151,9 @@ begin
       if TryGetAnyQS(['codfornecedor'], s) then
       begin
         Sheet.Cells[9, 11].Value := s;  // I9
-        Sheet.Cells[17, 4].Value := s;  // D17
       end;
+
+      Sheet.Cells[17, 4].Value := 14069263;
 
       if TryGetAnyQS(['pepnivel3'], s) then
       begin
@@ -3132,7 +3164,7 @@ begin
           operacao := Copy(s, pos + 1, MaxInt);
 
         Sheet.Cells[23, 11].NumberFormat := '@';
-        Sheet.Cells[23, 11].Value := operacao;
+        Sheet.Cells[23, 11].Value :=' 10'+ operacao;
       end;
 
       // K7 = empresa
@@ -3143,16 +3175,12 @@ begin
 
       Sheet.Cells[17, 5].Value := 'M_REDE ACESSO RÁDIO-RAN-SERV-NAC';
 
-      // E16 = t2codmatservsw
-      if TryGetAnyQS(['t2codmatservsw'], s) then
-        Sheet.Cells[17, 6].Value := s;
-
       // J16 = quantidade
       if TryGetAnyQS(['quantidade','quant'], s) then
         Sheet.Cells[17, 14].Value := s;
 
       // M16 = valor (aceita aliases)
-      if TryGetAnyQS(['valor','vlrunitarioliq','vlrunitariocimposto','vlrtotalcimpostos','vlrunitarioliqliq'], s) then
+      if TryGetAnyQS(['vlrunitarioliq'], s) then
         Sheet.Cells[17, 15].Value := s;
 
       // id e faturamento

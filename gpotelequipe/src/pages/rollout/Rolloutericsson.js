@@ -57,6 +57,7 @@ const Rolloutericsson = ({ setshow, show }) => {
   const [rowToUpdate, setRowToUpdate] = useState(null);
   const [ErirssonSelecionado, setericssonSelecionado] = useState(null);
 
+  // === NOVOS CAMPOS adicionados ao controle de visibilidade ===
   const [fieldVisibility, setFieldVisibility] = useState({
     rfp: true,
     numero: true,
@@ -103,6 +104,30 @@ const Rolloutericsson = ({ setshow, show }) => {
     statusdoc: true,
     aprovacaotodosdocs: true,
     sitepossuirisco: true,
+    // ---- novos campos ----
+    statussydle: true,
+    atividade: true,
+    tipoinstalacao: true,
+    impacto: true,
+    ncrq: true,
+    iniciocrq: true,
+    fimcrq: true,
+    statuscrq: true,
+    crqdeinstalacao: true,
+    observacoes: true,
+    central: true,
+    detentora: true,
+    iddentedora: true,
+    numeroativo: true,
+    obrapreenchidanasydle: true,
+    enderecosite: true,
+    dataativacaoplanejadodia: true,
+    dataativacaoreportadodia: true,
+    datavalidacaoativacaodia: true,
+    dataaceiteeriboxedia: true,
+    dataativacaoeriboxedia: true,
+    equipefixaNomes: true,
+    equipefixaQtd: true,
   });
 
   const [, setprojeto] = useState([]);
@@ -178,6 +203,10 @@ const Rolloutericsson = ({ setshow, show }) => {
     setididentificador(stat);
   }
 
+  // helpers de data
+  const asDate = (v) => (v ? new Date(v) : null);
+  const fmtDate = (v) => (v ? new Intl.DateTimeFormat('pt-BR').format(v) : '');
+
   const columnsRollout = [
     {
       field: 'actions',
@@ -243,14 +272,16 @@ const Rolloutericsson = ({ setshow, show }) => {
     { field: 'nomeericsson', headerName: 'Nome Ericsson', width: 200, editable: true },
     { field: 'localizacaositeendereco', headerName: 'Endereço Site', width: 300, editable: true, hide: !fieldVisibility.localizacaositeendereco },
     { field: 'localizacaositecidade', headerName: 'Cidade Site', width: 300, renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>, hide: !fieldVisibility.localizacaositecidade },
+
+    // Datas “antigas”
     {
       field: 'datasolicitacao',
       headerName: 'Data Solicitação',
       width: 150,
       type: 'date',
       editable: true,
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
     },
     { field: 'solicitacao', headerName: 'Solicitação', width: 150, editable: true },
     { field: 'latitude', headerName: 'Latitude', width: 100, editable: true },
@@ -270,8 +301,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       width: 150,
       type: 'date',
       editable: true,
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
     },
     {
       field: 'datafinal',
@@ -279,16 +310,16 @@ const Rolloutericsson = ({ setshow, show }) => {
       width: 150,
       type: 'date',
       editable: true,
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
     },
     {
       field: 'datainicioentregamosplanejadodia',
       headerName: 'Data Início (Entrega Planejada)',
       width: 250,
       type: 'date',
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.datainicioentregamosplanejadodia,
     },
     {
@@ -296,8 +327,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       headerName: 'Recebimento Reportado',
       width: 180,
       type: 'date',
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.datarecebimentodositemosreportadodia,
     },
     {
@@ -306,8 +337,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       width: 160,
       type: 'date',
       editable: true,
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.datadacriacaodademandadia,
     },
     {
@@ -316,8 +347,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       width: 160,
       type: 'date',
       editable: true,
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.datalimiteaceitedia,
     },
     {
@@ -326,8 +357,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       width: 160,
       type: 'date',
       editable: true,
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.dataaceitedemandadia,
     },
     {
@@ -335,8 +366,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       headerName: 'Início Prev. Solicitante',
       width: 180,
       type: 'date',
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.datainicioprevistasolicitantebaselinemosdia,
     },
     {
@@ -344,8 +375,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       headerName: 'Fim Prev. Baseline Inst.',
       width: 180,
       type: 'date',
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.datafimprevistabaselinefiminstalacaodia,
     },
     {
@@ -353,8 +384,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       headerName: 'Fim Inst. Planejada',
       width: 160,
       type: 'date',
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.datafiminstalacaoplanejadodia,
     },
     {
@@ -362,8 +393,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       headerName: 'Conclusão Reportada',
       width: 160,
       type: 'date',
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.dataconclusaoreportadodia,
     },
     {
@@ -371,8 +402,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       headerName: 'Validação Instalação',
       width: 160,
       type: 'date',
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.datavalidacaoinstalacaodia,
     },
     {
@@ -380,8 +411,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       headerName: 'Integração Baseline',
       width: 160,
       type: 'date',
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.dataintegracaobaselinedia,
     },
     {
@@ -389,8 +420,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       headerName: 'Integração Planejada',
       width: 160,
       type: 'date',
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.dataintegracaoplanejadodia,
     },
     {
@@ -398,8 +429,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       headerName: 'Validação Eriboxe',
       width: 160,
       type: 'date',
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.datavalidacaoeriboxedia,
     },
     { field: 'listadepos', headerName: 'Lista de POS', width: 150, hide: !fieldVisibility.listadepos },
@@ -413,8 +444,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       headerName: 'Fim Aceite Sydle',
       width: 160,
       type: 'date',
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.datadefimdaaceitacaosydledia,
     },
     { field: 'ordemdevenda', headerName: 'Ordem de Venda', width: 200, hide: !fieldVisibility.ordemdevenda },
@@ -424,8 +455,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       headerName: 'Fim Validação RSA Tracker',
       width: 200,
       type: 'date',
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.rsavalidacaorsanrotrackerdatafimdia,
     },
     {
@@ -433,8 +464,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       headerName: 'Fim Obra Plan.',
       width: 140,
       type: 'date',
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.fimdeobraplandia,
     },
     {
@@ -442,8 +473,8 @@ const Rolloutericsson = ({ setshow, show }) => {
       headerName: 'Fim Obra Real',
       width: 140,
       type: 'date',
-      valueGetter: ({ value }) => (value ? new Date(value) : null),
-      valueFormatter: ({ value }) => (value ? new Intl.DateTimeFormat('pt-BR').format(value) : ''),
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
       hide: !fieldVisibility.fimdeobrarealdia,
     },
     { field: 'tipoatualizacaofam', headerName: 'Tipo Atualização FAM', width: 200, hide: !fieldVisibility.tipoatualizacaofam },
@@ -456,6 +487,56 @@ const Rolloutericsson = ({ setshow, show }) => {
     { field: 'statusdoc', headerName: 'Status Doc', width: 150, hide: !fieldVisibility.statusdoc },
     { field: 'aprovacaotodosdocs', headerName: 'Aprovação Todos Docs', width: 200, hide: !fieldVisibility.aprovacaotodosdocs },
     { field: 'sitepossuirisco', headerName: 'Site Possui Risco', width: 150, hide: !fieldVisibility.sitepossuirisco },
+
+    // ===== NOVOS CAMPOS (tabela) =====
+    { field: 'statussydle', headerName: 'Status Sydle', width: 160, hide: !fieldVisibility.statussydle },
+    { field: 'atividade', headerName: 'Atividade', width: 180, hide: !fieldVisibility.atividade },
+    { field: 'tipoinstalacao', headerName: 'Tipo Instalação', width: 180, hide: !fieldVisibility.tipoinstalacao },
+    { field: 'impacto', headerName: 'Impacto', width: 150, hide: !fieldVisibility.impacto },
+    { field: 'ncrq', headerName: 'Nº CRQ', width: 140, hide: !fieldVisibility.ncrq },
+    {
+      field: 'iniciocrq',
+      headerName: 'Início CRQ',
+      width: 140,
+      type: 'date',
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
+      hide: !fieldVisibility.iniciocrq,
+    },
+    {
+      field: 'fimcrq',
+      headerName: 'Fim CRQ',
+      width: 140,
+      type: 'date',
+      valueGetter: ({ value }) => asDate(value),
+      valueFormatter: ({ value }) => fmtDate(value),
+      hide: !fieldVisibility.fimcrq,
+    },
+    { field: 'statuscrq', headerName: 'Status CRQ', width: 160, hide: !fieldVisibility.statuscrq },
+    { field: 'crqdeinstalacao', headerName: 'CRQ de Instalação', width: 180, hide: !fieldVisibility.crqdeinstalacao },
+    { field: 'observacoes', headerName: 'Observações', width: 300, renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>, hide: !fieldVisibility.observacoes },
+    { field: 'central', headerName: 'Central', width: 140, hide: !fieldVisibility.central },
+    { field: 'detentora', headerName: 'Detentora', width: 160, hide: !fieldVisibility.detentora },
+    { field: 'iddentedora', headerName: 'ID Detentora', width: 140, hide: !fieldVisibility.iddentedora },
+    { field: 'numeroativo', headerName: 'Nº Ativo', width: 140, hide: !fieldVisibility.numeroativo },
+    { field: 'obrapreenchidanasydle', headerName: 'Preenchida na Sydle', width: 180, hide: !fieldVisibility.obrapreenchidanasydle },
+    { field: 'enderecosite', headerName: 'Endereço (Novo)', width: 280, hide: !fieldVisibility.enderecosite },
+    // Equipe fixa (apenas exibição)
+    {
+      field: 'equipefixaNomes',
+      headerName: 'Equipe Fixa',
+      width: 280,
+      hide: !fieldVisibility.equipefixaNomes,
+      valueGetter: ({ value }) => (Array.isArray(value) ? value.join(', ') : value),
+      renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{Array.isArray(p.value) ? p.value.join(', ') : p.value}</div>,
+    },
+    {
+      field: 'equipefixaQtd',
+      headerName: 'Qtd. Equipe',
+      width: 120,
+      hide: !fieldVisibility.equipefixaQtd,
+      valueGetter: (data) => (Array.isArray(data.row?.equipefixaIds) ? data.row.equipefixaIds.length : 0),
+    },
   ];
 
   const handleProcessRowUpdateError = () => {
@@ -775,6 +856,25 @@ const Rolloutericsson = ({ setshow, show }) => {
                         'STATUS DOC': item.statusdoc,
                         'APROVAÇÃO TODOS DOCS': item.aprovacaotodosdocs,
                         'SITE POSSUI RISCO': item.sitepossuirisco,
+                        // novos campos no Excel
+                        'STATUS SYDLE': item.statussydle,
+                        ATIVIDADE: item.atividade,
+                        'TIPO INSTALAÇÃO': item.tipoinstalacao,
+                        IMPACTO: item.impacto,
+                        'Nº CRQ': item.ncrq,
+                        'INÍCIO CRQ': item.iniciocrq,
+                        'FIM CRQ': item.fimcrq,
+                        'STATUS CRQ': item.statuscrq,
+                        'CRQ DE INSTALAÇÃO': item.crqdeinstalacao,
+                        OBSERVAÇÕES: item.observacoes,
+                        CENTRAL: item.central,
+                        DETENTORA: item.detentora,
+                        'ID DETENTORA': item.iddentedora,
+                        'Nº ATIVO': item.numeroativo,
+                        'PREENCHIDA NA SYDLE': item.obrapreenchidanasydle,
+                        'ENDEREÇO (NOVO)': item.enderecosite,
+                        'EQUIPE FIXA (NOMES)': Array.isArray(item.equipefixaNomes) ? item.equipefixaNomes.join(', ') : '',
+                        'QTD. EQUIPE': Array.isArray(item.equipefixaIds) ? item.equipefixaIds.length : 0,
                       }));
                       exportExcel({ excelData, fileName: 'ROLLOUT ERICSSON' });
                     }}

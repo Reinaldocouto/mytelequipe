@@ -19,7 +19,6 @@ import Typography from '@mui/material/Typography';
 import Pagination from '@mui/material/Pagination';
 import createLocalDate from '../../services/data';
 import api from '../../services/api';
-import exportExcel from '../../data/exportexcel/Excelexport';
 import Rollouthuaweiedicao from '../../components/formulario/rollout/Rollouthuaweiedicao';
 import Excluirregistro from '../../components/Excluirregistro';
 import Telat2editar from '../../components/formulario/projeto/Telat2editar';
@@ -106,9 +105,13 @@ const Rollouthuawei = ({ setshow, show }) => {
       }
 
       // Monta payload (JSON esperado pelo backend Delphi)
+      const permissionstorage = JSON.parse(localStorage.getItem('permission'));
+
       const updatedRow = {
         id: idsSelecionados,
         [rowToUpdate.changedFields[0]]: rowToUpdate.newRow[rowToUpdate.changedFields[0]],
+        ultimaPessoaAtualizacao: permissionstorage.nome,
+        ultimaAtualizacao: new Date().toISOString(),
       };
 
       // Atualiza no backend
@@ -269,7 +272,6 @@ const Rollouthuawei = ({ setshow, show }) => {
         />,
       ],
     },
-
     { field: 'name', headerName: 'Name', width: 200, editable: true },
     {
       field: 'projeto',
@@ -313,7 +315,7 @@ const Rollouthuawei = ({ setshow, show }) => {
       editable: true,
       type: 'singleSelect',
       valueOptions: pessoas,
-    }, // Cadastro de Pessoas
+    },
     {
       field: 'empresa',
       headerName: 'Empresa',
@@ -321,7 +323,7 @@ const Rollouthuawei = ({ setshow, show }) => {
       editable: true,
       type: 'singleSelect',
       valueOptions: empresas,
-    }, // Cadastro de Empresas
+    },
     {
       field: 'ativoNoPeriodo',
       headerName: 'Ativo no Período',
@@ -437,7 +439,6 @@ const Rollouthuawei = ({ setshow, show }) => {
       valueOptions: ['NOK', 'OK', 'CA', 'S/TX', 'Licença'],
     },
 
-    // QC
     {
       field: 'qcPlanned',
       headerName: 'QC Planned',
@@ -461,7 +462,6 @@ const Rollouthuawei = ({ setshow, show }) => {
       type: 'singleSelect',
       valueOptions: ['Pendente', 'QC vinculado', 'Finalizado', 'Cancelado', 'Pendente Huawei'],
     },
-
     { field: 'observacao', headerName: 'Observação', width: 250, editable: true },
     {
       field: 'logisticaReversaStatus',
@@ -500,15 +500,15 @@ const Rollouthuawei = ({ setshow, show }) => {
     },
     { field: 'changeHistory', headerName: 'Change History', width: 200, editable: true },
     { field: 'repOffice', headerName: 'Rep Office', width: 180, editable: true },
-    { field: 'projectCode', headerName: 'Project Code', width: 150, editable: true },
-    { field: 'siteCode', headerName: 'Site Code', width: 150, editable: true },
-    { field: 'siteName', headerName: 'Site Name', width: 200, editable: true },
-    { field: 'siteId', headerName: 'Site ID', width: 150, editable: true },
-    { field: 'subContractNo', headerName: 'Sub Contract NO.', width: 200, editable: true },
-    { field: 'prNo', headerName: 'PR NO.', width: 120, editable: true },
-    { field: 'poNo', headerName: 'PO NO.', width: 120, editable: true },
-    { field: 'poLineNo', headerName: 'PO Line NO.', width: 150, editable: true },
-    { field: 'shipmentNo', headerName: 'Shipment NO.', width: 150, editable: true },
+    { field: 'projectCode', headerName: 'Project Code', width: 200, editable: true },
+    { field: 'siteCode', headerName: 'Site Code', width: 200, editable: true },
+    { field: 'siteName', headerName: 'Site Name', width: 450, editable: true },
+    { field: 'siteId', headerName: 'Site ID', width: 200, editable: true },
+    { field: 'subContractNo', headerName: 'Sub Contract NO.', width: 500, editable: true },
+    { field: 'prNo', headerName: 'PR NO.', width: 300, editable: true },
+    { field: 'poNo', headerName: 'PO NO.', width: 200, editable: true },
+    { field: 'poLineNo', headerName: 'PO Line NO.', width: 200, editable: true },
+    { field: 'shipmentNo', headerName: 'Shipment NO.', width: 200, editable: true },
     { field: 'itemCode', headerName: 'Item Code', width: 120, editable: true },
     { field: 'itemDescription', headerName: 'Item Description', width: 250, editable: true },
     {
@@ -554,14 +554,14 @@ const Rollouthuawei = ({ setshow, show }) => {
       editable: true,
     },
     { field: 'dueQty', headerName: 'Due Qty', type: 'number', width: 150, editable: true },
-    { field: 'noteToReceiver', headerName: 'Note to Receiver', width: 250, editable: true },
+    { field: 'noteToReceiver', headerName: 'Note to Receiver', width: 350, editable: true },
     { field: 'fobLookupCode', headerName: 'Fob Lookup Code', width: 180, editable: true },
-
     {
       field: 'acceptanceDate',
       headerName: 'Acceptance Date',
       type: 'date',
       width: 180,
+      editable: true,
       valueGetter: (cell) => (cell.value ? new Date(cell.value) : null),
     },
     {
@@ -572,10 +572,17 @@ const Rollouthuawei = ({ setshow, show }) => {
     },
     { field: 'pessoa', headerName: 'Pessoa', width: 180, editable: true },
     {
+      field: 'ultimaPessoaAtualizacao',
+      headerName: 'Atualizado por',
+      width: 180,
+      editable: true,
+    },
+    {
       field: 'ultimaAtualizacao',
       headerName: 'Última Atualização',
       type: 'dateTime',
       width: 200,
+      editable: false,
       valueGetter: (cell) => (cell.value ? createLocalDate(cell.value) : null),
     },
   ]);
@@ -644,161 +651,60 @@ const Rollouthuawei = ({ setshow, show }) => {
   }, []);
 
   /* ---------- helpers -------------------------------------------------- */
-  const dateFields = new Set([
-    // já existentes
-    'ENTRGA_REQUEST',
-    'ENTREGA_PLAN',
-    'ENTREGA_REAL',
-    'FIM_INSTALACAO_PLAN',
-    'FIM_INSTALACAO_REAL',
-    'INTEGRACAO_PLAN',
-    'INTEGRACAO_REAL',
-    'DT_PLAN',
-    'DT_REAL',
-    'DELIVERY_PLAN',
-    'REGIONAL_LIB_SITE_P',
-    'REGIONAL_LIB_SITE_R',
-    'EQUIPAMENTO_ENTREGA_P',
-    'REGIONAL_CARIMBO',
-    'ATIVACAO_REAL',
-    'DOCUMENTACAO',
-    'INITIAL_TUNNING_REAL',
-    'INITIAL_TUNNING_STATUS',
-    'VISTORIA_PLAN',
-    'VISTORIA_REAL',
-    'DOCUMENTACAO_VISTORIA_PLAN',
-    'DOCUMENTACAO_VISTORIA_REAL',
-    'REQ',
-  ]);
-
-  const toBRDate = (v) => {
-    if (!v) return v;
-    // “datas nulas” → vazio
-    if (/^(1899-12-(30|31)|0000-00-00)/.test(v)) return '';
-
-    // "YYYY-MM-DD HH:MM:SS" ⇒ "YYYY-MM-DDTHH:MM:SS"
-    const spaced = typeof v === 'string' && v.includes(' ') ? v.replace(' ', 'T') : v;
-
-    const d = spaced instanceof Date ? spaced : new Date(spaced);
-    if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('pt-BR'); // 28/04/2025
-
-    // dd/mm/aaaa ou dd-mm-aaaa
-    const br = typeof v === 'string' && v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-    if (br) {
-      const [, dd, mm, yyyy] = br;
-      const normal = `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}`;
-      if (normal === '31/12/1899' || normal === '30/12/1899') return '';
-      return normal;
-    }
-    return v; // valor não reconhecido
-  };
-
-  const formatDatesBR = (row) =>
-    Object.fromEntries(
-      Object.entries(row).map(([k, v]) => [k, dateFields.has(k) ? toBRDate(v) : v]),
-    );
-
-  const upperStrings = (row) =>
-    Object.fromEntries(
-      Object.entries(row).map(([k, v]) => [k, typeof v === 'string' ? v.toUpperCase() : v]),
-    );
 
   /* ---------- função principal ---------------------------------------- */
   const gerarexcel = async () => {
     try {
       setLoading(true);
 
-      // Simula um pequeno delay para mostrar o loading
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // 🔹 Monta os filtros usando o mesmo formato do aplicarFiltro
+      const filtroParams = {
+        ...params, // filtros globais
+        ...formValues, // filtros do formulário
+      };
 
-      const excelData = totalacionamento
-        .map((item) => ({
-          ID: item.id,
-          NAME: item.name,
-          PROJETO: item.projeto,
-          'END SITE': item.endSite,
-          DU: item.du,
-          'STATUS GERAL': item.statusGeral,
-          'LÍDER RESPONSÁVEL': item.liderResponsavel,
-          EMPRESA: item.empresa,
-          'ATIVO NO PERÍODO': item.ativoNoPeriodo,
+      // 🔹 Remove chaves vazias
+      Object.keys(filtroParams).forEach((key) => {
+        if (
+          filtroParams[key] === '' ||
+          filtroParams[key] === null ||
+          filtroParams[key] === undefined
+        ) {
+          delete filtroParams[key];
+        }
+      });
 
-          FECHAMENTO: item.fechamento,
-          'ANO/SEMANA FECHAMENTO': item.anoSemanaFechamento,
-          'CONFIRMAÇÃO PAGAMENTO': item.confirmacaoPagamento,
-          'DESCRIÇÃO ADD': item.descricaoAdd,
-          'N° VO': item.numeroVo,
-          INFRA: item.infra,
-          TOWN: item.town,
-          LATITUDE: item.latitude,
-          LONGITUDE: item.longitude,
-          REG: item.reg,
-          DDD: item.ddd,
+      // 🔹 Faz a requisição GET para a rota de exportação
+      const response = await api.get('v1/projetohuawei/exportarExcelHuawei', {
+        params: filtroParams,
+        responseType: 'blob', // muito importante: retorno binário
+      });
 
-          'ENVIO DA DEMANDA': item.envioDaDemanda,
-          'MOS PLANNED': item.mosPlanned,
-          'MOS REAL': item.mosReal,
-          'SEMANA MOS': item.semanaMos,
-          'MOS STATUS': item.mosStatus,
+      // 🔹 Verifica se veio algo
+      if (!response || !response.data) {
+        toast.warning('Nenhum dado retornado para exportar.');
+        return;
+      }
 
-          'INTEGRATION PLANNED': item.integrationPlanned,
-          'TESTE TX': item.testeTx,
-          'INTEGRATION REAL': item.integrationReal,
-          'SEMANA INTEGRATION': item.semanaIntegration,
-          'STATUS INTEGRAÇÃO': item.statusIntegracao,
+      // 🔹 Cria o arquivo para download
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
 
-          ITI: item.iti,
-          'QC PLANNED': item.qcPlanned,
-          'QC REAL': item.qcReal,
-          'SEMANA QC': item.semanaQc,
-          'QC STATUS': item.qcStatus,
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'Rollout_Huawei.xlsx');
+      document.body.appendChild(link);
+      link.click();
 
-          OBSERVAÇÃO: item.observacao,
-          'LOGÍSTICA REVERSA STATUS': item.logisticaReversaStatus,
-          DETENTORA: item.detentora,
-          'ID DETENTORA': item.idDententora,
-          'FORMA DE ACESSO': item.formaDeAcesso,
+      link.remove();
+      window.URL.revokeObjectURL(url);
 
-          FATURAMENTO: item.faturamento,
-          'FATURAMENTO STATUS': item.faturamentoStatus,
-          'ID ORIGINAL': item.idOriginal,
-          'CHANGE HISTORY': item.changeHistory,
-          'REP OFFICE': item.repOffice,
-          'PROJECT CODE': item.projectCode,
-          'SITE CODE': item.siteCode,
-          'SITE NAME': item.siteName,
-          'SITE ID': item.siteId,
-          'SUB CONTRACT NO.': item.subContractNo,
-          'PR NO.': item.prNo,
-          'PO NO.': item.poNo,
-          'PO LINE NO.': item.poLineNo,
-          'SHIPMENT NO.': item.shipmentNo,
-          'ITEM CODE': item.itemCode,
-          'ITEM DESCRIPTION': item.itemDescription,
-          'ITEM DESCRIPTION LOCAL': item.itemDescriptionLocal,
-          'UNIT PRICE': item.unitPrice,
-          'REQUESTED QTY': item.requestedQty,
-          'VALOR TELEQUIPE': item.valorTelequipe,
-          'VALOR EQUIPE': item.valorEquipe,
-          'BILLED QUANTITY': item.billedQuantity,
-          'QUANTITY CANCEL': item.quantityCancel,
-          'DUE QTY': item.dueQty,
-          'NOTE TO RECEIVER': item.noteToReceiver,
-          'FOB LOOKUP CODE': item.fobLookupCode,
-          'ACCEPTANCE DATE': item.acceptanceDate,
-          'PR/PO AUTOMATION SOLUTION (ONLY CHINA)': item.prPoAutomationSolutionOnlyChina,
-
-          PESSOA: item.pessoa,
-          'ÚLTIMA ATUALIZAÇÃO': item.ultimaAtualizacao,
-        }))
-        .map(formatDatesBR) // converte datas para dd/MM/yyyy
-        .map(upperStrings); // caixa-alta
-
-      exportExcel({ excelData, fileName: 'ROLLOUT HUAWEI' });
-      toast.success('Arquivo Excel gerado com sucesso!');
+      toast.success('✅ Arquivo Excel exportado com sucesso!');
     } catch (error) {
-      console.error('Erro ao gerar Excel:', error);
-      toast.error('Erro ao gerar arquivo Excel');
+      console.error('Erro ao exportar Excel:', error);
+      toast.error('Erro ao exportar Excel. Verifique os filtros.');
     } finally {
       setLoading(false);
     }
@@ -809,6 +715,7 @@ const Rollouthuawei = ({ setshow, show }) => {
   };
   const limparFiltro = async () => {
     setFormValues({});
+    setmensagem('');
     setLoading(true);
     const filtroParams = {
       ...params, // seus parâmetros existentes
@@ -869,6 +776,7 @@ const Rollouthuawei = ({ setshow, show }) => {
 
   const aplicarFiltro = async () => {
     try {
+      setmensagem('');
       setLoading(true);
       const filtroParams = {
         ...params, // seus parâmetros existentes
@@ -887,10 +795,13 @@ const Rollouthuawei = ({ setshow, show }) => {
       const response = await api.get('v1/rollouthuawei', {
         params: filtroParams,
       });
-
+      if (response?.erro) {
+        setmensagem(response.error);
+        toast.warning(`${response.error}`);
+        return;
+      }
       settotalacionamento(response.data);
       toast.success('Filtro aplicado com sucesso!');
-      setmensagem('');
     } catch (err) {
       setmensagem(err.message);
       toast.error(`Erro ao aplicar filtros: ${err.message}`);

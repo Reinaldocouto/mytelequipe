@@ -160,7 +160,11 @@ type
     Fdatacriacao: TDateTime;
     Feditadopor: string;
     Fdataedicao: TDateTime;
-
+    FequipeResponsavel : string;
+    FobservacaoAcesso:string;
+    FativoATC:string;
+    Fuf: string;
+    Fobs: string;
 
     procedure AddMultipleFiltersFromJSON(AQuery: TDictionary<string, string>; const KeysAndFields: array of string; SQL: TStrings);
 
@@ -302,8 +306,13 @@ type
     property regionalocal: string read Fregionalocal write Fregionalocal;
     property brevedescricao: string read Frevedescricao write Frevedescricao;
     property dataimprodutiva: string read Fdataimprodutiva write Fdataimprodutiva;
-
+    property observacaoAcesso: string read FobservacaoAcesso write FobservacaoAcesso;
+    property ativoATC: string read FativoATC write FativoATC;
+    property uf: string read Fuf write Fuf;
+    property obs: string read Fobs write Fobs;
+    property equipeResponsavel: string read FequipeResponsavel write FequipeResponsavel;
     property acompanhamentofisicoobservacao: string read Facompanhamentofisicoobservacao write Facompanhamentofisicoobservacao;
+
 
     // Propriedades para sites manuais
     property uididpmts: string read Fuididpmts write Fuididpmts;
@@ -394,6 +403,7 @@ type
     function RegistrarCartaTAF(const DadosT2: TDictionary<string, string>; out Erro: string; out NomeArquivo: String): Boolean;
     function UpdateStatusFaturamento(const id: String; const statusFaturamento: String; out Erro: string): Boolean;
     function EditarEmMassa(const AJsonBody: string; out erro: string): Boolean;
+    function SendEmailEquipeResponsavel(out erro: string): Boolean;
 
   end;
 
@@ -1800,6 +1810,225 @@ begin
   end;
 end;
 
+
+function TProjetotelefonica.SendEmailEquipeResponsavel(out erro: string): Boolean;
+var
+  servico: TEmail;
+  qry: TFDQuery;
+  destinatarios: TStringList;
+  idsStr: string;
+  ids: TArray<string>;
+  idsIn: string;
+  i: Integer;
+  empresaLista: TStringList;
+  assunto, html1, html2, html3, htmlFinal: string;
+
+  function IsNumeric(const S: string): Boolean;
+  var
+    V: Integer;
+  begin
+    Result := TryStrToInt(Trim(S), V);
+  end;
+
+  function FormatarDataBR(const S: string): string;
+  var
+    dt: TDateTime;
+  begin
+    Result := '';
+    if S = '' then Exit;
+    try
+      if Pos('T', S) > 0 then
+        dt := ISO8601ToDate(S)
+      else
+        dt := StrToDate(S);
+      Result := FormatDateTime('dd/mm/yyyy', dt);
+    except
+      Result := S; // fallback sem conversão
+    end;
+  end;
+
+begin
+  Result := False;
+  erro := '';
+
+  if Trim(equipeResponsavel) = '' then
+  begin
+    erro := 'Equipe Responsável não informada.';
+    Exit;
+  end;
+
+  servico := TEmail.Create;
+  destinatarios := TStringList.Create;
+  empresaLista := TStringList.Create;
+  qry := TFDQuery.Create(nil);
+  try
+    servico.idusuario := idusuario; // para montar assinatura
+    qry.Connection := FConn;
+
+    // Normaliza e prepara a lista de IDs para o IN (...)
+    idsStr := StringReplace(equipeResponsavel, ';', ',', [rfReplaceAll]);
+    ids := idsStr.Split([',']);
+    idsIn := '';
+    for i := 0 to High(ids) do
+    begin
+      if IsNumeric(ids[i]) then
+      begin
+        if idsIn <> '' then idsIn := idsIn + ',';
+        idsIn := idsIn + Trim(ids[i]);
+      end;
+    end;
+
+    if idsIn = '' then
+    begin
+      erro := 'Nenhum ID válido em equipeResponsavel.';
+      Exit;
+    end;
+
+    // Busca técnicos e e-mails
+    with qry do
+    begin
+      Close;
+      SQL.Clear;
+      SQL.Add('select');
+      SQL.Add('  gespessoa.idpessoa,');
+      SQL.Add('  gespessoa.nome,');
+      SQL.Add('  gespessoa.email,');
+      SQL.Add('  gespessoa.cpf,');
+      SQL.Add('  gespessoa.rgrne as rg,');
+      SQL.Add('  gesempresas.nome as empresa');
+      SQL.Add('from gespessoa');
+      SQL.Add('left join gesempresas on gesempresas.idempresa = gespessoa.empresa');
+      SQL.Add('where gespessoa.deletado = 0');
+      SQL.Add('  and gespessoa.idpessoa in (' + idsIn + ')');
+      Open;
+    end;
+
+    // Monta lista de destinatários e empresas para exibição
+    while not qry.Eof do
+    begin
+      if servico.IsValidEmail(qry.FieldByName('email').AsString) then
+        destinatarios.Add(qry.FieldByName('email').AsString);
+      if empresaLista.IndexOf(qry.FieldByName('empresa').AsString) = -1 then
+        empresaLista.Add(qry.FieldByName('empresa').AsString);
+      qry.Next;
+    end;
+
+    if destinatarios.Count = 0 then
+    begin
+      erro := 'Nenhum e-mail válido encontrado para os IDs informados.';
+      Exit;
+    end;
+
+    // Assunto
+    assunto := 'Solicitação de Acesso – ' + site + '|' + detentora + '-' + iddetentora + '/' + endereco+ '/' + tiposite ;
+    if Trim(uididpmts) <> '' then
+      assunto := assunto + ' | IDPMTS ' + uididpmts;
+
+    html1 := '';
+    html2 := '';
+    html3 := '';
+
+    html1 := html1 + '<!DOCTYPE html>';
+    html1 := html1 + '<html lang="pt-BR">';
+    html1 := html1 + '<head>';
+    html1 := html1 + '<meta charset="UTF-8">';
+    html1 := html1 + '<meta name="viewport" content="width=device-width, initial-scale=1.0">';
+    html1 := html1 + '<title>Solicitação de Acesso</title>';
+    html1 := html1 + '<style>';
+    html1 := html1 + '  body { font-family: Arial, sans-serif; color: #333; }';
+    html1 := html1 + '  table { border-collapse: collapse; width: 100%; }';
+    html1 := html1 + '  th, td { border: 1px solid #000; padding: 6px; font-size: 12px; }';
+    html1 := html1 + '  th { background-color: #eaeaea; text-transform: uppercase; }';
+    html1 := html1 + '  .no-border td { border: none; padding: 2px; }';
+    html1 := html1 + '  .section-title { font-weight: bold; margin: 8px 0 4px 0; }';
+    html1 := html1 + '</style>';
+    html1 := html1 + '</head>';
+    html1 := html1 + '<body>';
+
+    // Cabeçalho textual
+    html1 := html1 + '<p class="section-title">Prezados (a)</p>';
+    html1 := html1 + '<p>Uso deste para formalizar necessidade de liberação de acesso para início/realização de atividades conforme dados abaixo.</p>';
+    html1 := html1 + '<p>As atividades serão realizadas pelos colaboradores incluídos no documento e e-mail.</p>';
+
+    // Tabela de dados do SITE
+    html1 := html1 + '<table>';
+    html1 := html1 + '  <thead><tr>';
+    html1 := html1 + '    <th>TIPO</th><th>SITE</th><th>DETENTORA</th><th>ID DETENTORA</th><th>RSO_RSA_SCI</th><th>ENDEREÇO VIVO</th>';
+    html1 := html1 + '  </tr></thead>';
+    html1 := html1 + '  <tbody><tr>';
+    html1 := html1 + '    <td>' + UTF8Encode(IfThen(Trim(tiposite) <> '', tiposite, infra)) + '</td>';
+    html1 := html1 + '    <td>' + UTF8Encode(site) + '</td>';
+    html1 := html1 + '    <td>' + UTF8Encode(detentora) + '</td>';
+    html1 := html1 + '    <td>' + UTF8Encode(iddetentora) + '</td>';
+    html1 := html1 + '    <td> - </td>'; //  + UTF8Encode(rsorsascistatus) +
+    html1 := html1 + '    <td>' + UTF8Encode(endereco) + '</td>';
+    html1 := html1 + '  </tr></tbody>';
+    html1 := html1 + '</table>';
+
+    // Empresas responsáveis
+    html1 := html1 + '<p class="section-title">EMPRESAS RESPONSÁVEIS:</p>';
+    if empresaLista.Count > 0 then
+      html1 := html1 + '<p>' + UTF8Encode(StringReplace(empresaLista.Text, sLineBreak, ' / ', [rfReplaceAll])) + ' / A SERVIÇO DA VIVO.</p>'
+    else
+      html1 := html1 + '<p>TELEQUIPE PROJETOS / A SERVIÇO DA VIVO.</p>';
+
+    // Datas e descrição
+    html1 := html1 + '<p class="section-title">DATA DE INÍCIO:</p><p>' + FormatarDataBR(acessodatainicial) + '</p>';
+    html1 := html1 + '<p class="section-title">DATA FINAL:</p><p>' + FormatarDataBR(acessodatafinal) + '</p>';
+    html1 := html1 + '<p class="section-title">DESCRIÇÃO DA ATIVIDADE:</p><p>' + UTF8Encode(acessoatividade) + '</p>';
+
+    // Lista de técnicos autorizados
+    html1 := html1 + '<p class="section-title">LISTA DE TÉCNICOS AUTORIZADOS:</p>';
+    html1 := html1 + '<table>';
+    html1 := html1 + '  <thead><tr><th>EMPRESA</th><th>Colaborador</th><th>CPF</th><th>RG</th></tr></thead>';
+    html1 := html1 + '  <tbody>';
+
+    // Reabrir o cursor para escrever linhas (se já fechado por iteração acima)
+    qry.First;
+    while not qry.Eof do
+    begin
+      html2 := html2 + '<tr>';
+      html2 := html2 + '<td>' + UTF8Encode(qry.FieldByName('empresa').AsString) + '</td>';
+      html2 := html2 + '<td>' + UTF8Encode(qry.FieldByName('nome').AsString) + '</td>';
+      html2 := html2 + '<td>' + UTF8Encode(qry.FieldByName('cpf').AsString) + '</td>';
+      html2 := html2 + '<td>' + UTF8Encode(qry.FieldByName('rg').AsString) + '</td>';
+      html2 := html2 + '</tr>';
+      qry.Next;
+    end;
+
+    html2 := html2 + '  </tbody>';
+    html2 := html2 + '</table>';
+
+    // Fechamento e assinatura
+    html3 := html3 + '</body></html>';
+
+    servico.assinatura;
+    htmlFinal := html1 + html2 + servico.assinaturamontada + html3;
+
+    // Disparo
+    if servico.SendEmail(StringReplace(destinatarios.Text, sLineBreak, ';', [rfReplaceAll]), assunto, htmlFinal) then
+    begin
+      Result := True;
+      erro := '';
+    end
+    else
+    begin
+      Result := False;
+      erro := 'Falha ao enviar e-mail.';
+    end;
+  except
+    on E: Exception do
+    begin
+      Result := False;
+      erro := 'Erro ao enviar e-mail: ' + E.Message;
+    end;
+  end;
+  destinatarios.Free;
+  empresaLista.Free;
+  qry.Free;
+  servico.Free;
+end;
+
 function TProjetotelefonica.Editar(out erro: string): Boolean;
 
 function TryConvertToDateTime(const DateStr: string; out DateTime: TDateTime): Boolean;
@@ -1999,6 +2228,11 @@ begin
         SQL.Add('EntregaReal=:EntregaReal,  ');
         SQL.Add('FimInstalacaoPlan=:FimInstalacaoPlan,  ');
         SQL.Add('FimInstalacaoReal=:FimInstalacaoReal,  ');
+        SQL.Add('ativoAtc=:ativoAtc,  ');
+        SQL.Add('obs=:obs,  ');
+        SQL.Add('observacaoDeAcesso=:observacaoDeAcesso,  ');
+        SQL.Add('ativoAtc=:ativoAtc,  ');
+        SQL.Add('uf=:uf,  ');
         SQL.Add('IntegracaoPlan=:IntegracaoPlan,  ');
         SQL.Add('IntegracaoReal=:IntegracaoReal,  ');
         SQL.Add('Ativacao=:Ativacao,  ');
@@ -2018,6 +2252,7 @@ begin
         SQL.Add('vistoriareal=:vistoriareal, ');
         SQL.Add('docplan=:docplan, ');
         SQL.Add('docvitoriareal=:docvitoriareal, ');
+        SQL.Add('equipeResponsavel=:equipeResponsavel, ');
         SQL.Add('req=:req, ');
         SQL.Add('resumodafase=:resumodafase, ');
         SQL.Add('acompanhamentofisicoobservacao=:acompanhamentofisicoobservacao, ');
@@ -2090,8 +2325,22 @@ begin
             ParamByName('dataInventarioDesinstalacao').Clear;
           end;
         end;
-        
+        ParamByName('StatusAprovacaoSSV').DataType := ftString;
+        ParamByName('equipeResponsavel').DataType := ftString;
+        ParamByName('ativoAtc').DataType := ftString;
+        ParamByName('obs').DataType := ftString;
+        ParamByName('observacaoDeAcesso').DataType := ftString;
+        ParamByName('ativoAtc').DataType := ftString;
+        ParamByName('uf').DataType := ftString;
+
         ParamByName('StatusAprovacaoSSV').asstring := statusaprovacaossv;
+        ParamByName('equipeResponsavel').asString := equipeResponsavel;
+        ParamByName('ativoAtc').asString := statusaprovacaossv;
+        ParamByName('obs').asString := obs;
+        ParamByName('observacaoDeAcesso').asString := observacaoAcesso;
+        ParamByName('ativoAtc').asString := ativoAtc;
+        ParamByName('uf').asString := uf;
+
 
         begin
           if TryConvertToDateTime(acessodatainicial, dataConvertida) then
@@ -5300,69 +5549,67 @@ begin
     begin
       Active := False;
       SQL.Clear;
-
-      SQL.Add('SELECT');
-      SQL.Add('  rolloutvivo.UIDIDPMTS,');
-      SQL.Add('  rolloutvivo.UFSIGLA,');
-      SQL.Add('  rolloutvivo.PMOSIGLA,');
-      SQL.Add('  rolloutvivo.PMOUF,');
-      SQL.Add('  rolloutvivo.PMOREGIONAL,');
-      SQL.Add('  rolloutvivo.uididcpomrf,');
-      SQL.Add('  rolloutvivo.infra,');
-      SQL.Add('  rolloutvivo.RSORSASCI,');
-      SQL.Add('  rolloutvivo.RSORSASCISTATUS,');
-      SQL.Add('  rolloutvivo.RSORSADETENTORA,');
-      SQL.Add('  rolloutvivo.RSORSAIDDETENTORA,');
-      SQL.Add('  rolloutvivo.ddd,');
-      SQL.Add('  rolloutvivo.Cidade,');
-      SQL.Add('  rolloutvivo.nomedosite AS SCIENCENOME,');
-      SQL.Add('  rolloutvivo.endereco AS SCIENCEENDERECO,');
-      SQL.Add('  rolloutvivo.LATITUDE AS SCIENCELATITUDE,');
-      SQL.Add('  rolloutvivo.LONGITUDE AS SCIENCELONGITUDE,');
-      SQL.Add('  rolloutvivo.acessoobs,');
-      SQL.Add('  rolloutvivo.acessostatus,');
-      SQL.Add('  rolloutvivo.initialtunnigstatus,');
-      SQL.Add('  rolloutvivo.acessosolicitacao,');
-      SQL.Add('  rolloutvivo.acessodatasolicitacao,');
-      SQL.Add('  rolloutvivo.acessodatainicial,');
-      SQL.Add('  rolloutvivo.acessodatafinal,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.dataimprodutiva, ''%Y-%m-%d'') AS dataimprodutiva,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.EntregaPlan, ''%Y-%m-%d'') AS EntregaPlan,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.EntregaReal, ''%Y-%m-%d'') AS EntregaReal,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.FimInstalacaoPlan, ''%Y-%m-%d'') AS FimInstalacaoPlan,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.FimInstalacaoReal, ''%Y-%m-%d'') AS FimInstalacaoReal,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.IntegracaoPlan, ''%Y-%m-%d'') AS IntegracaoPlan,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.IntegracaoReal, ''%Y-%m-%d'') AS IntegracaoReal,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.Ativacao, ''%Y-%m-%d'') AS Ativacao,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.Documentacao, ''%Y-%m-%d'') AS Documentacao,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.datainventariodesinstalacao, ''%Y-%m-%d'') AS datainventariodesinstalacao,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.DTPlan, ''%Y-%m-%d'') AS DTPlan,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.DTReal, ''%Y-%m-%d'') AS DTReal,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.AprovacaoSSV, ''%Y-%m-%d'') AS AprovacaoSSV,');
-      SQL.Add('  rolloutvivo.StatusAprovacaoSSV,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.vistoriaplan, ''%Y-%m-%d'') AS vistoriaplan,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.vistoriareal, ''%Y-%m-%d'') AS vistoriareal,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.docplan, ''%Y-%m-%d'') AS docplan,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.docvitoriareal, ''%Y-%m-%d'') AS docvitoriareal,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.req, ''%Y-%m-%d'') AS req,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.initialtunningreal, ''%Y-%m-%d'') AS initialtunningreal,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.InitialTunningRealFinal, ''%Y-%m-%d'') AS InitialTunningRealFinal,');
-      SQL.Add('  rolloutvivo.resumodafase,');
-      SQL.Add('  rolloutvivo.Rollout,');
-      SQL.Add('  rolloutvivo.infravivo,');
-      SQL.Add('  rolloutvivo.equipe,');
-      SQL.Add('  rolloutvivo.dataExecucaoDoc,');
-      SQL.Add('  rolloutvivo.datapostagemdoc,');
-      SQL.Add('  rolloutvivo.statusDocumentacao,');
-      SQL.Add('  rolloutvivo.dataexecucaodocvdvm,');
-      SQL.Add('  rolloutvivo.datapostagemdocvdvm,');
-      SQL.Add('  rolloutvivo.observacaoDocumentacao,');
-      SQL.Add('  rolloutvivo.acompanhamentofisicoobservacao,');
-      SQL.Add('  UPPER(rolloutvivo.StatusObra) AS statusobra,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.docaplan, ''%Y-%m-%d'') AS docaplan,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.PMOACEITACAO, ''%Y-%m-%d'') AS PMOACEITACAO,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.PMOACEITACAOP, ''%Y-%m-%d'') AS PMOACEITACAOP,');
-      SQL.Add('  DATE_FORMAT(rolloutvivo.PMOACEITACAOR, ''%Y-%m-%d'') AS PMOACEITACAOR,');
+      SQL.Add('Select  ');
+      SQL.Add('rolloutvivo.UIDIDPMTS,  ');
+      SQL.Add('rolloutvivo.UFSIGLA,  ');
+      SQL.Add('rolloutvivo.PMOSIGLA,  ');
+      SQL.Add('rolloutvivo.PMOUF,  ');
+      SQL.Add('rolloutvivo.PMOREGIONAL,  ');
+      SQL.Add('rolloutvivo.uididcpomrf,  ');
+      SQL.Add('rolloutvivo.infra,  ');
+      SQL.Add('rolloutvivo.RSORSASCI,  ');
+      SQL.Add('rolloutvivo.RSORSASCISTATUS,  ');
+      SQL.Add('rolloutvivo.RSORSADETENTORA,  ');
+      SQL.Add('rolloutvivo.RSORSAIDDETENTORA,  ');
+      SQL.Add('rolloutvivo.ddd,  ');
+      SQL.Add('rolloutvivo.Cidade,  ');
+      SQL.Add('rolloutvivo.nomedosite As SCIENCENOME,  ');
+      SQL.Add('rolloutvivo.endereco As SCIENCEENDERECO, ');
+      SQL.Add('rolloutvivo.LATITUDE as SCIENCELATITUDE, ');
+      SQL.Add('rolloutvivo.LONGITUDE as SCIENCELONGITUDE, ');
+      SQL.Add('rolloutvivo.acessoobs, ');
+      SQL.Add('rolloutvivo.acessostatus, ');
+      SQL.Add('rolloutvivo.initialtunnigstatus, ');
+      SQL.Add('rolloutvivo.acessosolicitacao, ');
+      SQL.Add('rolloutvivo.acessodatasolicitacao, ');
+      SQL.Add('rolloutvivo.acessodatainicial, ');
+      SQL.Add('rolloutvivo.acessodatafinal, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.dataimprodutiva, ''%Y-%m-%d'') as dataimprodutiva, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.EntregaPlan, ''%Y-%m-%d'') as EntregaPlan, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.EntregaReal, ''%Y-%m-%d'') as EntregaReal, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.FimInstalacaoPlan, ''%Y-%m-%d'') as FimInstalacaoPlan, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.FimInstalacaoReal, ''%Y-%m-%d'') as FimInstalacaoReal, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.IntegracaoPlan, ''%Y-%m-%d'') as IntegracaoPlan, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.IntegracaoReal, ''%Y-%m-%d'') as IntegracaoReal, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.Ativacao, ''%Y-%m-%d'') as Ativacao, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.Documentacao, ''%Y-%m-%d'') as Documentacao, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.datainventariodesinstalacao, ''%Y-%m-%d'') as datainventariodesinstalacao, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.DTPlan, ''%Y-%m-%d'') as DTPlan, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.DTReal, ''%Y-%m-%d'') as DTReal, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.AprovacaoSSV, ''%Y-%m-%d'') as AprovacaoSSV, ');
+      SQL.Add('rolloutvivo.StatusAprovacaoSSV, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.vistoriaplan, ''%Y-%m-%d'') as vistoriaplan, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.vistoriareal, ''%Y-%m-%d'') as vistoriareal, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.docplan, ''%Y-%m-%d'') as docplan, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.docvitoriareal, ''%Y-%m-%d'') as docvitoriareal, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.req, ''%Y-%m-%d'') as req, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.initialtunningreal, ''%Y-%m-%d'') as initialtunningreal, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.InitialTunningRealFinal, ''%Y-%m-%d'') as InitialTunningRealFinal, ');
+      SQL.Add('rolloutvivo.resumodafase, ');
+      SQL.Add('rolloutvivo.Rollout, ');
+      SQL.Add('rolloutvivo.observacaoDeAcesso, ');
+      SQL.Add('rolloutvivo.ativoAtc, ');
+      SQL.Add('rolloutvivo.obs, ');
+      SQL.Add('rolloutvivo.uf, ');
+      SQL.Add('rolloutvivo.equipeResponsavel, ');
+      SQL.Add('rolloutvivo.infravivo, ');
+      SQL.Add('rolloutvivo.equipe, rolloutvivo.dataExecucaoDoc , rolloutvivo.datapostagemdoc , rolloutvivo.statusDocumentacao, rolloutvivo.dataexecucaodocvdvm, rolloutvivo.datapostagemdocvdvm, rolloutvivo.observacaoDocumentacao, ');
+      SQL.Add('rolloutvivo.acompanhamentofisicoobservacao, ');
+      SQL.Add('UPPER(rolloutvivo.StatusObra) as statusobra, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.docaplan, ''%Y-%m-%d'') as docaplan, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAO, ''%Y-%m-%d'') as PMOACEITACAO, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAOP, ''%Y-%m-%d'') as PMOACEITACAOP, ');
+      SQL.Add('DATE_FORMAT(rolloutvivo.PMOACEITACAOR, ''%Y-%m-%d'') as PMOACEITACAOR, ');
       SQL.Add('  rolloutvivo.OV');
       SQL.Add('FROM rolloutvivo');
       SQL.Add('WHERE 1=1');
@@ -5387,8 +5634,7 @@ begin
         if AQuery.TryGetValue('osouobra', osouobra) then
           ParamByName('UIDIDPMTS').AsString := osouobra;
       end;
-
-      Active := True;
+      Active := true;
     end;
 
     Result := qry;

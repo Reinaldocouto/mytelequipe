@@ -67,14 +67,7 @@ TabPanel.propTypes = {
 
 //import { CustomPagination, CustomNoRowsOverlay } from '../../../components/CustomDataGrid';
 
-const Rolloutericssonedicao = ({
-  show,
-  setshow,
-  ididentificador,
-  titulotopo,
-  atualiza,
-  // ericssonSelecionado,
-}) => {
+const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atualiza }) => {
   const [numero, setNumero] = useState('');
   const [cliente, setCliente] = useState('');
   const [regiona, setRegiona] = useState('');
@@ -152,10 +145,10 @@ const Rolloutericssonedicao = ({
   const [idacionamentopj, setidacionamentopj] = useState(0);
   const [idacionamentoclt, setidacionamentoclt] = useState(0);
 
-  // estados para acionamentos (CLT e PJ)
   const [pacotesacionadosclt, setpacotesacionadosclt] = useState([]);
   const [colaboradorlistapj, setcolaboradorlistapj] = useState([]);
   const [colaboradorlistaclt, setcolaboradorlistaclt] = useState([]);
+  const [colaboradorlista, setcolaboradorlista] = useState([]);
   const [rowSelectionModel, setRowSelectionModel] = useState([]);
   const [rowSelectionModelPJ, setRowSelectionModelPJ] = useState([]);
   const [idcolaboradorpj, setidcolaboradorpj] = useState('');
@@ -185,7 +178,7 @@ const Rolloutericssonedicao = ({
   const [telacadastroedicaosolicitacao, settelacadastroedicaosolicitacao] = useState('');
   const [telaexclusaosolicitacao, settelaexclusaosolicitacao] = useState('');
   const [nomecolaboradorpj, setnomecolaboradorpj] = useState('');
-  // const [atividadecltlista, setatividadecltlista] = useState([]);
+
   const [atividadepjlista, setatividadepjlista] = useState([]);
   const [retanexo, setretanexo] = useState('');
   const [loadingpj, setloadingpj] = useState(false);
@@ -193,7 +186,7 @@ const Rolloutericssonedicao = ({
   const [usuario, setusuario] = useState('');
   const [documentacaoobrafinal, setdocumentacaoobrafinal] = useState([]);
   const [documentacaocivilwork, setdocumentacaocivilwork] = useState([]);
-  const [ericFechamento, setEricFechamento] = useState(0); // Armazena apenas o valor de ericfechamento
+  const [ericFechamento, setEricFechamento] = useState(0);
 
   const [longitude, setLongitude] = useState('');
   const [totalfinanceiro, setTotalFinanceiro] = useState();
@@ -213,8 +206,24 @@ const Rolloutericssonedicao = ({
   const [dataInicial, setDataInicial] = useState('');
   const [dataFinal, setDataFinal] = useState('');
   const [statusAcesso, setStatusAcesso] = useState('');
+  const [observacoes, setobservacoes] = useState('');
+  const [statussydle, setstatussydle] = useState('');
+  const [atividade, setatividade] = useState('');
+  const [tipoinstalacao, settipoinstalacao] = useState('');
+  const [impacto, setimpacto] = useState('');
+  const [ncrq, setncrq] = useState('');
+  const [iniciocrq, setiniciocrq] = useState('');
+  const [fimcrq, setfimcrq] = useState('');
+  const [crqdeinstalacao, setcrqdeinstalacao] = useState('');
+  const [obraPreenchidaNaSydle, setobrapreenchidanasydle] = useState(false);
+  const [statuscrq, setstatuscrq] = useState('');
+  const [equipefixa, setequipefixa] = useState('');
+  const [statatussydle, setstatatussydle] = useState('');
+  const [central, setcentral] = useState('');
+  const [detentora, setdetentora] = useState('');
+  const [iddentedora, setiddentedora] = useState(0);
+  const [numeroativo, setnumeroativo] = useState('');
 
-  //Parametros
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
     idusuario: localStorage.getItem('sessionId'),
@@ -222,13 +231,11 @@ const Rolloutericssonedicao = ({
     idlocal: ididentificador,
     idprojetoericsson: ididentificador,
     idcontroleacessobusca: localStorage.getItem('sessionId'),
-    //idempresas: idcolaboradorpj,
+
     deletado: 0,
     osouobra: ididentificador,
     obra: numero,
     projeto: 'ERICSSON',
-    //identificador pra mandar pro solicitação edição:
-    //identificadorsolicitacao: ididentificador2,
   };
 
   function CustomNoRowsOverlay() {
@@ -240,7 +247,6 @@ const Rolloutericssonedicao = ({
   }
 
   const modoVisualizador = () => {
-    // TODO: coloque aqui sua lógica real de "só leitura"
     return false;
   };
 
@@ -248,7 +254,7 @@ const Rolloutericssonedicao = ({
     const apiRef = useGridApiContext();
     const page = useGridSelector(apiRef, gridPageSelector);
     const pageCount = useGridSelector(apiRef, gridPageCountSelector);
-    const rowCount = apiRef.current.getRowsCount(); // Obtém total de itens
+    const rowCount = apiRef.current.getRowsCount();
     return (
       <Box
         sx={{
@@ -275,7 +281,7 @@ const Rolloutericssonedicao = ({
     const apiRef = useGridApiContext();
     const page = useGridSelector(apiRef, gridPageSelector);
     const pageCount = useGridSelector(apiRef, gridPageCountSelector);
-    const rowCount = apiRef.current.getRowsCount(); // Obtém total de itens
+    const rowCount = apiRef.current.getRowsCount();
     return (
       <Box
         sx={{
@@ -308,10 +314,9 @@ const Rolloutericssonedicao = ({
         },
       });
 
-      // Verifica se a resposta tem dados e formata corretamente
       const dadosFormatados = response.data?.map((item) => ({
         ...item,
-        id: item.id || Math.random().toString(36).substr(2, 9), // Garante um ID único
+        id: item.id || Math.random().toString(36).substr(2, 9),
         valor: item.valor ? parseFloat(item.valor) : null,
         dataacionamento: item.dataacionamento ? new Date(item.dataacionamento) : null,
       }));
@@ -340,11 +345,9 @@ const Rolloutericssonedicao = ({
       setRegiona(data.regiona);
       setSite(data.site);
 
-      // Situações
       setsituacaoimplantacao(data.situacaoimplantacao);
       setsituacaodaintegracao(data.situacaodaintegracao);
 
-      // Datas principais
       setdatadacriacaodademandadia(data.datadacriacaodademandadia || '');
       setdataaceitedemandadia(data.dataaceitedemandadia || '');
       setdatainicioentregamosplanejadodia(data.datainicioentregamosplanejadodia || '');
@@ -355,27 +358,54 @@ const Rolloutericssonedicao = ({
       setdataintegracaoplanejadodia(data.dataintegracaoplanejadodia || '');
       setdatavalidacaoeriboxedia(data.datavalidacaoeriboxedia || '');
 
-      // Datas extras
-      setDataInicial(data.datainicial || ''); // corresponde ao campo `datainicial` no banco
-      setDataFinal(data.datafinal || ''); // corresponde ao campo `datafinal`
+      setDataInicial(data.datainicial || '');
+      setDataFinal(data.datafinal || '');
       setDataSolicitacao(data.datasolicitacao || '');
       setDdd(data.ddd);
 
-      // Localização
       setEnderecoSite(data.localizacaositeendereco || '');
       setMunicipio(data.municipio || data.localizacaositecidade || '');
       setLatitude(data.latitude || '');
       setLongitude(data.longitude || '');
 
-      // Outros campos
       setFormaAcesso(data.formadeacesso || '');
       setOutros(data.outros || '');
       setNomeEricsson(data.nomeericsson || '');
       setObs(data.obs || '');
       setSolicitacao(data.solicitacao || '');
       setStatusAcesso(data.statusacesso || '');
+      // ----- NOVOS CAMPOS -----
+      console.log(data.statussydle);
+      setstatatussydle(data.statussydle || '');
+      setatividade(data.atividade || '');
+      settipoinstalacao(data.tipoinstalacao || '');
+      setimpacto(data.impacto || '');
+      setncrq(data.ncrq || '');
+      setiniciocrq(data.iniciocrq || '');
+      setfimcrq(data.fimcrq || '');
+      setstatuscrq(data.statuscrq || '');
+      setcrqdeinstalacao(data.crqdeinstalacao || '');
+      setobservacoes(data.observacoes || '');
+      setcentral(data.central || '');
+      setdetentora(data.detentora || '');
+      setiddentedora(data.iddentedora || 0);
+      setnumeroativo(data.numeroativo || '');
+      setobrapreenchidanasydle(data.obrapreenchidanasydle ?? '');
+      /* se quiser exibir o novo "enderecosite" também: */
+      setEnderecoSite(data.enderecosite || data.localizacaositeendereco || '');
 
-      // Campos opcionais de aceite/pendência
+      // Equipe fixa (converte arrays do backend para o Select)
+      (() => {
+        const ids = Array.isArray(data.equipefixaIds) ? data.equipefixaIds : [];
+        const nomes = Array.isArray(data.equipefixaNomes) ? data.equipefixaNomes : [];
+        const selecionados = ids.map((id, i) => ({
+          value: id,
+          label: nomes[i] || String(id),
+        }));
+        setequipefixa(selecionados);
+      })();
+
+      setemailadcional(data.emailadcional || '');
       setaceitacao(data.aceitacaofical || '');
       setpendencia(data.pendenciasobra || '');
     } catch (err) {
@@ -387,7 +417,6 @@ const Rolloutericssonedicao = ({
 
   const listalpu = async (idc, icr) => {
     try {
-      //  setloading(true);
       await api.get(`v1/projetoericsson/listalpu/${idc}/${icr}`, { params }).then((response) => {
         setlpulista(response.data);
       });
@@ -415,7 +444,7 @@ const Rolloutericssonedicao = ({
       setselectedoptioncolaboradorpj({ value: stat.value, label: stat.label });
       setcolaboradoremail(stat.email);
       setnomecolaboradorpj(stat.label);
-      //setemailadcional(stat.adicional)
+      setemailadcional(stat.adicional);
       listalpu(stat.value);
     } else {
       setidcolaboradorpj(0);
@@ -702,7 +731,7 @@ const Rolloutericssonedicao = ({
           onClick={() => deletediaria(parametros.id)}
         />,
       ],
-    }, // { field: 'id', headerName: 'ID', width: 60, align: 'center' },
+    },
     {
       field: 'datasolicitacao',
       headerName: 'Data',
@@ -871,7 +900,7 @@ const Rolloutericssonedicao = ({
 
       if (response.status !== 201) {
         toast.error(`Erro: status ${response.status}`);
-        return; // só interrompe a execução, sem devolver valor
+        return;
       }
 
       const novoId = response.data.retorno;
@@ -881,11 +910,6 @@ const Rolloutericssonedicao = ({
 
       const formData = new FormData();
       formData.append('idsolicitacaodiaria', novoId);
-      //formData.append('anexo', modeloDiaria, 'Solicitação Adiantamento.xlsx');
-
-      // await api.post('v1/solicitardiaria', formData, {
-      //   headers: { 'Content-Type': 'multipart/form-data' },
-      // });
     } catch (err) {
       if (err.response?.data?.erro) {
         toast.error(err.response.data.erro);
@@ -1026,7 +1050,21 @@ const Rolloutericssonedicao = ({
     try {
       setloading(true);
       await api.get('v1/empresas/selectpj', { params }).then((response) => {
+        setemailadcional(response.data?.adicional);
         setcolaboradorlistapj(response.data);
+      });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const listacolaborador = async () => {
+    try {
+      setloading(true);
+      await api.get('v1/pessoa/select').then((response) => {
+        setcolaboradorlista(response.data);
       });
     } catch (err) {
       toast.error(err.message);
@@ -1053,7 +1091,6 @@ const Rolloutericssonedicao = ({
       setloadingpj(true);
       await api.get('v1/projetoericsson/listaatividadepj', { params }).then((response) => {
         setatividadepjlista(response.data);
-        //setselectedoptioncolaboradorpj({ value: response.data.idcolaboradorpj, label: response.data.colaboradorpj });
       });
     } catch (err) {
       toast.error(err.message);
@@ -1066,13 +1103,12 @@ const Rolloutericssonedicao = ({
     api
       .post('v1/projetoericsson/listaatividadepj/salva', {
         numero: ididentificador,
-        // idposervico, //descrição serviços
-        // po,
+
         selecao: poit,
-        // escopo,
-        idcolaboradorpj, //colaborador
+
+        idcolaboradorpj,
         observacaopj,
-        //descricaoservico,
+
         lpuhistorico,
         valornegociadonum: valornegociado.toString().replace('.', ','),
       })
@@ -1094,8 +1130,6 @@ const Rolloutericssonedicao = ({
   };
 
   const svlista = async () => {
-    // const camposExistentes = [];
-
     rowSelectionModel.forEach((idSelecionado) => {
       const itemSelecionado = poservicolista.find((item) => item.id === idSelecionado);
       if (!itemSelecionado) return;
@@ -1108,7 +1142,7 @@ const Rolloutericssonedicao = ({
 
       salvarpj(value);
       /*  if (!existe) {
-          salvarpj(value); // agora passa o value ao invés do id
+          salvarpj(value);
         } else {
           camposExistentes.push(value);
         } */
@@ -1257,7 +1291,7 @@ const Rolloutericssonedicao = ({
     const camposSalvos = results.filter((r) => r.status === 'fulfilled').map((r) => r.id);
     const camposComErro = results.filter((r) => r.status === 'rejected').map((r) => r.id);
 
-    listaatividadeclt(); // Atualiza a lista após execuções
+    listaatividadeclt();
 
     if (camposSalvos.length > 0 && camposComErro.length === 0) {
       toast.success('Todas as atividades foram salvas com sucesso.');
@@ -1311,7 +1345,6 @@ const Rolloutericssonedicao = ({
       });
   };
 
-  //abre tela de solicitação de material
   const novocadastro = () => {
     api
       .post('v1/solicitacao/novocadastro', {
@@ -1441,7 +1474,7 @@ const Rolloutericssonedicao = ({
       headerName: 'Pagamento status',
       width: 200,
       align: 'center',
-      headerAlign: 'center', // Adicione esta linha
+      headerAlign: 'center',
       type: 'string',
       editable: false,
       renderCell: ({ row: { porcentagem } }) => {
@@ -1480,13 +1513,11 @@ const Rolloutericssonedicao = ({
       if (response && response.data) {
         if (response.status === 201) {
           setretanexo(response.data.files[0].filename);
-          //setmostra(true);
-          //setmotivo(1);
+
           toast.success('Arquivo Anexado');
         } else {
           setretanexo('');
-          //setmostra(true);
-          //setmotivo(2);
+
           toast.error('Erro ao Anexar arquivo!');
         }
       } else {
@@ -1544,18 +1575,35 @@ const Rolloutericssonedicao = ({
         dataFinal,
         dataSolicitacao,
         obs,
-        // aceitacao,
-        // pendencia,
+        aceitacao,
+        pendencia,
         outros,
         formaAcesso,
-        ddd,
+        statussydle,
+        atividade,
+        tipoinstalacao,
+        impacto,
+        ncrq,
+        iniciocrq,
+        fimcrq,
+        statuscrq,
+        crqdeinstalacao,
+        observacoes,
+        statusAcesso,
+        central,
         municipio,
+        detentora,
+        iddentedora,
+        numeroativo,
+        obraPreenchidaNaSydle,
+        ddd,
         nomeEricsson,
         enderecoSite,
         latitude,
-        solicitacao,
         longitude,
-        statusAcesso,
+        solicitacao,
+        equipefixaIds: Array.isArray(equipefixa) ? equipefixa.map((o) => o.value) : [],
+        equipefixaNomes: Array.isArray(equipefixa) ? equipefixa.map((o) => o.label) : [],
       };
 
       const response = await api.post('/v1/projetoericsson', payload);
@@ -1564,7 +1612,6 @@ const Rolloutericssonedicao = ({
 
       if (response.ok) {
         console.log('Salvo com sucesso:', result);
-        // Aqui você pode resetar campos ou mostrar notificação
       } else {
         console.error('Erro ao salvar:', result);
       }
@@ -1695,7 +1742,7 @@ const Rolloutericssonedicao = ({
       ),
     },
   ];
-  // 3) dispara quando abrir ou mudar row
+
   useEffect(() => {
     listaid();
     acessoFinanceiro();
@@ -1703,6 +1750,7 @@ const Rolloutericssonedicao = ({
     listapos();
     listacolaboradorpj();
     listacolaboradorclt();
+    listacolaborador();
     listadocumentacaoobrafinalcivilwork();
     listadocumentacaoobrafinal();
     listaatividadepj();
@@ -1795,7 +1843,6 @@ const Rolloutericssonedicao = ({
           ididentificador={identificadorsolicitacaodiaria}
           atualiza={listasolicitacaodiaria}
           titulotopo={titulodiaria}
-          //ver o que é isso aqui:
           novo="0"
           projetousual="ERICSSON"
           numero={numero}
@@ -1812,7 +1859,6 @@ const Rolloutericssonedicao = ({
           ididentificador={identificadorsolicitacao}
           atualiza={listasolicitacao}
           titulotopo={titulo}
-          //ver o que é isso aqui:
           novo="1"
           projetousual="ERICSSON"
           numero={numero}
@@ -1999,7 +2045,180 @@ const Rolloutericssonedicao = ({
                 <option value="LIBERADO">LIBERADO</option>
                 <option value="PEDIR">PEDIR</option>
                 <option value="REJEITADO">REJEITADO</option>
+                <option value="SEM ACESSO">SEM ACESSO</option>
               </Input>
+            </div>
+
+            {/* text status_sydle */}
+            <div className="col-4">
+              Status SYDLE
+              <Input
+                type="text"
+                value={statussydle}
+                onChange={(e) => setstatussydle(e.target.value)}
+              />
+            </div>
+
+            {/* text atividade */}
+
+            <div className="col-4">
+              Atividade
+              <Input type="text" value={atividade} onChange={(e) => setatividade(e.target.value)} />
+            </div>
+
+            {/* Lista suspensa com opções: Rooftop, Greenfield, Indoor, Camuflado, Mastro, Poste Metálico, Torre Metálica, SLS. */}
+
+            <div className="col-4">
+              Tipo de Instalação
+              <Input
+                type="select"
+                value={tipoinstalacao}
+                onChange={(e) => settipoinstalacao(e.target.value)}
+              >
+                <option value="">Selecione</option>
+                <option value="Rooftop">Rooftop</option>
+                <option value="Greenfield">Greenfield</option>
+                <option value="Indoor">Indoor</option>
+                <option value="Camuflado">Camuflado</option>
+                <option value="Mastro">Mastro</option>
+                <option value="Poste Metálico">Poste Metálico</option>
+                <option value="Torre Metálica">Torre Metálica</option>
+                <option value="SLS">SLS</option>
+              </Input>
+            </div>
+
+            {/* IMPACTO → Lista suspensa (padrão vazio) com opção: “S/Impacto”. */}
+
+            <div className="col-4">
+              Impacto
+              <Input type="select" value={impacto} onChange={(e) => setimpacto(e.target.value)}>
+                <option value="">Selecione</option>
+                <option value="S/Impacto">S/Impacto</option>
+              </Input>
+            </div>
+
+            {/* - [ ]  **N° CRQ** → Preenchimento manual. */}
+            <div className="col-4">
+              N° CRQ
+              <Input type="text" value={ncrq} onChange={(e) => setncrq(e.target.value)} />
+            </div>
+
+            {/* - [ ]  **INICIO_CRQ** → Preenchimento manual (data). */}
+
+            <div className="col-4">
+              INICIO_CRQ
+              <Input type="date" value={iniciocrq} onChange={(e) => setiniciocrq(e.target.value)} />
+            </div>
+
+            {/* - [ ]  **FIM_CRQ** → Preenchimento manual (data). */}
+
+            <div className="col-4">
+              FIM_CRQ
+              <Input type="date" value={fimcrq} onChange={(e) => setfimcrq(e.target.value)} />
+            </div>
+            {/* - [ ]  **STATUS CRQ** → Preenchimento manual. */}
+            <div className="col-4">
+              STATUS CRQ
+              <Input type="text" value={statuscrq} onChange={(e) => setstatuscrq(e.target.value)} />
+            </div>
+
+            {/* - [ ]  **FORMA DE ACESSO** → Preenchimento manual. */}
+
+            <div className="col-4">
+              FORMA DE ACESSO
+              <Input
+                type="text"
+                value={formaAcesso}
+                onChange={(e) => setFormaAcesso(e.target.value)}
+              />
+            </div>
+
+            {/* CRQ DE INSTALAÇÃO → Preenchimento manual. */}
+            <div className="col-4">
+              CRQ DE INSTALAÇÃO
+              <Input
+                type="text"
+                value={crqdeinstalacao}
+                onChange={(e) => setcrqdeinstalacao(e.target.value)}
+              />
+            </div>
+
+            {/* OBRA PREENCHIDA NA SYDLE → Seleção com opções: Ok, Não.K */}
+
+            <div className="col-4">
+              OBRA PREENCHIDA NA SYDLE
+              <Input
+                type="select"
+                value={obraPreenchidaNaSydle}
+                onChange={(e) => setobrapreenchidanasydle(e.target.value)}
+              >
+                <option value="">Selecione</option>
+                <option value="Ok">Ok</option>
+                <option value="Não">Não</option>
+              </Input>
+            </div>
+
+            {/* statatussydle */}
+            <div className="col-4">
+              Status Sydle
+              <Input
+                type="text"
+                value={statatussydle}
+                onChange={(e) => setstatatussydle(e.target.value)}
+              />
+            </div>
+
+            {/* central */}
+
+            <div className="col-4">
+              Central
+              <Input type="text" value={central} onChange={(e) => setcentral(e.target.value)} />
+            </div>
+
+            {/* detentora */}
+            <div className="col-4">
+              Detentora
+              <Input type="text" value={detentora} onChange={(e) => setdetentora(e.target.value)} />
+            </div>
+
+            {/* iddentedora */}
+            <div className="col-4">
+              Id Detentora
+              <Input
+                type="text"
+                value={iddentedora}
+                onChange={(e) => setiddentedora(e.target.value)}
+              />
+            </div>
+
+            <div className="col-4">
+              Númerdo do ativo
+              <Input
+                type="text"
+                value={numeroativo}
+                onChange={(e) => setnumeroativo(e.target.value)}
+              />
+            </div>
+
+            <div className="col-4">
+              Equipe Fixa
+              {/* multiplo select vem do colaboradorlista */}
+              <Select
+                isMulti
+                options={colaboradorlista}
+                value={equipefixa}
+                onChange={setequipefixa}
+                placeholder="Selecione"
+              />
+            </div>
+
+            <div className="col-sm-12">
+              Observações
+              <Input
+                type="text"
+                value={observacoes}
+                onChange={(e) => setobservacoes(e.target.value)}
+              />
             </div>
           </div>
         </CardBody>
@@ -2304,7 +2523,6 @@ const Rolloutericssonedicao = ({
                   LoadingOverlay: LinearProgress,
                   NoRowsOverlay: CustomNoRowsOverlay,
                 }}
-                //opções traduzidas da tabela
                 localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                 paginationModel={paginationModeltarefa}
                 onPaginationModelChange={setPaginationModeltarefa}
@@ -2439,8 +2657,8 @@ const Rolloutericssonedicao = ({
               />
             </div>
 
-            {lpuhistorico === 'NEGOCIADO' && // mostra só quando NEGOCIADO
-              (usuario === '33' || usuario === '35' || usuario === '78') && ( // opcional: filtra por usuário
+            {lpuhistorico === 'NEGOCIADO' &&
+              (usuario === '33' || usuario === '35' || usuario === '78') && (
                 <div className="col-sm-2">
                   Valor Negociado
                   <NumericFormat
@@ -2727,7 +2945,6 @@ Rolloutericssonedicao.propTypes = {
   ididentificador: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   titulotopo: PropTypes.string.isRequired,
   atualiza: PropTypes.func.isRequired,
-  //  ericssonSelecionado: PropTypes.object,
 };
 
 export default Rolloutericssonedicao;
