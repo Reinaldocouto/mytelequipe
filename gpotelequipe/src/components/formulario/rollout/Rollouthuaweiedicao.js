@@ -1,14 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
   Modal,
   ModalHeader,
   ModalBody,
   ModalFooter,
-  // Form,
-  // FormGroup,
   Label,
-  // Col,
   Input,
   Button,
   CardBody,
@@ -120,10 +117,39 @@ const Rollouthuaweiedicao = ({
   const [observacaoclt, setobservacaoclt] = useState('');
   const usuario = localStorage.getItem('sessionId');
 
-  const [enderecoSite, setEnderecoSite] = useState('');
+  const [, setEnderecoSite] = useState('');
   const [municipio, setMunicipio] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
+
+  const [tipoDeInfra, setTipoDeInfra] = useState('');
+  const [quadrante, setQuadrante] = useState('');
+  const [ddd, setDdd] = useState('');
+  const [endereco, setEndereco] = useState('');
+  const [detentorDaArea, setDetentorDaArea] = useState('');
+  const [idDetentora, setIdDetentora] = useState('');
+  const [idOutros, setIdOutros] = useState('');
+  const [formaAcesso, setFormaAcesso] = useState('');
+  const [observacaoDeAcesso, setObservacaoDeAcesso] = useState('');
+  const [dataSolicitado, setDataSolicitado] = useState('');
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
+  const [statusAcesso, setStatusAcesso] = useState('');
+  const [numeroDeSolicitacao, setNumeroDeSolicitacao] = useState('');
+  const [tratativaDeAcessos, setTratativaDeAcessos] = useState('');
+  const [duId, setDuId] = useState('');
+  const [duName, setDuName] = useState('');
+  const [statusAtt, setStatusAtt] = useState('');
+  const [equipeAtt, setEquipeAtt] = useState([]);
+  const [metaPlan, setMetaPlan] = useState('');
+  const [atividadeEscopo, setAtividadeEscopo] = useState('');
+  const [acionamentosRecentes, setAcionamentosRecentes] = useState('');
+  const [colaboradorLista, setColaraboradorLista] = useState([]);
+
+  const sanitizeLabel = (s) => (s || '').replace(/\s+$/, '').replace(/@+$/, '').trim();
+
+  // >>> ALTERAÇÃO 1: estado correto para guardar IDs pendentes da equipe <<<
+  const [pendingEquipeIds, setPendingEquipeIds] = useState([]);
 
   //Parametros
   const params = {
@@ -137,8 +163,70 @@ const Rollouthuaweiedicao = ({
     deletado: 0,
     osouobra: numero,
     obra: numero,
-    //identificador pra mandar pro solicitação edição:
-    //identificadorsolicitacao: ididentificador2,
+  };
+
+  // === NOVO: montar payload e salvar "Acesso" ===
+  const montarPayloadAcesso = () => ({
+    idrollout: ididentificador,
+    tipoDeInfra,
+    quadrante,
+    ddd,
+    municipio,
+    endereco,
+    latitude,
+    longitude,
+    detentorDaArea,
+    idDetentora,
+    idOutros,
+    formaAcesso,
+    observacaoDeAcesso,
+    dataSolicitado,
+    dataInicio,
+    dataFim,
+    statusAcesso,
+    numeroDeSolicitacao,
+    tratativaDeAcessos,
+    duId,
+    duName,
+    statusAtt,
+    // envia somente os IDs/values da Equipe
+    equipeAtt: Array.isArray(equipeAtt) ? equipeAtt.map((o) => (o?.value ?? o)).filter(Boolean) : [],
+    metaPlan,
+    atividadeEscopo,
+    acionamentosRecentes,
+    regiao,
+    // contexto
+    idcliente: params.idcliente,
+    idusuario: params.idusuario,
+    idloja: params.idloja,
+  });
+
+  const salvarAcesso = async () => {
+    try {
+      setloading(true);
+      const payload = montarPayloadAcesso();
+      const resp = await api.post('v1/projetohuawei/acesso', payload);
+      if (resp.status === 200 || resp.status === 201) {
+        toast.success('Acesso salvo');
+        return true;
+      }
+      toast.error('Falha ao salvar Acesso');
+      return false;
+    } catch (err) {
+      if (err?.response?.data?.erro) toast.error(err.response.data.erro);
+      else toast.error('Erro ao salvar Acesso');
+      return false;
+    } finally {
+      setloading(false);
+    }
+  };
+
+  const handleSalvar = async () => {
+    const ok = await salvarAcesso();
+    if (ok) {
+      atualiza();
+      setshow(false);
+    }
   };
 
   function CustomNoRowsOverlay() {
@@ -164,34 +252,77 @@ const Rollouthuaweiedicao = ({
         color="primary"
         count={pageCount}
         page={page + 1}
-        //onChange={(event, value) => apiRef.current.setPage(value - 1)}
+      //onChange={(event, value) => apiRef.current.setPage(value - 1)}
       />
     );
   }
 
- 
+  const listacolaborador = async () => {
+    try {
+      setloading(true);
+      await api.get("v1/pessoa/select").then((response) => {
+        const opts = (response.data || []).map(o => ({
+          ...o,
+          label: sanitizeLabel(o.label),
+        }));
+        setColaraboradorLista(opts);
+      });
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setloading(false);
+    }
+  };
 
   // 2) fetch de identificação
   const fetchIdentificacao = async () => {
     try {
-      const response = await api.get(`v1/projetohuaweiid/${ididentificador}`, {
+      const response = await api.get('v1/projetohuaweiid', {
         params: {
-          idcliente: localStorage.getItem('sessionCodidcliente'),
-          idusuario: localStorage.getItem('sessionId'),
-          idloja: localStorage.getItem('sessionloja'),
+          id: ididentificador,
+          idcliente: params.idcliente,
+          idusuario: params.idusuario,
+          idloja: params.idloja,
         },
       });
-      const {
-        numero: num = '',
-        cliente: cli = '',
-        regiona: rg = '',
-        site: st = '',
-      } = response.data || {};
+      const data = response.data || {};
 
-      setNumero(num);
-      setCliente(cli);
-      setRegiona(rg);
-      setSite(st);
+      // já existia:
+      setNumero(data.numero || '');
+      setCliente(data.cliente || '');
+      setRegiona(data.regiona || '');
+      setSite(data.site || '');
+
+      // >>> ALTERAÇÃO 2: guardar somente os IDs vindos do backend <<<
+      setPendingEquipeIds(Array.isArray(data.acesso_equipe) ? data.acesso_equipe : []);
+
+      // >>> preenche ACESSO <<<
+      setIdOutros(data.acessoIdOutros || '');
+      setFormaAcesso(data.acessoFormaAcesso || '');
+      setDetentorDaArea(data.acessoDetentorArea || '');
+      setIdDetentora(data.acessoIdDetentora || '');
+      setObservacaoDeAcesso(data.acessoObservacaoAcesso || '');
+      setregiao(data.acessoRegiao || '');
+
+      setTipoDeInfra(data.acessoTipoInfra || '');
+      setQuadrante(data.acessoQuadrante || '');
+      setDdd((data.acessoDdd ?? '').toString());
+      setMunicipio(data.acessoMunicipio || '');
+      setEndereco(data.acessoEndereco || '');
+      setLatitude(data.acessoLatitude || '');
+      setLongitude(data.acessoLongitude || '');
+      setNumeroDeSolicitacao(data.acessoNumeroSolicitacao || '');
+      setDataSolicitado(data.acessoDataSolicitado || '');
+      setDataInicio(data.acessoDataInicio || '');
+      setDataFim(data.acessoDataFim || '');
+      setStatusAcesso(data.acessoStatusAcesso || '');
+      setTratativaDeAcessos(data.acessoTratativaAcessos || '');
+      setDuId(data.acessoDuId || '');
+      setDuName(data.acessoDuName || '');
+      setStatusAtt(data.acessoStatusAtt || '');
+      setMetaPlan(data.acessoMetaPlan || '');
+      setAtividadeEscopo(data.acessoAtividadeEscopo || '');
+      setAcionamentosRecentes(data.acessoAcionamentosRecentes || '');
     } catch (err) {
       console.error('Erro ao carregar identificação', err);
     }
@@ -235,55 +366,13 @@ const Rollouthuaweiedicao = ({
   };
 
   const columnsmigo = [
-    {
-      field: 'po',
-      headerName: 'PO',
-      width: 150,
-      align: 'left',
-      editable: false,
-    },
-    {
-      field: 'poritem',
-      headerName: 'PO+Item',
-      width: 150,
-      align: 'left',
-      editable: false,
-    },
-    {
-      field: 'datacriacaopo',
-      headerName: 'Data Criação PO',
-      width: 120,
-      align: 'left',
-      editable: false,
-    },
-    {
-      field: 'escopo',
-      headerName: 'Escopo',
-      width: 180,
-      align: 'left',
-      editable: false,
-    },
-    {
-      field: 'codigoservico',
-      headerName: 'Código Serviço',
-      width: 180,
-      align: 'left',
-      editable: false,
-    },
-    {
-      field: 'descricaoservico',
-      headerName: 'Descrição Serviço',
-      width: 300,
-      align: 'left',
-      editable: false,
-    },
-    {
-      field: 'qtyordered',
-      headerName: 'Quantidade',
-      width: 100,
-      align: 'center',
-      editable: false,
-    },
+    { field: 'po', headerName: 'PO', width: 150, align: 'left', editable: false },
+    { field: 'poritem', headerName: 'PO+Item', width: 150, align: 'left', editable: false },
+    { field: 'datacriacaopo', headerName: 'Data Criação PO', width: 120, align: 'left', editable: false },
+    { field: 'escopo', headerName: 'Escopo', width: 180, align: 'left', editable: false },
+    { field: 'codigoservico', headerName: 'Código Serviço', width: 180, align: 'left', editable: false },
+    { field: 'descricaoservico', headerName: 'Descrição Serviço', width: 300, align: 'left', editable: false },
+    { field: 'qtyordered', headerName: 'Quantidade', width: 100, align: 'center', editable: false },
   ];
 
   function deletediaria(stat) {
@@ -320,22 +409,8 @@ const Rollouthuaweiedicao = ({
           : '',
       editable: false,
     },
-    {
-      field: 'nome',
-      headerName: 'Nome Colaborador',
-      type: 'string',
-      width: 300,
-      align: 'left',
-      editable: false,
-    },
-    {
-      field: 'descricao',
-      headerName: 'Descrição',
-      type: 'string',
-      width: 300,
-      align: 'left',
-      editable: false,
-    },
+    { field: 'nome', headerName: 'Nome Colaborador', type: 'string', width: 300, align: 'left', editable: false },
+    { field: 'descricao', headerName: 'Descrição', type: 'string', width: 300, align: 'left', editable: false },
     {
       field: 'valoroutrassolicitacoes',
       headerName: 'Outras Solicitações',
@@ -344,10 +419,7 @@ const Rollouthuaweiedicao = ({
       align: 'right',
       valueFormatter: (parametros) => {
         if (parametros.value == null) return '';
-        return parametros.value.toLocaleString('pt-BR', {
-          style: 'currency',
-          currency: 'BRL',
-        });
+        return parametros.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
       },
       editable: false,
     },
@@ -359,21 +431,11 @@ const Rollouthuaweiedicao = ({
       align: 'right',
       valueFormatter: (parametros) => {
         if (parametros.value == null) return '';
-        return parametros.value.toLocaleString('pt-BR', {
-          style: 'currency',
-          currency: 'BRL',
-        });
+        return parametros.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
       },
       editable: false,
     },
-    {
-      field: 'solicitante',
-      headerName: 'Solicitante',
-      type: 'string',
-      width: 250,
-      align: 'left',
-      editable: false,
-    },
+    { field: 'solicitante', headerName: 'Solicitante', type: 'string', width: 250, align: 'left', editable: false },
   ];
 
   // colunas para pacotes e acionamentos
@@ -395,13 +457,7 @@ const Rollouthuaweiedicao = ({
       editable: false,
       renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>,
     },
-    {
-      field: 'codigolpuhuawei',
-      headerName: 'CODIGO LPU HUAWEI',
-      width: 150,
-      align: 'left',
-      editable: false,
-    },
+    { field: 'codigolpuhuawei', headerName: 'CODIGO LPU HUAWEI', width: 150, align: 'left', editable: false },
   ];
 
   function deleteUser(stat) {
@@ -442,13 +498,7 @@ const Rollouthuaweiedicao = ({
       editable: false,
       renderCell: (p) => <div style={{ whiteSpace: 'pre-wrap' }}>{p.value}</div>,
     },
-    {
-      field: 'codigolpuhuawei',
-      headerName: 'CODIGO LPU HUAWEI',
-      width: 140,
-      align: 'left',
-      editable: false,
-    },
+    { field: 'codigolpuhuawei', headerName: 'CODIGO LPU HUAWEI', width: 140, align: 'left', editable: false },
     {
       field: 'dataacionamento',
       headerName: 'DATA ACIONAMENTO',
@@ -576,13 +626,20 @@ const Rollouthuaweiedicao = ({
       setloading(false);
     }
   };
-
   const listacolaboradorpj = async () => {
     try {
       setloading(true);
-      await api.get('v1/empresas/selectpj', { params }).then((response) => {
-        setcolaboradorlistapj(response.data);
-      });
+      const response = await api.get('v1/empresas/selectpj', { params });
+      const opts = (response.data || []).map(o => ({
+        ...o,
+        label: sanitizeLabel(o.label),
+      }));
+      setcolaboradorlistapj(opts);
+
+      if (idcolaboradorpj) {
+        const found = opts.find(o => String(o.value) === String(idcolaboradorpj));
+        if (found) setselectedoptioncolaboradorpj(found);
+      }
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -593,8 +650,12 @@ const Rollouthuaweiedicao = ({
   const listacolaboradorclt = async () => {
     try {
       setloading(true);
-      await api.get('v1/pessoa/selectclt', { params }).then((response) => {
-        setcolaboradorlistaclt(response.data);
+      await api.get('v1/pessoa/selectclt').then((response) => {
+        const opts = (response.data || []).map(o => ({
+          ...o,
+          label: sanitizeLabel(o.label),
+        }));
+        setcolaboradorlistaclt(opts);
       });
     } catch (err) {
       toast.error(err.message);
@@ -763,6 +824,8 @@ const Rollouthuaweiedicao = ({
   useEffect(() => {
     if (!show) return;
 
+    listacolaborador();
+
     if (huaweiSelecionado) {
       setMunicipio(huaweiSelecionado.municipio || '');
       setEnderecoSite(huaweiSelecionado.enderecoSite || '');
@@ -805,6 +868,21 @@ const Rollouthuaweiedicao = ({
       listapacotesacionadosclt();
     }
   }, [telaexclusaoclt]);
+
+  // >>> ALTERAÇÃO 3: pré-seleciona Equipe Att quando lista + IDs estiverem prontos <<<
+  useEffect(() => {
+    if (!pendingEquipeIds || pendingEquipeIds.length === 0) return;
+    if (!colaboradorLista || colaboradorLista.length === 0) return;
+
+    const idsStr = pendingEquipeIds.map(v => String(v));
+    const matched = colaboradorLista.filter(opt => idsStr.includes(String(opt.value)));
+
+    if (matched.length > 0) {
+      setEquipeAtt(matched);
+    } else {
+      setEquipeAtt(pendingEquipeIds.map(id => ({ value: id, label: String(id) })));
+    }
+  }, [colaboradorLista, pendingEquipeIds]);
 
   return (
     <Modal
@@ -862,81 +940,217 @@ const Rollouthuaweiedicao = ({
             <hr style={{ marginTop: '0px', width: '100%' }} />
             <CardBody className="px-4 , pb-2">
               <div className="row g-3">
-                
-                <div className="col-sm-2">
-                  OUTROS
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
+                <div className="col-sm-4">
+                  ID OUTROS
+                  <Input type="text" onChange={(e) => setIdOutros(e.target.value)} value={idOutros} />
                 </div>
+
                 <div className="col-sm-4">
                   FORMA DE ACESSO
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-1">
-                  DDD
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
-                </div>
-                <div className="col-sm-2">
-                  MUNICÍPIO
-                  <Input type="text" onChange={(e) => e.target.value} value={municipio} />
-                </div>
-                <div className="col-sm-3">
-                  NOME HUAWEI
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
-                </div>
-
-                <div className="col-sm-6">
-                  ENDEREÇO
-                  <Input type="text" onChange={(e) => e.target.value} value={enderecoSite} />
-                </div>
-                <div className="col-sm-2">
-                  LATITUDE
-                  <Input type="text" onChange={(e) => e.target.value} value={latitude} />
-                </div>
-                <div className="col-sm-2">
-                  LONGITUDE
-                  <Input type="text" onChange={(e) => e.target.value} value={longitude} />
-                </div>
-                <div className="col-sm-2">
-                  OBS
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
+                  <Input type="text" onChange={(e) => setFormaAcesso(e.target.value)} value={formaAcesso} />
                 </div>
 
                 <div className="col-sm-4">
-                  SOLICITAÇÃO
-                  <Input type="text" onChange={(e) => e.target.value} value={null} />
+                  DDD
+                  <Input type="text" onChange={(e) => setDdd(e.target.value)} value={ddd} />
                 </div>
-                <div className="col-sm-2">
+
+                <div className="col-sm-4">
+                  MUNICÍPIO
+                  <Input type="text" onChange={(e) => setMunicipio(e.target.value)} value={municipio} />
+                </div>
+
+                <div className="col-sm-4">
+                  ENDEREÇO
+                  <Input type="text" onChange={(e) => setEndereco(e.target.value)} value={endereco} />
+                </div>
+
+                <div className="col-sm-4">
+                  LATITUDE
+                  <Input type="text" onChange={(e) => setLatitude(e.target.value)} value={latitude} />
+                </div>
+
+                <div className="col-sm-4">
+                  LONGITUDE
+                  <Input type="text" onChange={(e) => setLongitude(e.target.value)} value={longitude} />
+                </div>
+
+                <div className="col-sm-4">
+                  Número de Solicitação
+                  <Input
+                    type="text"
+                    onChange={(e) => setNumeroDeSolicitacao(e.target.value)}
+                    value={numeroDeSolicitacao}
+                  />
+                </div>
+
+                <div className="col-sm-4">
                   DATA-SOLICITAÇÃO
-                  <Input type="date" onChange={(e) => e.target.value} value={null} />
+                  <Input type="date" onChange={(e) => setDataSolicitado(e.target.value)} value={dataSolicitado} />
                 </div>
-                <div className="col-sm-2">
+
+                <div className="col-sm-4">
                   DATA-INICIAL
-                  <Input type="date" onChange={(e) => e.target.value} value={null} />
+                  <Input type="date" onChange={(e) => setDataInicio(e.target.value)} value={dataInicio} />
                 </div>
-                <div className="col-sm-2">
+
+                <div className="col-sm-4">
                   DATA-FINAL
-                  <Input type="date" onChange={(e) => e.target.value} value={null} />
+                  <Input type="date" onChange={(e) => setDataFim(e.target.value)} value={dataFim} />
                 </div>
-                <div className="col-sm-2">
-                  STATUS
+
+                <div className="col-sm-4">
+                  Tipo de Infra
                   <Input
                     type="select"
-                    name="statusacesso"
-                    onChange={(e) => e.target.value}
-                    value={null}
+                    value={tipoDeInfra}
+                    onChange={(e) => setTipoDeInfra(e.target.value)}
                   >
                     <option value="">Selecione</option>
-                    <option value="AGUARDANDO">AGUARDANDO</option>
-                    <option value="CANCELADO">CANCELADO</option>
-                    <option value="CONCLUIDO">CONCLUIDO</option>
-                    <option value="LIBERADO">LIBERADO</option>
-                    <option value="PEDIR">PEDIR</option>
-                    <option value="REJEITADO">REJEITADO</option>
+                    <option value="Rooftop">Rooftop</option>
+                    <option value="Greenfield">Greenfield</option>
+                    <option value="Indoor">Indoor</option>
+                    <option value="Camuflado">Camuflado</option>
+                    <option value="Mastro">Mastro</option>
+                    <option value="Poste Metálico">Poste Metálico</option>
+                    <option value="Torre Metálica">Torre Metálica</option>
+                    <option value="SLS">SLS</option>
+                  </Input>
+                </div>
+
+                <div className="col-sm-4">
+                  Quadrante
+                  <Input type="text" value={quadrante} onChange={(e) => setQuadrante(e.target.value)} />
+                </div>
+
+                <div className="col-sm-4">
+                  Detentor da Área
+                  <Input
+                    type="text"
+                    value={detentorDaArea}
+                    onChange={(e) => setDetentorDaArea(e.target.value)}
+                  />
+                </div>
+
+                <div className="col-sm-4">
+                  ID Detentora
+                  <Input type="text" value={idDetentora} onChange={(e) => setIdDetentora(e.target.value)} />
+                </div>
+
+                <div className="col-sm-4">
+                  Observação de Acesso
+                  <Input
+                    type="text"
+                    value={observacaoDeAcesso}
+                    onChange={(e) => setObservacaoDeAcesso(e.target.value)}
+                  />
+                </div>
+
+                <div className="col-sm-4">
+                  Status Acesso
+                  <Input
+                    type="select"
+                    value={statusAcesso}
+                    onChange={(e) => setStatusAcesso(e.target.value)}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="Aguardando">Aguardando</option>
+                    <option value="Cancelado">Cancelado</option>
+                    <option value="Concluído">Concluído</option>
+                    <option value="Liberado">Liberado</option>
+                    <option value="Pedir">Pedir</option>
+                    <option value="Rejeitado">Rejeitado</option>
+                    <option value="Sem Acesso">Sem Acesso</option>
+                  </Input>
+                </div>
+
+                <div className="col-sm-4">
+                  Tratativa de Acessos
+                  <Input
+                    type="text"
+                    value={tratativaDeAcessos}
+                    onChange={(e) => setTratativaDeAcessos(e.target.value)}
+                  />
+                </div>
+
+                <div className="col-sm-4">
+                  DU ID
+                  <Input type="text" value={duId} onChange={(e) => setDuId(e.target.value)} />
+                </div>
+
+                <div className="col-sm-4">
+                  DU Name
+                  <Input type="text" value={duName} onChange={(e) => setDuName(e.target.value)} />
+                </div>
+
+                <div className="col-sm-4">
+                  Status Att
+                  <Input
+                    type="select"
+                    value={statusAtt}
+                    onChange={(e) => setStatusAtt(e.target.value)}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="Aguardar Acionamento">Aguardar Acionamento</option>
+                    <option value="Cancelado | Baterias Entregue a TIM">Cancelado | Baterias Entregue a TIM</option>
+                    <option value="Finalizado | QC Aprovado">Finalizado | QC Aprovado</option>
+                    <option value="Finalizado | QC Pendente (SITE Vandalizado)">Finalizado | QC Pendente (SITE Vandalizado)</option>
+                    <option value="Programado">Programado</option>
+                    <option value="Programar">Programar</option>
+                  </Input>
+                </div>
+
+                <div className="col-sm-4">
+                  Equipe Att
+                  <Select
+                    isMulti
+                    options={colaboradorLista}
+                    value={equipeAtt}
+                    onChange={setEquipeAtt}
+                    placeholder="Selecione"
+                  />
+                </div>
+
+                <div className="col-sm-4">
+                  Meta Plan
+                  <Input type="text" value={metaPlan} onChange={(e) => setMetaPlan(e.target.value)} />
+                </div>
+
+                <div className="col-sm-4">
+                  Atividade / Escopo
+                  <Input
+                    type="text"
+                    value={atividadeEscopo}
+                    onChange={(e) => setAtividadeEscopo(e.target.value)}
+                  />
+                </div>
+
+                <div className="col-sm-4">
+                  Acionamentos Recentes
+                  <Input
+                    type="text"
+                    value={acionamentosRecentes}
+                    onChange={(e) => setAcionamentosRecentes(e.target.value)}
+                  />
+                </div>
+
+                <div className="col-sm-4">
+                  Região
+                  <Input
+                    type="select"
+                    name="regiao"
+                    onChange={(e) => setregiao(e.target.value)}
+                    value={regiao}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="CAPITAL">CAPITAL</option>
+                    <option value="INTERIOR">INTERIOR</option>
                   </Input>
                 </div>
               </div>
             </CardBody>
           </div>
+
 
           {/* === Acompanhamento Financeiro === */}
           <div>
@@ -1567,10 +1781,8 @@ const Rollouthuaweiedicao = ({
       <ModalFooter>
         <Button
           color="success"
-          onClick={() => {
-            atualiza();
-            setshow(false);
-          }}
+          onClick={handleSalvar}
+          disabled={loading}
         >
           Salvar
         </Button>{' '}

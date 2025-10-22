@@ -3,34 +3,16 @@
 interface
 
 uses
-  // 🔹 System e utilitários básicos
-  System.SysUtils,
-  System.Classes,
-  System.IOUtils,
-  Windows,
-  System.StrUtils,
-  System.JSON,
+  System.Generics.Defaults, Horse, FireDAC.Comp.Client, Data.DB, System.SysUtils, model.connection, ComObj,
+  System.StrUtils, FireDAC.DApt, System.Generics.Collections, UtFuncao, FireDAC.Stan.Option,
   System.Variants,
-  System.Generics.Collections,
-  System.Generics.Defaults,
-  DateUtils,
-  ActiveX,
-  ComObj,
-  // 🔹 FireDAC (banco de dados)
-  FireDAC.Comp.Client,
-  FireDAC.Stan.Param,
-  FireDAC.Stan.Option,
-  FireDAC.DApt,
-  Data.DB,
-
-  // 🔹 Framework e projeto
-  Horse,
-  model.connection,
-  Model.Email,
-  UtFuncao;
-
+  FireDAC.Stan.Param, DateUtils, System.JSON, System.Classes, Model.Email;
 
 type
+  THuaweiAcessoSaveResult = record
+    AcessoID: Integer;
+  end;
+
   THuawei = class
   private
     FConn: TFDConnection;
@@ -108,11 +90,11 @@ type
     function ListaDespesas(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function extratopagamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function totalacionamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
-    function ExportRolloutHuawei(const AQuery: TDictionary<string, string>; out erro: string): string;
     function RolloutHuawei(const AQuery: TDictionary<string,string>;  out erro: string): TFDQuery;
-    function GetJSONValueAsVariant(AJsonValue: TJSONValue; AFieldType: TFieldType): Variant;
-
+    function ListaEquipeAcesso(const idAcesso: Integer; out erro: string): TFDQuery;
+    function SalvarAcesso(const Body: TJSONObject; out erro: string; out R: THuaweiAcessoSaveResult): Boolean;
   end;
+
 implementation
 
 constructor THuawei.Create;
@@ -128,50 +110,235 @@ begin
 end;
 
 function THuawei.InserirHuawei(obj: TJSONObject; out erro: string): boolean;
+var
+  Q: TFDQuery;
+  Flds, Params, Key: string;
+  Cols, Pms: TStringList;
+  i: Integer;
+
+  procedure AddKV(const JsonKey, ColName: string);
+  var
+    V: TJSONValue;
+  begin
+    V := obj.GetValue(JsonKey);
+    if Assigned(V) and (Trim(V.Value) <> '') then
+    begin
+      if Flds <> '' then
+      begin
+        Flds   := Flds   + ', ';
+        Params := Params + ', ';
+      end;
+      Flds   := Flds   + ColName;
+      Params := Params + ':' + JsonKey;
+      Cols.Add(ColName);
+      Pms.Add(JsonKey);
+    end;
+  end;
+
 begin
   Result := False;
-  erro := 'Implementação pendente';
+  erro := '';
+  Q := TFDQuery.Create(nil);
+  Cols := TStringList.Create;
+  Pms  := TStringList.Create;
+  try
+    Q.Connection := FConn;
+    Flds := '';
+    Params := '';
+    AddKV('primaryKey',      'primaryKey');
+    AddKV('sitecode',        'sitecode');
+    AddKV('sitename',        'sitename');
+    AddKV('siteid',          'siteid');
+    AddKV('poNumber',        'poNumber');
+    AddKV('projectNo',       'projectNo');
+    AddKV('biddingArea',     'biddingArea');
+    AddKV('os',              'os');
+    AddKV('observacaopj',    'observacaopj');
+    AddKV('idcolaboradorpj', 'idcolaboradorpj');
+    AddKV('valorpj',         'valorpj');
+    AddKV('porcentagempj',   'porcentagempj');
+    AddKV('negociadoSN',     'negociadoSN');
+    AddKV('vo',              'vo');
+    AddKV('observacaogeral', 'observacaogeral');
+    if Flds = '' then
+    begin
+      erro := 'Sem campos válidos para inserir.';
+      Exit;
+    end;
+    Q.SQL.Text := 'INSERT INTO ProjetoHuawei (' + Flds + ') VALUES (' + Params + ')';
+    for i := 0 to Pms.Count - 1 do
+    begin
+      Key := Pms[i];
+      if SameText(Cols[i], 'idcolaboradorpj') or SameText(Cols[i], 'negociadoSN') then
+        Q.ParamByName(Key).AsInteger := StrToIntDef(obj.GetValue(Key).Value, 0)
+      else if SameText(Cols[i], 'valorpj') or SameText(Cols[i], 'porcentagempj') then
+        Q.ParamByName(Key).AsFloat := StrToFloatDef(StringReplace(obj.GetValue(Key).Value, ',', '.', [rfReplaceAll]), 0)
+      else
+        Q.ParamByName(Key).AsString := obj.GetValue(Key).Value;
+    end;
+    try
+      Q.ExecSQL;
+      Result := True;
+    except
+      on E: Exception do
+      begin
+        erro := 'Erro ao inserir ProjetoHuawei: ' + E.Message;
+        Result := False;
+      end;
+    end;
+  except
+    on E: Exception do
+    begin
+      erro := 'Erro interno ao inserir ProjetoHuawei: ' + E.Message;
+      Result := False;
+    end;
+  end;
+  Cols.Free;
+  Pms.Free;
+  Q.Free;
 end;
 
 function THuawei.Editar(out erro: string): Boolean;
+var
+  Q: TFDQuery;
 begin
   Result := False;
-  erro := 'Implementação pendente';
+  erro := '';
+  if Trim(Self.id) = '' then
+  begin
+    erro := 'ID não informado para edição.';
+    Exit;
+  end;
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FConn;
+    Q.SQL.Clear;
+    Q.SQL.Add('UPDATE ProjetoHuawei SET ');
+    Q.SQL.Add('  os = :os, ');
+    Q.SQL.Add('  observacaopj = :observacaopj, ');
+    Q.SQL.Add('  idcolaboradorpj = :idcolaboradorpj, ');
+    Q.SQL.Add('  valorpj = :valorpj, ');
+    Q.SQL.Add('  porcentagempj = :porcentagempj, ');
+    Q.SQL.Add('  negociadoSN = :negociadoSN, ');
+    Q.SQL.Add('  vo = :vo ');
+    Q.SQL.Add('WHERE id = :id');
+    Q.ParamByName('os').AsString               := Self.os;
+    Q.ParamByName('observacaopj').AsString     := Self.observacaopj;
+    Q.ParamByName('idcolaboradorpj').AsInteger := Self.idcolaboradorpj;
+    Q.ParamByName('valorpj').AsFloat           := Self.valornegociado;
+    Q.ParamByName('porcentagempj').AsFloat     := Self.porcentagempj;
+    Q.ParamByName('negociadoSN').AsInteger     := Self.negociadoSN;
+    Q.ParamByName('vo').AsString               := Self.vo;
+    Q.ParamByName('id').AsInteger              := StrToIntDef(Self.id, 0);
+    try
+      Q.ExecSQL;
+      Result := True;
+      erro := '';
+    except
+      on E: Exception do
+      begin
+        erro := 'Erro ao editar: ' + E.Message;
+        Result := False;
+      end;
+    end;
+  finally
+    Q.Free;
+  end;
 end;
 
 function THuawei.ListarHuawei(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
-  qry: TFDQuery;
+  qry, qcfg: TFDQuery;
+  Busca: string;
 begin
   erro := '';
   qry := TFDQuery.Create(nil);
   try
     qry.Connection := FConn;
-    
+    qcfg := TFDQuery.Create(nil);
+    try
+      qcfg.Connection := FConn;
+      qcfg.SQL.Text := 'SET SESSION group_concat_max_len = 1048576';
+      try qcfg.ExecSQL; except end;
+    finally
+      qcfg.Free;
+    end;
     if AQuery.ContainsKey('agrupado') then
     begin
       qry.SQL.Text := 'SELECT manufactureSiteInfo, COUNT(*) AS occurrences FROM ProjetoHuawei';
-      
-      if AQuery.ContainsKey('busca') and (Length(AQuery.Items['busca']) > 0) then
+      if AQuery.ContainsKey('busca') and (Trim(AQuery.Items['busca']) <> '') then
       begin
         qry.SQL.Add(' WHERE (manufactureSiteInfo LIKE :busca OR poNumber LIKE :busca OR subProjectCode LIKE :busca)');
-        qry.ParamByName('busca').AsString := '%' + AQuery.Items['busca'] + '%';
+        Busca := '%' + Trim(AQuery.Items['busca']) + '%';
+        qry.ParamByName('busca').AsString := Busca;
       end;
-      
       qry.SQL.Add(' GROUP BY manufactureSiteInfo');
     end
     else
     begin
-      qry.SQL.Text := 'SELECT * FROM ProjetoHuawei WHERE 1 = 1';
-      
-      if AQuery.ContainsKey('busca') and (Length(AQuery.Items['busca']) > 0) then
+      qry.SQL.Clear;
+      qry.SQL.Add('SELECT');
+      qry.SQL.Add('  ph.*,');
+      qry.SQL.Add('  pha.id                   AS acesso_id,');
+      qry.SQL.Add('  pha.id_projeto           AS acesso_id_projeto,');
+      qry.SQL.Add('  pha.tipo_infra           AS acesso_tipo_infra,');
+      qry.SQL.Add('  pha.quadrante            AS acesso_quadrante,');
+      qry.SQL.Add('  pha.ddd                  AS acesso_ddd,');
+      qry.SQL.Add('  pha.municipio            AS acesso_municipio,');
+      qry.SQL.Add('  pha.endereco             AS acesso_endereco,');
+      qry.SQL.Add('  pha.latitude             AS acesso_latitude,');
+      qry.SQL.Add('  pha.longitude            AS acesso_longitude,');
+      qry.SQL.Add('  pha.detentor_area        AS acesso_detentor_area,');
+      qry.SQL.Add('  pha.id_detentora         AS acesso_id_detentora,');
+      qry.SQL.Add('  pha.id_outros            AS acesso_id_outros,');
+      qry.SQL.Add('  pha.forma_acesso         AS acesso_forma_acesso,');
+      qry.SQL.Add('  pha.observacao_acesso    AS acesso_observacao_acesso,');
+      qry.SQL.Add('  pha.data_solicitado      AS acesso_data_solicitado,');
+      qry.SQL.Add('  pha.data_inicio          AS acesso_data_inicio,');
+      qry.SQL.Add('  pha.data_fim             AS acesso_data_fim,');
+      qry.SQL.Add('  pha.status_acesso        AS acesso_status_acesso,');
+      qry.SQL.Add('  pha.numero_solicitacao   AS acesso_numero_solicitacao,');
+      qry.SQL.Add('  pha.tratativa_acessos    AS acesso_tratativa_acessos,');
+      qry.SQL.Add('  pha.du_id                AS acesso_du_id,');
+      qry.SQL.Add('  pha.du_name              AS acesso_du_name,');
+      qry.SQL.Add('  pha.status_att           AS acesso_status_att,');
+      qry.SQL.Add('  pha.meta_plan            AS acesso_meta_plan,');
+      qry.SQL.Add('  pha.atividade_escopo     AS acesso_atividade_escopo,');
+      qry.SQL.Add('  pha.acionamentos_recentes AS acesso_acionamentos_recentes,');
+      qry.SQL.Add('  pha.updated_by           AS acesso_updated_by,');
+      qry.SQL.Add('  pha.updated_at           AS acesso_updated_at,');
+      qry.SQL.Add('  (SELECT GROUP_CONCAT(gp.nome SEPARATOR '', '')');
+      qry.SQL.Add('     FROM ProjetoHuaweiAcessoEquipe pae');
+      qry.SQL.Add('     LEFT JOIN gespessoa gp ON gp.idpessoa = pae.id_pessoa');
+      qry.SQL.Add('    WHERE pae.id_acesso = pha.id) AS acesso_equipe_nomes,');
+      qry.SQL.Add('  (SELECT COUNT(*) FROM ProjetoHuaweiAcessoEquipe pae WHERE pae.id_acesso = pha.id) AS acesso_equipe_count');
+      qry.SQL.Add('FROM ProjetoHuawei ph');
+      qry.SQL.Add('LEFT JOIN ProjetoHuaweiAcesso pha ON pha.id_projeto = ph.id');
+      qry.SQL.Add('WHERE 1=1');
+      if AQuery.ContainsKey('busca') and (Trim(AQuery.Items['busca']) <> '') then
       begin
-        qry.SQL.Add(' AND (manufactureSiteInfo LIKE :busca OR poNumber LIKE :busca OR subProjectCode LIKE :busca)');
-        qry.ParamByName('busca').AsString := '%' + AQuery.Items['busca'] + '%';
+        qry.SQL.Add(
+          ' AND (ph.manufactureSiteInfo LIKE :busca '+
+          '  OR ph.poNumber           LIKE :busca '+
+          '  OR ph.subProjectCode     LIKE :busca '+
+          '  OR ph.sitecode           LIKE :busca '+
+          '  OR ph.sitename           LIKE :busca '+
+          '  OR ph.siteid             LIKE :busca '+
+          '  OR ph.os                 LIKE :busca '+
+          '  OR ph.vo                 LIKE :busca '+
+          '  OR ph.primaryKey         LIKE :busca '+
+          '  OR pha.municipio         LIKE :busca '+
+          '  OR pha.tipo_infra        LIKE :busca '+
+          '  OR pha.forma_acesso      LIKE :busca '+
+          '  OR (SELECT GROUP_CONCAT(gp.nome SEPARATOR '', '') '+
+          '        FROM ProjetoHuaweiAcessoEquipe pae '+
+          '        LEFT JOIN gespessoa gp ON gp.idpessoa = pae.id_pessoa '+
+          '       WHERE pae.id_acesso = pha.id) LIKE :busca)');
+        Busca := '%' + Trim(AQuery.Items['busca']) + '%';
+        qry.ParamByName('busca').AsString := Busca;
       end;
+      qry.SQL.Add(' ORDER BY ph.poNumber DESC, ph.id DESC');
     end;
-    
-    qry.SQL.Add(' ORDER BY poNumber DESC');
     qry.Open;
     Result := qry;
   except
@@ -185,16 +352,294 @@ begin
 end;
 
 function THuawei.Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  Q: TFDQuery;
+  Busca, SLim, SOffs: string;
+  Lim, Offs: Integer;
+  IdFiltro: string;
 begin
-  Result := nil;
-  erro := 'Implementação pendente';
+  erro := '';
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FConn;
+    Q.SQL.Clear;
+    Q.SQL.Add('SELECT');
+    Q.SQL.Add('  ph.*,');
+    Q.SQL.Add('  pha.id                     AS acesso_id,');
+    Q.SQL.Add('  pha.id_projeto             AS acesso_id_projeto,');
+    Q.SQL.Add('  pha.tipo_infra             AS acesso_tipo_infra,');
+    Q.SQL.Add('  pha.quadrante              AS acesso_quadrante,');
+    Q.SQL.Add('  pha.ddd                    AS acesso_ddd,');
+    Q.SQL.Add('  pha.municipio              AS acesso_municipio,');
+    Q.SQL.Add('  pha.regiao                 AS acesso_regiao,');
+    Q.SQL.Add('  pha.endereco               AS acesso_endereco,');
+    Q.SQL.Add('  pha.latitude               AS acesso_latitude,');
+    Q.SQL.Add('  pha.longitude              AS acesso_longitude,');
+    Q.SQL.Add('  pha.detentor_area          AS acesso_detentor_area,');
+    Q.SQL.Add('  pha.id_detentora           AS acesso_id_detentora,');
+    Q.SQL.Add('  pha.id_outros              AS acesso_id_outros,');
+    Q.SQL.Add('  pha.forma_acesso           AS acesso_forma_acesso,');
+    Q.SQL.Add('  pha.observacao_acesso      AS acesso_observacao_acesso,');
+    Q.SQL.Add('  DATE_FORMAT(pha.data_solicitado, ''%Y-%m-%d'') AS acesso_data_solicitado,');
+    Q.SQL.Add('  DATE_FORMAT(pha.data_inicio,     ''%Y-%m-%d'') AS acesso_data_inicio,');
+    Q.SQL.Add('  DATE_FORMAT(pha.data_fim,        ''%Y-%m-%d'') AS acesso_data_fim,');
+    Q.SQL.Add('  pha.status_acesso          AS acesso_status_acesso,');
+    Q.SQL.Add('  pha.numero_solicitacao     AS acesso_numero_solicitacao,');
+    Q.SQL.Add('  pha.tratativa_acessos      AS acesso_tratativa_acessos,');
+    Q.SQL.Add('  pha.du_id                  AS acesso_du_id,');
+    Q.SQL.Add('  pha.du_name                AS acesso_du_name,');
+    Q.SQL.Add('  pha.status_att             AS acesso_status_att,');
+    Q.SQL.Add('  pha.meta_plan              AS acesso_meta_plan,');
+    Q.SQL.Add('  pha.atividade_escopo       AS acesso_atividade_escopo,');
+    Q.SQL.Add('  pha.acionamentos_recentes  AS acesso_acionamentos_recentes,');
+    Q.SQL.Add('  pha.updated_by             AS acesso_updated_by,');
+    Q.SQL.Add('  DATE_FORMAT(pha.updated_at, ''%Y-%m-%d %H:%i:%s'') AS acesso_updated_at,');
+    Q.SQL.Add('  (SELECT GROUP_CONCAT(gp.nome ORDER BY gp.nome SEPARATOR '', '')');
+    Q.SQL.Add('     FROM ProjetoHuaweiAcessoEquipe pae');
+    Q.SQL.Add('     LEFT JOIN gespessoa gp ON gp.idpessoa = pae.id_pessoa');
+    Q.SQL.Add('    WHERE pae.id_acesso = pha.id) AS acesso_equipe_nomes,');
+    Q.SQL.Add('  (SELECT COUNT(*) FROM ProjetoHuaweiAcessoEquipe pae WHERE pae.id_acesso = pha.id) AS acesso_equipe_count');
+    Q.SQL.Add('FROM ProjetoHuawei ph');
+    Q.SQL.Add('LEFT JOIN ProjetoHuaweiAcesso pha ON pha.id_projeto = ph.id');
+    Q.SQL.Add('LEFT JOIN rollouthuawei r ON ph.primaryKey LIKE CONCAT(r.id, ''|%'')');
+    Q.SQL.Add('WHERE 1=1');
+
+    if AQuery.ContainsKey('busca') and (Trim(AQuery.Items['busca']) <> '') then
+    begin
+      Q.SQL.Add(' AND (ph.manufactureSiteInfo LIKE :busca');
+      Q.SQL.Add('  OR ph.poNumber           LIKE :busca');
+      Q.SQL.Add('  OR ph.subProjectCode     LIKE :busca');
+      Q.SQL.Add('  OR ph.sitecode           LIKE :busca');
+      Q.SQL.Add('  OR ph.sitename           LIKE :busca');
+      Q.SQL.Add('  OR ph.siteid             LIKE :busca');
+      Q.SQL.Add('  OR ph.os                 LIKE :busca');
+      Q.SQL.Add('  OR ph.vo                 LIKE :busca');
+      Q.SQL.Add('  OR ph.primaryKey         LIKE :busca');
+      Q.SQL.Add('  OR pha.municipio         LIKE :busca');
+      Q.SQL.Add('  OR pha.tipo_infra        LIKE :busca');
+      Q.SQL.Add('  OR pha.forma_acesso      LIKE :busca');
+      Q.SQL.Add('  OR pha.regiao            LIKE :busca');
+      Q.SQL.Add('  OR (SELECT GROUP_CONCAT(gp.nome SEPARATOR '', '')');
+      Q.SQL.Add('        FROM ProjetoHuaweiAcessoEquipe pae');
+      Q.SQL.Add('        LEFT JOIN gespessoa gp ON gp.idpessoa = pae.id_pessoa');
+      Q.SQL.Add('       WHERE pae.id_acesso = pha.id) LIKE :busca)');
+      Busca := '%' + Trim(AQuery.Items['busca']) + '%';
+      Q.ParamByName('busca').AsString := Busca;
+    end;
+
+    if AQuery.ContainsKey('id') and (Trim(AQuery.Items['id']) <> '') then
+    begin
+      IdFiltro := Trim(AQuery.Items['id']);
+      Q.SQL.Add(' AND ph.primaryKey LIKE :p_id_pk_like');
+      Q.ParamByName('p_id_pk_like').AsString := IdFiltro + '|%';
+    end;
+
+    Q.SQL.Add('ORDER BY ph.id DESC');
+
+    Lim := 0; Offs := 0;
+    if AQuery.ContainsKey('limit') then
+    begin
+      SLim := Trim(AQuery.Items['limit']);
+      Lim := StrToIntDef(SLim, 0);
+    end;
+    if AQuery.ContainsKey('offset') then
+    begin
+      SOffs := Trim(AQuery.Items['offset']);
+      Offs := StrToIntDef(SOffs, 0);
+    end;
+    if Lim > 0 then
+    begin
+      Q.SQL.Add(Format('LIMIT %d', [Lim]));
+      if Offs > 0 then
+        Q.SQL.Add(Format('OFFSET %d', [Offs]));
+    end;
+
+    Q.Open;
+    Result := Q;
+  except
+    on E: Exception do
+    begin
+      erro := 'Erro ao listar ProjetoHuawei: ' + E.Message;
+      Q.Free;
+      Result := nil;
+    end;
+  end;
 end;
 
+
 function THuawei.Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry, qcfg: TFDQuery;
+  HasId, HasPk, HasSiteCode, HasPoLineId: Boolean;
+  IdStr, PkStr, SiteCodeStr, PoLineIdStr: string;
+  IdNum: Int64;
+  IdTemPipe: Boolean;
+  IdEhInt64: Boolean;
 begin
+  erro := '';
   Result := nil;
-  erro := 'Implementação pendente';
+
+  if not Assigned(FConn) then
+  begin
+    erro := 'Conexão não inicializada';
+    Exit;
+  end;
+
+  HasId       := AQuery.ContainsKey('id');
+  HasPk       := AQuery.ContainsKey('primaryKey');
+  HasSiteCode := AQuery.ContainsKey('sitecode');
+  HasPoLineId := AQuery.ContainsKey('poLineId');
+
+  if HasId then       IdStr       := Trim(AQuery.Items['id']);
+  if HasPk then       PkStr       := Trim(AQuery.Items['primaryKey']);
+  if HasSiteCode then SiteCodeStr := Trim(AQuery.Items['sitecode']);
+  if HasPoLineId then PoLineIdStr := Trim(AQuery.Items['poLineId']);
+
+  IdTemPipe := HasId and (Pos('|', IdStr) > 0);
+  IdEhInt64 := HasId and TryStrToInt64(IdStr, IdNum);
+
+  if not (HasPk or HasId or HasSiteCode or HasPoLineId) then
+  begin
+    erro := 'Informe ao menos um identificador (id, primaryKey, sitecode ou poLineId).';
+    Exit;
+  end;
+
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConn;
+
+    qcfg := TFDQuery.Create(nil);
+    try
+      qcfg.Connection := FConn;
+      qcfg.SQL.Text := 'SET SESSION group_concat_max_len = 1048576';
+      try
+        qcfg.ExecSQL;
+      except
+      end;
+    finally
+      qcfg.Free;
+    end;
+
+    qry.SQL.Clear;
+    qry.SQL.Add('SELECT');
+    qry.SQL.Add('  ph.*,');
+    qry.SQL.Add('  DATE_FORMAT(ph.publishDate,   ''%Y-%m-%d %H:%i:%s'') AS publishDate_iso,');
+    qry.SQL.Add('  DATE_FORMAT(ph.needByDate,    ''%Y-%m-%d %H:%i:%s'') AS needByDate_iso,');
+    qry.SQL.Add('  DATE_FORMAT(ph.approvedDate,  ''%Y-%m-%d %H:%i:%s'') AS approvedDate_iso,');
+    qry.SQL.Add('  DATE_FORMAT(ph.startDate,     ''%Y-%m-%d'')          AS startDate_iso,');
+    qry.SQL.Add('  DATE_FORMAT(ph.promiseDate,   ''%Y-%m-%d %H:%i:%s'') AS promiseDate_iso,');
+    qry.SQL.Add('  DATE_FORMAT(ph.creationDate,  ''%Y-%m-%d %H:%i:%s'') AS creationDate_iso,');
+    qry.SQL.Add('  DATE_FORMAT(ph.lastUpdateDate,''%Y-%m-%d %H:%i:%s'') AS lastUpdateDate_iso,');
+    qry.SQL.Add('  DATE_FORMAT(ph.dataacionamento,''%Y-%m-%d %H:%i:%s'') AS dataacionamento_iso,');
+    qry.SQL.Add('  DATE_FORMAT(ph.dataenvioemail,''%Y-%m-%d %H:%i:%s'')  AS dataenvioemail_iso,');
+
+    qry.SQL.Add('  pha.id                    AS acesso_id,');
+    qry.SQL.Add('  pha.id_projeto            AS acesso_id_projeto,');
+    qry.SQL.Add('  pha.tipo_infra            AS acesso_tipo_infra,');
+    qry.SQL.Add('  pha.quadrante             AS acesso_quadrante,');
+    qry.SQL.Add('  pha.ddd                   AS acesso_ddd,');
+    qry.SQL.Add('  pha.municipio             AS acesso_municipio,');
+    qry.SQL.Add('  pha.regiao                AS acesso_regiao,');               // <-- NOVO
+    qry.SQL.Add('  pha.endereco              AS acesso_endereco,');
+    qry.SQL.Add('  pha.latitude              AS acesso_latitude,');
+    qry.SQL.Add('  pha.longitude             AS acesso_longitude,');
+    qry.SQL.Add('  pha.detentor_area         AS acesso_detentor_area,');
+    qry.SQL.Add('  pha.id_detentora          AS acesso_id_detentora,');
+    qry.SQL.Add('  pha.id_outros             AS acesso_id_outros,');
+    qry.SQL.Add('  pha.forma_acesso          AS acesso_forma_acesso,');
+    qry.SQL.Add('  pha.observacao_acesso     AS acesso_observacao_acesso,');
+    qry.SQL.Add('  DATE_FORMAT(pha.data_solicitado, ''%Y-%m-%d'') AS acesso_data_solicitado,');
+    qry.SQL.Add('  DATE_FORMAT(pha.data_inicio,     ''%Y-%m-%d'') AS acesso_data_inicio,');
+    qry.SQL.Add('  DATE_FORMAT(pha.data_fim,        ''%Y-%m-%d'') AS acesso_data_fim,');
+    qry.SQL.Add('  pha.status_acesso         AS acesso_status_acesso,');
+    qry.SQL.Add('  pha.numero_solicitacao    AS acesso_numero_solicitacao,');
+    qry.SQL.Add('  pha.tratativa_acessos     AS acesso_tratativa_acessos,');
+    qry.SQL.Add('  pha.du_id                 AS acesso_du_id,');
+    qry.SQL.Add('  pha.du_name               AS acesso_du_name,');
+    qry.SQL.Add('  pha.status_att            AS acesso_status_att,');
+    qry.SQL.Add('  pha.meta_plan             AS acesso_meta_plan,');
+    qry.SQL.Add('  pha.atividade_escopo      AS acesso_atividade_escopo,');
+    qry.SQL.Add('  pha.acionamentos_recentes AS acesso_acionamentos_recentes,');
+    qry.SQL.Add('  pha.updated_by            AS acesso_updated_by,');
+    qry.SQL.Add('  DATE_FORMAT(pha.updated_at, ''%Y-%m-%d %H:%i:%s'') AS acesso_updated_at,');
+
+    qry.SQL.Add('  eq.acesso_equipe_nomes,');
+    qry.SQL.Add('  eq.acesso_equipe_count');
+
+    qry.SQL.Add('FROM ProjetoHuawei ph');
+    qry.SQL.Add('LEFT JOIN ProjetoHuaweiAcesso pha ON pha.id_projeto = ph.id');
+
+    qry.SQL.Add('LEFT JOIN (');
+    qry.SQL.Add('  SELECT pae.id_acesso,');
+    qry.SQL.Add('         GROUP_CONCAT(gp.nome ORDER BY gp.nome SEPARATOR '', '') AS acesso_equipe_nomes,');
+    qry.SQL.Add('         COUNT(*) AS acesso_equipe_count');
+    qry.SQL.Add('  FROM ProjetoHuaweiAcessoEquipe pae');
+    qry.SQL.Add('  LEFT JOIN gespessoa gp ON gp.idpessoa = pae.id_pessoa');
+    qry.SQL.Add('  GROUP BY pae.id_acesso');
+    qry.SQL.Add(') eq ON eq.id_acesso = pha.id');
+
+    qry.SQL.Add('WHERE 1=1');
+
+    if HasPk and (PkStr <> '') then
+    begin
+      qry.SQL.Add('  AND ph.primaryKey = :p_pk');
+      qry.ParamByName('p_pk').AsString := PkStr;
+    end
+    else if HasId and (IdStr <> '') then
+    begin
+      if IdTemPipe then
+      begin
+        qry.SQL.Add('  AND ph.primaryKey = :p_id_pk');
+        qry.ParamByName('p_id_pk').AsString := IdStr;
+      end
+      else
+      begin
+        qry.SQL.Add('  AND (ph.primaryKey LIKE :p_id_pk_like');
+        if IdEhInt64 then
+        begin
+          qry.SQL.Add('       OR ph.id = :p_id_num)');
+          qry.ParamByName('p_id_num').AsLargeInt := IdNum;
+        end
+        else
+        begin
+          qry.SQL.Add('       )');
+        end;
+        qry.ParamByName('p_id_pk_like').AsString := IdStr + '|%';
+      end;
+    end
+    else if HasSiteCode and (SiteCodeStr <> '') then
+    begin
+      qry.SQL.Add('  AND ph.sitecode = :p_sitecode');
+      qry.ParamByName('p_sitecode').AsString := SiteCodeStr;
+    end
+    else if HasPoLineId and (PoLineIdStr <> '') then
+    begin
+      qry.SQL.Add('  AND ph.poLineId = :p_poline');
+      qry.ParamByName('p_poline').AsString := PoLineIdStr;
+    end;
+
+    qry.SQL.Add('LIMIT 1');
+    qry.Open;
+
+    if qry.IsEmpty then
+    begin
+      erro := 'Registro não encontrado';
+      qry.Free;
+      Exit(nil);
+    end;
+
+    Result := qry;
+  except
+    on E: Exception do
+    begin
+      erro := 'Erro ao buscar ProjetoHuawei (detalhe): ' + E.Message;
+      if Assigned(qry) then
+        qry.Free;
+      Result := nil;
+    end;
+  end;
 end;
+
 
 function THuawei.Listapo(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 begin
@@ -225,9 +670,29 @@ begin
 end;
 
 function THuawei.PesquisarHuaweiPorPrimaryKey(primaryKey: string; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
 begin
   Result := nil;
-  erro := 'Implementação pendente';
+  erro := '';
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConn;
+    qry.SQL.Text :=
+      'SELECT * FROM ProjetoHuawei ' +
+      'WHERE primaryKey = :pk OR primaryKey LIKE CONCAT(:pk, ''|%'') ' +
+      'ORDER BY id DESC';
+    qry.ParamByName('pk').AsString := primaryKey;
+    qry.Open;
+    Result := qry;
+  except
+    on E: Exception do
+    begin
+      erro := 'Erro ao pesquisar pela primaryKey: ' + E.Message;
+      qry.Free;
+      Result := nil;
+    end;
+  end;
 end;
 
 function THuawei.AtualizarHuawei(obj: TJSONObject; out erro: string): boolean;
@@ -289,770 +754,789 @@ begin
   erro := 'Implementação pendente';
 end;
 
-
 function THuawei.RolloutHuawei(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
-  qry: TFDQuery;
-  keys: TArray<string>;
-  key, value, dbField, whereSQL, sqlFinal: string;
-  i, j: Integer;
-  fieldMap: TDictionary<string, string>;
-  dateFields, datetimeFields, intFields, floatFields: TDictionary<string, Boolean>;
-  isDate, isDateTime, isInt, isFloat: Boolean;
-  dt: TDateTime;
-  IncludedKeys: TStringList;
-  validCols: TDictionary<string, Boolean>;
-  metaQry: TFDQuery;
-  colUpper: string;
-  hasTime: Boolean;
+  qry, qcfg: TFDQuery;
+  vBusca, vId, vLimit, vOffset: string;
+  hasBusca, hasId: Boolean;
+  limite, desloc: Integer;
 begin
-  Result := nil;
   erro := '';
-  whereSQL := '';
-  sqlFinal := '';
+  Result := nil;
 
-  if not Assigned(FConn) then
-    FConn.LoginPrompt := False;
-
-  if not FConn.Connected then
-  begin
-    try
-      FConn.Open;
-    except
-      on E: Exception do
-      begin
-        erro := 'Falha ao conectar ao banco: ' + E.Message;
-        Exit;
-      end;
-    end;
-  end;
-
-  if not Assigned(AQuery) then
-  begin
-    erro := 'Parâmetros de consulta não fornecidos';
-    Exit;
-  end;
-
-  fieldMap := TDictionary<string, string>.Create;
-  dateFields := TDictionary<string, Boolean>.Create;
-  datetimeFields := TDictionary<string, Boolean>.Create;
-  intFields := TDictionary<string, Boolean>.Create;
-  floatFields := TDictionary<string, Boolean>.Create;
-  IncludedKeys := TStringList.Create;
+  qry := TFDQuery.Create(nil);
   try
-    // --- Mapeamento de campos ---
-    fieldMap.Add('name', 'Name');
-    fieldMap.Add('projeto', 'Projeto');
-    fieldMap.Add('endSite', 'End_Site');
-    fieldMap.Add('du', 'DU');
-    fieldMap.Add('statusGeral', 'Status_geral');
-    fieldMap.Add('liderResponsavel', 'Lider_responsavel');
-    fieldMap.Add('empresa', 'Empresa');
-    fieldMap.Add('ativoNoPeriodo', 'Ativo_no_periodo');
-    fieldMap.Add('fechamento', 'Fechamento');
-    fieldMap.Add('anoSemanaFechamento', 'Ano_Semana_Fechamento');
-    fieldMap.Add('descricaoAdd', 'Descricao_add');
-    fieldMap.Add('numeroVo', 'Numero_VO');
-    fieldMap.Add('infra', 'Infra');
-    fieldMap.Add('town', 'Town');
-    fieldMap.Add('reg', 'Reg');
-    fieldMap.Add('ddd', 'DDD');
-    fieldMap.Add('envioDaDemanda', 'Envio_da_demanda');
-    fieldMap.Add('mosPlanned', 'MOS_Planned');
-    fieldMap.Add('mosReal', 'MOS_Real');
-    fieldMap.Add('mosStatus', 'MOS_Status');
-    fieldMap.Add('integrationPlanned', 'Integration_Planned');
-    fieldMap.Add('integrationReal', 'Integration_Real');
-    fieldMap.Add('statusIntegracao', 'Status_integracao');
-    fieldMap.Add('testeTx', 'Teste_TX');
-    fieldMap.Add('iti', 'ITI');
-    fieldMap.Add('qcPlanned', 'QC_Planned');
-    fieldMap.Add('qcReal', 'QC_Real');
-    fieldMap.Add('semanaQc', 'Semana_QC');
-    fieldMap.Add('qcStatus', 'QC_Status');
-    fieldMap.Add('observacao', 'Observacao');
-    fieldMap.Add('logisticaReversaStatus', 'Logistica_reversa_Status');
-    fieldMap.Add('detentora', 'Detentora');
-    fieldMap.Add('idDententora', 'ID_Dententora');
-    fieldMap.Add('idDetentora', 'ID_Dententora');
-    fieldMap.Add('formaDeAcesso', 'Forma_de_acesso');
-    fieldMap.Add('faturamento', 'Faturamento');
-    fieldMap.Add('faturamentoStatus', 'Faturamento_Status');
-    fieldMap.Add('idOriginal', 'ID_Original');
-    fieldMap.Add('changeHistory', 'Change_History');
-    fieldMap.Add('repOffice', 'Rep_Office');
-    fieldMap.Add('projectCode', 'Project_Code');
-    fieldMap.Add('siteCode', 'Site_Code');
-    fieldMap.Add('siteName', 'Site_Name');
-    fieldMap.Add('siteId', 'Site_ID');
-    fieldMap.Add('subContractNo', 'Sub_Contract_NO');
-    fieldMap.Add('prNo', 'PR_NO');
-    fieldMap.Add('poNo', 'PO_NO');
-    fieldMap.Add('poLineNo', 'PO_Line_NO');
-    fieldMap.Add('shipmentNo', 'Shipment_NO');
-    fieldMap.Add('itemCode', 'Item_Code');
-    fieldMap.Add('itemDescription', 'Item_Description');
-    fieldMap.Add('itemDescriptionLocal', 'Item_Description_Local');
-    fieldMap.Add('unitPrice', 'Unit_Price');
-    fieldMap.Add('requestedQty', 'Requested_Qty');
-    fieldMap.Add('valorTelequipe', 'Valor_Telequipe');
-    fieldMap.Add('valorEquipe', 'Valor_Equipe');
-    fieldMap.Add('billedQuantity', 'Billed_Quantity');
-    fieldMap.Add('quantityCancel', 'Quantity_Cancel');
-    fieldMap.Add('dueQty', 'Due_Qty');
-    fieldMap.Add('noteToReceiver', 'Note_to_Receiver');
-    fieldMap.Add('fobLookupCode', 'Fob_Lookup_Code');
-    fieldMap.Add('acceptanceDate', 'Acceptance_Date');
-    fieldMap.Add('prPoAutomationSolutionOnlyChina', 'PR_PO_Automation_Solution_Only_China');
-    fieldMap.Add('pessoa', 'Pessoa');
-    fieldMap.Add('ultimaAtualizacao', 'Ultima_atualizacao');
-
-    // Tipos
-    dateFields.Add('fechamento', True);
-    dateFields.Add('envioDaDemanda', True);
-    dateFields.Add('mosPlanned', True);
-    dateFields.Add('mosReal', True);
-    dateFields.Add('integrationPlanned', True);
-    dateFields.Add('integrationReal', True);
-    dateFields.Add('qcPlanned', True);
-    dateFields.Add('qcReal', True);
-
-    datetimeFields.Add('acceptanceDate', True);
-    datetimeFields.Add('ultimaAtualizacao', True);
-
-    intFields.Add('requestedQty', True);
-    intFields.Add('billedQuantity', True);
-    intFields.Add('quantityCancel', True);
-    intFields.Add('dueQty', True);
-
-    floatFields.Add('unitPrice', True);
-    floatFields.Add('valorTelequipe', True);
-    floatFields.Add('valorEquipe', True);
-    floatFields.Add('faturamento', True);
-
-    // --- Verifica colunas da tabela ---
-    validCols := TDictionary<string, Boolean>.Create;
-    metaQry := TFDQuery.Create(nil);
-    try
-      metaQry.Connection := FConn;
-      metaQry.SQL.Text := 'SELECT * FROM rollouthuawei LIMIT 1';
-      metaQry.Open;
-      for j := 0 to metaQry.FieldCount - 1 do
-        validCols.AddOrSetValue(UpperCase(metaQry.Fields[j].FieldName), True);
-      metaQry.Close;
-    finally
-      metaQry.Free;
-    end;
-
-    // --- Monta o WHERE ---
-    keys := AQuery.Keys.ToArray;
-    qry := TFDQuery.Create(nil);
     qry.Connection := FConn;
 
-    for i := 0 to High(keys) do
-    begin
-      key := keys[i];
-      value := Trim(AQuery.Items[key]);
-
-      if (value = '') or not fieldMap.ContainsKey(key) then
-        Continue;
-
-      dbField := fieldMap[key];
-      if not validCols.ContainsKey(UpperCase(dbField)) then
-        Continue;
-
-      isDate := dateFields.ContainsKey(key);
-      isDateTime := datetimeFields.ContainsKey(key);
-      isInt := intFields.ContainsKey(key);
-      isFloat := floatFields.ContainsKey(key);
-
-      if isDate or isDateTime then
-        if not TryISO8601ToDate(value, dt) then
-          Continue;
-
-      if whereSQL <> '' then
-        whereSQL := whereSQL + ' AND '
-      else
-        whereSQL := ' WHERE ';
-
-      hasTime := (Pos('T', value) > 0) or (Pos(':', value) > 0) or (Length(value) > 10);
-
-      // --- Correção principal ---
-      if SameText(key, 'ultimaAtualizacao') then
-      begin
-        if not hasTime then
-          whereSQL := whereSQL + 'DATE(`Ultima_atualizacao`) = :' + key
-        else
-          whereSQL := whereSQL + '`Ultima_atualizacao` = :' + key;
-      end
-      else if isInt or isFloat or isDate or isDateTime then
-        whereSQL := whereSQL + '`' + dbField + '` = :' + key
-      else
-        whereSQL := whereSQL + '`' + dbField + '` LIKE :' + key;
-
-      IncludedKeys.Add(key);
+    // aumenta limite de concatenação pra não truncar nomes/equipes
+    qcfg := TFDQuery.Create(nil);
+    try
+      qcfg.Connection := FConn;
+      qcfg.SQL.Text := 'SET SESSION group_concat_max_len = 1048576';
+      try qcfg.ExecSQL; except end;
+    finally
+      qcfg.Free;
     end;
 
-    sqlFinal := 'SELECT idgeral, Name, Projeto, End_Site, DU, Status_geral, Lider_responsavel, Empresa, Ativo_no_periodo, Fechamento, Ano_Semana_Fechamento, Confirmacao_pagamento, Descricao_add, Numero_VO, Infra, Town, Latitude, Longitude, Reg, DDD, Envio_da_demanda, MOS_Planned, MOS_Real, Semana_MOS, MOS_Status, Integration_Planned, Teste_TX, Integration_Real, Semana_Integration, Status_integracao, ITI, QC_Planned, QC_Real, Semana_QC, QC_Status, Observacao, Logistica_reversa_Status, Detentora, ID_Dententora, Forma_de_acesso, Faturamento, Faturamento_Status, ID_Original, Change_History, Rep_Office, Project_Code, Site_Code, Site_Name, Site_ID, Sub_Contract_NO, PR_NO, PO_NO, PO_Line_NO, Shipment_NO, Item_Code, Item_Description, Item_Description_Local, Unit_Price, Requested_Qty, Valor_Telequipe, Valor_Equipe, Billed_Quantity, Quantity_Cancel, Due_Qty, Note_to_Receiver, Fob_Lookup_Code, Acceptance_Date, PR_PO_Automation_Solution_Only_China, Pessoa, Ultima_atualizacao, primarykey, id, Ultima_Pessoa_Atualizacao FROM rollouthuawei' + whereSQL;
-    qry.SQL.Text := sqlFinal;
+    hasBusca := AQuery.TryGetValue('busca', vBusca) and (Trim(vBusca) <> '');
+    hasId    := AQuery.TryGetValue('id', vId) and (Trim(vId) <> '');
 
-    // --- Define parâmetros ---
-    for i := 0 to IncludedKeys.Count - 1 do
+    if not AQuery.TryGetValue('limit',  vLimit)  then vLimit  := '100';
+    if not AQuery.TryGetValue('offset', vOffset) then vOffset := '0';
+    limite := StrToIntDef(Trim(vLimit), 100);
+    desloc := StrToIntDef(Trim(vOffset), 0);
+
+    qry.SQL.Clear;
+
+    { =======================
+      Estratégia:
+      - Sem busca: primeiro pega só os IDs de rollouthuawei (ordenados) + paginação;
+        depois faz os LEFT JOINs em cima desse conjunto pequeno.
+      - Com busca: aplica filtro com joins (precisa olhar campos de ph/pha/eq).
+      ======================= }
+
+    if not hasBusca then
     begin
-      key := IncludedKeys[i];
-      value := Trim(AQuery.Items[key]);
-      isDate := dateFields.ContainsKey(key);
-      isDateTime := datetimeFields.ContainsKey(key);
-      isInt := intFields.ContainsKey(key);
-      isFloat := floatFields.ContainsKey(key);
-      hasTime := (Pos('T', value) > 0) or (Pos(':', value) > 0) or (Length(value) > 10);
+      qry.SQL.Add('SELECT');
+      qry.SQL.Add('  r.*,');
 
-      if SameText(key, 'ultimaAtualizacao') then
+      // ProjetoHuawei
+      qry.SQL.Add('  ph.id                              AS projetoId,');
+      qry.SQL.Add('  ph.primaryKey                      AS primaryKey,');
+
+      // Acesso (ProjetoHuaweiAcesso) com aliases camelCase
+      qry.SQL.Add('  pha.id                             AS idProjeto,');
+      qry.SQL.Add('  pha.tipo_infra                     AS tipoInfra,');
+      qry.SQL.Add('  pha.quadrante                      AS quadrante,');
+      qry.SQL.Add('  pha.ddd                            AS ddd1,');
+      qry.SQL.Add('  pha.municipio                      AS municipio,');
+      qry.SQL.Add('  pha.regiao                         AS regiao,');
+      qry.SQL.Add('  pha.endereco                       AS endereco,');
+      qry.SQL.Add('  pha.latitude                       AS latitude1,');
+      qry.SQL.Add('  pha.longitude                      AS longitude1,');
+      qry.SQL.Add('  pha.detentor_area                  AS detentorArea,');
+      qry.SQL.Add('  pha.id_detentora                   AS idDetentora,');
+      qry.SQL.Add('  pha.id_outros                      AS idOutros,');
+      qry.SQL.Add('  pha.forma_acesso                   AS formaAcesso,');
+      qry.SQL.Add('  pha.observacao_acesso              AS observacaoAcesso,');
+      qry.SQL.Add('  pha.data_solicitado                AS dataSolicitado,');
+      qry.SQL.Add('  pha.data_inicio                    AS dataInicio,');
+      qry.SQL.Add('  pha.data_fim                       AS dataFim,');
+      qry.SQL.Add('  pha.status_acesso                  AS statusAcesso,');
+      qry.SQL.Add('  pha.numero_solicitacao             AS numeroSolicitacao,');
+      qry.SQL.Add('  pha.tratativa_acessos              AS tratativaAcessos,');
+      qry.SQL.Add('  pha.du_id                          AS duId,');
+      qry.SQL.Add('  pha.du_name                        AS duName,');
+      qry.SQL.Add('  pha.status_att                     AS statusAtt,');
+      qry.SQL.Add('  pha.meta_plan                      AS metaPlan,');
+      qry.SQL.Add('  pha.atividade_escopo               AS atividadeEscopo,');
+      qry.SQL.Add('  pha.acionamentos_recentes          AS acionamentosRecentes,');
+      qry.SQL.Add('  pha.updated_by                     AS updatedBy,');
+      qry.SQL.Add('  pha.updated_at                     AS updatedAt,');
+
+      // Equipe agregada
+      qry.SQL.Add('  eq.acesso_equipe_nomes             AS acessoEquipeNomes,');
+      qry.SQL.Add('  eq.acesso_equipe_count             AS acessoEquipeCount,');
+      qry.SQL.Add('  eq.acesso_equipe_ids_csv           AS acessoEquipeIdsCsv,');
+      qry.SQL.Add('  CONCAT(''['', eq.acesso_equipe_ids_csv, '']'') AS acessoEquipeJson');
+
+      qry.SQL.Add('FROM (');
+      qry.SQL.Add('  SELECT r.*');
+      qry.SQL.Add('  FROM rollouthuawei r');
+      qry.SQL.Add('  WHERE 1=1');
+      if hasId then
+        qry.SQL.Add('    AND r.id = :p_id');
+      qry.SQL.Add('  ORDER BY r.idgeral DESC');
+      qry.SQL.Add('  LIMIT :p_limit OFFSET :p_offset');
+      qry.SQL.Add(') r');
+
+      qry.SQL.Add('LEFT JOIN ProjetoHuawei ph');
+      qry.SQL.Add('  ON (ph.primaryKey = r.id OR ph.primaryKey LIKE CONCAT(r.id, ''|%''))');
+
+      qry.SQL.Add('LEFT JOIN ProjetoHuaweiAcesso pha');
+      qry.SQL.Add('  ON pha.id_projeto = ph.id');
+
+      qry.SQL.Add('LEFT JOIN (');
+      qry.SQL.Add('  SELECT');
+      qry.SQL.Add('    pae.id_acesso,');
+      qry.SQL.Add('    GROUP_CONCAT(gp.nome ORDER BY gp.nome SEPARATOR '', '') AS acesso_equipe_nomes,');
+      qry.SQL.Add('    COUNT(*) AS acesso_equipe_count,');
+      qry.SQL.Add('    GROUP_CONCAT(pae.id_pessoa ORDER BY gp.nome) AS acesso_equipe_ids_csv');
+      qry.SQL.Add('  FROM ProjetoHuaweiAcessoEquipe pae');
+      qry.SQL.Add('  LEFT JOIN gespessoa gp ON gp.idpessoa = pae.id_pessoa');
+      qry.SQL.Add('  GROUP BY pae.id_acesso');
+      qry.SQL.Add(') eq ON eq.id_acesso = pha.id');
+
+      if hasId then
+        qry.ParamByName('p_id').AsString := Trim(vId);
+      qry.ParamByName('p_limit').AsInteger  := limite;
+      qry.ParamByName('p_offset').AsInteger := desloc;
+    end
+    else
+    begin
+      // Busca em r/ph/pha/eq
+      qry.SQL.Add('SELECT');
+      qry.SQL.Add('  r.*,');
+      qry.SQL.Add('  ph.id                              AS projetoId,');
+      qry.SQL.Add('  ph.primaryKey                      AS primaryKey,');
+      qry.SQL.Add('  pha.id                             AS idProjeto,');
+      qry.SQL.Add('  pha.tipo_infra                     AS tipoInfra,');
+      qry.SQL.Add('  pha.quadrante                      AS quadrante,');
+      qry.SQL.Add('  pha.ddd                            AS ddd1,');
+      qry.SQL.Add('  pha.municipio                      AS municipio,');
+      qry.SQL.Add('  pha.regiao                         AS regiao,');
+      qry.SQL.Add('  pha.endereco                       AS endereco,');
+      qry.SQL.Add('  pha.latitude                       AS latitude1,');
+      qry.SQL.Add('  pha.longitude                      AS longitude1,');
+      qry.SQL.Add('  pha.detentor_area                  AS detentorArea,');
+      qry.SQL.Add('  pha.id_detentora                   AS idDetentora,');
+      qry.SQL.Add('  pha.id_outros                      AS idOutros,');
+      qry.SQL.Add('  pha.forma_acesso                   AS formaAcesso,');
+      qry.SQL.Add('  pha.observacao_acesso              AS observacaoAcesso,');
+      qry.SQL.Add('  pha.data_solicitado                AS dataSolicitado,');
+      qry.SQL.Add('  pha.data_inicio                    AS dataInicio,');
+      qry.SQL.Add('  pha.data_fim                       AS dataFim,');
+      qry.SQL.Add('  pha.status_acesso                  AS statusAcesso,');
+      qry.SQL.Add('  pha.numero_solicitacao             AS numeroSolicitacao,');
+      qry.SQL.Add('  pha.tratativa_acessos              AS tratativaAcessos,');
+      qry.SQL.Add('  pha.du_id                          AS duId,');
+      qry.SQL.Add('  pha.du_name                        AS duName,');
+      qry.SQL.Add('  pha.status_att                     AS statusAtt,');
+      qry.SQL.Add('  pha.meta_plan                      AS metaPlan,');
+      qry.SQL.Add('  pha.atividade_escopo               AS atividadeEscopo,');
+      qry.SQL.Add('  pha.acionamentos_recentes          AS acionamentosRecentes,');
+      qry.SQL.Add('  pha.updated_by                     AS updatedBy,');
+      qry.SQL.Add('  pha.updated_at                     AS updatedAt,');
+      qry.SQL.Add('  eq.acesso_equipe_nomes             AS acessoEquipeNomes,');
+      qry.SQL.Add('  eq.acesso_equipe_count             AS acessoEquipeCount,');
+      qry.SQL.Add('  eq.acesso_equipe_ids_csv           AS acessoEquipeIdsCsv,');
+      qry.SQL.Add('  CONCAT(''['', eq.acesso_equipe_ids_csv, '']'') AS acessoEquipeJson');
+
+      qry.SQL.Add('FROM rollouthuawei r');
+      qry.SQL.Add('LEFT JOIN ProjetoHuawei ph');
+      qry.SQL.Add('  ON (ph.primaryKey = r.id OR ph.primaryKey LIKE CONCAT(r.id, ''|%''))');
+      qry.SQL.Add('LEFT JOIN ProjetoHuaweiAcesso pha');
+      qry.SQL.Add('  ON pha.id_projeto = ph.id');
+      qry.SQL.Add('LEFT JOIN (');
+      qry.SQL.Add('  SELECT');
+      qry.SQL.Add('    pae.id_acesso,');
+      qry.SQL.Add('    GROUP_CONCAT(gp.nome ORDER BY gp.nome SEPARATOR '', '') AS acesso_equipe_nomes,');
+      qry.SQL.Add('    COUNT(*) AS acesso_equipe_count,');
+      qry.SQL.Add('    GROUP_CONCAT(pae.id_pessoa ORDER BY gp.nome) AS acesso_equipe_ids_csv');
+      qry.SQL.Add('  FROM ProjetoHuaweiAcessoEquipe pae');
+      qry.SQL.Add('  LEFT JOIN gespessoa gp ON gp.idpessoa = pae.id_pessoa');
+      qry.SQL.Add('  GROUP BY pae.id_acesso');
+      qry.SQL.Add(') eq ON eq.id_acesso = pha.id');
+
+      qry.SQL.Add('WHERE 1=1');
+      if hasId then
       begin
-        TryISO8601ToDate(value, dt);
-        qry.Params.CreateParam(ftDate, key, ptInput);
-        qry.ParamByName(key).AsDate := dt;
-      end
-      else if isInt then
-        qry.ParamByName(key).AsInteger := StrToIntDef(value, 0)
-      else if isFloat then
-        qry.ParamByName(key).AsFloat := StrToFloatDef(StringReplace(value, ',', '.', [rfReplaceAll]), 0)
-      else if isDate then
-      begin
-        TryISO8601ToDate(value, dt);
-        qry.ParamByName(key).AsDate := dt;
-      end
-      else if isDateTime then
-      begin
-        TryISO8601ToDate(value, dt);
-        qry.ParamByName(key).AsDateTime := dt;
-      end
-      else
-        qry.ParamByName(key).AsString := '%' + value + '%';
+        qry.SQL.Add('  AND r.id = :p_id');
+        qry.ParamByName('p_id').AsString := Trim(vId);
+      end;
+
+      vBusca := '%' + Trim(vBusca) + '%';
+      qry.SQL.Add('  AND (');
+      qry.SQL.Add('       r.name LIKE :busca');
+      qry.SQL.Add('    OR ph.sitename LIKE :busca');
+      qry.SQL.Add('    OR ph.sitecode LIKE :busca');
+      qry.SQL.Add('    OR pha.municipio LIKE :busca');
+      qry.SQL.Add('    OR pha.regiao LIKE :busca');
+      qry.SQL.Add('    OR eq.acesso_equipe_nomes LIKE :busca');
+      qry.SQL.Add('  )');
+      qry.ParamByName('busca').AsString := vBusca;
+
+      qry.SQL.Add('ORDER BY r.idgeral DESC');
+      qry.SQL.Add('LIMIT :p_limit OFFSET :p_offset');
+      qry.ParamByName('p_limit').AsInteger  := limite;
+      qry.ParamByName('p_offset').AsInteger := desloc;
     end;
 
     qry.Open;
-
-    if qry.RecordCount = 0 then
-    begin
-      erro := 'Nenhum registro ativo encontrado';
-      Result := qry;
-      Exit;
-    end;
-
     Result := qry;
 
   except
     on E: Exception do
     begin
-      erro := 'Erro interno ao preparar query: ' + E.Message;
-      if Assigned(qry) then qry.Free;
-      Exit;
+      erro := 'Erro ao listar rollouthuawei: ' + E.Message;
+      qry.Free;
+      Result := nil;
     end;
   end;
 end;
 
-procedure ExportQueryToExcel(Qry: TFDQuery; const FileName: string);
-const
-  BLOCK_SIZE = 5000; // grava em blocos de 5 mil linhas (evita travamento COM)
-var
-  ExcelApp, Workbook, Worksheet, HeaderRange: OleVariant;
-  i, j, RowCount, ColCount, StartRow, EndRow, BlockSize: Integer;
-  DataArr: Variant;
-  StartTick, EndTick: Cardinal;
-begin
-  if not Assigned(Qry) then
-    raise Exception.Create('Query não informada.');
-
-  if Qry.IsEmpty then
-    raise Exception.Create('Nenhum dado encontrado para exportar.');
-
-  StartTick := GetTickCount; // medir tempo
-
-  CoInitialize(nil);
-  try
-    // === Inicializa Excel de forma leve ===
-    ExcelApp := CreateOleObject('Excel.Application');
-    ExcelApp.Visible := False;
-    ExcelApp.ScreenUpdating := False;
-    ExcelApp.DisplayAlerts := False;
-    ExcelApp.EnableEvents := False;
-    ExcelApp.AskToUpdateLinks := False;
-    ExcelApp.ErrorCheckingOptions.BackgroundChecking := False;
-    ExcelApp.AutoRecover.Enabled := False;
-
-    try
-      ExcelApp.Calculation := -4135; // xlCalculationManual
-    except
-      // alguns ambientes não permitem alterar via COM
-    end;
-
-    Workbook := ExcelApp.Workbooks.Add;
-    Worksheet := Workbook.WorkSheets[1];
-    Worksheet.Name := 'Rollout Huawei';
-
-    ColCount := Qry.FieldCount;
-
-    // === Cabeçalhos ===
-    for i := 0 to ColCount - 1 do
-      Worksheet.Cells[1, i + 1].Value := Qry.Fields[i].FieldName;
-
-    HeaderRange := Worksheet.Range[Worksheet.Cells[1, 1], Worksheet.Cells[1, ColCount]];
-    HeaderRange.Font.Bold := True;
-    HeaderRange.Interior.Color := $00CCCCCC; // cinza claro
-
-    // === Dados em blocos ===
-    Qry.FetchAll;
-    RowCount := Qry.RecordCount;
-
-    if RowCount > 0 then
-    begin
-      BlockSize := BLOCK_SIZE;
-      Qry.First;
-      StartRow := 1;
-
-      while not Qry.Eof do
-      begin
-        // calcula o bloco atual
-        EndRow := StartRow + BlockSize - 1;
-        if EndRow > RowCount then
-          EndRow := RowCount;
-
-        // cria o array para o bloco
-        DataArr := VarArrayCreate([1, EndRow - StartRow + 1, 1, ColCount], varVariant);
-
-        for i := 1 to (EndRow - StartRow + 1) do
-        begin
-          for j := 1 to ColCount do
-            DataArr[i, j] := VarToStrDef(Qry.Fields[j - 1].AsVariant, '');
-          Qry.Next;
-          if Qry.Eof then Break;
-        end;
-
-        // grava o bloco inteiro no Excel de uma vez
-        Worksheet.Range[
-          Worksheet.Cells[StartRow + 1, 1],
-          Worksheet.Cells[EndRow + 1, ColCount]
-        ].Value := DataArr;
-
-        StartRow := EndRow + 1;
-      end;
-    end;
-
-    // === Ajuste apenas do cabeçalho (muito mais rápido que AutoFit global) ===
-    HeaderRange.EntireColumn.AutoFit;
-
-    try
-      ExcelApp.Calculation := -4105; // xlCalculationAutomatic
-    except
-    end;
-
-    ExcelApp.ScreenUpdating := True;
-
-    Workbook.SaveAs(FileName, 51); // 51 = formato XLSX
-    Workbook.Close(False);
-    ExcelApp.Quit;
-
-    EndTick := GetTickCount;
-    Writeln(Format('✅ Excel gerado em %.2f segundos.', [(EndTick - StartTick) / 1000]));
-
-  finally
-    ExcelApp := Unassigned;
-    Workbook := Unassigned;
-    Worksheet := Unassigned;
-    HeaderRange := Unassigned;
-    CoUninitialize;
-  end;
-end;
-
-
-function THuawei.ExportRolloutHuawei(const AQuery: TDictionary<string, string>; out erro: string): string;
-var
-  qry: TFDQuery;
-  FileName: string;
-begin
-  Result := '';
-  qry := RolloutHuawei(AQuery, erro);
-  try
-    if not Assigned(qry) or qry.IsEmpty then
-    begin
-      erro := 'Nenhum registro encontrado';
-      Exit('');
-    end;
-
-    FileName := TPath.Combine(TPath.GetTempPath,
-      'RolloutHuawei_' + FormatDateTime('yyyymmdd_hhnnss', Now) + '.xlsx');
-
-    ExportQueryToExcel(qry, FileName);
-    Result := FileName;
-  finally
-    qry.Free;
-  end;
-end;
-
-
-
-function THuawei.GetJSONValueAsVariant(AJsonValue: TJSONValue; AFieldType: TFieldType): Variant;
-var
-  dt: TDateTime;
-  strValue: string;
-begin
-  case AFieldType of
-    ftInteger, ftSmallint, ftWord:
-      begin
-        if AJsonValue is TJSONNumber then
-          Result := Trunc(TJSONNumber(AJsonValue).AsDouble)
-        else
-        begin
-          strValue := StringReplace(AJsonValue.ToString, '"', '', [rfReplaceAll]);
-          Result := StrToIntDef(strValue, 0);
-        end;
-      end;
-    ftLargeint:
-      begin
-        if AJsonValue is TJSONNumber then
-          Result := Round(TJSONNumber(AJsonValue).AsDouble)
-        else
-        begin
-          strValue := StringReplace(AJsonValue.ToString, '"', '', [rfReplaceAll]);
-          Result := StrToInt64Def(strValue, 0);
-        end;
-      end;
-    ftFloat, ftCurrency, ftBCD, ftFMTBcd:
-      begin
-        if AJsonValue is TJSONNumber then
-          Result := TJSONNumber(AJsonValue).AsDouble
-        else
-        begin
-          strValue := StringReplace(AJsonValue.ToString, '"', '', [rfReplaceAll]);
-          strValue := StringReplace(strValue, ',', '.', [rfReplaceAll]);
-          Result := StrToFloatDef(strValue, 0);
-        end;
-      end;
-    ftDate, ftDateTime, ftTimeStamp:
-      begin
-        if AJsonValue is TJSONString then
-        begin
-          strValue := TJSONString(AJsonValue).Value;
-          if TryISO8601ToDate(strValue, dt) then
-            Result := dt
-          else
-            Result := strValue;
-        end
-        else
-        begin
-          strValue := StringReplace(AJsonValue.ToString, '"', '', [rfReplaceAll]);
-          Result := strValue;
-        end;
-      end;
-  else
-    begin
-      if AJsonValue is TJSONString then
-        Result := TJSONString(AJsonValue).Value
-      else
-      begin
-        strValue := StringReplace(AJsonValue.ToString, '"', '', [rfReplaceAll]);
-        Result := strValue;
-      end;
-    end;
-  end;
-end;
 
 function THuawei.EditarEmMassa(const AJsonBody: string; out erro: string): Boolean;
+type
+  TStrStr = TDictionary<string, string>;
 var
-  metaQry, Qry: TFDQuery;
-  validCols: TDictionary<string, Boolean>;
-  colMap: TDictionary<string, string>;
-  colTypes: TDictionary<string, TFieldType>;
-  fieldMap: TDictionary<string, string>;
-  colUpper, actualName: string;
-  j, i: Integer;
-  jsonObj: TJSONObject;
-  pair: TJSONPair;
-  setList: TStringList;
-  setSQL, idsValue, keyName, keyUpper, fieldActual, fieldUpper: string;
-  ft: TFieldType;
-  updatedAny, transStarted: Boolean;
+  Root: TJSONValue;
+  Obj, Item: TJSONObject;
+  Arr: TJSONArray;
+  QBuscaProjeto, QCheckAcesso, QUpd, QIns, QDelEq, QInsEq, QAcessoId: TFDQuery;
+  MapCols: TStrStr;
+
+  function GetStr(JO: TJSONObject; const K: string): string;
+  var V: TJSONValue;
+  begin
+    V := JO.GetValue(K);
+    if Assigned(V) then Result := Trim(V.Value) else Result := '';
+  end;
+
+  function JKeys(JO: TJSONObject): TArray<string>;
+  var P: TJSONPair; L: TList<string>;
+  begin
+    L := TList<string>.Create;
+    try
+      for P in JO do L.Add(P.JsonString.Value);
+      Result := L.ToArray;
+    finally
+      L.Free;
+    end;
+  end;
+
+  function EnsureParam(Q: TFDQuery; const AName: string): TFDParam;
+  begin
+    Result := Q.Params.FindParam(AName);
+    if Result = nil then
+    begin
+      Result := Q.Params.Add as TFDParam;
+      Result.Name := AName;
+      Result.DataType := ftString;
+      Result.ParamType := ptInput;
+    end;
+    Result.Clear;
+  end;
+
+  procedure BuildMap;
+  begin
+    MapCols := TStrStr.Create;
+    MapCols.Add('tipo_infra','tipo_infra');      MapCols.Add('tipodeinfra','tipo_infra');
+    MapCols.Add('quadrante','quadrante');
+    MapCols.Add('ddd','ddd');
+    MapCols.Add('municipio','municipio');
+    MapCols.Add('regiao','regiao');
+    MapCols.Add('endereco','endereco');
+    MapCols.Add('latitude','latitude');
+    MapCols.Add('longitude','longitude');
+    MapCols.Add('detentor_area','detentor_area'); MapCols.Add('detentordaarea','detentor_area');
+    MapCols.Add('id_detentora','id_detentora');   MapCols.Add('iddetentora','id_detentora');
+    MapCols.Add('id_outros','id_outros');         MapCols.Add('idoutros','id_outros');
+    MapCols.Add('forma_acesso','forma_acesso');   MapCols.Add('formaacesso','forma_acesso');
+    MapCols.Add('observacao_acesso','observacao_acesso'); MapCols.Add('observacaoacesso','observacao_acesso');
+    MapCols.Add('data_solicitado','data_solicitado');     MapCols.Add('datasolicitado','data_solicitado');
+    MapCols.Add('data_inicio','data_inicio');             MapCols.Add('datainicio','data_inicio');
+    MapCols.Add('data_fim','data_fim');                   MapCols.Add('datafim','data_fim');
+    MapCols.Add('status_acesso','status_acesso');         MapCols.Add('statusacesso','status_acesso');
+    MapCols.Add('numero_solicitacao','numero_solicitacao'); MapCols.Add('numerosolicitacao','numero_solicitacao');
+    MapCols.Add('tratativa_acessos','tratativa_acessos');   MapCols.Add('tratativaacessos','tratativa_acessos');
+    MapCols.Add('du_id','du_id');                         MapCols.Add('duid','du_id');
+    MapCols.Add('du_name','du_name');                     MapCols.Add('duname','du_name');
+    MapCols.Add('status_att','status_att');               MapCols.Add('statusatt','status_att');
+    MapCols.Add('meta_plan','meta_plan');                 MapCols.Add('metaplan','meta_plan');
+    MapCols.Add('atividade_escopo','atividade_escopo');   MapCols.Add('atividadeescopo','atividade_escopo');
+    MapCols.Add('acionamentos_recentes','acionamentos_recentes'); MapCols.Add('acionamentosrecentes','acionamentos_recentes');
+    MapCols.Add('updated_by','updated_by');               MapCols.Add('updatedby','updated_by');
+  end;
+
+  procedure UpsertAcesso(const IdProjeto: string; Row: TJSONObject);
+  var
+    Keys: TArray<string>;
+    K, Col, ParamName, Sets, Cols, Pms, V: string;
+    HasAcesso: Boolean;
+  begin
+    QCheckAcesso.Close;
+    QCheckAcesso.ParamByName('id_projeto').AsString := IdProjeto;
+    QCheckAcesso.Open;
+    HasAcesso := not QCheckAcesso.IsEmpty;
+
+    if HasAcesso then
+    begin
+      Sets := '';
+      Keys := JKeys(Row);
+      for K in Keys do
+      begin
+        if SameText(K, 'id') or SameText(K, 'equipe') then Continue;
+        if MapCols.TryGetValue(LowerCase(K), Col) then
+        begin
+          V := GetStr(Row, K);
+          if V = '' then Continue;
+          if Sets <> '' then Sets := Sets + ', ';
+          ParamName := 'p_' + Col;
+          Sets := Sets + Col + ' = :' + ParamName;
+        end;
+      end;
+      if Sets <> '' then
+      begin
+        Sets := Sets + ', updated_at = NOW()';
+        QUpd.SQL.Text := 'UPDATE ProjetoHuaweiAcesso SET ' + Sets + ' WHERE id_projeto = :id_projeto';
+        QUpd.Params.Clear;
+        for K in Keys do
+        begin
+          if SameText(K, 'id') or SameText(K, 'equipe') then Continue;
+          if MapCols.TryGetValue(LowerCase(K), Col) then
+          begin
+            V := GetStr(Row, K);
+            if V = '' then Continue;
+            ParamName := 'p_' + Col;
+            EnsureParam(QUpd, ParamName).AsString := V;
+          end;
+        end;
+        EnsureParam(QUpd, 'id_projeto').AsString := IdProjeto;
+        QUpd.ExecSQL;
+      end;
+    end
+    else
+    begin
+      Cols := 'id_projeto';
+      Pms  := ':id_projeto';
+      Keys := JKeys(Row);
+      for K in Keys do
+      begin
+        if SameText(K, 'id') or SameText(K, 'equipe') then Continue;
+        if MapCols.TryGetValue(LowerCase(K), Col) then
+        begin
+          V := GetStr(Row, K);
+          if V = '' then Continue;
+          Cols := Cols + ', ' + Col;
+          Pms  := Pms  + ', :p_' + Col;
+        end;
+      end;
+      QIns.SQL.Text := 'INSERT INTO ProjetoHuaweiAcesso (' + Cols + ') VALUES (' + Pms + ')';
+      QIns.Params.Clear;
+      EnsureParam(QIns, 'id_projeto').AsString := IdProjeto;
+      for K in Keys do
+      begin
+        if SameText(K, 'id') or SameText(K, 'equipe') then Continue;
+        if MapCols.TryGetValue(LowerCase(K), Col) then
+        begin
+          V := GetStr(Row, K);
+          if V = '' then Continue;
+          EnsureParam(QIns, 'p_' + Col).AsString := V;
+        end;
+      end;
+      QIns.ExecSQL;
+    end;
+  end;
+
+  procedure UpsertEquipe(const IdProjeto: string; Row: TJSONObject);
+  var
+    EquipeStr: string;
+    Pessoas: TArray<string>;
+    Pessoa: string;
+    AcessoId: Int64;
+  begin
+    EquipeStr := GetStr(Row, 'equipe');
+    if EquipeStr = '' then Exit;
+
+    QAcessoId.Close;
+    QAcessoId.ParamByName('p').AsString := IdProjeto;
+    QAcessoId.Open;
+    while not QAcessoId.Eof do
+    begin
+      AcessoId := QAcessoId.FieldByName('id').AsLargeInt;
+      QDelEq.Params.Clear;
+      EnsureParam(QDelEq, 'id_acesso').AsLargeInt := AcessoId;
+      QDelEq.ExecSQL;
+
+      Pessoas := EquipeStr.Split([',']);
+      for Pessoa in Pessoas do
+      begin
+        if Trim(Pessoa) = '' then Continue;
+        QInsEq.Params.Clear;
+        EnsureParam(QInsEq, 'id_acesso').AsLargeInt := AcessoId;
+        EnsureParam(QInsEq, 'id_pessoa').AsString := Trim(Pessoa);
+        QInsEq.ExecSQL;
+      end;
+
+      QAcessoId.Next;
+    end;
+  end;
+
+  procedure ProcessOneId(const IdLike: string; Row: TJSONObject);
+  var
+    IdProjeto: string;
+  begin
+    QBuscaProjeto.Close;
+    QBuscaProjeto.ParamByName('pk').AsString := '%' + Trim(IdLike) + '%';
+    QBuscaProjeto.Open;
+    if QBuscaProjeto.IsEmpty then Exit;
+    IdProjeto := QBuscaProjeto.FieldByName('id').AsString;
+    UpsertAcesso(IdProjeto, Row);
+    UpsertEquipe(IdProjeto, Row);
+  end;
+
+  procedure ProcessIds(const IdsStr: string; Row: TJSONObject);
+  var
+    Ids: TArray<string>;
+    S: string;
+  begin
+    if Trim(IdsStr) = '' then Exit;
+    Ids := IdsStr.Split([',']);
+    for S in Ids do
+      ProcessOneId(S, Row);
+  end;
+
+  procedure ProcessRow(Row: TJSONObject);
+  begin
+    ProcessIds(GetStr(Row, 'id'), Row);
+  end;
+
+  procedure ProcessRoot;
+  var I: Integer;
+  begin
+    if Root is TJSONObject then
+    begin
+      Obj := TJSONObject(Root);
+      if Obj.TryGetValue<TJSONArray>('data', Arr) then
+      begin
+        for I := 0 to Arr.Count - 1 do
+          if Arr.Items[I] is TJSONObject then
+            ProcessRow(TJSONObject(Arr.Items[I]));
+      end
+      else
+        ProcessRow(Obj);
+    end
+    else if Root is TJSONArray then
+    begin
+      Arr := TJSONArray(Root);
+      for I := 0 to Arr.Count - 1 do
+        if Arr.Items[I] is TJSONObject then
+          ProcessRow(TJSONObject(Arr.Items[I]));
+    end;
+  end;
+
 begin
   Result := False;
   erro := '';
-  updatedAny := False;
-  transStarted := False;
+  if not Assigned(FConn) then
+  begin
+    erro := 'Conexão não inicializada';
+    Exit;
+  end;
 
-  validCols := TDictionary<string, Boolean>.Create;
-  colMap := TDictionary<string, string>.Create;
-  colTypes := TDictionary<string, TFieldType>.Create;
-  fieldMap := TDictionary<string, string>.Create;
-  metaQry := TFDQuery.Create(nil);
-  Qry := TFDQuery.Create(nil);
-  setList := TStringList.Create;
+  Root := TJSONObject.ParseJSONValue(AJsonBody);
+  if not Assigned(Root) then
+  begin
+    erro := 'JSON inválido';
+    Exit;
+  end;
 
+  QBuscaProjeto := TFDQuery.Create(nil);
+  QCheckAcesso  := TFDQuery.Create(nil);
+  QUpd          := TFDQuery.Create(nil);
+  QIns          := TFDQuery.Create(nil);
+  QDelEq        := TFDQuery.Create(nil);
+  QInsEq        := TFDQuery.Create(nil);
+  QAcessoId     := TFDQuery.Create(nil);
+  BuildMap;
   try
-    // mapeamento frontend -> coluna real
-     fieldMap.Add(UpperCase('endSite'), 'End_Site');
-    fieldMap.Add(UpperCase('du'), 'DU');
-    fieldMap.Add(UpperCase('statusGeral'), 'Status_geral');
-    fieldMap.Add(UpperCase('liderResponsavel'), 'Lider_responsavel');
-    fieldMap.Add(UpperCase('empresa'), 'Empresa');
-    fieldMap.Add(UpperCase('ativoNoPeriodo'), 'Ativo_no_periodo');
-    fieldMap.Add(UpperCase('fechamento'), 'Fechamento');
-    fieldMap.Add(UpperCase('anoSemanaFechamento'), 'Ano_Semana_Fechamento');
-    fieldMap.Add(UpperCase('confirmacaoPagamento'), 'Confirmacao_Pagamento'); // 🔹 ADICIONADO
-    fieldMap.Add(UpperCase('descricaoAdd'), 'Descricao_add');
-    fieldMap.Add(UpperCase('numeroVo'), 'Numero_VO');
-    fieldMap.Add(UpperCase('infra'), 'Infra');
-    fieldMap.Add(UpperCase('town'), 'Town');
-    fieldMap.Add(UpperCase('latitude'), 'Latitude'); // 🔹 ADICIONADO
-    fieldMap.Add(UpperCase('longitude'), 'Longitude'); // 🔹 ADICIONADO
-    fieldMap.Add(UpperCase('reg'), 'Reg');
-    fieldMap.Add(UpperCase('ddd'), 'DDD');
-    fieldMap.Add(UpperCase('envioDaDemanda'), 'Envio_da_demanda');
-    fieldMap.Add(UpperCase('semanaMos'), 'Semana_MOS');
-    fieldMap.Add(UpperCase('mosPlanned'), 'MOS_Planned');
-    fieldMap.Add(UpperCase('mosReal'), 'MOS_Real');
-    fieldMap.Add(UpperCase('mosStatus'), 'MOS_Status');
-    fieldMap.Add(UpperCase('integrationPlanned'), 'Integration_Planned');
-    fieldMap.Add(UpperCase('integrationReal'), 'Integration_Real');
-    fieldMap.Add(UpperCase('semanaIntegration'), 'Semana_Integration'); // 🔹 ADICIONADO
-    fieldMap.Add(UpperCase('statusIntegracao'), 'Status_integracao');
-    fieldMap.Add(UpperCase('testeTx'), 'Teste_TX');
-    fieldMap.Add(UpperCase('iti'), 'ITI');
-    fieldMap.Add(UpperCase('qcPlanned'), 'QC_Planned');
-    fieldMap.Add(UpperCase('qcReal'), 'QC_Real');
-    fieldMap.Add(UpperCase('semanaQc'), 'Semana_QC');
-    fieldMap.Add(UpperCase('qcStatus'), 'QC_Status');
-    fieldMap.Add(UpperCase('observacao'), 'Observacao');
-    fieldMap.Add(UpperCase('logisticaReversaStatus'), 'Logistica_reversa_Status');
-    fieldMap.Add(UpperCase('detentora'), 'Detentora');
-    fieldMap.Add(UpperCase('idDetentora'), 'ID_Detentora');
-    fieldMap.Add(UpperCase('formaDeAcesso'), 'Forma_de_acesso');
-    fieldMap.Add(UpperCase('faturamento'), 'Faturamento');
-    fieldMap.Add(UpperCase('faturamentoStatus'), 'Faturamento_Status');
-    fieldMap.Add(UpperCase('changeHistory'), 'Change_History');
-    fieldMap.Add(UpperCase('repOffice'), 'Rep_Office');
-    fieldMap.Add(UpperCase('projectCode'), 'Project_Code');
-    fieldMap.Add(UpperCase('siteCode'), 'Site_Code');
-    fieldMap.Add(UpperCase('siteName'), 'Site_Name');
-    fieldMap.Add(UpperCase('siteId'), 'Site_ID');
-    fieldMap.Add(UpperCase('subContractNo'), 'Sub_Contract_NO');
-    fieldMap.Add(UpperCase('prNo'), 'PR_NO');
-    fieldMap.Add(UpperCase('poNo'), 'PO_NO');
-    fieldMap.Add(UpperCase('poLineNo'), 'PO_Line_NO');
-    fieldMap.Add(UpperCase('shipmentNo'), 'Shipment_NO');
-    fieldMap.Add(UpperCase('itemCode'), 'Item_Code');
-    fieldMap.Add(UpperCase('itemDescription'), 'Item_Description');
-    fieldMap.Add(UpperCase('itemDescriptionLocal'), 'Item_Description_Local');
-    fieldMap.Add(UpperCase('unitPrice'), 'Unit_Price');
-    fieldMap.Add(UpperCase('requestedQty'), 'Requested_Qty');
-    fieldMap.Add(UpperCase('valorTelequipe'), 'Valor_Telequipe');
-    fieldMap.Add(UpperCase('valorEquipe'), 'Valor_Equipe');
-    fieldMap.Add(UpperCase('billedQuantity'), 'Billed_Quantity');
-    fieldMap.Add(UpperCase('quantityCancel'), 'Quantity_Cancel');
-    fieldMap.Add(UpperCase('dueQty'), 'Due_Qty');
-    fieldMap.Add(UpperCase('noteToReceiver'), 'Note_to_Receiver');
-    fieldMap.Add(UpperCase('fobLookupCode'), 'Fob_Lookup_Code');
-    fieldMap.Add(UpperCase('acceptanceDate'), 'Acceptance_Date');
-    fieldMap.Add(UpperCase('prPoAutomationSolutionOnlyChina'), 'PR_PO_Automation_Solution_Only_China');
-    fieldMap.Add(UpperCase('pessoa'), 'Pessoa');
-    fieldMap.Add(UpperCase('ultimaPessoaAtualizacao'), 'Ultima_Pessoa_Atualizacao'); // 🔹 ADICIONADO
-    fieldMap.Add(UpperCase('ultimaAtualizacao'), 'Ultima_Atualizacao'); // 🔹 ADICIONADO
-    fieldMap.Add(UpperCase('projeto'), 'Projeto'); // 🔹 ADICIONADO
-    fieldMap.Add(UpperCase('name'), 'Name'); // 🔹 ADICIONADO
-    fieldMap.Add(UpperCase('idOriginal'), 'ID_Original'); // já existia no original, reincluído
+    QBuscaProjeto.Connection := FConn;
+    QCheckAcesso.Connection  := FConn;
+    QUpd.Connection          := FConn;
+    QIns.Connection          := FConn;
+    QDelEq.Connection        := FConn;
+    QInsEq.Connection        := FConn;
+    QAcessoId.Connection     := FConn;
 
+    QBuscaProjeto.SQL.Text := 'SELECT id FROM ProjetoHuawei WHERE primaryKey LIKE :pk LIMIT 1';
+    QCheckAcesso.SQL.Text  := 'SELECT id FROM ProjetoHuaweiAcesso WHERE id_projeto = :id_projeto LIMIT 1';
+    QAcessoId.SQL.Text     := 'SELECT id FROM ProjetoHuaweiAcesso WHERE id_projeto = :p';
+    QDelEq.SQL.Text        := 'DELETE FROM ProjetoHuaweiAcessoEquipe WHERE id_acesso = :id_acesso';
+    QInsEq.SQL.Text        := 'INSERT INTO ProjetoHuaweiAcessoEquipe (id_acesso, id_pessoa) VALUES (:id_acesso, :id_pessoa)';
 
-    metaQry.Connection := FConn;
-    metaQry.SQL.Text := 'SELECT * FROM rollouthuawei LIMIT 1';
-    metaQry.Open;
-    for j := 0 to metaQry.FieldCount - 1 do
-    begin
-      actualName := metaQry.Fields[j].FieldName;
-      colUpper := UpperCase(actualName);
-      if not validCols.ContainsKey(colUpper) then
-      begin
-        validCols.Add(colUpper, True);
-        colMap.Add(colUpper, actualName);
-        colTypes.Add(colUpper, metaQry.Fields[j].DataType);
-      end;
-    end;
-    metaQry.Close;
-
-    // parse do JSON
-    jsonObj := TJSONObject.ParseJSONValue(AJsonBody) as TJSONObject;
-    if jsonObj = nil then
-    begin
-      erro := 'JSON inválido';
-      Exit;
-    end;
-    Qry.Connection := FConn;
-
+    FConn.StartTransaction;
     try
-      if not FConn.InTransaction then
-      begin
-        FConn.StartTransaction;
-        transStarted := True;
-      end;
-
-      setList.Clear;
-      idsValue := '';
-
-      // Processa cada campo do JSON
-      for i := 0 to jsonObj.Count - 1 do
-      begin
-        pair := jsonObj.Pairs[i];
-        keyName := pair.JsonString.Value;
-        keyUpper := UpperCase(keyName);
-
-        if SameText(keyUpper, 'id') or SameText(keyUpper, 'Id') then
-        begin
-          if pair.JsonValue is TJSONString then
-            idsValue := TJSONString(pair.JsonValue).Value
-          else if pair.JsonValue is TJSONArray then
-          begin
-            // Se for array, converte para string separada por vírgulas
-            idsValue := '';
-            for j := 0 to TJSONArray(pair.JsonValue).Count - 1 do
-            begin
-              if idsValue <> '' then
-                idsValue := idsValue + ',';
-              idsValue := idsValue + TJSONArray(pair.JsonValue).Items[j].Value;
-            end;
-          end
-          else
-            idsValue := StringReplace(pair.JsonValue.ToString, '"', '', [rfReplaceAll]);
-
-          WriteLn('IDs encontrados: ' + idsValue);
-          Continue;
-        end;
-
-        // Encontra o nome real do campo
-        if fieldMap.ContainsKey(keyUpper) then
-          fieldActual := fieldMap[keyUpper]
-        else if validCols.ContainsKey(keyUpper) then
-          fieldActual := colMap[keyUpper]
-        else
-          fieldActual := keyName;
-
-        if not validCols.ContainsKey(UpperCase(fieldActual)) then
-        begin
-          LogError('Campo não válido: ' + fieldActual);
-          Continue;
-        end;
-        // Adiciona ao SET
-        setList.Add('`' + fieldActual + '` = :' + fieldActual);
-      end;
-
-      // Verifica se temos campos para atualizar e IDs
-      if (idsValue = '') then
-      begin
-        erro := 'IDs não especificados';
-        WriteLn('ERRO: IDs não especificados');
-        Exit;
-      end;
-
-      if (setList.Count = 0) then
-      begin
-        erro := 'Nenhum campo válido para atualizar';
-        WriteLn('ERRO: Nenhum campo válido para atualizar');
-        Exit;
-      end;
-      // Constrói o SQL
-      setSQL := '';
-      for i := 0 to setList.Count - 1 do
-      begin
-        if setSQL = '' then
-          setSQL := setList[i]
-        else
-          setSQL := setSQL + ', ' + setList[i];
-      end;
-
-      // Prepara o UPDATE com WHERE IN usando idgeral
-      Qry.SQL.Text := 'UPDATE rollouthuawei SET ' + setSQL + ' WHERE idgeral IN (' + idsValue + ')';
-      WriteLn('SQL: ' + Qry.SQL.Text);
-
-      Qry.Params.Clear;
-
-      // Atribui parâmetros (excluindo o campo IDs)
-      for i := 0 to jsonObj.Count - 1 do
-      begin
-        pair := jsonObj.Pairs[i];
-        keyName := pair.JsonString.Value;
-        keyUpper := UpperCase(keyName);
-
-        if SameText(keyUpper, 'IDGERAL') or SameText(keyUpper, 'IDS') then
-          Continue;
-
-        // Encontra o nome real do campo
-        if fieldMap.ContainsKey(keyUpper) then
-          fieldActual := fieldMap[keyUpper]
-        else if validCols.ContainsKey(keyUpper) then
-          fieldActual := colMap[keyUpper]
-        else
-          fieldActual := keyName;
-
-        if not validCols.ContainsKey(UpperCase(fieldActual)) then
-          Continue;
-
-        fieldUpper := UpperCase(fieldActual);
-        if colTypes.ContainsKey(fieldUpper) then
-          ft := colTypes[fieldUpper]
-        else
-          ft := ftString;
-
-        // Adiciona parâmetro
-        with Qry.Params.Add do
-        begin
-          Name := fieldActual;
-          DataType := ft;
-          Value := GetJSONValueAsVariant(pair.JsonValue, ft);
-        end;
-      end;
-      try
-        Qry.ExecSQL;
-        updatedAny := Qry.RowsAffected > 0;
-      except
-        on E: Exception do
-        begin
-          erro := 'Erro ao atualizar IDs ' + idsValue + ': ' + E.Message;
-          LogError('ERRO no UPDATE: ' + E.Message);
-        end;
-      end;
-
-      if transStarted then
-      begin
-        FConn.Commit;
-      end;
-
-      Result := updatedAny;
-
-      if not Result and (erro = '') then
-        erro := 'Nenhum registro foi atualizado';
-
+      ProcessRoot;
+      FConn.Commit;
+      Result := True;
     except
       on E: Exception do
       begin
-        if transStarted then
-        begin
-          FConn.Rollback;
-          WriteLn('Transação revertida');
-        end;
-        erro := 'Erro ao atualizar em massa: ' + E.Message;
-        LogError('ERRO GERAL: ' + E.Message);
-        Result := False;
+        FConn.Rollback;
+        erro := 'Erro ao editar em massa: ' + E.Message;
       end;
     end;
   finally
-    validCols.Free;
-    colMap.Free;
-    colTypes.Free;
-    fieldMap.Free;
-    metaQry.Free;
-    Qry.Free;
-    setList.Free;
-    if Assigned(jsonObj) then
-      jsonObj.Free;
+    MapCols.Free;
+    QAcessoId.Free;
+    QInsEq.Free;
+    QDelEq.Free;
+    QIns.Free;
+    QUpd.Free;
+    QCheckAcesso.Free;
+    QBuscaProjeto.Free;
+    Root.Free;
   end;
 end;
+
+
+function THuawei.ListaEquipeAcesso(const idAcesso: Integer; out erro: string): TFDQuery;
+var
+  Q: TFDQuery;
+begin
+  erro := '';
+  Result := nil;
+
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FConn;
+    Q.SQL.Text :=
+      'SELECT pae.id_acesso, pae.id_pessoa ' +
+      'FROM ProjetoHuaweiAcessoEquipe pae ' +
+      'WHERE pae.id_acesso = :p_id';
+    Q.ParamByName('p_id').AsInteger := idAcesso;
+    Q.Open;
+
+    Result := Q; // retorna aberto (id_acesso, id_pessoa)
+  except
+    on E: Exception do
+    begin
+      erro := 'Erro ao listar equipe do acesso: ' + E.Message;
+      Q.Free;
+    end;
+  end;
+end;
+
+function THuawei.SalvarAcesso(const Body: TJSONObject; out erro: string; out R: THuaweiAcessoSaveResult): Boolean;
+var
+  q: TFDQuery;
+  projLookup: TFDQuery;
+  projId, acessoId: Integer;
+  pk: string;
+
+  function JStr(const Key: string): string;
+  var V: TJSONValue;
+  begin
+    V := Body.GetValue(Key);
+    Result := IfThen(Assigned(V), Trim(V.Value), '');
+  end;
+
+  procedure SetDateParam(AParam: TFDParam; const ISO: string);
+  var
+    DT: TDateTime;
+  begin
+    AParam.DataType := ftDate;
+    if ISO.Trim = '' then
+      AParam.Clear
+    else
+    begin
+      try
+        DT := ISO8601ToDate(ISO);
+      except
+        DT := EncodeDate(StrToInt(Copy(ISO, 1, 4)), StrToInt(Copy(ISO, 6, 2)), StrToInt(Copy(ISO, 9, 2)));
+      end;
+      AParam.AsDate := DT;
+    end;
+  end;
+
+  procedure UpsertEquipe(AcessoID: Integer);
+  var
+    arr: TJSONArray;
+    i, idpessoa: Integer;
+    qi: TFDQuery;
+    V: TJSONValue;
+  begin
+    V := Body.GetValue('equipeAtt');
+    if not Assigned(V) then Exit;
+    if not (V is TJSONArray) then Exit;
+
+    arr := TJSONArray(V);
+
+    qi := TFDQuery.Create(nil);
+    try
+      qi.Connection := FConn;
+      qi.SQL.Text := 'DELETE FROM ProjetoHuaweiAcessoEquipe WHERE id_acesso = :a';
+      qi.ParamByName('a').AsInteger := AcessoID;
+      qi.ExecSQL;
+
+      if arr.Count > 0 then
+      begin
+        qi.SQL.Text := 'INSERT INTO ProjetoHuaweiAcessoEquipe (id_acesso, id_pessoa) VALUES (:a, :p)';
+        for i := 0 to arr.Count - 1 do
+        begin
+          idpessoa := StrToIntDef(arr.Items[i].Value, 0);
+          if idpessoa > 0 then
+          begin
+            qi.ParamByName('a').AsInteger := AcessoID;
+            qi.ParamByName('p').AsInteger := idpessoa;
+            qi.ExecSQL;
+          end;
+        end;
+      end;
+    finally
+      qi.Free;
+    end;
+  end;
+
+begin
+  Result := False;
+  erro := '';
+  R.AcessoID := 0;
+
+  if not Assigned(FConn) then
+  begin
+    erro := 'Conexão não inicializada';
+    Exit;
+  end;
+
+  pk := JStr('idrollout');
+  if pk = '' then
+  begin
+    erro := 'idrollout (primaryKey) não informado.';
+    Exit;
+  end;
+
+  projLookup := TFDQuery.Create(nil);
+  try
+    projLookup.Connection := FConn;
+    projLookup.SQL.Text :=
+      'SELECT id FROM ProjetoHuawei '+
+      'WHERE (primaryKey = :pk OR primaryKey LIKE CONCAT(:pk, ''|%'')) '+
+      'LIMIT 1';
+    projLookup.ParamByName('pk').AsString := pk;
+    projLookup.Open;
+
+    if projLookup.IsEmpty then
+    begin
+      projLookup.Close;
+      projLookup.SQL.Text :=
+        'SELECT ph.id '+
+        'FROM rollouthuawei r '+
+        'JOIN ProjetoHuawei ph '+
+        '  ON (ph.primaryKey = r.id OR ph.primaryKey LIKE CONCAT(r.id, ''|%'')) '+
+        'WHERE (r.id = :pk OR r.idgeral = :pk) '+
+        'LIMIT 1';
+      projLookup.ParamByName('pk').AsString := pk;
+      projLookup.Open;
+    end;
+
+    if projLookup.IsEmpty then
+    begin
+      erro := 'ProjetoHuawei não encontrado para a primaryKey informada.';
+      Exit;
+    end;
+
+    projId := projLookup.FieldByName('id').AsInteger;
+  finally
+    projLookup.Free;
+  end;
+
+  q := TFDQuery.Create(nil);
+  try
+    q.Connection := FConn;
+    q.SQL.Text :=
+      'INSERT INTO ProjetoHuaweiAcesso (' +
+      '  id_projeto, tipo_infra, quadrante, ddd, municipio, endereco, latitude, longitude,' +
+      '  detentor_area, id_detentora, id_outros, forma_acesso, observacao_acesso,' +
+      '  data_solicitado, data_inicio, data_fim, status_acesso, numero_solicitacao,' +
+      '  tratativa_acessos, du_id, du_name, status_att, meta_plan, atividade_escopo,' +
+      '  acionamentos_recentes, regiao, updated_by, updated_at' +
+      ') VALUES (' +
+      '  :id_projeto, :tipo_infra, :quadrante, :ddd, :municipio, :endereco, :latitude, :longitude,' +
+      '  :detentor_area, :id_detentora, :id_outros, :forma_acesso, :observacao_acesso,' +
+      '  :data_solicitado, :data_inicio, :data_fim, :status_acesso, :numero_solicitacao,' +
+      '  :tratativa_acessos, :du_id, :du_name, :status_att, :meta_plan, :atividade_escopo,' +
+      '  :acionamentos_recentes, :regiao, :updated_by, NOW()' +
+      ') ON DUPLICATE KEY UPDATE ' +
+      '  id = LAST_INSERT_ID(id),' +
+      '  tipo_infra=VALUES(tipo_infra),' +
+      '  quadrante=VALUES(quadrante),' +
+      '  ddd=VALUES(ddd),' +
+      '  municipio=VALUES(municipio),' +
+      '  endereco=VALUES(endereco),' +
+      '  latitude=VALUES(latitude),' +
+      '  longitude=VALUES(longitude),' +
+      '  detentor_area=VALUES(detentor_area),' +
+      '  id_detentora=VALUES(id_detentora),' +
+      '  id_outros=VALUES(id_outros),' +
+      '  forma_acesso=VALUES(forma_acesso),' +
+      '  observacao_acesso=VALUES(observacao_acesso),' +
+      '  data_solicitado=VALUES(data_solicitado),' +
+      '  data_inicio=VALUES(data_inicio),' +
+      '  data_fim=VALUES(data_fim),' +
+      '  status_acesso=VALUES(status_acesso),' +
+      '  numero_solicitacao=VALUES(numero_solicitacao),' +
+      '  tratativa_acessos=VALUES(tratativa_acessos),' +
+      '  du_id=VALUES(du_id),' +
+      '  du_name=VALUES(du_name),' +
+      '  status_att=VALUES(status_att),' +
+      '  meta_plan=VALUES(meta_plan),' +
+      '  atividade_escopo=VALUES(atividade_escopo),' +
+      '  acionamentos_recentes=VALUES(acionamentos_recentes),' +
+      '  regiao=VALUES(regiao),' +
+      '  updated_by=VALUES(updated_by),' +
+      '  updated_at=NOW()';
+
+    q.ParamByName('id_projeto').DataType := ftInteger;
+    q.ParamByName('id_projeto').AsInteger := projId;
+
+    q.ParamByName('tipo_infra').AsString := JStr('tipoDeInfra');
+    q.ParamByName('quadrante').AsString := JStr('quadrante');
+    q.ParamByName('ddd').AsString := JStr('ddd');
+    q.ParamByName('municipio').AsString := JStr('municipio');
+    q.ParamByName('endereco').AsString := JStr('endereco');
+
+    // latitude/longitude como string (colunas VARCHAR)
+    q.ParamByName('latitude').DataType  := ftString;
+    q.ParamByName('longitude').DataType := ftString;
+    q.ParamByName('latitude').AsString  := JStr('latitude');
+    q.ParamByName('longitude').AsString := JStr('longitude');
+
+    q.ParamByName('detentor_area').AsString := JStr('detentorDaArea');
+    q.ParamByName('id_detentora').AsString := JStr('idDetentora');
+    q.ParamByName('id_outros').AsString := JStr('idOutros');
+    q.ParamByName('forma_acesso').AsString := JStr('formaAcesso');
+    q.ParamByName('observacao_acesso').AsString := JStr('observacaoDeAcesso');
+
+    SetDateParam(q.ParamByName('data_solicitado'), JStr('dataSolicitado'));
+    SetDateParam(q.ParamByName('data_inicio'),     JStr('dataInicio'));
+    SetDateParam(q.ParamByName('data_fim'),        JStr('dataFim'));
+
+    q.ParamByName('status_acesso').AsString := JStr('statusAcesso');
+    q.ParamByName('numero_solicitacao').AsString := JStr('numeroDeSolicitacao');
+    q.ParamByName('tratativa_acessos').AsString := JStr('tratativaDeAcessos');
+    q.ParamByName('du_id').AsString := JStr('duId');
+    q.ParamByName('du_name').AsString := JStr('duName');
+    q.ParamByName('status_att').AsString := JStr('statusAtt');
+    q.ParamByName('meta_plan').AsString := JStr('metaPlan');
+    q.ParamByName('atividade_escopo').AsString := JStr('atividadeEscopo');
+    q.ParamByName('acionamentos_recentes').AsString := JStr('acionamentosRecentes');
+    q.ParamByName('regiao').AsString := JStr('regiao');
+    q.ParamByName('updated_by').AsString := JStr('idusuario');
+
+    FConn.StartTransaction;
+    try
+      q.ExecSQL;
+
+      acessoId := StrToIntDef(VarToStr(FConn.ExecSQLScalar('SELECT LAST_INSERT_ID()')), 0);
+      if acessoId = 0 then
+        acessoId := StrToIntDef(VarToStr(FConn.ExecSQLScalar('SELECT id FROM ProjetoHuaweiAcesso WHERE id_projeto = :p', [projId])), 0);
+
+      if acessoId = 0 then
+        raise Exception.Create('Falha ao determinar ID do acesso.');
+
+      UpsertEquipe(acessoId);
+      FConn.Commit;
+    except
+      on E: Exception do
+      begin
+        FConn.Rollback;
+        raise;
+      end;
+    end;
+
+    R.AcessoID := acessoId;
+    Result := True;
+  except
+    on E: Exception do
+    begin
+      erro := 'Erro ao salvar acesso: ' + E.Message;
+      Result := False;
+    end;
+  end;
+end;
+
 
 function THuawei.InserirHuaweiRollout(obj: TJSONObject; out erro: string): boolean;
 begin
@@ -1095,4 +1579,7 @@ begin
   Result := nil;
   erro := 'Implementação pendente';
 end;
+
 end.
+
+

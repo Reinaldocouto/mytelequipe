@@ -3,102 +3,83 @@
 interface
 
 uses
-  Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB,System.DateUtils, System.Classes,
-  System.NetEncoding,
-  Model.Huawei, UtFuncao, Controller.Auth, DataSet.Serialize, System.Generics.Collections, System.IOUtils;
+  Horse, System.JSON, System.SysUtils, FireDAC.Comp.Client, Data.DB, System.DateUtils,
+  Model.Huawei, UtFuncao, Controller.Auth, DataSet.Serialize, System.Generics.Collections;
 
 procedure Registry;
 
-
-
-
-
 procedure ListarHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure Lista(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure Listapo(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure Listaid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure novocadastro(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure Salva(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure baixardados(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure AtualizarHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure Deleta(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure Listafechamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure Listaconsolidado(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure ListaDespesas(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure extratopagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure totalacionamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 function InserirSeNaoExistir(id: string; obj: TJSONObject): Boolean;
 
 procedure Listaacionamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure Salvaacionamentopj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure Salvaacionamentoclt(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure Listaacionamentopj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure Listaacionamentoclt(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure Salvaatividadepj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure criartarefa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure rollouthuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure EditarEmMassa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 function InserirSeNaoExistirRollout(id: string; obj: TJSONObject): Boolean;
 
-procedure ExportarExcelHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+// >>> FALTAVA ESTA DECLARAÇÃO <<<
+procedure SalvarAcessoHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 implementation
 
 procedure Registry;
 begin
-  THorse.Get('v1/projetohuawei', Lista);
+  THorse.Get('v1/projetohuawei', ListarHuawei);
+
   THorse.Get('v1/projetohuaweiid', Listaid);
   THorse.Get('v1/projetohuaweipo', Listapo);
+  THorse.Post('v1/projetohuawei/acesso', SalvarAcessoHuawei);
+
   THorse.Post('v1/projetohuawei', Salva);
+  THorse.Post('v1/projetohuawei/baixardados', baixardados);
+
   THorse.Put('v1/projetohuawei/:id', AtualizarHuawei);
   THorse.Delete('v1/projetohuawei/:id', Deleta);
-  THorse.Post('v1/projetohuawei/novocadastro', novocadastro);
-  THorse.get('v1/projetohuawei/listaacionamento', listaacionamento);
-  THorse.post('v1/projetohuawei/acionamentopj', Salvaacionamentopj);
-  THorse.post('v1/projetohuawei/acionamentoclt', Salvaacionamentoclt);
-  THorse.get('v1/projetohuawei/listaacionamentopj', Listaacionamentopj);
-  THorse.get('v1/projetohuawei/listaacionamentoclt', Listaacionamentoclt);
-  THorse.post('v1/projetohuawei/listaatividadepj/salva', Salvaatividadepj);
-  THorse.Post('v1/projetohuawei/criartarefa', criartarefa);
-  THorse.Get('v1/rollouthuawei', rollouthuawei);
-  THorse.post('v1/rollouthuawei/editaremmassa', EditarEmMassa);
-  THorse.get('v1/projetohuawei/fechamento', Listafechamento);
-  THorse.get('v1/projetohuawei/consolidado', Listaconsolidado);
-  THorse.get('v1/projetohuawei/ListaDespesas', ListaDespesas);
-  THorse.get('v1/projetohuaweiid/extrato', extratopagamento);
-  THorse.get('v1/projetohuawei/totalacionamento', totalacionamento);
-  THorse.get('v1/projetohuawei/exportarExcelHuawei', ExportarExcelHuawei);
-end;
 
+  THorse.Post('v1/projetohuawei/novocadastro', novocadastro);
+
+  THorse.Get('v1/projetohuawei/listaacionamento', Listaacionamento);
+  THorse.Post('v1/projetohuawei/acionamentopj', Salvaacionamentopj);
+  THorse.Post('v1/projetohuawei/acionamentoclt', Salvaacionamentoclt);
+  THorse.Get('v1/projetohuawei/listaacionamentopj', Listaacionamentopj);
+  THorse.Get('v1/projetohuawei/listaacionamentoclt', Listaacionamentoclt);
+  THorse.Post('v1/projetohuawei/listaatividadepj/salva', Salvaatividadepj);
+
+  THorse.Post('v1/projetohuawei/criartarefa', criartarefa);
+
+  THorse.Get('v1/rollouthuawei', rollouthuawei);
+  THorse.Post('v1/rollouthuawei/editaremmassa', EditarEmMassa);
+
+  THorse.Get('v1/projetohuawei/fechamento', Listafechamento);
+  THorse.Get('v1/projetohuawei/consolidado', Listaconsolidado);
+  THorse.Get('v1/projetohuawei/ListaDespesas', ListaDespesas);
+  THorse.Get('v1/projetohuaweiid/extrato', extratopagamento);
+  THorse.Get('v1/projetohuawei/totalacionamento', totalacionamento);
+end;
 
 procedure criartarefa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: THuawei;
   body: TJSONValue;
-  JSON: TJSONObject;
   erro, xData: string;
 begin
   servico := THuawei.Create;
@@ -107,141 +88,60 @@ begin
     try
       body := Req.body<TJSONObject>;
 
-      servico.os := body.getvalue<string>('os', '');
-      servico.projectno := body.getvalue<string>('projectno', '');
-      servico.sitecode := body.getvalue<string>('sitecode', '');
-      servico.os := body.getvalue<string>('os', '');
-      servico.biddingArea := body.getvalue<string>('region', '');
-      servico.sitename := body.getvalue<string>('sitename', '');
-      servico.siteid := body.getvalue<string>('siteid', '');
-      servico.ponumber := body.getvalue<string>('ponumber', '');
-      servico.itemcode := body.getvalue<string>('itemcode', '');
-      servico.vo := body.getvalue<string>('vo', '');
-      servico.itemdescription := body.getvalue<string>('itemdescription', '');
-      try
-        servico.usuario := StrToInt(body.getvalue<string>('usuario', ''))
-      except
-        servico.usuario := 0;
-      end;
+      servico.os := body.GetValue<string>('os', '');
+      servico.projectno := body.GetValue<string>('projectno', '');
+      servico.sitecode := body.GetValue<string>('sitecode', '');
+      servico.biddingArea := body.GetValue<string>('region', '');
+      servico.sitename := body.GetValue<string>('sitename', '');
+      servico.siteid := body.GetValue<string>('siteid', '');
+      servico.ponumber := body.GetValue<string>('ponumber', '');
+      servico.itemcode := body.GetValue<string>('itemcode', '');
+      servico.vo := body.GetValue<string>('vo', '');
+      servico.itemdescription := body.GetValue<string>('itemdescription', '');
 
-      try
-        servico.qty := StrToFloat(body.getvalue<string>('qty', ''))
-      except
-        servico.qty := 0;
-      end;
+      try servico.usuario := StrToInt(body.GetValue<string>('usuario', '')) except servico.usuario := 0; end;
+      try servico.qty     := StrToFloat(body.GetValue<string>('qty', ''))    except servico.qty     := 0; end;
 
-
-      if Length(erro) = 0 then
-      begin
-        if servico.criartarefa(erro) then
-          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.id)).Status(THTTPStatus.Created)
-        else
-          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-      end
+      if servico.criartarefa(erro) then
+        Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.id)).Status(THTTPStatus.Created)
       else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
-
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
     servico.Free;
   end;
-
 end;
-
 
 procedure Salva(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
-  servico: THuawei;
-  body: TJSONValue;
-  JSON: TJSONObject;
-  erro, xData: string;
+  huaweiModel: THuawei;
+  body: TJSONObject;
+  erro: string;
 begin
-  servico := THuawei.Create;
+  huaweiModel := THuawei.Create;
   try
-    erro := '';
     try
-      body := Req.body<TJSONObject>;
-
-      servico.os := body.getvalue<string>('os', '');
-      servico.observacaopj := body.getvalue<string>('observacao', '');
-      servico.id := body.getvalue<string>('id', '');
-{      servico.projeto := body.getvalue<string>('projeto', '');
-      servico.supervisor := body.getvalue<string>('supervisor', '');
-      servico.concentrador := body.getvalue<string>('concentrador', '');
-      servico.tiposite := body.getvalue<string>('tiposite', '');
-      xData := body.GetValue<string>('installplan', '');
-      if xData <> '' then
-      try
-        servico.installplan := StrToDate(xData);
-      except
-        servico.installplan := StrToDate('30/12/1899');
-      end;
-      xData := body.GetValue<string>('installreal', '');
-      if xData <> '' then
-      try
-        servico.installreal := StrToDate(xData);
-      except
-        servico.installreal := StrToDate('30/12/1899');
-      end;
-      servico.statusprojeto := body.getvalue<string>('statusprojeto', '');
-      xData := body.GetValue<string>('gerenciaplan', '');
-      if xData <> '' then
-      try
-        servico.gerenciaplan := StrToDate(xData);
-      except
-        servico.gerenciaplan := StrToDate('30/12/1899');
-      end;
-      xData := body.GetValue<string>('gerenciareal', '');
-      if xData <> '' then
-      try
-        servico.gerenciareal := StrToDate(xData);
-      except
-        servico.gerenciareal := StrToDate('30/12/1899');
-      end;
-      servico.mos := body.getvalue<string>('mos', '');
-      servico.mosresp := body.getvalue<string>('mosresp', '');
-      servico.compliance := body.getvalue<string>('compliance', '');
-      servico.complianceresp := body.getvalue<string>('complianceresp', '');
-      servico.ehs := body.getvalue<string>('ehs', '');
-      servico.ehsresp := body.getvalue<string>('ehsresp', '');
-      servico.qualidade := body.getvalue<string>('qualidade', '');
-      servico.qualidaderesp := body.getvalue<string>('qualidaderesp', '');
-      servico.pdi := body.getvalue<string>('pdi', '');
-      servico.pdiresp := body.getvalue<string>('pdiresp', '');
-      servico.statusdoc := body.getvalue<string>('statusdoc', '');
-      servico.observacaodoc := body.getvalue<string>('observacaodoc', '');
-      servico.observacao := body.getvalue<string>('observacao', '');
-      servico.po := body.getvalue<string>('po', '');
-      servico.sitenamefrom := body.getvalue<string>('sitenamefrom', '');
-      servico.docresp := body.getvalue<string>('docresp', '');  }
-      if Length(erro) = 0 then
-      begin
-        if servico.editar(erro) then
-          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.id)).Status(THTTPStatus.Created)
-        else
-          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-      end
+      body := Req.Body<TJSONObject>;
+      if huaweiModel.InserirHuawei(body, erro) then
+        Res.Send<TJSONObject>(CreateJsonObj('retorno', 'Registro inserido com sucesso')).Status(THTTPStatus.Created)
       else
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
-
     except
-      on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+      on ex: Exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', 'Falha ao inserir: ' + ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
-    servico.Free;
+    huaweiModel.Free;
   end;
-
 end;
 
 procedure Salvaatividadepj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: THuawei;
   body: TJSONValue;
-  JSON: TJSONObject;
   erro: string;
 begin
   servico := THuawei.Create;
@@ -250,44 +150,25 @@ begin
     try
       body := Req.body<TJSONObject>;
 
-      servico.os := body.getvalue<string>('os', '');
-
-      if strisint(body.getvalue<string>('idcolaboradorpj', '')) then
-        servico.idcolaboradorpj := body.getvalue<integer>('idcolaboradorpj', 0)
+      servico.os := body.GetValue<string>('os', '');
+      if StrIsInt(body.GetValue<string>('idcolaboradorpj', '')) then
+        servico.idcolaboradorpj := body.GetValue<Integer>('idcolaboradorpj', 0)
       else
         servico.idcolaboradorpj := 0;
-      servico.po := body.getvalue<string>('selecao', '');
-      servico.observacaopj := body.getvalue<string>('observacaopj', '');
 
-      if body.getvalue<boolean>('opnegociado', false) then
-        servico.negociadoSN := 1
+      servico.po := body.GetValue<string>('selecao', '');
+      servico.observacaopj := body.GetValue<string>('observacaopj', '');
+      servico.negociadoSN := Ord(body.GetValue<Boolean>('opnegociado', False));
+
+      try servico.porcentagempj  := StrToFloat(body.GetValue<string>('porcentagempj', ''))  except servico.porcentagempj  := 0; end;
+      try servico.valornegociado := StrToFloat(body.GetValue<string>('valornegociadonum', '')) except servico.valornegociado := 0; end;
+
+      if servico.Editaratividadepj(erro) then
+        Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.id)).Status(THTTPStatus.Created)
       else
-        servico.negociadoSN := 0;
-
-      try
-        servico.porcentagempj := StrToFloat(body.getvalue<string>('porcentagempj', ''))
-      except
-        servico.porcentagempj := 0;
-      end;
-
-      try
-        servico.valornegociado := StrToFloat(body.getvalue<string>('valornegociadonum', ''))
-      except
-        servico.valornegociado := 0;
-      end;
-
-      if Length(erro) = 0 then
-      begin
-        if servico.Editaratividadepj(erro) then
-          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.id)).Status(THTTPStatus.Created)
-        else
-          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-      end
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
-
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
@@ -301,14 +182,14 @@ var
   qry: TFDQuery;
   erro: string;
   arraydados: TJSONArray;
-  body: TJSONValue;
 begin
   try
     servico := THuawei.Create;
   except
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
+    Exit;
   end;
+
   qry := servico.listaacionamento(Req.Query.Dictionary, erro);
   try
     try
@@ -318,7 +199,7 @@ begin
       else
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
@@ -331,7 +212,6 @@ procedure novocadastro(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: THuawei;
   body: TJSONValue;
-  JSON: TJSONObject;
   erro: string;
 begin
   servico := THuawei.Create;
@@ -343,7 +223,7 @@ begin
       else
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
@@ -357,17 +237,16 @@ var
   qry: TFDQuery;
   erro: string;
   arraydados: TJSONArray;
-  body: TJSONValue;
 begin
   try
     servico := THuawei.Create;
   except
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
+    Exit;
   end;
+
   qry := servico.Lista(Req.Query.Dictionary, erro);
   try
-
     try
       arraydados := qry.ToJSONArray();
       if erro = '' then
@@ -375,7 +254,7 @@ begin
       else
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
@@ -390,17 +269,16 @@ var
   qry: TFDQuery;
   erro: string;
   arraydados: TJSONArray;
-  body: TJSONValue;
 begin
   try
     servico := THuawei.Create;
   except
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
+    Exit;
   end;
+
   qry := servico.Listapo(Req.Query.Dictionary, erro);
   try
-
     try
       arraydados := qry.ToJSONArray();
       if erro = '' then
@@ -408,7 +286,7 @@ begin
       else
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
@@ -422,76 +300,21 @@ var
   huaweiModel: THuawei;
   qry: TFDQuery;
   erro: string;
-  jsonArray: TJSONArray;
-  jsonObj: TJSONObject;
-  i: Integer;
-  Info: string;
-  SiteCode, SiteNamePart, SiteId, SiteName: string;
-  Parts: TArray<string>;
 begin
   huaweiModel := THuawei.Create;
+  qry := nil;
   try
     qry := huaweiModel.ListarHuawei(Req.Query.Dictionary, erro);
-
-    if qry = nil then
-    begin
-      Res.Send(erro).Status(THTTPStatus.InternalServerError);
-      Exit;
-    end;
-
-    jsonArray := TJSONArray.Create;
-    try
-      qry.First;
-      while not qry.Eof do
-      begin
-        jsonObj := TJSONObject.Create;
-        try
-
-          for i := 0 to qry.FieldCount - 1 do
-          begin
-            jsonObj.AddPair(qry.Fields[i].FieldName, qry.FieldByName(qry.Fields[i].FieldName).AsString);
-          end;
-          Info := qry.FieldByName('manufactureSiteInfo').AsString;
-          if Info <> '' then
-          begin
-            Parts := Info.Split(['<!>']);
-            if Length(Parts) = 3 then
-            begin
-              SiteId := Parts[0];
-              SiteCode := Parts[1];
-              SiteNamePart := Parts[2];
-
-              SiteName := SiteNamePart.Substring(SiteNamePart.IndexOf('@') + 1);
-              // Adicione os novos campos ao jsonObj
-              jsonObj.AddPair('siteCode', SiteCode);
-              jsonObj.AddPair('siteId', SiteId);
-              jsonObj.AddPair('siteName', SiteName);
-            end
-            else
-            begin
-              // Adicione uma mensagem de erro se o formato estiver incorreto
-              jsonObj.AddPair('SeparationError', 'Número inesperado de partes na string.');
-            end;
-          end;
-
-          jsonArray.AddElement(jsonObj);
-        except
-          jsonObj.Free;
-          raise; // Re-raise exception for further handling if needed
-        end;
-        qry.Next;
-      end;
-
-      Res.Send(jsonArray.ToString).ContentType('application/json').Status(THTTPStatus.OK);
-    finally
-      jsonArray.Free;
-    end;
+    if Assigned(qry) then
+      Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
+    else
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
   finally
-    qry.Free; // Não se esqueça de liberar o qry
+    if Assigned(qry) then
+      qry.Free;
     huaweiModel.Free;
   end;
 end;
-
 
 function InserirSeNaoExistirRollout(id: string; obj: TJSONObject): Boolean;
 var
@@ -499,37 +322,22 @@ var
   qry: TFDQuery;
   erro: string;
 begin
-  Result := False; // Inicializa o resultado como False, indicando que a inserção não foi necessária
+  Result := False;
   huaweiModel := THuawei.Create;
-
   try
-    qry := TFDQuery.Create(nil);
-    // Pesquisa por um registro com o ID fornecido
     qry := huaweiModel.PesquisarHuaweiPorPrimaryKey(id, erro);
-
-    // Verifica se houve erro na pesquisa
-    if (qry = nil) or (erro <> '') then
-    begin
-      erro := 'Erro ao pesquisar registro: ' + erro;
-      Exit;
-    end;
+    if (qry = nil) or (erro <> '') then Exit;
 
     try
       qry.Open;
-
-      // Se o registro não existir, o campo será vazio ou o dataset estará vazio
       if qry.IsEmpty then
       begin
-        // Insere o dado ou altera
         huaweiModel.InserirHuaweiRollout(obj, erro);
-
-        if erro = '' then
-          Result := True; // Indica que a inserção foi realizada com sucesso
+        Result := (erro = '');
       end;
     finally
       qry.Free;
     end;
-
   finally
     huaweiModel.Free;
   end;
@@ -541,73 +349,115 @@ var
   qry: TFDQuery;
   erro: string;
 begin
-  Result := False; // Inicializa o resultado como False, indicando que a inserção não foi necessária
+  Result := False;
   huaweiModel := THuawei.Create;
-
   try
-    qry := TFDQuery.Create(nil);
-    // Pesquisa por um registro com o ID fornecido
     qry := huaweiModel.PesquisarHuaweiPorPrimaryKey(id, erro);
-
-    // Verifica se houve erro na pesquisa
-    if (qry = nil) or (erro <> '') then
-    begin
-      erro := 'Erro ao pesquisar registro: ' + erro;
-      Exit;
-    end;
+    if (qry = nil) or (erro <> '') then Exit;
 
     try
       qry.Open;
-
-      // Se o registro não existir, o campo será vazio ou o dataset estará vazio
       if qry.IsEmpty then
       begin
-        // Insere o dado ou altera
         huaweiModel.InserirHuawei(obj, erro);
-
-        if erro = '' then
-          Result := True; // Indica que a inserção foi realizada com sucesso
+        Result := (erro = '');
       end;
     finally
       qry.Free;
     end;
-
   finally
     huaweiModel.Free;
   end;
 end;
 
+
 procedure Listaid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
-  servico: THuawei;
-  qry: TFDQuery;
-  erro: string;
-  arraydados: TJSONObject;
-  body: TJSONValue;
+  servico : THuawei;
+  qry     : TFDQuery;
+  equipeQ : TFDQuery;
+  erro    : string;
+  obj     : TJSONObject;
+  equipeArr: TJSONArray;
+  acessoId: Integer;
 begin
+  servico := THuawei.Create;
   try
-    servico := THuawei.Create;
-  except
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
-  end;
-  qry := servico.Listaid(Req.Query.Dictionary, erro);
-  try
+    qry := servico.Listaid(Req.Query.Dictionary, erro);
     try
-      arraydados := qry.ToJSONObject;
+      if (qry = nil) then
+      begin
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+        Exit;
+      end;
+
+      // Converte o registro principal para JSON
+      obj := qry.ToJSONObject;
+
+      // Lê o acesso_id DIRETO do dataset (evita problemas de chave camelCase)
+      acessoId := 0;
+      if (qry.FindField('acesso_id') <> nil) and (not qry.FieldByName('acesso_id').IsNull) then
+        acessoId := qry.FieldByName('acesso_id').AsInteger;
+
+      // Fallback (se quiser manter a leitura do JSON também)
+      if (acessoId = 0) then
+      begin
+        obj.TryGetValue<Integer>('acessoId', acessoId);   // camelCase (ToJSONObject)
+        if (acessoId = 0) then
+          obj.TryGetValue<Integer>('acesso_id', acessoId); // snake_case (por garantia)
+      end;
+
+      // Monta acesso_equipe como ARRAY DE IDs (ex.: [3447, 3480])
+      if (acessoId > 0) then
+      begin
+        equipeQ := servico.ListaEquipeAcesso(acessoId, erro);
+        try
+          if (equipeQ <> nil) then
+          begin
+            equipeArr := TJSONArray.Create;
+            try
+              while not equipeQ.Eof do
+              begin
+                // garante que a consulta ListaEquipeAcesso traga a coluna id_pessoa
+                equipeArr.Add(equipeQ.FieldByName('id_pessoa').AsInteger);
+                equipeQ.Next;
+              end;
+              obj.AddPair('acesso_equipe', equipeArr); // somente IDs
+            except
+              equipeArr.Free;
+              raise;
+            end;
+          end
+          else
+            obj.AddPair('acesso_equipe', TJSONArray.Create);
+        finally
+          if Assigned(equipeQ) then
+            equipeQ.Free;
+        end;
+      end
+      else
+        obj.AddPair('acesso_equipe', TJSONArray.Create);
+
+      // Envia resposta
       if erro = '' then
-        Res.Send<TJSONObject>(arraydados).Status(THTTPStatus.OK)
+        Res.Send<TJSONObject>(obj).Status(THTTPStatus.OK)
       else
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+
     except
-      on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+      on E: Exception do
+      begin
+        Res.Send<TJSONObject>(CreateJsonObj('erro', E.Message)).Status(THTTPStatus.InternalServerError);
+      end;
     end;
   finally
-    qry.Free;
+    if Assigned(qry) then
+      qry.Free;
     servico.Free;
   end;
 end;
+
+
 
 procedure baixardados(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -618,7 +468,6 @@ begin
   body := Req.Body<TJSONObject>;
   huaweiModel := THuawei.Create;
   try
-    // Popule os campos do model com base nos dados do body
     if huaweiModel.InserirHuawei(body, erro) then
       Res.Send<TJSONObject>(CreateJsonObj('retorno', 'Registro inserido com sucesso')).Status(THTTPStatus.Created)
     else
@@ -638,7 +487,6 @@ begin
   body := Req.Body<TJSONObject>;
   huaweiModel := THuawei.Create;
   try
-    // Popule os campos do model com base nos dados do body
     if huaweiModel.AtualizarHuawei(body, erro) then
       Res.Send<TJSONObject>(CreateJsonObj('retorno', 'Registro atualizado com sucesso')).Status(THTTPStatus.OK)
     else
@@ -672,14 +520,13 @@ begin
   end;
 end;
 
-
 procedure rollouthuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
-  servico: Thuawei;
+  servico: THuawei;
   qry: TFDQuery;
   erro: string;
 begin
-  servico := Thuawei.Create;
+  servico := THuawei.Create;
   try
     qry := servico.Rollouthuawei(Req.Query.Dictionary, erro);
     try
@@ -701,121 +548,40 @@ begin
   end;
 end;
 
-
-procedure ExportarExcelHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  Params: TDictionary<string, string>;
-  Key, Value, QueryText, ExcelFile, Erro: string;
-  huawei: THuawei;
-  Pairs: TArray<string>;
-  Pair: string;
-begin
-  Params := TDictionary<string, string>.Create;
-  try
-    // Captura os parâmetros da URL
-    QueryText := Req.RawWebRequest.Query;
-
-    if QueryText <> '' then
-    begin
-      Pairs := QueryText.Split(['&']);
-      for Pair in Pairs do
-      begin
-        if Pos('=', Pair) > 0 then
-        begin
-          Key := Copy(Pair, 1, Pos('=', Pair) - 1);
-          Value := Copy(Pair, Pos('=', Pair) + 1, MaxInt);
-          Params.AddOrSetValue(Key, TNetEncoding.URL.Decode(Value));
-        end;
-      end;
-    end;
-
-    huawei := THuawei.Create;
-    try
-      // ✅ Chama apenas o método que já gera o Excel
-      ExcelFile := huawei.ExportRolloutHuawei(Params, Erro);
-
-      if (ExcelFile = '') or not FileExists(ExcelFile) then
-      begin
-        Res.Status(400).Send('❌ Erro ao exportar: ' + Erro);
-        Exit;
-      end;
-
-      Res.RawWebResponse.ContentType :=
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      Res.RawWebResponse.SetCustomHeader(
-        'Content-Disposition',
-        'attachment; filename="' + ExtractFileName(ExcelFile) + '"'
-      );
-
-      Res.SendFile(ExcelFile);
-      Sleep(1000);
-
-      DeleteFile(ExcelFile);
-    finally
-      huawei.Free;
-    end;
-  except
-    on E: Exception do
-    begin
-      Writeln(E.Message);
-      Res.Status(500).Send('Erro inesperado ao exportar Excel: ' + E.Message);
-    end;
-  end;
-
-  Params.Free;
-end;
-
-
-
 procedure EditarEmMassa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
-  servico: Thuawei;
+  servico: THuawei;
   erro: string;
   sucesso: Boolean;
   body: string;
-
 begin
   try
-    servico := Thuawei.Create;
+    servico := THuawei.Create;
     try
       body := Req.Body;
-
       if body.Trim = '' then
       begin
-        erro := 'body vazio';
+        Res.Send<TJSONObject>(TJSONObject.Create
+          .AddPair('sucesso', 'false')
+          .AddPair('erro', 'body vazio')).Status(THTTPStatus.BadRequest);
         Exit;
       end;
 
       sucesso := servico.EditarEmMassa(body, erro);
 
       if sucesso then
-      begin
-
-        Res.Send<TJSONObject>(
-          TJSONObject.Create
-            .AddPair('sucesso', 'true')
-            .AddPair('mensagem', 'Registros atualizados com sucesso')
-        ).Status(THTTPStatus.OK);
-      end
+        Res.Send<TJSONObject>(TJSONObject.Create
+          .AddPair('sucesso', 'true')
+          .AddPair('mensagem', 'Registros atualizados com sucesso')).Status(THTTPStatus.OK)
       else
-      begin
-        // Retorna erro específico da operação
-        Res.Send<TJSONObject>(
-          TJSONObject.Create
-            .AddPair('sucesso', 'false')
-            .AddPair('erro', erro)
-        ).Status(THTTPStatus.BadRequest);
-      end;
+        Res.Send<TJSONObject>(TJSONObject.Create
+          .AddPair('sucesso', 'false')
+          .AddPair('erro', erro)).Status(THTTPStatus.BadRequest);
     except
       on E: Exception do
-      begin
-        // Retorna erro inesperado
-        Res.Send<TJSONObject>(
-          TJSONObject.Create
-            .AddPair('sucesso', 'false')
-            .AddPair('erro', 'Erro inesperado: ' + E.Message)
-        ).Status(THTTPStatus.InternalServerError);
-      end;
+        Res.Send<TJSONObject>(TJSONObject.Create
+          .AddPair('sucesso', 'false')
+          .AddPair('erro', 'Erro inesperado: ' + E.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
     if Assigned(servico) then
@@ -823,58 +589,13 @@ begin
   end;
 end;
 
-procedure Salvaacionamentopj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: THuawei;
-  body: TJSONValue;
-  JSONArray: TJSONArray;
-  JSONObj: TJSONObject;
-  JSONItem: TJSONValue;
-  erro, retorno: string;
-  i: integer;
-begin
-  servico := THuawei.Create;
-  try
-    erro := '';
-    retorno := '';
-    try
-      // Lê o corpo da requisição como TJSONObject
-      body := Req.Body<TJSONObject>;
-      servico.idcolaboradorpj := body.GetValue<integer>('idcolaborador', 0);
-      servico.observacaopj := body.GetValue<string>('observacaopj', '');
-      servico.po := body.GetValue<string>('po', '');
-      servico.valornegociado := body.GetValue<double>('valornegociado', 0);
-      servico.porcentagempj := body.GetValue<double>('porcentagempj', 0);
-      servico.os := body.GetValue<string>('os', '');
-
-      if Length(erro) = 0 then
-      begin
-        if servico.salvaacionamentopj(erro) then
-          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.id)).Status(THTTPStatus.Created)
-        else
-          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-      end
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
-
-    except
-      on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
-    end;
-  finally
-    servico.Free;
-  end;
-end;
-
 procedure Salvaacionamentoclt(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: THuawei;
   body: TJSONObject;
-  jsonValue: TJSONValue;
   erro: string;
   tempInt: Integer;
   tempStr: string;
-  tempDouble: Double;
 begin
   servico := THuawei.Create;
   try
@@ -882,7 +603,7 @@ begin
       body := Req.Body<TJSONObject>;
       erro := '';
 
-      if body.TryGetValue<integer>('idcolaborador', tempInt) then
+      if body.TryGetValue<Integer>('idcolaborador', tempInt) then
         servico.idcolaboradorpj := tempInt
       else
         servico.idcolaboradorpj := 0;
@@ -902,18 +623,12 @@ begin
       else
         servico.observacaopj := '';
 
-      if Length(erro) = 0 then
-      begin
-        if servico.salvaacionamentoclt(erro) then
-          Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.id)).Status(THTTPStatus.Created)
-        else
-          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-      end
+      if servico.salvaacionamentoclt(erro) then
+        Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.id)).Status(THTTPStatus.Created)
       else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
-
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
@@ -933,7 +648,6 @@ begin
   AQuery := TDictionary<string, string>.Create;
   try
     try
-      // Captura parâmetros da query string
       for key in Req.Query.Dictionary.Keys do
       begin
         value := Req.Query.Dictionary.Items[key];
@@ -942,15 +656,11 @@ begin
 
       qry := servico.Listaacionamentopj(AQuery, erro);
       if qry <> nil then
-      begin
-        Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK);
-      end
+        Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
       else
-      begin
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-      end;
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
@@ -971,7 +681,6 @@ begin
   AQuery := TDictionary<string, string>.Create;
   try
     try
-      // Captura parâmetros da query string
       for key in Req.Query.Dictionary.Keys do
       begin
         value := Req.Query.Dictionary.Items[key];
@@ -980,15 +689,11 @@ begin
 
       qry := servico.Listaacionamentoclt(AQuery, erro);
       if qry <> nil then
-      begin
-        Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK);
-      end
+        Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
       else
-      begin
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-      end;
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
@@ -1010,12 +715,11 @@ begin
     servico := THuawei.Create;
   except
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
+    Exit;
   end;
 
   try
     try
-      // Captura parâmetros da query string
       for key in Req.Query.Dictionary.Keys do
       begin
         value := Req.Query.Dictionary.Items[key];
@@ -1024,15 +728,11 @@ begin
 
       qry := servico.Listafechamento(AQuery, erro);
       if qry <> nil then
-      begin
-        Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK);
-      end
+        Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
       else
-      begin
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-      end;
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
@@ -1040,6 +740,72 @@ begin
     servico.Free;
   end;
 end;
+
+// ======= HANDLER CORRIGIDO =======
+procedure SalvarAcessoHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  Body  : TJSONObject;
+  Model : THuawei;
+  Err   : string;
+  R     : THuaweiAcessoSaveResult;
+  JResp : TJSONObject;
+begin
+  Body  := nil;
+  Model := THuawei.Create;
+  FillChar(R, SizeOf(R), 0);
+
+  try
+    // ===== ÚNICA MUDANÇA AQUI: parse do JSON a partir da string =====
+    Body := TJSONObject.ParseJSONValue(Req.Body) as TJSONObject;
+    if Body = nil then
+    begin
+      Res.ContentType('application/json')
+         .Status(THTTPStatus.BadRequest)
+         .Send<TJSONObject>(TJSONObject.Create.AddPair('erro', 'JSON inválido'));
+      Exit;
+    end;
+
+    try
+      if Model.SalvarAcesso(Body, Err, R) then
+      begin
+        JResp := TJSONObject.Create;
+        JResp.AddPair('ok', TJSONBool.Create(True));
+        JResp.AddPair('id_acesso', TJSONNumber.Create(R.AcessoID));
+        Res.ContentType('application/json')
+           .Status(THTTPStatus.Created)
+           .Send<TJSONObject>(JResp);
+      end
+      else
+      begin
+        JResp := TJSONObject.Create;
+        JResp.AddPair('ok', TJSONBool.Create(False));
+        JResp.AddPair('erro', Err);
+        Res.ContentType('application/json')
+           .Status(THTTPStatus.BadRequest)
+           .Send<TJSONObject>(JResp);
+      end;
+
+    except
+      on E: Exception do
+      begin
+        JResp := TJSONObject.Create;
+        JResp.AddPair('ok', TJSONBool.Create(False));
+        JResp.AddPair('erro', E.Message);
+        Res.ContentType('application/json')
+           .Status(THTTPStatus.InternalServerError)
+           .Send<TJSONObject>(JResp);
+      end;
+    end;
+
+  finally
+    // Agora pode liberar porque você criou o Body com ParseJSONValue
+    if Assigned(Body) then
+      Body.Free;
+    Model.Free;
+  end;
+end;
+
+// =================================
 
 procedure Listaconsolidado(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -1054,12 +820,11 @@ begin
     servico := THuawei.Create;
   except
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
+    Exit;
   end;
 
   try
     try
-      // Captura parâmetros da query string
       for key in Req.Query.Dictionary.Keys do
       begin
         value := Req.Query.Dictionary.Items[key];
@@ -1068,15 +833,11 @@ begin
 
       qry := servico.Listaconsolidado(AQuery, erro);
       if qry <> nil then
-      begin
-        Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK);
-      end
+        Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
       else
-      begin
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-      end;
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
@@ -1098,12 +859,11 @@ begin
     servico := THuawei.Create;
   except
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
+    Exit;
   end;
 
   try
     try
-      // Captura parâmetros da query string
       for key in Req.Query.Dictionary.Keys do
       begin
         value := Req.Query.Dictionary.Items[key];
@@ -1112,19 +872,83 @@ begin
 
       qry := servico.ListaDespesas(AQuery, erro);
       if qry <> nil then
-      begin
-        Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK);
-      end
+        Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
       else
-      begin
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-      end;
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
     AQuery.Free;
+    servico.Free;
+  end;
+end;
+
+procedure Salvaacionamentopj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: THuawei;
+  body: TJSONObject;
+  erro: string;
+  tmpI: Integer;
+  tmpS: string;
+  tmpB: Boolean;
+  tmpF: Double;
+begin
+  servico := THuawei.Create;
+  try
+    try
+      body := Req.Body<TJSONObject>;
+      erro := '';
+
+      if body.TryGetValue<Integer>('idcolaboradorpj', tmpI) then
+        servico.idcolaboradorpj := tmpI
+      else if body.TryGetValue<Integer>('idcolaborador', tmpI) then
+        servico.idcolaboradorpj := tmpI
+      else
+        servico.idcolaboradorpj := 0;
+
+      if body.TryGetValue<string>('po', tmpS) then
+        servico.po := tmpS
+      else
+        servico.po := '';
+
+      if body.TryGetValue<string>('os', tmpS) then
+        servico.os := tmpS
+      else
+        servico.os := '';
+
+      if body.TryGetValue<string>('observacao', tmpS) then
+        servico.observacaopj := tmpS
+      else if body.TryGetValue<string>('observacaopj', tmpS) then
+        servico.observacaopj := tmpS
+      else
+        servico.observacaopj := '';
+
+      if body.TryGetValue<Boolean>('opnegociado', tmpB) then
+        servico.negociadoSN := Ord(tmpB)
+      else if body.TryGetValue<Integer>('negociadoSN', tmpI) then
+        servico.negociadoSN := tmpI;
+
+      if body.TryGetValue<Double>('porcentagempj', tmpF) then
+        servico.porcentagempj := tmpF
+      else if body.TryGetValue<string>('porcentagempj', tmpS) then
+        servico.porcentagempj := StrToFloatDef(StringReplace(tmpS, ',', '.', [rfReplaceAll]), 0);
+
+      if body.TryGetValue<Double>('valornegociadonum', tmpF) then
+        servico.valornegociado := tmpF
+      else if body.TryGetValue<string>('valornegociadonum', tmpS) then
+        servico.valornegociado := StrToFloatDef(StringReplace(tmpS, ',', '.', [rfReplaceAll]), 0);
+
+      if servico.salvaacionamentopj(erro) then
+        Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.id)).Status(THTTPStatus.Created)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: Exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
     servico.Free;
   end;
 end;
@@ -1142,12 +966,11 @@ begin
     servico := THuawei.Create;
   except
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
+    Exit;
   end;
 
   try
     try
-      // Captura parâmetros da query string
       for key in Req.Query.Dictionary.Keys do
       begin
         value := Req.Query.Dictionary.Items[key];
@@ -1156,15 +979,11 @@ begin
 
       qry := servico.extratopagamento(AQuery, erro);
       if qry <> nil then
-      begin
-        Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK);
-      end
+        Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
       else
-      begin
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-      end;
     except
-      on ex: exception do
+      on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
     end;
   finally
@@ -1187,7 +1006,6 @@ begin
     try
       servico := THuawei.Create;
 
-      // Captura parâmetros da query string
       for key in Req.Query.Dictionary.Keys do
       begin
         value := Req.Query.Dictionary.Items[key];
@@ -1211,5 +1029,6 @@ begin
   end;
 end;
 
-
 end.
+
+

@@ -623,28 +623,32 @@ begin
   end;
 end;
 
-
 function TUpload.InserirAtualizarMigo(const jsonData: TJSONArray; out erro: string): Integer;
 var
   qry: TFDQuery;
-  i: Integer;
-  poInt: Int64;
+  i, processedCount, skippedCount: Integer;
   jsonObject: TJSONObject;
-  poStr: string;
+  poStr, poItemStr, analiseStr: string;
   tempDate: TDateTime;
   tempFloat: Double;
-  analiseStr: string;
-  createdConn: Boolean;
   fs: TFormatSettings;
-  sNorm: string;
-  siteId: string;
-  batchSize: Integer;
-  processedCount: Integer;
+  createdConn: Boolean;
+  porItem: Int64;
+
+  function ParseFloatBR(const S: string; out V: Double): Boolean;
+  var
+    x: string;
+  begin
+    x := StringReplace(S, '.', '', [rfReplaceAll]);
+    x := StringReplace(x, ',', '.', [rfReplaceAll]);
+    Result := TryStrToFloat(x, V, fs);
+  end;
+
 begin
   Result := 0;
   erro := '';
   processedCount := 0;
-  batchSize := 1000; // Processar em lotes para evitar timeout
+  skippedCount := 0;
 
   if (jsonData = nil) or (jsonData.Count = 0) then
   begin
@@ -659,319 +663,196 @@ begin
     createdConn := True;
   end;
 
-  // Configurar timeout estendido para sites específicos
-  if Assigned(FConn) then
-  begin
-    FConn.Params.Values['ConnectionTimeout'] := '60';
-    FConn.Params.Values['CommandTimeout'] := '300';
-    FConn.ResourceOptions.CmdExecTimeout := 300000; // 5 minutos
-  end;
+  // Formatação numérica usada no ParseFloatBR
+  fs := TFormatSettings.Create;
+  fs.DecimalSeparator := '.';
+  fs.ThousandSeparator := ',';
 
   qry := TFDQuery.Create(nil);
   try
     qry.Connection := FConn;
-    qry.ResourceOptions.CmdExecTimeout := 300000; // 5 minutos para cada comando
-
-    fs := TFormatSettings.Create;
-    fs.DecimalSeparator := '.';
+    qry.ResourceOptions.SilentMode := False;
+    qry.ResourceOptions.CmdExecTimeout := 600000;
 
     FConn.StartTransaction;
     try
-      // Limpar tabela com timeout estendido
-      try
-        qry.SQL.Text := 'DELETE FROM atualizacaomigo';
-        qry.ExecSQL;
-        Writeln('Tabela atualizacaomigo limpa com sucesso');
-      except
-        on E: Exception do
-        begin
-          LogEvento('Error', '','Erro ao limpar tabela atualizacaomigo: ' + E.Message);
-          raise;
-        end;
-      end;
+      // Limpa staging
+      FConn.ExecSQL('DELETE FROM atualizacaomigo');
 
-      qry.SQL.Clear;
-      qry.SQL.Add('INSERT INTO atualizacaomigo (po, poritem, datacriacaopo, siteid, codigoservico, id, ');
-      qry.SQL.Add('descricaoservico, vendorno, vendorname, datamigo, nmigo, qtdmigo, ');
-      qry.SQL.Add('datamiro, nmiro, qtdmiro, poativa, poaprovada, classificacaopo, statuspo, ');
-      qry.SQL.Add('codigocliente, estado, cidade, qtyordered, medidafiltro, medidafiltrounitario, ');
-      qry.SQL.Add('statusobranew, escopo, sigla, valorafaturar, analise, FAT) ');
-      qry.SQL.Add('VALUES (:po, :poritem, :datacriacaopo, :siteid, :codigoservico, :id, ');
-      qry.SQL.Add(':descricaoservico, :vendorno, :vendorname, :datamigo, :nmigo, :qtdmigo, ');
-      qry.SQL.Add(':datamiro, :nmiro, :qtdmiro, :poativa, :poaprovada, :classificacaopo, :statuspo, ');
-      qry.SQL.Add(':codigocliente, :estado, :cidade, :qtyordered, :medidafiltro, :medidafiltrounitario, ');
-      qry.SQL.Add(':statusobranew, :escopo, :sigla, :valorafaturar, :analise, :fat)');
-      qry.Params.ParamByName('po').DataType := ftString;
-      qry.Params.ParamByName('poritem').DataType := ftLargeInt;
-      qry.Params.ParamByName('datacriacaopo').DataType := ftDate;
-      qry.Params.ParamByName('siteid').DataType := ftString;
-      qry.Params.ParamByName('codigoservico').DataType := ftString;
-      qry.Params.ParamByName('id').DataType := ftString;
-      qry.Params.ParamByName('descricaoservico').DataType := ftString;
-      qry.Params.ParamByName('vendorno').DataType := ftString;
-      qry.Params.ParamByName('vendorname').DataType := ftString;
-      qry.Params.ParamByName('datamigo').DataType := ftDate;
-      qry.Params.ParamByName('nmigo').DataType := ftString;
-      qry.Params.ParamByName('qtdmigo').DataType := ftFloat;
-      qry.Params.ParamByName('datamiro').DataType := ftDate;
-      qry.Params.ParamByName('nmiro').DataType := ftString;
-      qry.Params.ParamByName('qtdmiro').DataType := ftFloat;
-      qry.Params.ParamByName('poativa').DataType := ftString;
-      qry.Params.ParamByName('poaprovada').DataType := ftString;
-      qry.Params.ParamByName('classificacaopo').DataType := ftString;
-      qry.Params.ParamByName('statuspo').DataType := ftString;
-      qry.Params.ParamByName('codigocliente').DataType := ftString;
-      qry.Params.ParamByName('estado').DataType := ftString;
-      qry.Params.ParamByName('cidade').DataType := ftString;
-      qry.Params.ParamByName('qtyordered').DataType := ftFloat;
-      qry.Params.ParamByName('medidafiltro').DataType := ftString;
-      qry.Params.ParamByName('medidafiltrounitario').DataType := ftString;
-      qry.Params.ParamByName('statusobranew').DataType := ftString;
-      qry.Params.ParamByName('escopo').DataType := ftString;
-      qry.Params.ParamByName('sigla').DataType := ftString;
-      qry.Params.ParamByName('valorafaturar').DataType := ftString;
-      qry.Params.ParamByName('analise').DataType := ftString;
-      qry.Params.ParamByName('fat').DataType := ftString;
+      // SQL e parâmetros
+      qry.SQL.Text :=
+        'INSERT INTO atualizacaomigo (' +
+        'po, poritem, datacriacaopo, siteid, codigoservico, id, descricaoservico, ' +
+        'vendorno, vendorname, datamigo, nmigo, qtdmigo, datamiro, nmiro, qtdmiro, ' +
+        'poativa, poaprovada, classificacaopo, statuspo, codigocliente, estado, cidade, ' +
+        'qtyordered, medidafiltro, medidafiltrounitario, statusobranew, escopo, sigla, ' +
+        'valorafaturar, analise, fat) ' +
+        'VALUES (' +
+        ':po, :poritem, :datacriacaopo, :siteid, :codigoservico, :id, :descricaoservico, ' +
+        ':vendorno, :vendorname, :datamigo, :nmigo, :qtdmigo, :datamiro, :nmiro, :qtdmiro, ' +
+        ':poativa, :poaprovada, :classificacaopo, :statuspo, :codigocliente, :estado, :cidade, ' +
+        ':qtyordered, :medidafiltro, :medidafiltrounitario, :statusobranew, :escopo, :sigla, ' +
+        ':valorafaturar, :analise, :fat)';
+
+      // Cria parâmetros com tipos consistentes
+      qry.Params.Clear;
+      qry.Params.CreateParam(ftString,    'po',                    ptInput);
+      qry.Params.CreateParam(ftLargeInt,  'poritem',               ptInput);
+      qry.Params.CreateParam(ftDateTime,  'datacriacaopo',         ptInput); // <<< ftDateTime
+      qry.Params.CreateParam(ftString,    'siteid',                ptInput);
+      qry.Params.CreateParam(ftString,    'codigoservico',         ptInput);
+      qry.Params.CreateParam(ftString,    'id',                    ptInput);
+      qry.Params.CreateParam(ftString,    'descricaoservico',      ptInput);
+      qry.Params.CreateParam(ftString,    'vendorno',              ptInput);
+      qry.Params.CreateParam(ftString,    'vendorname',            ptInput);
+      qry.Params.CreateParam(ftDateTime,  'datamigo',              ptInput); // <<< ftDateTime
+      qry.Params.CreateParam(ftString,    'nmigo',                 ptInput);
+      qry.Params.CreateParam(ftFloat,     'qtdmigo',               ptInput);
+      qry.Params.CreateParam(ftDateTime,  'datamiro',              ptInput); // <<< ftDateTime
+      qry.Params.CreateParam(ftString,    'nmiro',                 ptInput);
+      qry.Params.CreateParam(ftFloat,     'qtdmiro',               ptInput);
+      qry.Params.CreateParam(ftString,    'poativa',               ptInput);
+      qry.Params.CreateParam(ftString,    'poaprovada',            ptInput);
+      qry.Params.CreateParam(ftString,    'classificacaopo',       ptInput);
+      qry.Params.CreateParam(ftString,    'statuspo',              ptInput);
+      qry.Params.CreateParam(ftString,    'codigocliente',         ptInput);
+      qry.Params.CreateParam(ftString,    'estado',                ptInput);
+      qry.Params.CreateParam(ftString,    'cidade',                ptInput);
+      qry.Params.CreateParam(ftFloat,     'qtyordered',            ptInput);
+      qry.Params.CreateParam(ftString,    'medidafiltro',          ptInput);
+      qry.Params.CreateParam(ftString,    'medidafiltrounitario',  ptInput);
+      qry.Params.CreateParam(ftString,    'statusobranew',         ptInput);
+      qry.Params.CreateParam(ftString,    'escopo',                ptInput);
+      qry.Params.CreateParam(ftString,    'sigla',                 ptInput);
+      qry.Params.CreateParam(ftString,    'valorafaturar',         ptInput);
+      qry.Params.CreateParam(ftString,    'analise',               ptInput);
+      qry.Params.CreateParam(ftString,    'fat',                   ptInput);
+
+      // (Opcional) Prepare só depois de definir todos os tipos
       qry.Prepare;
-      Writeln(jsonData.Count);
-      for i := 0 to jsonData.Count - 3 do
+
+      for i := 0 to jsonData.Count - 1 do
       begin
         jsonObject := jsonData.Items[i] as TJSONObject;
         if jsonObject = nil then
+          Continue;
+
+        // Validações mínimas
+        poStr     := Trim(jsonObject.GetValue<string>('PO', ''));
+        poItemStr := Trim(jsonObject.GetValue<string>('PO+Item', ''));
+
+        if (poStr = '') or (poItemStr = '') or
+           (not TryStrToInt64(poItemStr, porItem)) or (porItem = 0) then
         begin
-          Writeln(Format('Linha %d ignorada: objeto JSON nulo', [i + 1]));
+          Inc(skippedCount);
           Continue;
         end;
 
-        // Verificar se é um site específico que pode causar problemas
-        siteId := jsonObject.GetValue<string>('Site ID', '');
+        // Preenche parâmetros
+        qry.ParamByName('po').AsString      := poStr;
+        qry.ParamByName('poritem').AsLargeInt := porItem;
 
-        if (jsonObject.TryGetValue<string>('PO', poStr)) and (Trim(poStr) <> '') then
-          qry.ParamByName('po').AsString := poStr
-        else
-          qry.ParamByName('po').Clear;
-
-        if (jsonObject.TryGetValue<string>('PO+Item', poStr)) and (Trim(poStr) <> '') then
-        begin
-          Writeln(poStr);
-          qry.ParamByName('poritem').AsLargeInt := StrToInt64Def(poStr, 0)
-        end
-        else
-        begin
-          qry.ParamByName('poritem').Clear;
-        end;
-
-
-        // Data Criação PO
-        if jsonObject.TryGetValue<string>('Data Criação PO', poStr) then
-        begin
-          if TryStrToDate(poStr, tempDate) then
-            qry.ParamByName('datacriacaopo').AsDateTime := tempDate
-          else
-          begin
-
-            qry.ParamByName('datacriacaopo').AsString := '';
-             LogEvento('Error', '',(Format('Data Criação PO inválida na linha %d: %s', [i + 1, poStr])));
-          end;
-        end
+        if TryStrToDate(jsonObject.GetValue<string>('Data Criação PO', ''), tempDate) then
+          qry.ParamByName('datacriacaopo').AsDateTime := tempDate
         else
           qry.ParamByName('datacriacaopo').Clear;
 
-        qry.ParamByName('siteid').AsString := jsonObject.GetValue<string>('Site ID', '');
-        qry.ParamByName('codigoservico').AsString := jsonObject.GetValue<string>('Código Serviço', '');
-        qry.ParamByName('id').AsString := jsonObject.GetValue<string>('id', '');
+        qry.ParamByName('siteid').AsString           := jsonObject.GetValue<string>('Site ID', '');
+        qry.ParamByName('codigoservico').AsString    := jsonObject.GetValue<string>('Código Serviço', '');
+        qry.ParamByName('id').AsString               := jsonObject.GetValue<string>('id', '');
         qry.ParamByName('descricaoservico').AsString := jsonObject.GetValue<string>('Descrição Serviço', '');
-        qry.ParamByName('vendorno').AsString := jsonObject.GetValue<string>('Vendor No', '');
-        qry.ParamByName('vendorname').AsString := jsonObject.GetValue<string>('Vendor Name', '');
+        qry.ParamByName('vendorno').AsString         := jsonObject.GetValue<string>('Vendor No', '');
+        qry.ParamByName('vendorname').AsString       := jsonObject.GetValue<string>('Vendor Name', '');
 
-        // Data MIGO
-        if jsonObject.TryGetValue<string>('Data MIGO', poStr) then
-        begin
-          if TryStrToDate(poStr, tempDate) then
-            qry.ParamByName('datamigo').AsDateTime := tempDate
-          else
-          begin
-            qry.ParamByName('datamigo').Clear;
-             LogEvento('Error', '',Format('Data MIGO inválida na linha %d: %s', [i + 1, poStr]));
-          end;
-        end
+        if TryStrToDate(jsonObject.GetValue<string>('Data MIGO', ''), tempDate) then
+          qry.ParamByName('datamigo').AsDateTime := tempDate
         else
           qry.ParamByName('datamigo').Clear;
 
         qry.ParamByName('nmigo').AsString := jsonObject.GetValue<string>('Nº MIGO', '');
 
-        // Qtd MIGO
-        if jsonObject.TryGetValue<string>('Qtd MIGO', poStr) then
-        begin
-          sNorm := StringReplace(poStr, '.', '', [rfReplaceAll]);
-          sNorm := StringReplace(sNorm, ',', '.', [rfReplaceAll]);
-          if TryStrToFloat(sNorm, tempFloat, fs) then
-            qry.ParamByName('qtdmigo').AsFloat := tempFloat
-          else
-          begin
-            qry.ParamByName('qtdmigo').Clear;
-            LogEvento('Error', 'ProcessarArquivoObra',(Format('Qtd MIGO inválida na linha %d: %s', [i + 1, poStr])));
-          end;
-        end
+        if ParseFloatBR(jsonObject.GetValue<string>('Qtd MIGO', ''), tempFloat) then
+          qry.ParamByName('qtdmigo').AsFloat := tempFloat
         else
-          qry.ParamByName('qtdmigo').AsString := '';
+          qry.ParamByName('qtdmigo').Clear;
 
-        // Data MIRO
-        if jsonObject.TryGetValue<string>('Data MIRO', poStr) then
-        begin
-          if TryStrToDate(poStr, tempDate) then
-            qry.ParamByName('datamiro').AsDateTime := tempDate
-          else
-          begin
-            qry.ParamByName('datamiro').AsString := '';
-             LogEvento('Error', 'ProcessarArquivoObra',(Format('Data MIRO inválida na linha %d: %s', [i + 1, poStr])));
-          end;
-        end
+        if TryStrToDate(jsonObject.GetValue<string>('Data MIRO', ''), tempDate) then
+          qry.ParamByName('datamiro').AsDateTime := tempDate
         else
-          qry.ParamByName('datamiro').AsString := '';;
+          qry.ParamByName('datamiro').Clear;
 
         qry.ParamByName('nmiro').AsString := jsonObject.GetValue<string>('Nº MIRO', '');
 
-        // Qtd MIRO
-        if jsonObject.TryGetValue<string>('Qtd MIRO', poStr) then
-        begin
-          sNorm := StringReplace(poStr, '.', '', [rfReplaceAll]);
-          sNorm := StringReplace(sNorm, ',', '.', [rfReplaceAll]);
-          if TryStrToFloat(sNorm, tempFloat, fs) then
-            qry.ParamByName('qtdmiro').AsFloat := tempFloat
-          else
-          begin
-            qry.ParamByName('qtdmiro').AsString := '';;
-             LogEvento('Error', 'ProcessarArquivoObra',(Format('Qtd MIRO inválida na linha %d: %s', [i + 1, poStr])));
-          end;
-        end
+        if ParseFloatBR(jsonObject.GetValue<string>('Qtd MIRO', ''), tempFloat) then
+          qry.ParamByName('qtdmiro').AsFloat := tempFloat
         else
           qry.ParamByName('qtdmiro').Clear;
 
-        // Qty ordered
-        if jsonObject.TryGetValue<string>('Qty ordered', poStr) then
-          begin
-            sNorm := StringReplace(poStr, '.', '', [rfReplaceAll]);
-            sNorm := StringReplace(sNorm, ',', '.', [rfReplaceAll]);
-            if TryStrToFloat(sNorm, tempFloat, fs) then
-              qry.ParamByName('qtyordered').AsFloat := tempFloat
-            else
-            begin
-             qry.ParamByName('qtyordered').Clear;
-             LogEvento('Error', 'ProcessarArquivoObra',
-               Format('Qty ordered inválido na linha %d: %s', [i + 1, poStr]));
-          end;
-        end
+        if ParseFloatBR(jsonObject.GetValue<string>('Qty ordered', ''), tempFloat) then
+          qry.ParamByName('qtyordered').AsFloat := tempFloat
         else
           qry.ParamByName('qtyordered').Clear;
 
-        // Análise
+        qry.ParamByName('poativa').AsString              := jsonObject.GetValue<string>('PO Ativa', '');
+        qry.ParamByName('poaprovada').AsString           := jsonObject.GetValue<string>('PO Aprovada', '');
+        qry.ParamByName('classificacaopo').AsString      := jsonObject.GetValue<string>('ClassificaçãoPO', '');
+        qry.ParamByName('statuspo').AsString             := jsonObject.GetValue<string>('StatusPO', '');
+        qry.ParamByName('codigocliente').AsString        := jsonObject.GetValue<string>('CodigoCliente', '');
+        qry.ParamByName('estado').AsString               := jsonObject.GetValue<string>('Estado', '');
+        qry.ParamByName('cidade').AsString               := jsonObject.GetValue<string>('Cidade', '');
+        qry.ParamByName('medidafiltro').AsString         := jsonObject.GetValue<string>('Medida_filtro', '');
+        qry.ParamByName('medidafiltrounitario').AsString := jsonObject.GetValue<string>('Medida_filtro_Unitario', '');
+        qry.ParamByName('statusobranew').AsString        := jsonObject.GetValue<string>('Status Obra New', '');
+        qry.ParamByName('escopo').AsString               := jsonObject.GetValue<string>('Escopo', '');
+        qry.ParamByName('sigla').AsString                := jsonObject.GetValue<string>('Sigla', '');
+        qry.ParamByName('valorafaturar').AsString        := jsonObject.GetValue<string>('Valor a Faturar', '');
+        qry.ParamByName('fat').AsString                  := '';
+
+        // Análise MIGO x MIRO
         if (qry.ParamByName('nmigo').AsString <> '') and
-           (not qry.ParamByName('qtdmigo').IsNull) and
            (qry.ParamByName('nmiro').AsString <> '') and
-           (not qry.ParamByName('qtdmiro').IsNull) then
-        begin
-          if SameValue(qry.ParamByName('qtdmigo').AsFloat,
-                       qry.ParamByName('qtdmiro').AsFloat, 0.0001) then
-            analiseStr := 'OK'
-          else
-          begin
-            analiseStr := 'NOK';
-             LogEvento('Error', 'ProcessarArquivoObra',(Format('Diferença entre qtdmigo e qtdmiro na linha %d', [i + 1])));
-          end;
-        end
+           (not qry.ParamByName('qtdmigo').IsNull) and
+           (not qry.ParamByName('qtdmiro').IsNull) and
+           (Abs(qry.ParamByName('qtdmigo').AsFloat - qry.ParamByName('qtdmiro').AsFloat) < 0.001) then
+          analiseStr := 'OK'
         else
           analiseStr := 'NOK';
+
         qry.ParamByName('analise').AsString := analiseStr;
-        // Strings restantes
-        qry.ParamByName('poativa').AsString := jsonObject.GetValue<string>('PO Ativa', '');
-        qry.ParamByName('poaprovada').AsString := jsonObject.GetValue<string>('PO Aprovada', '');
-        qry.ParamByName('classificacaopo').AsString := jsonObject.GetValue<string>('ClassificaçãoPO', '');
-        qry.ParamByName('statuspo').AsString := jsonObject.GetValue<string>('StatusPO', '');
-        qry.ParamByName('codigocliente').AsString := jsonObject.GetValue<string>('CodigoCliente', '');
-        qry.ParamByName('estado').AsString := jsonObject.GetValue<string>('Estado', '');
-        qry.ParamByName('cidade').AsString := jsonObject.GetValue<string>('Cidade', '');
-        qry.ParamByName('medidafiltro').AsString := jsonObject.GetValue<string>('Medida_filtro', '');
-        qry.ParamByName('valorafaturar').AsString := jsonObject.GetValue<string>('Medida_filtro', '');
-        qry.ParamByName('medidafiltrounitario').AsString := jsonObject.GetValue<string>('Medida_filtro_Unitario', '');
-        qry.ParamByName('statusobranew').AsString := jsonObject.GetValue<string>('Status Obra New', '');
-        qry.ParamByName('escopo').AsString := jsonObject.GetValue<string>('Escopo', '');
-        qry.ParamByName('sigla').AsString := jsonObject.GetValue<string>('Sigla', '');
-        qry.ParamByName('fat').AsString := '';
 
-        try
-          qry.ExecSQL;
-          Inc(processedCount);
-
-          // Commit intermediário a cada lote para evitar timeout
-          if (processedCount mod batchSize = 0) then
-          begin
-            try
-              FConn.Commit;
-              FConn.StartTransaction;
-              LogEvento('Error', 'ProcessarArquivoObra', Format('Commit intermediário realizado após %d registros', [processedCount]));
-            except
-              on E: Exception do
-              begin
-                 LogEvento('Error', 'ProcessarArquivoObra',Format('Erro no commit intermediário: %s', [E.Message]));
-                raise;
-              end;
-            end;
-          end;
-
-        except
-          on E: Exception do
-          begin
-             LogEvento('Error', 'ProcessarArquivoObra',Format('Erro ao executar INSERT na linha %d (Site: %s): %s', [i + 1, siteId, E.Message]));
-          end;
-        end;
-      end;
-
-      // Executar procedure final com tratamento melhorado
-       LogEvento('Info', 'ProcessarArquivoObra',Format('Iniciando execução da procedure AtualizaMigo para %d registros processados', [processedCount]));
-
-      if not migoparareal then
-      begin
-         LogEvento('Error', 'ProcessarArquivoObra','Falha ao executar procedure AtualizaMigo - continuando com dados inseridos');
-        // Não falhar completamente, apenas logar o erro
-        // raise Exception.Create('Falha ao executar procedure AtualizaMigo');
+        // Executa 1 a 1 (simples e estável)
+        qry.ExecSQL;
+        Inc(processedCount);
       end;
 
       FConn.Commit;
+      qry.SQL.Clear;
+      migoparareal();
+
       Result := processedCount;
-       LogEvento('Info', 'ProcessarArquivoObra',Format('Processamento concluído com sucesso: %d registros de %d total', [processedCount, jsonData.Count]));
+      LogEvento('Info', 'ProcessarArquivoObra',
+        Format('MIGO inserido: %d registros. Pulados: %d.', [processedCount, skippedCount]));
+
+      if processedCount = 0 then
+        erro := 'Nenhum registro inserido (tudo pulado por validação de PO/PO+Item).';
 
     except
       on E: Exception do
       begin
-        try
+        if FConn.InTransaction then
           FConn.Rollback;
-        except
-          on RollbackEx: Exception do
-             LogEvento('Error', 'ProcessarArquivoObra','Erro adicional no rollback: ' + RollbackEx.Message);
-        end;
-
-        erro := Format('Erro ao inserir dados MIGO (processados: %d/%d, linha ~%d): %s',
-          [processedCount, jsonData.Count, i + 1, E.ClassName + ': ' + E.Message]);
-         LogEvento('Error', 'ProcessarArquivoObra',erro);
-
-        // Se processou pelo menos alguns registros, retornar o que foi processado
-        if processedCount > 0 then
-        begin
-           LogEvento('Error', 'ProcessarArquivoObra',Format('Retornando %d registros processados com sucesso antes do erro', [processedCount]));
-          Result := processedCount;
-        end
-        else
-          Result := 0;
+        erro := 'Erro geral no processamento MIGO: ' + E.Message;
+        LogEvento('Error', 'ProcessarArquivoObra', erro);
+        Result := processedCount;
       end;
     end;
+
   finally
     qry.Free;
-    if createdConn and Assigned(FConn) then
-      FreeAndNil(FConn);
+    if createdConn then
+      FConn.Free;
   end;
 end;
-
 
 
 

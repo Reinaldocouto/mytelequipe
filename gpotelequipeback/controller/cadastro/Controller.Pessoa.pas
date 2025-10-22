@@ -299,31 +299,66 @@ var
   qry: TFDQuery;
   erro: string;
   arraydados: TJSONArray;
-  body: TJSONValue;
 begin
-  try
-    servico := TPessoa.Create;
-  except
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    exit;
-  end;
-  qry := servico.ListaSelect(Req.Query.Dictionary, erro);
+  servico := nil;
+  qry := nil;
+  arraydados := nil;
   try
     try
-      arraydados := qry.ToJSONArray();
-      if erro = '' then
-        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+      servico := TPessoa.Create;
     except
-      on ex: exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+      Res.Status(THTTPStatus.InternalServerError);
+      Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao inicializar serviço'));
+      Exit;
+    end;
+
+    try
+      qry := servico.ListaSelect(Req.Query.Dictionary, erro);
+    except
+      on E: Exception do
+      begin
+        Res.Status(THTTPStatus.InternalServerError);
+        Res.Send<TJSONObject>(CreateJsonObj('erro', E.Message));
+        Exit;
+      end;
+    end;
+
+    if (erro <> '') then
+    begin
+      Res.Status(THTTPStatus.InternalServerError);
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro));
+      Exit;
+    end;
+
+    if not Assigned(qry) then
+    begin
+      Res.Status(THTTPStatus.InternalServerError);
+      Res.Send<TJSONObject>(CreateJsonObj('erro', 'Consulta não retornou dados'));
+      Exit;
+    end;
+
+    try
+      arraydados := qry.ToJSONArray;
+      Res.Status(THTTPStatus.OK);
+      Res.Send<TJSONArray>(arraydados);
+      arraydados := nil;
+    except
+      on E: Exception do
+      begin
+        Res.Status(THTTPStatus.InternalServerError);
+        Res.Send<TJSONObject>(CreateJsonObj('erro', E.Message));
+      end;
     end;
   finally
-    qry.Free;
-    servico.Free;
+    if Assigned(arraydados) then
+      arraydados.Free;
+    if Assigned(qry) then
+      qry.Free;
+    if Assigned(servico) then
+      servico.Free;
   end;
 end;
+
 
 procedure ListaSelectclt(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var

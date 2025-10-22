@@ -310,6 +310,8 @@ begin
                   try
                     Writeln('[CONVERSÃO] Convertendo MIGO para JSON...');
                     jsonData := LerExcelParaJSON(vXLSFile);
+                    if jsonData.Count > 0 then
+                      jsonData.Remove(jsonData.Count - 1);
                     Writeln(Format('[INFO] JSON gerado com %d registros', [jsonData.Count]));
                     servico.LogEvento('INFO', fileName, Format('Processando arquivo %d de %d - MIGO com %d registros', [i + 1, validFileCount, jsonData.Count]));
                     Writeln(Format('[PROGRESSO] Processando arquivo %d de %d - MIGO com %d registros', [i + 1, validFileCount, jsonData.Count]));
