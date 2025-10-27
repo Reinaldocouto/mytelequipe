@@ -206,11 +206,11 @@ const Rollouthuawei = ({ setshow, show }) => {
     [rowsById]
   );
 
-  // === CAMPOS DO BLOCO "ACESSO" QUE DEVEM FICAR VERDES ===
   const accessFields = useMemo(
     () => [
       'ddd',
       'municipio',
+      'idoutros',
       'endereco',
       'latitude',
       'longitude',
@@ -496,7 +496,7 @@ const Rollouthuawei = ({ setshow, show }) => {
         valueOptions: ['Vandalizado', 'Pendente', 'Respon. Huawei', 'Cancelado', 'Finalizado', 'Site novo', 'S/ Coleta'],
       },
 
-      // ======== CAMPOS DE ACESSO (cabeçalho em verde) ========
+      { field: 'idoutros', headerName: 'ID Outros', width: 150, editable: true, headerClassName: 'col-acesso-header' },
       { field: 'municipio', headerName: 'Município', width: 150, editable: true, headerClassName: 'col-acesso-header' },
       { field: 'endereco', headerName: 'Endereço', width: 220, editable: true, headerClassName: 'col-acesso-header' },
 
@@ -601,7 +601,6 @@ const Rollouthuawei = ({ setshow, show }) => {
       { field: 'regiao', headerName: 'Região', width: 150, editable: true, headerClassName: 'col-acesso-header' },
       { field: 'acessoequipenomes', headerName: 'Acesso Equipe Nomes', width: 300, editable: false, headerClassName: 'col-acesso-header' },
 
-      // ======== CAMPOS NÃO ACESSO (seguem fora do bloco) ========
       { field: 'detentora', headerName: 'Detentora', width: 150, editable: true },
       { field: 'idDetentora', headerName: 'ID Detentora (Legacy)', width: 170, editable: true },
       { field: 'formaDeAcesso', headerName: 'Forma de Acesso (Legacy)', width: 210, editable: true },
@@ -915,18 +914,11 @@ const Rollouthuawei = ({ setshow, show }) => {
       <style>
         {`
           .selected-row-green { background-color: #e8f5e9 !important; border-left: 5px solid #4caf50; }
-          /* cabeçalho padrão cinza */
           .MuiDataGrid-columnHeaders { background-color: #f0f0f0; color: #555; text-transform: uppercase; }
           .MuiDataGrid-columnHeaderTitle { font-weight: bold; }
           .MuiDataGrid-cell { color: rgba(0, 0, 0, 0.87); }
-
-          /* cabeçalhos do bloco Acesso em verde escuro */
           .col-acesso-header { background-color: #2e7d32 !important; color: #fff !important; }
-
-          /* células do bloco Acesso em verde claro */
           .col-acesso-verde { background-color: #e8f5e9 !important; }
-
-          /* demais células em cinza claro */
           .col-cinza { background-color: #fafafa !important; }
         `}
       </style>

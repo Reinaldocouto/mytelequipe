@@ -36,6 +36,7 @@ import modofinanceiro from '../../../services/modofinanceiro';
 import Solicitacaoedicao from '../suprimento/Solicitacaoedicao';
 import Mensagemsimples from '../../Mensagemsimples';
 import Solicitardiaria from '../projeto/Solicitardiaria';
+import DiariasSection from './projeto/components/DiariasSection';
 
 const Rollouttelefonicaedicao = ({
   setshow,
@@ -537,36 +538,36 @@ const Rollouttelefonicaedicao = ({
 
     ...(modofinanceiro()
       ? [
-          {
-            field: 'valor',
-            headerName: 'VALOR R$',
-            type: 'currency',
-            width: 150,
-            align: 'left',
-            editable: false,
-            valueFormatter: (parametros) => {
-              if (parametros.value == null) return '';
-              return parametros.value.toLocaleString('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              });
-            },
+        {
+          field: 'valor',
+          headerName: 'VALOR R$',
+          type: 'currency',
+          width: 150,
+          align: 'left',
+          editable: false,
+          valueFormatter: (parametros) => {
+            if (parametros.value == null) return '';
+            return parametros.value.toLocaleString('pt-BR', {
+              style: 'currency',
+              currency: 'BRL',
+            });
           },
-          {
-            field: 'valortotal',
-            headerName: 'VALOR TOTAL',
-            width: 150,
-            align: 'left',
-            editable: false,
-            valueFormatter: (parametros) => {
-              if (parametros.value == null) return '';
-              return parametros.value.toLocaleString('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              });
-            },
+        },
+        {
+          field: 'valortotal',
+          headerName: 'VALOR TOTAL',
+          width: 150,
+          align: 'left',
+          editable: false,
+          valueFormatter: (parametros) => {
+            if (parametros.value == null) return '';
+            return parametros.value.toLocaleString('pt-BR', {
+              style: 'currency',
+              currency: 'BRL',
+            });
           },
-        ]
+        },
+      ]
       : []),
     {
       field: 'statust2',
@@ -2392,46 +2393,15 @@ const Rollouttelefonicaedicao = ({
               </CardBody>
             </div>
           </div>
-          <div>
-            <br />
-            <b>Diárias</b>
-            <hr style={{ marginTop: '0px', width: '100%' }} />
-            <div className="row g-3">
-              <CardBody className="px-4 , pb-2">
-                <div className="row g-3">
-                  <div className="col-sm-6"></div>
-                  <div className=" col-sm-6 d-flex flex-row-reverse">
-                    <div className=" col-sm-6 d-flex flex-row-reverse">
-                      <Button color="primary" onClick={() => novocadastrodiaria()}>
-                        Solicitar Diária <Icon.Plus />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                <br></br>
-                <div className="row g-3">
-                  <Box sx={{ height: 400, width: '100%' }}>
-                    <DataGrid
-                      rows={solicitacaodiaria}
-                      columns={colunasdiarias}
-                      loading={loading}
-                      disableSelectionOnClick
-                      experimentalFeatures={{ newEditingApi: true }}
-                      components={{
-                        Pagination: CustomPagination,
-                        LoadingOverlay: LinearProgress,
-                        NoRowsOverlay: CustomNoRowsOverlay,
-                      }}
-                      localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
-                      // Usa estado para controlar a paginação dinamicamente
-                      paginationModel={paginationModeldiarias}
-                      onPaginationModelChange={setPaginationModeldiarias}
-                    />
-                  </Box>
-                </div>
-              </CardBody>
-            </div>
-          </div>
+          <DiariasSection
+            rows={solicitacaodiaria}
+            columns={colunasdiarias}
+            loading={loading}
+            paginationModel={paginationModeldiarias}
+            onPaginationModelChange={setPaginationModeldiarias}
+            onNovoCadastro={novocadastrodiaria}
+          />
+
 
           <div>
             <b>Financeiro</b>

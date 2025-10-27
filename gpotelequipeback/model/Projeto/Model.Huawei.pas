@@ -93,6 +93,7 @@ type
     function RolloutHuawei(const AQuery: TDictionary<string,string>;  out erro: string): TFDQuery;
     function ListaEquipeAcesso(const idAcesso: Integer; out erro: string): TFDQuery;
     function SalvarAcesso(const Body: TJSONObject; out erro: string; out R: THuaweiAcessoSaveResult): Boolean;
+    function diaria(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
   end;
 
 implementation
@@ -960,6 +961,52 @@ begin
     begin
       erro := 'Erro ao listar rollouthuawei: ' + E.Message;
       qry.Free;
+      Result := nil;
+    end;
+  end;
+end;
+
+
+
+function THuawei.diaria(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+  a: string;
+begin
+  try
+    qry := TFDQuery.Create(nil);
+    qry.connection := FConn;
+    with qry do
+    begin
+      Active := false;
+      SQL.Clear;
+      SQL.Add('Select  ');
+      SQL.Add('    gesdiaria.numero as id,  ');
+      SQL.Add('    gesdiaria.datasolicitacao,  ');
+      SQL.Add('    gespessoa.nome,  ');
+      SQL.Add('    gesdiaria.projeto,  ');
+      SQL.Add('    gesdiaria.siteid,  ');
+      SQL.Add('    gesdiaria.siglasite,  ');
+      SQL.Add('    gesdiaria.po,  ');
+      SQL.Add('    gesdiaria.local,  ');
+      SQL.Add('    gesdiaria.descricao,  ');
+      SQL.Add('    gesdiaria.valoroutrassolicitacoes,  ');
+      SQL.Add('    gesdiaria.diarias,  ');
+      SQL.Add('    gesdiaria.valortotal,  ');
+      SQL.Add('    gesdiaria.solicitante  ');
+      SQL.Add('From  ');
+      SQL.Add('    gesdiaria Inner Join  ');
+      SQL.Add('    gespessoa On gespessoa.idpessoa = gesdiaria.colaborador where gesdiaria.siteid =:siteid ');
+      ParamByName('siteid').asstring := AQuery.Items['osouobra'];
+      a := AQuery.Items['osouobra'];
+      Active := true;
+    end;
+    erro := '';
+    Result := qry;
+  except
+    on ex: exception do
+    begin
+      erro := 'Erro ao consultar : ' + ex.Message;
       Result := nil;
     end;
   end;

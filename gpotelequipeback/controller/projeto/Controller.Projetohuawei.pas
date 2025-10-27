@@ -35,6 +35,9 @@ procedure criartarefa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure rollouthuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure EditarEmMassa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 function InserirSeNaoExistirRollout(id: string; obj: TJSONObject): Boolean;
+procedure diaria(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
+
 
 // >>> FALTAVA ESTA DECLARAÇÃO <<<
 procedure SalvarAcessoHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -68,6 +71,8 @@ begin
 
   THorse.Get('v1/rollouthuawei', rollouthuawei);
   THorse.Post('v1/rollouthuawei/editaremmassa', EditarEmMassa);
+
+  THorse.get('v1/projetohuawei/diaria', diaria);
 
   THorse.Get('v1/projetohuawei/fechamento', Listafechamento);
   THorse.Get('v1/projetohuawei/consolidado', Listaconsolidado);
@@ -845,6 +850,40 @@ begin
     servico.Free;
   end;
 end;
+
+procedure diaria(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: THuawei;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONArray;
+  body: TJSONValue;
+begin
+  try
+    servico := THuawei.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.diaria(Req.Query.Dictionary, erro);
+  try
+
+    try
+      arraydados := qry.ToJSONArray();
+      if erro = '' then
+        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
+
 
 procedure ListaDespesas(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var

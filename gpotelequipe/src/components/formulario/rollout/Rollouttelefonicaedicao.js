@@ -98,6 +98,10 @@ const Rollouttelefonicaedicao = ({
     pageSize: 5,
     page: 0,
   });
+  const [paginationModelEquipeResponsavel, setPaginationModellEquipeResponsavel] = useState({
+    pageSize: 5,
+    page: 0,
+  });
   const [paginationModelacionados, setPaginationModelacionados] = useState({
     pageSize: 5,
     page: 0,
@@ -112,6 +116,7 @@ const Rollouttelefonicaedicao = ({
   });
   const [loading, setloading] = useState(false);
   const [rowSelectionModel, setRowSelectionModel] = useState([]);
+  const [rowSelectionEquipeResponsavelModel, setRowSelectionEquipeResponsavelModel] = useState([]);
   const [colaboradorlistapj, setcolaboradorlistapj] = useState([]);
   const [rowSelectionModelpacotepj, setRowSelectionModelpacotepj] = useState([]);
   const [rowSelectionModelFinanceiro, setRowSelectionModelFinanceiro] = useState([]);
@@ -404,16 +409,12 @@ const Rollouttelefonicaedicao = ({
         setobs(response.data.obs);
         setuf(response.data.uf);
         setDataInventarioDesinstalacao(trataData(response.data.datainventariodesinstalacao));
-        console.log(responsibleTeamOptions);
         const splitEquipeResponsavel = response.data?.equiperesponsavel?.split(',');
-        console.log(splitEquipeResponsavel);
-        console.log(responsibleTeamOptions);
         if (
           splitEquipeResponsavel &&
           splitEquipeResponsavel.length > 0 &&
           responsibleTeamOptions.length > 0
         ) {
-          console.log('-------------------------------');
           const selectedOptions = splitEquipeResponsavel
             .map((id) => {
               const option = responsibleTeamOptions.find(
@@ -422,9 +423,6 @@ const Rollouttelefonicaedicao = ({
               return option;
             })
             .filter(Boolean);
-          console.log('-------------------------------');
-          console.log('-------------------------------');
-          console.log(selectedOptions);
           setEquipeResponsavel(selectedOptions);
         } else {
           setEquipeResponsavel([]);
@@ -1372,6 +1370,17 @@ const Rollouttelefonicaedicao = ({
     },
   ];
 
+  const colunasequiperesponsavel = [
+    {
+      field: 'label',
+      headerName: 'Nome',
+      width: 250,
+      align: 'left',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
+    },
+  ];
+
   const colunaspacotesacionadosclt = [
     {
       field: 'actions',
@@ -2015,6 +2024,42 @@ const Rollouttelefonicaedicao = ({
     }
   };
 
+  const enviaremailEquipeResponsavel = () => {
+    const idsEquipeResponsavel = rowSelectionEquipeResponsavelModel.map((item) => {
+      const partes = item.trim().split(/\s+/); // divide por espaço(s)
+      return partes[partes.length - 1]; // pega o último elemento
+    });
+    console.log(idsEquipeResponsavel);
+    if (rowSelectionEquipeResponsavelModel.length === 0) {
+      setmostra(true);
+      setmensagemtela('Falta Selecionar um responsável da equipe!');
+    } else {
+      api
+        .post('v1/projetotelefonica/enviaremailresponsavel', {
+          equiperesponsavel: idsEquipeResponsavel.join(','),
+          idusuario: localStorage.getItem('sessionId'),
+        })
+        .then((response) => {
+          if (response.status === 200) {
+            setmostra(true);
+            setmotivo(1);
+            setmensagemtela('Email Enviando com Sucesso!');
+          } else {
+            setmostra(true);
+            setmotivo(2);
+            setmensagemtela('Erro ao enviar a mensagem!');
+          }
+        })
+        .catch((err) => {
+          if (err.response) {
+            toast.error(err.response.data.erro);
+          } else {
+            toast.error('Ocorreu um erro na requisição.');
+          }
+        });
+    }
+  };
+
   function deletediaria(stat) {
     setiddiaria(stat);
     settelaexclusaodiaria(true);
@@ -2278,7 +2323,7 @@ const Rollouttelefonicaedicao = ({
       console.error('Erro ao carregar tabelas secundárias:', error);
       toast.error('Erro ao carregar alguns dados. Por favor, tente novamente.');
     }
-  }, 2000);
+  }, 5000);
 
   const iniciatabelas = async () => {
     try {
@@ -2715,6 +2760,54 @@ const Rollouttelefonicaedicao = ({
                     onChange={(e) => setobs(e.target.value)}
                     value={obs}
                   ></Input>
+                </div>
+              </div>
+              <FormControl fullWidth size="small" margin="dense">
+                <Label htmlFor="statusSelect">Equipe Responsável</Label>
+                <Select
+                  isClearable
+                  isSearchable
+                  isMulti
+                  name="equipeResponsavel"
+                  options={responsibleTeamOptions}
+                  placeholder="Selecione"
+                  isLoading={loading}
+                  onChange={handleResponsibleTeamChange}
+                  value={equipeResponsavel}
+                />
+              </FormControl>
+              <div className="row g-3">
+                <Box sx={{ height: equipeResponsavel.length > 0 ? '100%' : 400, width: '100%' }}>
+                  <DataGrid
+                    rows={equipeResponsavel}
+                    columns={colunasequiperesponsavel}
+                    loading={loading}
+                    getRowId={(data) => data.label.concat(` ${data.value}`)}
+                    disableSelectionOnClick
+                    checkboxSelection
+                    experimentalFeatures={{ newEditingApi: true }}
+                    components={{
+                      Pagination: CustomPagination,
+                      LoadingOverlay: LinearProgress,
+                      NoRowsOverlay: CustomNoRowsOverlay,
+                    }}
+                    localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                    paginationModel={paginationModelEquipeResponsavel}
+                    onPaginationModelChange={setPaginationModellEquipeResponsavel}
+                    onRowSelectionModelChange={(newRowSelectionModel) => {
+                      setRowSelectionEquipeResponsavelModel(newRowSelectionModel);
+                    }}
+                  />
+                </Box>
+                <br></br>
+                <div className=" col-sm-12 d-flex flex-row-reverse">
+                  <Button
+                    color="secondary"
+                    onClick={enviaremailEquipeResponsavel}
+                    disabled={modoVisualizador()}
+                  >
+                    Enviar E-mail para equipe responsável <Icon.Mail />
+                  </Button>
                 </div>
               </div>
               <FormControl fullWidth size="small" margin="dense">

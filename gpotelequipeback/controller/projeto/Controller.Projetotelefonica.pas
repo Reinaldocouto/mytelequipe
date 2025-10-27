@@ -124,6 +124,8 @@ procedure historicopagamentogeral(Req: THorseRequest; Res: THorseResponse; Next:
 
 procedure EditarEmMassa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
+procedure EnviarEmailResponsavel(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
 procedure ListaDespesas(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure listat4(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure GerarTaf(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -156,6 +158,7 @@ begin
   THorse.get('v1/projetotelefonica/fechamento', Listafechamento);
   THorse.get('v1/projetotelefonica/fechamentoporempresa', ListaFechamentoporempresa);
   THorse.post('v1/projetotelefonica/fechamento/salvapagamento', Editarpagamento);
+  THorse.post('v1/projetotelefonica/enviaremailresponsavel', EnviarEmailResponsavel);
   THorse.get('v1/projetotelefonica/documentacao', Listaparadocumentacao);
   //THorse.get('v1/projetotelefonica/historicopagamento', historicopagamento);
   THorse.get('v1/projetotelefonicaid/extrato', extratopagamento);
@@ -2067,6 +2070,44 @@ begin
   end;
 end;
 
+
+
+
+procedure EnviarEmailResponsavel(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetotelefonica;
+  body: TJSONObject;
+  erro: string;
+begin
+  servico := TProjetotelefonica.Create;
+  try
+    erro := '';
+    try
+      // Lê o corpo da requisição como TJSONObject
+      body := Req.Body<TJSONObject>;
+      servico.equipeResponsavel := body.GetValue<string>('equiperesponsavel', '');
+
+      // Execução principal
+      if Trim(servico.equipeResponsavel) <> '' then
+      begin
+        servico.SendEmailEquipeResponsavel(erro);
+        Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.uididcpomrf))
+          .Status(THTTPStatus.Created);
+      end
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro))
+          .Status(THTTPStatus.BadRequest);
+
+    except
+      on Ex: Exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', Ex.Message))
+          .Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
 procedure editar(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TProjetotelefonica;
@@ -2145,10 +2186,6 @@ begin
       // Execução principal
       if servico.Editar(erro) then
       begin
-        // Envia e-mail somente se houver responsável definido
-        if Trim(servico.equipeResponsavel) <> '' then
-          servico.SendEmailEquipeResponsavel(erro);
-
         Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.uididcpomrf))
           .Status(THTTPStatus.Created);
       end

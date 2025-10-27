@@ -37,6 +37,7 @@ import Solicitardiaria from '../projeto/Solicitardiaria';
 //import { CustomPagination, CustomNoRowsOverlay } from '../../../components/CustomDataGrid';
 
 import api from '../../../services/api';
+import DiariasSection from '../projeto/components/DiariasSection';
 
 const Rollouthuaweiedicao = ({
   show,
@@ -161,7 +162,7 @@ const Rollouthuaweiedicao = ({
     idcontroleacessobusca: localStorage.getItem('sessionId'),
     //idempresas: idcolaboradorpj,
     deletado: 0,
-    osouobra: numero,
+    osouobra: site,
     obra: numero,
   };
 
@@ -291,7 +292,7 @@ const Rollouthuaweiedicao = ({
       setNumero(data.numero || '');
       setCliente(data.cliente || '');
       setRegiona(data.regiona || '');
-      setSite(data.site || '');
+      setSite(data.siteid || '');
 
       // >>> ALTERAÇÃO 2: guardar somente os IDs vindos do backend <<<
       setPendingEquipeIds(Array.isArray(data.acesso_equipe) ? data.acesso_equipe : []);
@@ -840,6 +841,9 @@ const Rollouthuaweiedicao = ({
     if (ididentificador) {
       fetchIdentificacao();
       listasolicitacaodiaria();
+    }
+
+    if (3 + 3 === 999) {
       listacolaboradorpj();
       listacolaboradorclt();
       listapacotes('NEGOCIADO');
@@ -857,14 +861,14 @@ const Rollouthuaweiedicao = ({
 
   useEffect(() => {
     // quando o modal de exclusão PJ fechar, atualiza a grid de acionamentos
-    if (!telaexclusaopj) {
+    if (!telaexclusaopj && 3 + 3 === 999) {
       listapacotesacionados();
     }
   }, [telaexclusaopj]);
 
   useEffect(() => {
     // quando o modal de exclusão CLT fechar, atualiza a grid de acionamentos
-    if (!telaexclusaoclt) {
+    if (!telaexclusaoclt && 3 + 3 === 999) {
       listapacotesacionadosclt();
     }
   }, [telaexclusaoclt]);
@@ -1408,8 +1412,8 @@ const Rollouthuaweiedicao = ({
                   ididentificador={identificadorsolicitacaodiaria}
                   atualiza={listasolicitacaodiaria}
                   titulotopo={titulodiaria}
-                  numero={numero}
-                  idlocal={numero}
+                  numero={site}
+                  idlocal={ididentificador}
                   sigla={site}
                   regional={regiona}
                   clientelocal="HUAWEI"
@@ -1734,45 +1738,16 @@ const Rollouthuaweiedicao = ({
           </div>
         </CardBody>
 
+        {/* === DIÁRIAS (trocado para componente, resto intacto) === */}
         <CardBody className="bg-white pb-0">
-          <div>
-            <br />
-            <b>Diárias</b>
-            <hr style={{ marginTop: '0px', width: '100%' }} />
-            <div className="row g-3">
-              <CardBody className="px-4 , pb-2">
-                <div className="row g-3">
-                  <div className="col-sm-6"></div>
-                  <div className=" col-sm-6 d-flex flex-row-reverse">
-                    <div className=" col-sm-6 d-flex flex-row-reverse">
-                      <Button color="primary" onClick={() => novocadastrodiaria()}>
-                        Solicitar Diária <Icon.Plus />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                <br></br>
-                <div className="row g-3">
-                  <Box sx={{ height: 400, width: '100%' }}>
-                    <DataGrid
-                      rows={solicitacaodiaria}
-                      columns={colunasdiarias}
-                      loading={loading}
-                      disableSelectionOnClick
-                      experimentalFeatures={{ newEditingApi: true }}
-                      components={{
-                        Pagination: CustomPagination,
-                        LoadingOverlay: LinearProgress,
-                        NoRowsOverlay: CustomNoRowsOverlay,
-                      }}
-                      paginationModel={paginationModeldiarias}
-                      onPaginationModelChange={setPaginationModeldiarias}
-                    />
-                  </Box>
-                </div>
-              </CardBody>
-            </div>
-          </div>
+          <DiariasSection
+            rows={solicitacaodiaria}
+            columns={colunasdiarias}
+            loading={loading}
+            paginationModel={paginationModeldiarias}
+            onPaginationModelChange={setPaginationModeldiarias}
+            onNovoCadastro={novocadastrodiaria}
+          />
         </CardBody>
 
         {/* === aqui continua o restante do formulário (Acesso, Financeiro, etc.) === */}

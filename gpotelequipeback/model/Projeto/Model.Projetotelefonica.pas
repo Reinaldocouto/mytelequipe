@@ -1907,9 +1907,14 @@ begin
     while not qry.Eof do
     begin
       if servico.IsValidEmail(qry.FieldByName('email').AsString) then
-        destinatarios.Add(qry.FieldByName('email').AsString);
+      begin
+        if destinatarios.IndexOf(qry.FieldByName('email').AsString) = -1 then
+          destinatarios.Add(qry.FieldByName('email').AsString);
+      end;
+
       if empresaLista.IndexOf(qry.FieldByName('empresa').AsString) = -1 then
         empresaLista.Add(qry.FieldByName('empresa').AsString);
+
       qry.Next;
     end;
 
