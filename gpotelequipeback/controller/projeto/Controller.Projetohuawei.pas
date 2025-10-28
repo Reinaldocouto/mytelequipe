@@ -9,7 +9,6 @@ uses
 procedure Registry;
 
 procedure ListarHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-procedure Lista(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure Listapo(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure Listaid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure novocadastro(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -36,6 +35,7 @@ procedure rollouthuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure EditarEmMassa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 function InserirSeNaoExistirRollout(id: string; obj: TJSONObject): Boolean;
 procedure diaria(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+procedure SalvarAcompanhamentoHuawei (Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 
 
@@ -79,6 +79,8 @@ begin
   THorse.Get('v1/projetohuawei/ListaDespesas', ListaDespesas);
   THorse.Get('v1/projetohuaweiid/extrato', extratopagamento);
   THorse.Get('v1/projetohuawei/totalacionamento', totalacionamento);
+  THorse.Post('v1/projetohuawei/acompanhamento', SalvarAcompanhamentoHuawei);
+
 end;
 
 procedure criartarefa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -120,28 +122,91 @@ begin
   end;
 end;
 
+
 procedure Salva(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   huaweiModel: THuawei;
   body: TJSONObject;
   erro: string;
+
+  function HasAny(const JO: TJSONObject; const Keys: array of string): Boolean;
+  var K: string;
+  begin
+    Result := False;
+    for K in Keys do
+      if JO.GetValue(K) <> nil then Exit(True);
+  end;
+
+const
+  PROJ_KEYS: array[0..11] of string = (
+    'primaryKey','sitecode','sitename','siteid','poNumber','projectNo',
+    'biddingArea','os','observacaopj','idcolaboradorpj','valorpj','porcentagempj'
+  );
+  FISICO_KEYS: array[0..15] of string = (
+    'id_projetohuawei','situacao_implantacao','situacao_integracao',
+    'data_criacao_demanda','data_aceite_demanda','data_inicio_planejado',
+    'data_entrega_planejado','data_recebimento_reportado','data_fim_instalacao_planejado',
+    'data_conclusao_reportado','data_validacao_instalacao','data_integracao_planejado',
+    'data_validacao_eribox','data_aceitacao_final','pendencias_obras','observacoes'
+  );
+var
+  precisaProjeto, precisaFisico, algoFeito: Boolean;
 begin
   huaweiModel := THuawei.Create;
   try
     try
-      body := Req.Body<TJSONObject>;
-      if huaweiModel.InserirHuawei(body, erro) then
-        Res.Send<TJSONObject>(CreateJsonObj('retorno', 'Registro inserido com sucesso')).Status(THTTPStatus.Created)
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+      body := TJSONObject.ParseJSONValue(Req.Body) as TJSONObject;
+      if body = nil then
+      begin
+        Res.Send<TJSONObject>(CreateJsonObj('erro', 'JSON inválido')).Status(THTTPStatus.BadRequest);
+        Exit;
+      end;
+
+      precisaProjeto := HasAny(body, PROJ_KEYS);
+      precisaFisico  := HasAny(body, FISICO_KEYS);
+      algoFeito      := False;
+
+      if precisaProjeto then
+      begin
+        if not huaweiModel.InserirHuawei(body, erro) then
+        begin
+          Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.BadRequest);
+          Exit;
+        end;
+        algoFeito := True;
+      end;
+
+      if precisaFisico then
+      begin
+        if not huaweiModel.InserirHuaweiAcompanhamentoFisico(body, erro) then
+        begin
+          Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao salvar acompanhamento físico: ' + erro))
+            .Status(THTTPStatus.BadRequest);
+          Exit;
+        end;
+        algoFeito := True;
+      end;
+
+      if not algoFeito then
+      begin
+        Res.Send<TJSONObject>(CreateJsonObj('erro',
+          'Payload não contém campos de ProjetoHuawei nem de Acompanhamento Físico'))
+          .Status(THTTPStatus.BadRequest);
+        Exit;
+      end;
+
+      Res.Send<TJSONObject>(CreateJsonObj('retorno', 'OK')).Status(THTTPStatus.Created);
+
     except
       on ex: Exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', 'Falha ao inserir: ' + ex.Message)).Status(THTTPStatus.InternalServerError);
+        Res.Send<TJSONObject>(CreateJsonObj('erro', 'Falha ao inserir: ' + ex.Message))
+          .Status(THTTPStatus.InternalServerError);
     end;
   finally
     huaweiModel.Free;
   end;
 end;
+
 
 procedure Salvaatividadepj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -236,37 +301,6 @@ begin
   end;
 end;
 
-procedure Lista(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  servico: THuawei;
-  qry: TFDQuery;
-  erro: string;
-  arraydados: TJSONArray;
-begin
-  try
-    servico := THuawei.Create;
-  except
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    Exit;
-  end;
-
-  qry := servico.Lista(Req.Query.Dictionary, erro);
-  try
-    try
-      arraydados := qry.ToJSONArray();
-      if erro = '' then
-        Res.Send<TJSONArray>(arraydados).Status(THTTPStatus.OK)
-      else
-        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-    except
-      on ex: Exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
-    end;
-  finally
-    qry.Free;
-    servico.Free;
-  end;
-end;
 
 procedure Listapo(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -640,6 +674,27 @@ begin
     servico.Free;
   end;
 end;
+
+
+procedure SalvarAcompanhamentoHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: THuawei;
+  body: TJSONObject;
+  erro: string;
+begin
+  body := Req.Body<TJSONObject>;
+  servico := THuawei.Create;
+  try
+    if servico.InserirHuaweiAcompanhamentoFisico(body, erro) then
+      Res.Send<TJSONObject>(TJSONObject.Create.AddPair('sucesso', 'true'))
+    else
+      Res.Send<TJSONObject>(TJSONObject.Create.AddPair('sucesso', 'false').AddPair('erro', erro))
+        .Status(THTTPStatus.InternalServerError);
+  finally
+    servico.Free;
+  end;
+end;
+
 
 procedure Listaacionamentopj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var

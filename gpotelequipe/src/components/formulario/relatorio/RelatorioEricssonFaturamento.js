@@ -11,7 +11,6 @@ import {
   GridOverlay,
   ptBR,
 } from '@mui/x-data-grid';
-
 import { ToastContainer, toast } from 'react-toastify';
 import LinearProgress from '@mui/material/LinearProgress';
 import 'react-toastify/dist/ReactToastify.css';
@@ -19,12 +18,13 @@ import Typography from '@mui/material/Typography';
 import Pagination from '@mui/material/Pagination';
 import FaturamentoEricsson from '../../modals/filtros/FaturamentoEricsson';
 import api from '../../../services/api';
+import createLocalDate, { formatDatePtBR } from '../../../services/data';
 import Loader from '../../../layouts/loader/Loader';
 import exportExcel from '../../../data/exportexcel/Excelexport';
 import ConfirmaModal from '../../modals/ConfirmacaoModal';
 import PainelGraficosFAT from '../../dashboard/FaturamentoEricssonFat/PainelGraficosFAT';
 
-const RelatorioEricssonFaturamento = ({ setshow, show }) => {
+function RelatorioEricssonFaturamento({ setshow, show }) {
   const [loading, setloading] = useState(false);
   const [loadingFinanceiro, setloadingFinanceiro] = useState(true);
   const [mensagem, setmensagem] = useState('');
@@ -37,6 +37,20 @@ const RelatorioEricssonFaturamento = ({ setshow, show }) => {
   const [mostrarGrafico, setMostrarGrafico] = useState(true);
   const [showFiltro, setShowFiltro] = useState(false);
   const [filtro, setFiltro] = useState({});
+
+  // Helpers de status (MIGO/MIRO) — definidas antes do uso no DataGrid
+  const hasVal = (v) =>
+    v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim() !== '0';
+  const hasMigo = (row) => hasVal(row.nmigo);
+  const hasMiro = (row) => hasVal(row.nmiro);
+
+  const getStatusFaturamento = (row) => {
+    if (hasMigo(row) && hasMiro(row)) return '100% Faturado';
+    if (hasMigo(row) && !hasMiro(row)) return 'OK';
+    return 'NOK';
+  };
+
+  const isRowLocked = (row) => getStatusFaturamento(row) === '100% Faturado';
 
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
@@ -247,13 +261,13 @@ const RelatorioEricssonFaturamento = ({ setshow, show }) => {
       'Site ID': item.siteid || '',
       PO: item.po || '',
       'PO+Item': item.poritem || '',
-      'Data Criação PO': item.datacriacaopo || '',
+      'Data Criação PO': formatDatePtBR(item.datacriacaopo) || '',
       ID: item.id || '',
       'Descrição Serviço': item.descricaoservico || '',
-      'Data MIGO': item.datamigo || '',
+      'Data MIGO': formatDatePtBR(item.datamigo) || '',
       'Nº MIGO': item.nmigo || '',
       'Qtd MIGO': item.qtdmigo !== null ? item.qtdmigo : '',
-      'Data MIRO': item.datamiro || '',
+      'Data MIRO': formatDatePtBR(item.datamiro) || '',
       'Nº MIRO': item.nmiro || '',
       'Qtd MIRO': item.qtdmiro !== null ? item.qtdmiro : '',
       CodigoCliente: item.codigocliente || '',
@@ -262,14 +276,12 @@ const RelatorioEricssonFaturamento = ({ setshow, show }) => {
       Medida_filtro: item.medidafiltro || '',
       Medida_filtro_Unitario: item.medidafiltrounitario || '',
       'TIPO DE PO': item.classificacaopo || '',
-      MOS: item.mos ? new Date(item.mos).toLocaleDateString('pt-BR') : '',
-      INSTALAÇÃO: item.instalacao ? new Date(item.instalacao).toLocaleDateString('pt-BR') : '',
-      INTEGRAÇÃO: item.integracao ? new Date(item.integracao).toLocaleDateString('pt-BR') : '',
-      ACEITAÇÃO: item.aceitacao ? new Date(item.aceitacao).toLocaleDateString('pt-BR') : '',
-      DOC: item.doc ? new Date(item.doc).toLocaleDateString('pt-BR') : '',
-      'Aprovação todos Docs.': item.aprovacaoDocs
-        ? new Date(item.aprovacaoDocs).toLocaleDateString('pt-BR')
-        : '',
+      MOS: item.mos ? formatDatePtBR(item.mos) : '',
+      INSTALAÇÃO: item.instalacao ? formatDatePtBR(item.instalacao) : '',
+      INTEGRAÇÃO: item.integracao ? formatDatePtBR(item.integracao) : '',
+      ACEITAÇÃO: item.aceitacao ? formatDatePtBR(item.aceitacao) : '',
+      DOC: item.doc ? formatDatePtBR(item.doc) : '',
+      'Aprovação todos Docs.': item.aprovacaoDocs ? formatDatePtBR(item.aprovacaoDocs) : '',
       ANÁLISE: item.analise || '',
       'FAT.': item.fat || '',
       'VALOR A FATURAR (R$)':
@@ -311,15 +323,20 @@ const RelatorioEricssonFaturamento = ({ setshow, show }) => {
     {
       field: 'datacriacaopo',
       headerName: 'Data Criação PO',
-      width: 130,
+      width: 150,
       align: 'center',
-      type: 'string',
+      type: 'date',
       headerClassName: 'default-header',
+      valueGetter: (parametros) => createLocalDate(parametros.value),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
     },
     {
       field: 'id',
       headerName: 'ID',
-      width: 80,
+      width: 150,
       align: 'left',
       type: 'string',
       headerClassName: 'default-header',
@@ -335,10 +352,15 @@ const RelatorioEricssonFaturamento = ({ setshow, show }) => {
     {
       field: 'datamigo',
       headerName: 'Data MIGO',
-      width: 120,
+      width: 150,
       align: 'center',
-      type: 'string',
+      type: 'date',
       headerClassName: 'default-header',
+      valueGetter: (parametros) => createLocalDate(parametros.value),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
     },
     {
       field: 'nmigo',
@@ -361,8 +383,13 @@ const RelatorioEricssonFaturamento = ({ setshow, show }) => {
       headerName: 'Data MIRO',
       width: 120,
       align: 'center',
-      type: 'string',
+      type: 'date',
       headerClassName: 'default-header',
+      valueGetter: (parametros) => createLocalDate(parametros.value),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
     },
     {
       field: 'nmiro',
@@ -433,54 +460,78 @@ const RelatorioEricssonFaturamento = ({ setshow, show }) => {
       headerName: 'MOS',
       width: 120,
       align: 'center',
-      type: 'string',
+      type: 'date',
       headerClassName: 'light-green-header',
-      valueFormatter: ({ value }) => (value ? new Date(value).toLocaleDateString('pt-BR') : ''),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
     },
     {
       field: 'instalacao',
       headerName: 'INSTALAÇÃO',
       width: 120,
       align: 'center',
-      type: 'string',
+      type: 'date',
       headerClassName: 'light-green-header',
-      valueFormatter: ({ value }) => (value ? new Date(value).toLocaleDateString('pt-BR') : ''),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
     },
     {
       field: 'integracao',
       headerName: 'INTEGRAÇÃO',
       width: 120,
       align: 'center',
-      type: 'string',
+      type: 'date',
       headerClassName: 'light-green-header',
-      valueFormatter: ({ value }) => (value ? new Date(value).toLocaleDateString('pt-BR') : ''),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
     },
     {
       field: 'aceitacao',
       headerName: 'ACEITAÇÃO',
       width: 120,
       align: 'center',
-      type: 'string',
+      type: 'date',
       headerClassName: 'light-green-header',
-      valueFormatter: ({ value }) => (value ? new Date(value).toLocaleDateString('pt-BR') : ''),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
     },
     {
       field: 'doc',
       headerName: 'DOC',
       width: 120,
       align: 'center',
-      type: 'string',
+      type: 'date',
       headerClassName: 'light-green-header',
-      valueFormatter: ({ value }) => (value ? new Date(value).toLocaleDateString('pt-BR') : ''),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
     },
     {
       field: 'aprovacaoDocs',
       headerName: 'Aprovação todos Docs.',
       width: 200,
       align: 'center',
-      type: 'string',
+      type: 'date',
       headerClassName: 'light-green-header',
-      valueFormatter: ({ value }) => (value ? new Date(value).toLocaleDateString('pt-BR') : ''),
+      valueGetter: (parametros) => createLocalDate(parametros.value),
+      valueFormatter: (parametros) =>
+        parametros.value
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
+          : '',
     },
     {
       field: 'analise',
@@ -505,6 +556,9 @@ const RelatorioEricssonFaturamento = ({ setshow, show }) => {
         'Solicitado Faturamento',
         'Doc. Aguarda Análise',
         'Aguarda TX',
+        '100% Faturado',
+        'OK',
+        'NOK',
       ],
     },
     {
@@ -596,6 +650,12 @@ const RelatorioEricssonFaturamento = ({ setshow, show }) => {
                   editMode="row"
                   processRowUpdate={handleProcessRowUpdate}
                   onProcessRowUpdateError={handleProcessRowUpdateError}
+                  // Bloqueia edição quando "100% Faturado"
+                  isCellEditable={(cellParams) => !isRowLocked(cellParams.row)}
+                  // Classe por linha para aplicar cor verde clara
+                  getRowClassName={(rowParams) =>
+                    getStatusFaturamento(rowParams.row) === '100% Faturado' ? 'row-locked' : ''
+                  }
                   components={{
                     Pagination: () => <CustomPagination totalRegistros={totalRegistros} />,
                     LoadingOverlay: LinearProgress,
@@ -604,26 +664,23 @@ const RelatorioEricssonFaturamento = ({ setshow, show }) => {
                   sx={{
                     '& .MuiDataGrid-row.Mui-selected': {
                       backgroundColor: '#32ccbc !important',
-                      '& .MuiDataGrid-cell': {
-                        color: '#000 !important', // texto escuro para contraste
-                      },
+                      '& .MuiDataGrid-cell': { color: '#000 !important' },
                       transition: 'background-color 0.2s ease-in-out',
-                      '&:hover': {
-                        backgroundColor: '#28a89b !important',
-                      },
+                      '&:hover': { backgroundColor: '#28a89b !important' },
                     },
-                    '& .MuiDataGrid-cell:focus': {
-                      outline: 'none',
-                    },
+                    '& .MuiDataGrid-cell:focus': { outline: 'none' },
                     '& .MuiDataGrid-row.linha-diferente .MuiDataGrid-cell': {
                       backgroundColor: '#ffe0b2 !important',
                     },
                     '& .MuiDataGrid-row.linha-diferente .MuiDataGrid-cell:hover': {
                       backgroundColor: '#ffcc80 !important',
                     },
-                    '& .MuiDataGrid-columnHeaders': {
-                      backgroundColor: '#848484FF',
+                    // Verde claro na linha inteira para "100% Faturado"
+                    '& .row-locked .MuiDataGrid-cell': {
+                      backgroundColor: '#d4edda !important',
+                      color: '#155724',
                     },
+                    '& .MuiDataGrid-columnHeaders': { backgroundColor: '#848484FF' },
                     '& .yellow-header': {
                       backgroundColor: '#ffd700 !important',
                       fontWeight: 'bold !important',
@@ -664,7 +721,7 @@ const RelatorioEricssonFaturamento = ({ setshow, show }) => {
       </Modal>
     </>
   );
-};
+}
 
 RelatorioEricssonFaturamento.propTypes = {
   show: PropTypes.bool.isRequired,

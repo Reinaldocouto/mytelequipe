@@ -5,7 +5,7 @@ interface
 uses
   System.Generics.Defaults, Horse, FireDAC.Comp.Client, Data.DB, System.SysUtils, model.connection, ComObj,
   System.StrUtils, FireDAC.DApt, System.Generics.Collections, UtFuncao, FireDAC.Stan.Option,
-  System.Variants,
+  System.Variants,                             Winapi.Windows, System.TypInfo,
   FireDAC.Stan.Param, DateUtils, System.JSON, System.Classes, Model.Email;
 
 type
@@ -67,7 +67,6 @@ type
     function InserirHuawei(obj: TJSONObject; out erro: string): boolean;
     function Editar(out erro: string): Boolean;
     function ListarHuawei(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
-    function Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listapo(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function PesquisarHuaweiPorObra(numeroObra: string; out erro: string): TFDQuery;
@@ -94,6 +93,7 @@ type
     function ListaEquipeAcesso(const idAcesso: Integer; out erro: string): TFDQuery;
     function SalvarAcesso(const Body: TJSONObject; out erro: string; out R: THuaweiAcessoSaveResult): Boolean;
     function diaria(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function InserirHuaweiAcompanhamentoFisico(obj: TJSONObject; out erro: string): boolean;
   end;
 
 implementation
@@ -109,6 +109,7 @@ begin
     FConn.Free;
   inherited;
 end;
+
 
 function THuawei.InserirHuawei(obj: TJSONObject; out erro: string): boolean;
 var
@@ -146,6 +147,7 @@ begin
     Q.Connection := FConn;
     Flds := '';
     Params := '';
+
     AddKV('primaryKey',      'primaryKey');
     AddKV('sitecode',        'sitecode');
     AddKV('sitename',        'sitename');
@@ -161,12 +163,15 @@ begin
     AddKV('negociadoSN',     'negociadoSN');
     AddKV('vo',              'vo');
     AddKV('observacaogeral', 'observacaogeral');
+
     if Flds = '' then
     begin
       erro := 'Sem campos válidos para inserir.';
       Exit;
     end;
+
     Q.SQL.Text := 'INSERT INTO ProjetoHuawei (' + Flds + ') VALUES (' + Params + ')';
+
     for i := 0 to Pms.Count - 1 do
     begin
       Key := Pms[i];
@@ -177,6 +182,7 @@ begin
       else
         Q.ParamByName(Key).AsString := obj.GetValue(Key).Value;
     end;
+
     try
       Q.ExecSQL;
       Result := True;
@@ -194,10 +200,190 @@ begin
       Result := False;
     end;
   end;
+
   Cols.Free;
   Pms.Free;
   Q.Free;
 end;
+
+
+procedure DumpQueryParams(const Q: TFDQuery);
+var
+  i: Integer;
+  s, resolved: string;
+begin
+  OutputDebugString(PChar('--- SQL ---'));
+  OutputDebugString(PChar(Q.SQL.Text));
+
+  OutputDebugString(PChar('--- PARAMS ---'));
+  for i := 0 to Q.Params.Count - 1 do
+  begin
+    s := Format(':%s = "%s" (DataType=%s)',
+      [Q.Params[i].Name,
+       Q.Params[i].AsString,
+       GetEnumName(TypeInfo(TFieldType), Ord(Q.Params[i].DataType))]);
+    OutputDebugString(PChar(s));
+  end;
+
+  // opcional: “simular” SQL resolvido (apenas para DEBUG!)
+  resolved := Q.SQL.Text;
+  for i := 0 to Q.Params.Count - 1 do
+    resolved := StringReplace(
+      resolved,
+      ':' + Q.Params[i].Name,
+      QuotedStr(Q.Params[i].AsString),
+      [rfReplaceAll, rfIgnoreCase]
+    );
+
+  OutputDebugString(PChar('--- RESOLVED (debug only) ---'));
+  OutputDebugString(PChar(resolved));
+  OutputDebugString(PChar('-----------------------------'));
+end;
+
+
+function THuawei.InserirHuaweiAcompanhamentoFisico(obj: TJSONObject; out erro: string): boolean;
+var
+  Q: TFDQuery;
+  Flds, Params, Key, Updates: string;
+  Cols, Pms: TStringList;
+  i: Integer;
+
+  function JsonValueToString(const V: TJSONValue): string;
+  begin
+    Result := '';
+    if not Assigned(V) then Exit;
+    if V is TJSONString then Result := TJSONString(V).Value
+    else if V is TJSONNumber then Result := TJSONNumber(V).ToString
+    else if V is TJSONBool   then Result := BoolToStr(TJSONBool(V).AsBoolean, True)
+    else if V is TJSONNull   then Result := ''
+    else Result := V.Value;
+  end;
+
+  procedure AddKV(const JsonKey, ColName: string);
+  var
+    V: TJSONValue;
+    S: string;
+  begin
+    V := obj.GetValue(JsonKey);
+    if not Assigned(V) then Exit;
+    S := Trim(JsonValueToString(V));
+    if S = '' then Exit;
+    if Flds <> '' then
+    begin
+      Flds   := Flds   + ', ';
+      Params := Params + ', ';
+    end;
+    Flds   := Flds   + ColName;
+    Params := Params + ':' + JsonKey;
+    Cols.Add(ColName);
+    Pms.Add(JsonKey);
+  end;
+
+  function ParseISODate(const S: string; out D: TDateTime): Boolean;
+  var
+    S2: string;
+  begin
+    Result := TryISO8601ToDate(S, D, True);
+    if Result then Exit;
+    if (Length(S) = 10) and (S[5] = '-') and (S[8] = '-') then
+    begin
+      S2 := S + 'T00:00:00Z';
+      Result := TryISO8601ToDate(S2, D, True);
+    end;
+  end;
+
+begin
+  Result := False;
+  erro := '';
+  Q := TFDQuery.Create(nil);
+  Cols := TStringList.Create;
+  Pms  := TStringList.Create;
+  try
+    Q.Connection := FConn;
+    Flds := '';
+    Params := '';
+
+    // mapeamento dos campos aceitos
+    AddKV('id_projetohuawei',             'id_projetohuawei');
+    AddKV('situacao_implantacao',         'situacao_implantacao');
+    AddKV('situacao_integracao',          'situacao_integracao');
+    AddKV('data_criacao_demanda',         'data_criacao_demanda');
+    AddKV('data_aceite_demanda',          'data_aceite_demanda');
+    AddKV('data_inicio_planejado',        'data_inicio_planejado');
+    AddKV('data_entrega_planejado',       'data_entrega_planejado');
+    AddKV('data_recebimento_reportado',   'data_recebimento_reportado');
+    AddKV('data_fim_instalacao_planejado','data_fim_instalacao_planejado');
+    AddKV('data_conclusao_reportado',     'data_conclusao_reportado');
+    AddKV('data_validacao_instalacao',    'data_validacao_instalacao');
+    AddKV('data_integracao_planejado',    'data_integracao_planejado');
+    AddKV('data_validacao_eribox',        'data_validacao_eribox');
+    AddKV('data_aceitacao_final',         'data_aceitacao_final');
+    AddKV('pendencias_obras',             'pendencias_obras');
+    AddKV('observacoes',                  'observacoes');
+
+    if Flds = '' then
+    begin
+      erro := 'Sem campos válidos para inserir.';
+      Exit;
+    end;
+
+    // 🔹 Monta o UPDATE para o UPSERT (MySQL compatível)
+    Updates := '';
+    for i := 0 to Cols.Count - 1 do
+      if not SameText(Cols[i], 'id_projetohuawei') then
+      begin
+        if Updates <> '' then Updates := Updates + ', ';
+        Updates := Updates + Format('%s = VALUES(%s)', [Cols[i], Cols[i]]);
+      end;
+
+    Q.SQL.Text :=
+      'INSERT INTO projetohuawei_acompanhamento_fisico (' + Flds + ') '+
+      'VALUES (' + Params + ') '+
+      'ON DUPLICATE KEY UPDATE ' + Updates;
+
+    // bind params
+    for i := 0 to Pms.Count - 1 do
+    begin
+      Key := Pms[i];
+      if Pos('data_', LowerCase(Cols[i])) > 0 then
+      begin
+        var S := JsonValueToString(obj.GetValue(Key));
+        var D: TDateTime;
+        if (S <> '') and ParseISODate(S, D) then
+          Q.ParamByName(Key).AsDateTime := D
+        else
+          Q.ParamByName(Key).Clear;
+      end
+      else
+        Q.ParamByName(Key).AsString := JsonValueToString(obj.GetValue(Key));
+    end;
+
+    DumpQueryParams(Q);
+
+    if not FConn.InTransaction then
+      FConn.StartTransaction;
+    try
+      Q.ExecSQL;
+      FConn.Commit;
+      Result := True;
+    except
+      on E: Exception do
+      begin
+        if FConn.InTransaction then
+          FConn.Rollback;
+        erro := 'Erro ao upsert ProjetoHuaweiAcompanhamentoFisico: ' + E.Message;
+        Result := False;
+      end;
+    end;
+
+  finally
+    Cols.Free;
+    Pms.Free;
+    Q.Free;
+  end;
+end;
+
+
 
 function THuawei.Editar(out erro: string): Boolean;
 var
@@ -246,6 +432,7 @@ begin
     Q.Free;
   end;
 end;
+
 
 function THuawei.ListarHuawei(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
@@ -315,6 +502,7 @@ begin
       qry.SQL.Add('  (SELECT COUNT(*) FROM ProjetoHuaweiAcessoEquipe pae WHERE pae.id_acesso = pha.id) AS acesso_equipe_count');
       qry.SQL.Add('FROM ProjetoHuawei ph');
       qry.SQL.Add('LEFT JOIN ProjetoHuaweiAcesso pha ON pha.id_projeto = ph.id');
+      qry.SQL.Add('LEFT JOIN projetohuawei_acompanhamento_fisico pf ON pf.id_projetohuawei = ph.id');
       qry.SQL.Add('WHERE 1=1');
       if AQuery.ContainsKey('busca') and (Trim(AQuery.Items['busca']) <> '') then
       begin
@@ -351,122 +539,6 @@ begin
     end;
   end;
 end;
-
-function THuawei.Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
-var
-  Q: TFDQuery;
-  Busca, SLim, SOffs: string;
-  Lim, Offs: Integer;
-  IdFiltro: string;
-begin
-  erro := '';
-  Q := TFDQuery.Create(nil);
-  try
-    Q.Connection := FConn;
-    Q.SQL.Clear;
-    Q.SQL.Add('SELECT');
-    Q.SQL.Add('  ph.*,');
-    Q.SQL.Add('  pha.id                     AS acesso_id,');
-    Q.SQL.Add('  pha.id_projeto             AS acesso_id_projeto,');
-    Q.SQL.Add('  pha.tipo_infra             AS acesso_tipo_infra,');
-    Q.SQL.Add('  pha.quadrante              AS acesso_quadrante,');
-    Q.SQL.Add('  pha.ddd                    AS acesso_ddd,');
-    Q.SQL.Add('  pha.municipio              AS acesso_municipio,');
-    Q.SQL.Add('  pha.regiao                 AS acesso_regiao,');
-    Q.SQL.Add('  pha.endereco               AS acesso_endereco,');
-    Q.SQL.Add('  pha.latitude               AS acesso_latitude,');
-    Q.SQL.Add('  pha.longitude              AS acesso_longitude,');
-    Q.SQL.Add('  pha.detentor_area          AS acesso_detentor_area,');
-    Q.SQL.Add('  pha.id_detentora           AS acesso_id_detentora,');
-    Q.SQL.Add('  pha.id_outros              AS acesso_id_outros,');
-    Q.SQL.Add('  pha.forma_acesso           AS acesso_forma_acesso,');
-    Q.SQL.Add('  pha.observacao_acesso      AS acesso_observacao_acesso,');
-    Q.SQL.Add('  DATE_FORMAT(pha.data_solicitado, ''%Y-%m-%d'') AS acesso_data_solicitado,');
-    Q.SQL.Add('  DATE_FORMAT(pha.data_inicio,     ''%Y-%m-%d'') AS acesso_data_inicio,');
-    Q.SQL.Add('  DATE_FORMAT(pha.data_fim,        ''%Y-%m-%d'') AS acesso_data_fim,');
-    Q.SQL.Add('  pha.status_acesso          AS acesso_status_acesso,');
-    Q.SQL.Add('  pha.numero_solicitacao     AS acesso_numero_solicitacao,');
-    Q.SQL.Add('  pha.tratativa_acessos      AS acesso_tratativa_acessos,');
-    Q.SQL.Add('  pha.du_id                  AS acesso_du_id,');
-    Q.SQL.Add('  pha.du_name                AS acesso_du_name,');
-    Q.SQL.Add('  pha.status_att             AS acesso_status_att,');
-    Q.SQL.Add('  pha.meta_plan              AS acesso_meta_plan,');
-    Q.SQL.Add('  pha.atividade_escopo       AS acesso_atividade_escopo,');
-    Q.SQL.Add('  pha.acionamentos_recentes  AS acesso_acionamentos_recentes,');
-    Q.SQL.Add('  pha.updated_by             AS acesso_updated_by,');
-    Q.SQL.Add('  DATE_FORMAT(pha.updated_at, ''%Y-%m-%d %H:%i:%s'') AS acesso_updated_at,');
-    Q.SQL.Add('  (SELECT GROUP_CONCAT(gp.nome ORDER BY gp.nome SEPARATOR '', '')');
-    Q.SQL.Add('     FROM ProjetoHuaweiAcessoEquipe pae');
-    Q.SQL.Add('     LEFT JOIN gespessoa gp ON gp.idpessoa = pae.id_pessoa');
-    Q.SQL.Add('    WHERE pae.id_acesso = pha.id) AS acesso_equipe_nomes,');
-    Q.SQL.Add('  (SELECT COUNT(*) FROM ProjetoHuaweiAcessoEquipe pae WHERE pae.id_acesso = pha.id) AS acesso_equipe_count');
-    Q.SQL.Add('FROM ProjetoHuawei ph');
-    Q.SQL.Add('LEFT JOIN ProjetoHuaweiAcesso pha ON pha.id_projeto = ph.id');
-    Q.SQL.Add('LEFT JOIN rollouthuawei r ON ph.primaryKey LIKE CONCAT(r.id, ''|%'')');
-    Q.SQL.Add('WHERE 1=1');
-
-    if AQuery.ContainsKey('busca') and (Trim(AQuery.Items['busca']) <> '') then
-    begin
-      Q.SQL.Add(' AND (ph.manufactureSiteInfo LIKE :busca');
-      Q.SQL.Add('  OR ph.poNumber           LIKE :busca');
-      Q.SQL.Add('  OR ph.subProjectCode     LIKE :busca');
-      Q.SQL.Add('  OR ph.sitecode           LIKE :busca');
-      Q.SQL.Add('  OR ph.sitename           LIKE :busca');
-      Q.SQL.Add('  OR ph.siteid             LIKE :busca');
-      Q.SQL.Add('  OR ph.os                 LIKE :busca');
-      Q.SQL.Add('  OR ph.vo                 LIKE :busca');
-      Q.SQL.Add('  OR ph.primaryKey         LIKE :busca');
-      Q.SQL.Add('  OR pha.municipio         LIKE :busca');
-      Q.SQL.Add('  OR pha.tipo_infra        LIKE :busca');
-      Q.SQL.Add('  OR pha.forma_acesso      LIKE :busca');
-      Q.SQL.Add('  OR pha.regiao            LIKE :busca');
-      Q.SQL.Add('  OR (SELECT GROUP_CONCAT(gp.nome SEPARATOR '', '')');
-      Q.SQL.Add('        FROM ProjetoHuaweiAcessoEquipe pae');
-      Q.SQL.Add('        LEFT JOIN gespessoa gp ON gp.idpessoa = pae.id_pessoa');
-      Q.SQL.Add('       WHERE pae.id_acesso = pha.id) LIKE :busca)');
-      Busca := '%' + Trim(AQuery.Items['busca']) + '%';
-      Q.ParamByName('busca').AsString := Busca;
-    end;
-
-    if AQuery.ContainsKey('id') and (Trim(AQuery.Items['id']) <> '') then
-    begin
-      IdFiltro := Trim(AQuery.Items['id']);
-      Q.SQL.Add(' AND ph.primaryKey LIKE :p_id_pk_like');
-      Q.ParamByName('p_id_pk_like').AsString := IdFiltro + '|%';
-    end;
-
-    Q.SQL.Add('ORDER BY ph.id DESC');
-
-    Lim := 0; Offs := 0;
-    if AQuery.ContainsKey('limit') then
-    begin
-      SLim := Trim(AQuery.Items['limit']);
-      Lim := StrToIntDef(SLim, 0);
-    end;
-    if AQuery.ContainsKey('offset') then
-    begin
-      SOffs := Trim(AQuery.Items['offset']);
-      Offs := StrToIntDef(SOffs, 0);
-    end;
-    if Lim > 0 then
-    begin
-      Q.SQL.Add(Format('LIMIT %d', [Lim]));
-      if Offs > 0 then
-        Q.SQL.Add(Format('OFFSET %d', [Offs]));
-    end;
-
-    Q.Open;
-    Result := Q;
-  except
-    on E: Exception do
-    begin
-      erro := 'Erro ao listar ProjetoHuawei: ' + E.Message;
-      Q.Free;
-      Result := nil;
-    end;
-  end;
-end;
-
 
 function THuawei.Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
@@ -540,7 +612,7 @@ begin
     qry.SQL.Add('  pha.quadrante             AS acesso_quadrante,');
     qry.SQL.Add('  pha.ddd                   AS acesso_ddd,');
     qry.SQL.Add('  pha.municipio             AS acesso_municipio,');
-    qry.SQL.Add('  pha.regiao                AS acesso_regiao,');               // <-- NOVO
+    qry.SQL.Add('  pha.regiao                AS acesso_regiao,');
     qry.SQL.Add('  pha.endereco              AS acesso_endereco,');
     qry.SQL.Add('  pha.latitude              AS acesso_latitude,');
     qry.SQL.Add('  pha.longitude             AS acesso_longitude,');
@@ -564,12 +636,32 @@ begin
     qry.SQL.Add('  pha.updated_by            AS acesso_updated_by,');
     qry.SQL.Add('  DATE_FORMAT(pha.updated_at, ''%Y-%m-%d %H:%i:%s'') AS acesso_updated_at,');
 
+    qry.SQL.Add('  pf.id                       AS fisico_id,');
+    qry.SQL.Add('  pf.id_projetohuawei         AS fisico_id_projetohuawei,');
+    qry.SQL.Add('  pf.situacao_implantacao     AS fisico_situacao_implantacao,');
+    qry.SQL.Add('  pf.situacao_integracao      AS fisico_situacao_integracao,');
+    qry.SQL.Add('  DATE_FORMAT(pf.data_criacao_demanda,          ''%Y-%m-%d'') AS fisico_data_criacao_demanda,');
+    qry.SQL.Add('  DATE_FORMAT(pf.data_aceite_demanda,           ''%Y-%m-%d'') AS fisico_data_aceite_demanda,');
+    qry.SQL.Add('  DATE_FORMAT(pf.data_inicio_planejado,         ''%Y-%m-%d'') AS fisico_data_inicio_planejado,');
+    qry.SQL.Add('  DATE_FORMAT(pf.data_entrega_planejado,        ''%Y-%m-%d'') AS fisico_data_entrega_planejado,');
+    qry.SQL.Add('  DATE_FORMAT(pf.data_recebimento_reportado,    ''%Y-%m-%d'') AS fisico_data_recebimento_reportado,');
+    qry.SQL.Add('  DATE_FORMAT(pf.data_fim_instalacao_planejado, ''%Y-%m-%d'') AS fisico_data_fim_instalacao_planejado,');
+    qry.SQL.Add('  DATE_FORMAT(pf.data_conclusao_reportado,      ''%Y-%m-%d'') AS fisico_data_conclusao_reportado,');
+    qry.SQL.Add('  DATE_FORMAT(pf.data_validacao_instalacao,     ''%Y-%m-%d'') AS fisico_data_validacao_instalacao,');
+    qry.SQL.Add('  DATE_FORMAT(pf.data_integracao_planejado,     ''%Y-%m-%d'') AS fisico_data_integracao_planejado,');
+    qry.SQL.Add('  DATE_FORMAT(pf.data_validacao_eribox,         ''%Y-%m-%d'') AS fisico_data_validacao_eribox,');
+    qry.SQL.Add('  DATE_FORMAT(pf.data_aceitacao_final,          ''%Y-%m-%d'') AS fisico_data_aceitacao_final,');
+    qry.SQL.Add('  pf.pendencias_obras        AS fisico_pendencias_obras,');
+    qry.SQL.Add('  pf.observacoes             AS fisico_observacoes,');
+    qry.SQL.Add('  DATE_FORMAT(pf.criado_em,      ''%Y-%m-%d %H:%i:%s'') AS fisico_criado_em,');
+    qry.SQL.Add('  DATE_FORMAT(pf.atualizado_em,  ''%Y-%m-%d %H:%i:%s'') AS fisico_atualizado_em,');
+
     qry.SQL.Add('  eq.acesso_equipe_nomes,');
     qry.SQL.Add('  eq.acesso_equipe_count');
 
     qry.SQL.Add('FROM ProjetoHuawei ph');
     qry.SQL.Add('LEFT JOIN ProjetoHuaweiAcesso pha ON pha.id_projeto = ph.id');
-
+    qry.SQL.Add('LEFT JOIN projetohuawei_acompanhamento_fisico pf ON pf.id_projetohuawei = ph.id');
     qry.SQL.Add('LEFT JOIN (');
     qry.SQL.Add('  SELECT pae.id_acesso,');
     qry.SQL.Add('         GROUP_CONCAT(gp.nome ORDER BY gp.nome SEPARATOR '', '') AS acesso_equipe_nomes,');
@@ -640,6 +732,7 @@ begin
     end;
   end;
 end;
+
 
 
 function THuawei.Listapo(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
@@ -755,6 +848,7 @@ begin
   erro := 'Implementação pendente';
 end;
 
+
 function THuawei.RolloutHuawei(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry, qcfg: TFDQuery;
@@ -769,7 +863,6 @@ begin
   try
     qry.Connection := FConn;
 
-    // aumenta limite de concatenação pra não truncar nomes/equipes
     qcfg := TFDQuery.Create(nil);
     try
       qcfg.Connection := FConn;
@@ -789,58 +882,62 @@ begin
 
     qry.SQL.Clear;
 
-    { =======================
-      Estratégia:
-      - Sem busca: primeiro pega só os IDs de rollouthuawei (ordenados) + paginação;
-        depois faz os LEFT JOINs em cima desse conjunto pequeno.
-      - Com busca: aplica filtro com joins (precisa olhar campos de ph/pha/eq).
-      ======================= }
-
     if not hasBusca then
     begin
       qry.SQL.Add('SELECT');
       qry.SQL.Add('  r.*,');
-
-      // ProjetoHuawei
-      qry.SQL.Add('  ph.id                              AS projetoId,');
-      qry.SQL.Add('  ph.primaryKey                      AS primaryKey,');
-
-      // Acesso (ProjetoHuaweiAcesso) com aliases camelCase
-      qry.SQL.Add('  pha.id                             AS idProjeto,');
-      qry.SQL.Add('  pha.tipo_infra                     AS tipoInfra,');
-      qry.SQL.Add('  pha.quadrante                      AS quadrante,');
-      qry.SQL.Add('  pha.ddd                            AS ddd1,');
-      qry.SQL.Add('  pha.municipio                      AS municipio,');
-      qry.SQL.Add('  pha.regiao                         AS regiao,');
-      qry.SQL.Add('  pha.endereco                       AS endereco,');
-      qry.SQL.Add('  pha.latitude                       AS latitude1,');
-      qry.SQL.Add('  pha.longitude                      AS longitude1,');
-      qry.SQL.Add('  pha.detentor_area                  AS detentorArea,');
-      qry.SQL.Add('  pha.id_detentora                   AS idDetentora,');
-      qry.SQL.Add('  pha.id_outros                      AS idOutros,');
-      qry.SQL.Add('  pha.forma_acesso                   AS formaAcesso,');
-      qry.SQL.Add('  pha.observacao_acesso              AS observacaoAcesso,');
-      qry.SQL.Add('  pha.data_solicitado                AS dataSolicitado,');
-      qry.SQL.Add('  pha.data_inicio                    AS dataInicio,');
-      qry.SQL.Add('  pha.data_fim                       AS dataFim,');
-      qry.SQL.Add('  pha.status_acesso                  AS statusAcesso,');
-      qry.SQL.Add('  pha.numero_solicitacao             AS numeroSolicitacao,');
-      qry.SQL.Add('  pha.tratativa_acessos              AS tratativaAcessos,');
-      qry.SQL.Add('  pha.du_id                          AS duId,');
-      qry.SQL.Add('  pha.du_name                        AS duName,');
-      qry.SQL.Add('  pha.status_att                     AS statusAtt,');
-      qry.SQL.Add('  pha.meta_plan                      AS metaPlan,');
-      qry.SQL.Add('  pha.atividade_escopo               AS atividadeEscopo,');
-      qry.SQL.Add('  pha.acionamentos_recentes          AS acionamentosRecentes,');
-      qry.SQL.Add('  pha.updated_by                     AS updatedBy,');
-      qry.SQL.Add('  pha.updated_at                     AS updatedAt,');
-
-      // Equipe agregada
-      qry.SQL.Add('  eq.acesso_equipe_nomes             AS acessoEquipeNomes,');
-      qry.SQL.Add('  eq.acesso_equipe_count             AS acessoEquipeCount,');
-      qry.SQL.Add('  eq.acesso_equipe_ids_csv           AS acessoEquipeIdsCsv,');
-      qry.SQL.Add('  CONCAT(''['', eq.acesso_equipe_ids_csv, '']'') AS acessoEquipeJson');
-
+      qry.SQL.Add('  ph.id                               AS projetoid,');
+      qry.SQL.Add('  ph.primaryKey                       AS primarykey,');
+      qry.SQL.Add('  pha.id                              AS idprojeto,');
+      qry.SQL.Add('  pha.tipo_infra                      AS tipoinfra,');
+      qry.SQL.Add('  pha.quadrante                       AS quadrante,');
+      qry.SQL.Add('  pha.ddd                             AS ddd1,');
+      qry.SQL.Add('  pha.municipio                       AS municipio,');
+      qry.SQL.Add('  pha.regiao                          AS regiao,');
+      qry.SQL.Add('  pha.endereco                        AS endereco,');
+      qry.SQL.Add('  pha.latitude                        AS latitude1,');
+      qry.SQL.Add('  pha.longitude                       AS longitude1,');
+      qry.SQL.Add('  pha.detentor_area                   AS detentorarea,');
+      qry.SQL.Add('  pha.id_detentora                    AS iddetentora,');
+      qry.SQL.Add('  pha.id_outros                       AS idoutros,');
+      qry.SQL.Add('  pha.forma_acesso                    AS formaacesso,');
+      qry.SQL.Add('  pha.observacao_acesso               AS observacaoacesso,');
+      qry.SQL.Add('  DATE_FORMAT(pha.data_solicitado, ''%Y-%m-%d'') AS datasolicitado,');
+      qry.SQL.Add('  DATE_FORMAT(pha.data_inicio,    ''%Y-%m-%d'') AS datainicio,');
+      qry.SQL.Add('  DATE_FORMAT(pha.data_fim,       ''%Y-%m-%d'') AS datafim,');
+      qry.SQL.Add('  pha.status_acesso                   AS statusacesso,');
+      qry.SQL.Add('  pha.numero_solicitacao              AS numerosolicitacao,');
+      qry.SQL.Add('  pha.tratativa_acessos               AS tratativaacessos,');
+      qry.SQL.Add('  pha.du_id                           AS duid,');
+      qry.SQL.Add('  pha.du_name                         AS duname,');
+      qry.SQL.Add('  pha.status_att                      AS statusatt,');
+      qry.SQL.Add('  pha.meta_plan                       AS metaplan,');
+      qry.SQL.Add('  pha.atividade_escopo                AS atividadeescopo,');
+      qry.SQL.Add('  pha.acionamentos_recentes           AS acionamentosrecentes,');
+      qry.SQL.Add('  pha.updated_by                      AS updatedby,');
+      qry.SQL.Add('  DATE_FORMAT(pha.updated_at, ''%Y-%m-%d %H:%i:%s'') AS updatedat,');
+      qry.SQL.Add('  eq.acesso_equipe_nomes              AS acessoequipenomes,');
+      qry.SQL.Add('  eq.acesso_equipe_count              AS acessoequipecount,');
+      qry.SQL.Add('  eq.acesso_equipe_ids_csv            AS acessoequipeidscsv,');
+      qry.SQL.Add('  CONCAT(''['', eq.acesso_equipe_ids_csv, '']'') AS acessoequipejson,');
+      qry.SQL.Add('  pf.id_projetohuawei                 AS fisicoIdProjetohuawei,');
+      qry.SQL.Add('  pf.situacao_implantacao             AS fisicoSituacaoImplantacao,');
+      qry.SQL.Add('  pf.situacao_integracao              AS fisicoSituacaoIntegracao,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_criacao_demanda,          ''%Y-%m-%d'') AS fisicoDataCriacaoDemanda,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_aceite_demanda,           ''%Y-%m-%d'') AS fisicoDataAceiteDemanda,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_inicio_planejado,         ''%Y-%m-%d'') AS fisicoDataInicioPlanejado,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_entrega_planejado,        ''%Y-%m-%d'') AS fisicoDataEntregaPlanejado,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_recebimento_reportado,    ''%Y-%m-%d'') AS fisicoDataRecebimentoReportado,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_fim_instalacao_planejado, ''%Y-%m-%d'') AS fisicoDataFimInstalacaoPlanejado,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_conclusao_reportado,      ''%Y-%m-%d'') AS fisicoDataConclusaoReportado,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_validacao_instalacao,     ''%Y-%m-%d'') AS fisicoDataValidacaoInstalacao,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_integracao_planejado,     ''%Y-%m-%d'') AS fisicoDataIntegracaoPlanejado,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_validacao_eribox,         ''%Y-%m-%d'') AS fisicoDataValidacaoEribox,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_aceitacao_final,          ''%Y-%m-%d'') AS fisicoDataAceitacaoFinal,');
+      qry.SQL.Add('  pf.pendencias_obras                AS fisicoPendenciasObras,');
+      qry.SQL.Add('  pf.observacoes                     AS fisicoObservacoes,');
+      qry.SQL.Add('  DATE_FORMAT(pf.criado_em,          ''%Y-%m-%d %H:%i:%s'') AS fisicoCriadoEm,');
+      qry.SQL.Add('  DATE_FORMAT(pf.atualizado_em,      ''%Y-%m-%d %H:%i:%s'') AS fisicoAtualizadoEm');
       qry.SQL.Add('FROM (');
       qry.SQL.Add('  SELECT r.*');
       qry.SQL.Add('  FROM rollouthuawei r');
@@ -850,19 +947,14 @@ begin
       qry.SQL.Add('  ORDER BY r.idgeral DESC');
       qry.SQL.Add('  LIMIT :p_limit OFFSET :p_offset');
       qry.SQL.Add(') r');
-
-      qry.SQL.Add('LEFT JOIN ProjetoHuawei ph');
-      qry.SQL.Add('  ON (ph.primaryKey = r.id OR ph.primaryKey LIKE CONCAT(r.id, ''|%''))');
-
-      qry.SQL.Add('LEFT JOIN ProjetoHuaweiAcesso pha');
-      qry.SQL.Add('  ON pha.id_projeto = ph.id');
-
+      qry.SQL.Add('LEFT JOIN ProjetoHuawei ph ON (ph.primaryKey = r.id OR ph.primaryKey LIKE CONCAT(r.id, ''|%''))');
+      qry.SQL.Add('LEFT JOIN ProjetoHuaweiAcesso pha ON pha.id_projeto = ph.id');
+      qry.SQL.Add('LEFT JOIN projetohuawei_acompanhamento_fisico pf ON pf.id_projetohuawei = ph.id');
       qry.SQL.Add('LEFT JOIN (');
-      qry.SQL.Add('  SELECT');
-      qry.SQL.Add('    pae.id_acesso,');
-      qry.SQL.Add('    GROUP_CONCAT(gp.nome ORDER BY gp.nome SEPARATOR '', '') AS acesso_equipe_nomes,');
-      qry.SQL.Add('    COUNT(*) AS acesso_equipe_count,');
-      qry.SQL.Add('    GROUP_CONCAT(pae.id_pessoa ORDER BY gp.nome) AS acesso_equipe_ids_csv');
+      qry.SQL.Add('  SELECT pae.id_acesso,');
+      qry.SQL.Add('         GROUP_CONCAT(gp.nome ORDER BY gp.nome SEPARATOR '', '') AS acesso_equipe_nomes,');
+      qry.SQL.Add('         COUNT(*) AS acesso_equipe_count,');
+      qry.SQL.Add('         GROUP_CONCAT(pae.id_pessoa ORDER BY gp.nome) AS acesso_equipe_ids_csv');
       qry.SQL.Add('  FROM ProjetoHuaweiAcessoEquipe pae');
       qry.SQL.Add('  LEFT JOIN gespessoa gp ON gp.idpessoa = pae.id_pessoa');
       qry.SQL.Add('  GROUP BY pae.id_acesso');
@@ -875,67 +967,79 @@ begin
     end
     else
     begin
-      // Busca em r/ph/pha/eq
       qry.SQL.Add('SELECT');
       qry.SQL.Add('  r.*,');
-      qry.SQL.Add('  ph.id                              AS projetoId,');
-      qry.SQL.Add('  ph.primaryKey                      AS primaryKey,');
-      qry.SQL.Add('  pha.id                             AS idProjeto,');
-      qry.SQL.Add('  pha.tipo_infra                     AS tipoInfra,');
-      qry.SQL.Add('  pha.quadrante                      AS quadrante,');
-      qry.SQL.Add('  pha.ddd                            AS ddd1,');
-      qry.SQL.Add('  pha.municipio                      AS municipio,');
-      qry.SQL.Add('  pha.regiao                         AS regiao,');
-      qry.SQL.Add('  pha.endereco                       AS endereco,');
-      qry.SQL.Add('  pha.latitude                       AS latitude1,');
-      qry.SQL.Add('  pha.longitude                      AS longitude1,');
-      qry.SQL.Add('  pha.detentor_area                  AS detentorArea,');
-      qry.SQL.Add('  pha.id_detentora                   AS idDetentora,');
-      qry.SQL.Add('  pha.id_outros                      AS idOutros,');
-      qry.SQL.Add('  pha.forma_acesso                   AS formaAcesso,');
-      qry.SQL.Add('  pha.observacao_acesso              AS observacaoAcesso,');
-      qry.SQL.Add('  pha.data_solicitado                AS dataSolicitado,');
-      qry.SQL.Add('  pha.data_inicio                    AS dataInicio,');
-      qry.SQL.Add('  pha.data_fim                       AS dataFim,');
-      qry.SQL.Add('  pha.status_acesso                  AS statusAcesso,');
-      qry.SQL.Add('  pha.numero_solicitacao             AS numeroSolicitacao,');
-      qry.SQL.Add('  pha.tratativa_acessos              AS tratativaAcessos,');
-      qry.SQL.Add('  pha.du_id                          AS duId,');
-      qry.SQL.Add('  pha.du_name                        AS duName,');
-      qry.SQL.Add('  pha.status_att                     AS statusAtt,');
-      qry.SQL.Add('  pha.meta_plan                      AS metaPlan,');
-      qry.SQL.Add('  pha.atividade_escopo               AS atividadeEscopo,');
-      qry.SQL.Add('  pha.acionamentos_recentes          AS acionamentosRecentes,');
-      qry.SQL.Add('  pha.updated_by                     AS updatedBy,');
-      qry.SQL.Add('  pha.updated_at                     AS updatedAt,');
-      qry.SQL.Add('  eq.acesso_equipe_nomes             AS acessoEquipeNomes,');
-      qry.SQL.Add('  eq.acesso_equipe_count             AS acessoEquipeCount,');
-      qry.SQL.Add('  eq.acesso_equipe_ids_csv           AS acessoEquipeIdsCsv,');
-      qry.SQL.Add('  CONCAT(''['', eq.acesso_equipe_ids_csv, '']'') AS acessoEquipeJson');
-
+      qry.SQL.Add('  ph.id                               AS projetoid,');
+      qry.SQL.Add('  ph.primaryKey                       AS primarykey,');
+      qry.SQL.Add('  pha.id                              AS idprojeto,');
+      qry.SQL.Add('  pha.tipo_infra                      AS tipoinfra,');
+      qry.SQL.Add('  pha.quadrante                       AS quadrante,');
+      qry.SQL.Add('  pha.ddd                             AS ddd1,');
+      qry.SQL.Add('  pha.municipio                       AS municipio,');
+      qry.SQL.Add('  pha.regiao                          AS regiao,');
+      qry.SQL.Add('  pha.endereco                        AS endereco,');
+      qry.SQL.Add('  pha.latitude                        AS latitude1,');
+      qry.SQL.Add('  pha.longitude                       AS longitude1,');
+      qry.SQL.Add('  pha.detentor_area                   AS detentorarea,');
+      qry.SQL.Add('  pha.id_detentora                    AS iddetentora,');
+      qry.SQL.Add('  pha.id_outros                       AS idoutros,');
+      qry.SQL.Add('  pha.forma_acesso                    AS formaacesso,');
+      qry.SQL.Add('  pha.observacao_acesso               AS observacaoacesso,');
+      qry.SQL.Add('  DATE_FORMAT(pha.data_solicitado, ''%Y-%m-%d'') AS datasolicitado,');
+      qry.SQL.Add('  DATE_FORMAT(pha.data_inicio,    ''%Y-%m-%d'') AS datainicio,');
+      qry.SQL.Add('  DATE_FORMAT(pha.data_fim,       ''%Y-%m-%d'') AS datafim,');
+      qry.SQL.Add('  pha.status_acesso                   AS statusacesso,');
+      qry.SQL.Add('  pha.numero_solicitacao              AS numerosolicitacao,');
+      qry.SQL.Add('  pha.tratativa_acessos               AS tratativaacessos,');
+      qry.SQL.Add('  pha.du_id                           AS duid,');
+      qry.SQL.Add('  pha.du_name                         AS duname,');
+      qry.SQL.Add('  pha.status_att                      AS statusatt,');
+      qry.SQL.Add('  pha.meta_plan                       AS metaplan,');
+      qry.SQL.Add('  pha.atividade_escopo                AS atividadeescopo,');
+      qry.SQL.Add('  pha.acionamentos_recentes           AS acionamentosrecentes,');
+      qry.SQL.Add('  pha.updated_by                      AS updatedby,');
+      qry.SQL.Add('  DATE_FORMAT(pha.updated_at, ''%Y-%m-%d %H:%i:%s'') AS updatedat,');
+      qry.SQL.Add('  eq.acesso_equipe_nomes              AS acessoequipenomes,');
+      qry.SQL.Add('  eq.acesso_equipe_count              AS acessoequipecount,');
+      qry.SQL.Add('  eq.acesso_equipe_ids_csv            AS acessoequipeidscsv,');
+      qry.SQL.Add('  CONCAT(''['', eq.acesso_equipe_ids_csv, '']'') AS acessoequipejson,');
+      qry.SQL.Add('  pf.id_projetohuawei                 AS fisicoIdProjetohuawei,');
+      qry.SQL.Add('  pf.situacao_implantacao             AS fisicoSituacaoImplantacao,');
+      qry.SQL.Add('  pf.situacao_integracao              AS fisicoSituacaoIntegracao,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_criacao_demanda,          ''%Y-%m-%d'') AS fisicoDataCriacaoDemanda,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_aceite_demanda,           ''%Y-%m-%d'') AS fisicoDataAceiteDemanda,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_inicio_planejado,         ''%Y-%m-%d'') AS fisicoDataInicioPlanejado,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_entrega_planejado,        ''%Y-%m-%d'') AS fisicoDataEntregaPlanejado,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_recebimento_reportado,    ''%Y-%m-%d'') AS fisicoDataRecebimentoReportado,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_fim_instalacao_planejado, ''%Y-%m-%d'') AS fisicoDataFimInstalacaoPlanejado,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_conclusao_reportado,      ''%Y-%m-%d'') AS fisicoDataConclusaoReportado,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_validacao_instalacao,     ''%Y-%m-%d'') AS fisicoDataValidacaoInstalacao,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_integracao_planejado,     ''%Y-%m-%d'') AS fisicoDataIntegracaoPlanejado,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_validacao_eribox,         ''%Y-%m-%d'') AS fisicoDataValidacaoEribox,');
+      qry.SQL.Add('  DATE_FORMAT(pf.data_aceitacao_final,          ''%Y-%m-%d'') AS fisicoDataAceitacaoFinal,');
+      qry.SQL.Add('  pf.pendencias_obras                AS fisicoPendenciasObras,');
+      qry.SQL.Add('  pf.observacoes                     AS fisicoObservacoes,');
+      qry.SQL.Add('  DATE_FORMAT(pf.criado_em,          ''%Y-%m-%d %H:%i:%s'') AS fisicoCriadoEm,');
+      qry.SQL.Add('  DATE_FORMAT(pf.atualizado_em,      ''%Y-%m-%d %H:%i:%s'') AS fisicoAtualizadoEm');
       qry.SQL.Add('FROM rollouthuawei r');
-      qry.SQL.Add('LEFT JOIN ProjetoHuawei ph');
-      qry.SQL.Add('  ON (ph.primaryKey = r.id OR ph.primaryKey LIKE CONCAT(r.id, ''|%''))');
-      qry.SQL.Add('LEFT JOIN ProjetoHuaweiAcesso pha');
-      qry.SQL.Add('  ON pha.id_projeto = ph.id');
+      qry.SQL.Add('LEFT JOIN ProjetoHuawei ph ON (ph.primaryKey = r.id OR ph.primaryKey LIKE CONCAT(r.id, ''|%''))');
+      qry.SQL.Add('LEFT JOIN ProjetoHuaweiAcesso pha ON pha.id_projeto = ph.id');
+      qry.SQL.Add('LEFT JOIN projetohuawei_acompanhamento_fisico pf ON pf.id_projetohuawei = ph.id');
       qry.SQL.Add('LEFT JOIN (');
-      qry.SQL.Add('  SELECT');
-      qry.SQL.Add('    pae.id_acesso,');
-      qry.SQL.Add('    GROUP_CONCAT(gp.nome ORDER BY gp.nome SEPARATOR '', '') AS acesso_equipe_nomes,');
-      qry.SQL.Add('    COUNT(*) AS acesso_equipe_count,');
-      qry.SQL.Add('    GROUP_CONCAT(pae.id_pessoa ORDER BY gp.nome) AS acesso_equipe_ids_csv');
+      qry.SQL.Add('  SELECT pae.id_acesso,');
+      qry.SQL.Add('         GROUP_CONCAT(gp.nome ORDER BY gp.nome SEPARATOR '', '') AS acesso_equipe_nomes,');
+      qry.SQL.Add('         COUNT(*) AS acesso_equipe_count,');
+      qry.SQL.Add('         GROUP_CONCAT(pae.id_pessoa ORDER BY gp.nome) AS acesso_equipe_ids_csv');
       qry.SQL.Add('  FROM ProjetoHuaweiAcessoEquipe pae');
       qry.SQL.Add('  LEFT JOIN gespessoa gp ON gp.idpessoa = pae.id_pessoa');
       qry.SQL.Add('  GROUP BY pae.id_acesso');
       qry.SQL.Add(') eq ON eq.id_acesso = pha.id');
-
       qry.SQL.Add('WHERE 1=1');
       if hasId then
       begin
         qry.SQL.Add('  AND r.id = :p_id');
         qry.ParamByName('p_id').AsString := Trim(vId);
       end;
-
       vBusca := '%' + Trim(vBusca) + '%';
       qry.SQL.Add('  AND (');
       qry.SQL.Add('       r.name LIKE :busca');
@@ -946,7 +1050,6 @@ begin
       qry.SQL.Add('    OR eq.acesso_equipe_nomes LIKE :busca');
       qry.SQL.Add('  )');
       qry.ParamByName('busca').AsString := vBusca;
-
       qry.SQL.Add('ORDER BY r.idgeral DESC');
       qry.SQL.Add('LIMIT :p_limit OFFSET :p_offset');
       qry.ParamByName('p_limit').AsInteger  := limite;
@@ -955,7 +1058,6 @@ begin
 
     qry.Open;
     Result := qry;
-
   except
     on E: Exception do
     begin
@@ -965,7 +1067,6 @@ begin
     end;
   end;
 end;
-
 
 
 function THuawei.diaria(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;

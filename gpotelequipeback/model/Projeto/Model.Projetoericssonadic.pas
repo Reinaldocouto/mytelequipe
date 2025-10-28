@@ -1,4 +1,4 @@
-unit Model.Projetoericssonadic;
+ï»¿unit Model.Projetoericssonadic;
 
 interface
 
@@ -207,13 +207,11 @@ begin
     FConn.StartTransaction;
 
     try
-      // Prepara a query uma única vez
       qry.SQL.Text :=
         'UPDATE obraericssonmigo ' +
         'SET fat = :novoFAT ' +
         'WHERE id = :idObraEricsson AND po = :po AND poritem = :poritem';
 
-      // Processa todos os itens em uma única transação
       for i := 0 to dados.Count - 1 do
       begin
         if dados.Items[i] is TJSONObject then
@@ -269,7 +267,7 @@ begin
       begin
         if FConn.InTransaction then
           FConn.Rollback;
-        raise; // Re-lança a exceção
+        raise; // Re-lanÃ§a a exceÃ§Ã£o
       end;
     end;
 
@@ -302,40 +300,47 @@ begin
     begin
       Clear;
 
-      Add('SELECT');
-      Add('  (@rownum := @rownum + 1) AS id,');
-      Add('  m.po,');
-      Add('  m.poritem,');
-      Add('  m.datacriacaopo,');
-      Add('  m.siteid,');
-      Add('  m.id,');
-      Add('  m.descricaoservico,');
-      Add('  m.datamigo,');
-      Add('  m.nmigo,');
-      Add('  m.qtdmigo,');
-      Add('  m.datamiro,');
-      Add('  m.nmiro,');
-      Add('  m.qtdmiro,');
-      Add('  m.codigocliente,');
-      Add('  m.estado,');
-      Add('  m.qtyordered,');
-      Add('  m.medidafiltro,');
-      Add('  m.medidafiltrounitario,');
-      Add('  m.id AS idobraericssoon,');
-      Add('  m.classificacaopo,');
-      Add('  f.MOSREAL AS MOS,');
-      Add('  f.INSTALREAL AS INSTALACAO,');
-      Add('  f.INTEGREAL AS INTEGRACAO,');
-      Add('  s.aceitacaofinal AS ACEITACAO,');
-      Add('  f.DOCINSTAL AS DOC,');
-      Add('  s.`Aprovação todos Docs.` AS APROVACAO_DOCS,');
-      Add('  m.analise,');
-      Add('  m.fat,');
-      Add('  m.valorafaturar');
-      Add('FROM obraericssonmigo m');
-      Add('LEFT JOIN obraericssonfechamento f ON m.po = f.PO AND m.poritem = f.POITEM');
-      Add('LEFT JOIN obrasericssonlistasites s ON m.siteid = s.Site');
-      Add('WHERE 1 = 1 ');
+    Add('SELECT');
+    Add('  (@rownum := @rownum + 1) AS id,');
+    Add('  m.po,');
+    Add('  m.poritem,');
+    Add('  m.datacriacaopo,');
+    Add('  m.siteid,');
+    Add('  m.id,');
+    Add('  m.descricaoservico,');
+    Add('  m.datamigo,');
+    Add('  m.nmigo,');
+    Add('  m.qtdmigo,');
+    Add('  m.datamiro,');
+    Add('  m.nmiro,');
+    Add('  m.qtdmiro,');
+    Add('  m.codigocliente,');
+    Add('  m.estado,');
+    Add('  m.qtyordered,');
+    Add('  m.medidafiltro,');
+    Add('  m.medidafiltrounitario,');
+    Add('  m.id AS idobraericsson,');
+    Add('  m.classificacaopo,');
+    Add('  f.MOSREAL AS MOS,');
+    Add('  f.INSTALREAL AS INSTALACAO,');
+    Add('  f.INTEGREAL AS INTEGRACAO,');
+    Add('  s.aceitacaofinal AS ACEITACAO,');
+    Add('  f.DOCINSTAL AS DOC,');
+    Add('  s.`AprovaÃ§Ã£o todos Docs.` AS APROVACAO_DOCS,');
+    Add('  m.analise,');
+    Add('  m.valorafaturar,');
+    Add('  CASE');
+    Add('    WHEN (m.fat IS NOT NULL AND m.fat <> '''') THEN m.fat');
+    Add('    WHEN (m.nmiro IS NOT NULL AND m.nmiro <> '''') THEN ''100% Faturado''');
+    Add('    WHEN (m.nmigo IS NOT NULL AND m.nmigo <> '''')');
+    Add('         AND (m.nmiro IS NULL OR m.nmiro = '''') THEN ''OK''');
+    Add('    ELSE ''NOK''');
+    Add('  END AS fat');
+    Add('FROM obraericssonmigo m');
+    Add('LEFT JOIN obraericssonfechamento f ON m.po = f.PO AND m.poritem = f.POITEM');
+    Add('LEFT JOIN obrasericssonlistasites s ON m.siteid = s.Site');
+    Add('WHERE 1 = 1');
+
 
 
 
@@ -435,7 +440,7 @@ begin
 
       if AQuery.ContainsKey('estado') and (AQuery.Items['estado'].Trim > '') then
       begin
-        Add('AND m.estado = :estado');
+        Add('AND m.estado LIKE :estado');
         TemFiltro := True;
       end;
 
@@ -501,7 +506,7 @@ begin
 
       if AQuery.ContainsKey('aprovacaoDocs') and (AQuery.Items['aprovacaoDocs'].Trim > '') then
       begin
-        Add('AND s.`Aprovação todos Docs.` = :aprovacaoDocs');
+        Add('AND s.`AprovaÃ§Ã£o todos Docs.` = :aprovacaoDocs');
         TemFiltro := True;
       end;
 
@@ -513,7 +518,15 @@ begin
 
       if AQuery.ContainsKey('fat') and (AQuery.Items['fat'].Trim > '') then
       begin
-        Add('AND m.fat = :fat');
+        Add('AND (');
+        Add('      (m.fat = :fat) OR (');
+        Add('          (m.fat IS NULL OR m.fat = '''') AND (');
+        Add('              ( :fat = ''100% Faturado'' AND (m.nmiro IS NOT NULL AND m.nmiro <> '''')) OR');
+        Add('              ( :fat = ''OK'' AND (m.nmigo IS NOT NULL AND m.nmigo <> '''') AND (m.nmiro IS NULL OR m.nmiro = '''')) OR');
+        Add('              ( :fat = ''NOK'' AND (m.nmigo IS NULL OR m.nmigo = '''') AND (m.nmiro IS NULL OR m.nmiro = ''''))');
+        Add('          )');
+        Add('      )');
+        Add('  )');
         TemFiltro := True;
       end;
 
@@ -530,7 +543,7 @@ begin
           + ' AND CURRENT_DATE() ');
         TemFiltro := True;
       end;
-      // Filtros específicos
+      // Filtros especÃ­ficos
      if not TemFiltro then
     begin
       Add(' AND m.datacriacaopo   BETWEEN DATE_ADD(CURRENT_DATE(), INTERVAL -30 DAY) AND CURRENT_DATE() ');
@@ -538,7 +551,7 @@ begin
 
       Add('ORDER BY m.po, m.poritem');
     end;
-    // Configurar parâmetros APÓS construir o SQL
+    // Configurar parÃ¢metros APÃ“S construir o SQL
     if AQuery.ContainsKey('busca') and (AQuery.Items['busca'].Trim > '') then
       qry.ParamByName('busca').AsString := '%' + AQuery.Items['busca'] + '%';
 

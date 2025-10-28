@@ -87,6 +87,7 @@ const Rollouthuaweiedicao = ({
   const [telaexclusaoclt, settelaexclusaoclt] = useState(false);
   const [idacionamentopj, setidacionamentopj] = useState(0);
   const [idacionamentoclt, setidacionamentoclt] = useState(0);
+  const [projetoId, setProjetoId] = useState(null);
 
   // estados para acionamentos (CLT e PJ)
   const [pacotes, setpacotes] = useState([]);
@@ -202,6 +203,62 @@ const Rollouthuaweiedicao = ({
     idloja: params.idloja,
   });
 
+
+  // === monta o payload no formato que o backend espera ===
+  const montarPayloadFisicoHuawei = () => {
+    const orEmpty = (v) => (v && String(v).trim() !== '' ? v : '');
+
+    const inicioOuEntregaPlanejado = orEmpty(datainicioentregamosplanejadodia);
+
+    return {
+      id_projetohuawei: String(projetoId || ''),
+
+      situacao_implantacao: orEmpty(situacaoimplantacao),
+      situacao_integracao: orEmpty(situacaodaintegracao),
+
+      data_criacao_demanda: orEmpty(datadacriacaodademandadia),
+      data_aceite_demanda: orEmpty(dataaceitedemandadia),
+
+      data_inicio_planejado: inicioOuEntregaPlanejado,
+      data_entrega_planejado: inicioOuEntregaPlanejado,
+      data_recebimento_reportado: orEmpty(datarecebimentodositemosreportadodia),
+      data_fim_instalacao_planejado: orEmpty(datafiminstalacaoplanejadodia),
+      data_conclusao_reportado: orEmpty(dataconclusaoreportadodia),
+      data_validacao_instalacao: orEmpty(datavalidacaoinstalacaodia),
+      data_integracao_planejado: orEmpty(dataintegracaoplanejadodia),
+      data_validacao_eribox: orEmpty(datavalidacaoeriboxedia),
+      data_aceitacao_final: orEmpty(aceitacao),
+
+      pendencias_obras: orEmpty(pendencia),
+    };
+  };
+
+
+  const salvarAcompanhamentoFisico = async () => {
+    try {
+      setloading(true);
+      const payload = montarPayloadFisicoHuawei();
+      // Envia apenas as chaves não-nulas
+      const clean = Object.fromEntries(
+        Object.entries(payload).filter(([, v]) => v !== null && v !== undefined)
+      );
+
+      const resp = await api.post('v1/projetohuawei/acompanhamento', clean);
+      if (resp.status === 200 || resp.status === 201) {
+        toast.success('Acompanhamento físico salvo');
+        return true;
+      }
+      toast.error('Falha ao salvar acompanhamento físico');
+      return false;
+    } catch (err) {
+      toast.error(err?.response?.data?.erro || 'Erro ao salvar acompanhamento físico');
+      return false;
+    } finally {
+      setloading(false);
+    }
+  };
+
+
   const salvarAcesso = async () => {
     try {
       setloading(true);
@@ -224,7 +281,8 @@ const Rollouthuaweiedicao = ({
 
   const handleSalvar = async () => {
     const ok = await salvarAcesso();
-    if (ok) {
+    const okFisico = await salvarAcompanhamentoFisico();
+    if (ok && okFisico) {
       atualiza();
       setshow(false);
     }
@@ -275,6 +333,13 @@ const Rollouthuaweiedicao = ({
     }
   };
 
+  const toDateInput = (v) => {
+    if (!v) return '';
+    // vem como 'YYYY-MM-DD' ou 'YYYY-MM-DD HH:mm:ss'
+    const s = String(v);
+    return s.length >= 10 ? s.slice(0, 10) : s;
+  };
+
   // 2) fetch de identificação
   const fetchIdentificacao = async () => {
     try {
@@ -293,7 +358,7 @@ const Rollouthuaweiedicao = ({
       setCliente(data.cliente || '');
       setRegiona(data.regiona || '');
       setSite(data.siteid || '');
-
+      setProjetoId(data.id || null);
       // >>> ALTERAÇÃO 2: guardar somente os IDs vindos do backend <<<
       setPendingEquipeIds(Array.isArray(data.acesso_equipe) ? data.acesso_equipe : []);
 
@@ -324,6 +389,26 @@ const Rollouthuaweiedicao = ({
       setMetaPlan(data.acessoMetaPlan || '');
       setAtividadeEscopo(data.acessoAtividadeEscopo || '');
       setAcionamentosRecentes(data.acessoAcionamentosRecentes || '');
+
+      // >>> preenche ACOMPANHAMENTO FÍSICO <<<
+      setsituacaoimplantacao(data.fisicoSituacaoImplantacao || '');
+      setsituacaodaintegracao(data.fisicoSituacaoIntegracao || '');
+
+      setdatadacriacaodademandadia(toDateInput(data.fisicoDataCriacaoDemanda));
+      setdataaceitedemandadia(toDateInput(data.fisicoDataAceiteDemanda));
+
+      setdatainicioentregamosplanejadodia(toDateInput(data.fisicoDataInicioPlanejado || data.fisicoDataEntregaPlanejado));
+      setdatarecebimentodositemosreportadodia(toDateInput(data.fisicoDataRecebimentoReportado));
+      setdatafiminstalacaoplanejadodia(toDateInput(data.fisicoDataFimInstalacaoPlanejado));
+      setdataconclusaoreportadodia(toDateInput(data.fisicoDataConclusaoReportado));
+      setdatavalidacaoinstalacaodia(toDateInput(data.fisicoDataValidacaoInstalacao));
+      setdataintegracaoplanejadodia(toDateInput(data.fisicoDataIntegracaoPlanejado));
+      setdatavalidacaoeriboxedia(toDateInput(data.fisicoDataValidacaoEribox));
+      setaceitacao(toDateInput(data.fisicoDataAceitacaoFinal));
+
+      setpendencia(data.fisicoPendenciasObras || '');
+      setProjetoId(data.fisicoIdProjetohuawei ?? data.id ?? null);
+
     } catch (err) {
       console.error('Erro ao carregar identificação', err);
     }
@@ -1157,7 +1242,7 @@ const Rollouthuaweiedicao = ({
 
 
           {/* === Acompanhamento Financeiro === */}
-          <div>
+          {/* <div>
             <b>Acompanhamento Financeiro</b>
             <hr style={{ marginTop: '0px', width: '100%' }} />
             <CardBody className="px-4 , pb-2">
@@ -1167,185 +1252,189 @@ const Rollouthuaweiedicao = ({
                 </Box>
               </div>
             </CardBody>
-          </div>
+          </div> */}
 
           {/* === Acompanhamento Físico === */}
           <div>
             <CardBody className="pb-0 bg-white">
               <h5 className="mb-2 fw-bold">Acompanhamento Físico</h5>
-              <div className="row g-3">
-                <div className="col-sm-4">
-                  Situação Implantação
-                  <Input
-                    type="select"
-                    onChange={(e) => setsituacaoimplantacao(e.target.value)}
-                    value={situacaoimplantacao}
-                    name="Tipo Pessoa"
-                  >
-                    <option>Selecione</option>
-                    <option>Aguardando aceite do ASP</option>
-                    <option>Aguardando agendamento Bluebee</option>
-                    <option>Aguardando definição de Equipe</option>
-                    <option>Cancelado</option>
-                    <option>Concluída</option>
-                    <option>Em Aceitação</option>
-                    <option>Fim do Período de Garantia</option>
-                    <option>Iniciando cancelamento da Obra</option>
-                    <option>Obra em Andamento</option>
-                    <option>Paralisada por HSE</option>
-                    <option>Período de Garantia</option>
-                    <option>Retomada planejada</option>
-                    <option>Revisar Finalização da Obra</option>
-                  </Input>
-                </div>
-                <div className="col-sm-4">
-                  Situação Integração
-                  <Input
-                    type="select"
-                    onChange={(e) => setsituacaodaintegracao(e.target.value)}
-                    value={situacaodaintegracao}
-                    name="Tipo Pessoa"
-                  >
-                    <option>Selecione</option>
-                    <option>Completa</option>
-                    <option>Em Andamento</option>
-                    <option>Não Iniciou</option>
-                  </Input>
-                </div>
-              </div>
-
-              <hr />
+              <hr style={{ marginTop: '0px', width: '100%' }} />
               <div className="row g-3">
                 <div className="row g-3">
-                  <div className="col-sm-3">
-                    Data da Criação Demanda (Dia)
+                  <div className="col-sm-4">
+                    Situação Implantação
                     <Input
-                      type="date"
-                      onChange={(e) => setdatadacriacaodademandadia(e.target.value)}
-                      value={datadacriacaodademandadia}
-                      placeholder="Descrição completa"
-                      disabled
-                    />
+                      type="select"
+                      onChange={(e) => setsituacaoimplantacao(e.target.value)}
+                      value={situacaoimplantacao}
+                      name="Tipo Pessoa"
+                    >
+                      <option value="">Selecione</option>
+                      <option value="Aguardando aceite do ASP">Aguardando aceite do ASP</option>
+                      <option value="Aguardando agendamento Bluebee">
+                        Aguardando agendamento Bluebee
+                      </option>
+                      <option value="Aguardando definição de Equipe">
+                        Aguardando definição de Equipe
+                      </option>
+                      <option value="Cancelado">Cancelado</option>
+                      <option value="Concluída">Concluída</option>
+                      <option value="Em Aceitação">Em Aceitação</option>
+                      <option value="Fim do Período de Garantia">Fim do Período de Garantia</option>
+                      <option value="Iniciando cancelamento da Obra">
+                        Iniciando cancelamento da Obra
+                      </option>
+                      <option value="Obra em Andamento">Obra em Andamento</option>
+                      <option value="Paralisada por HSE">Paralisada por HSE</option>
+                      <option value="Período de Garantia">Período de Garantia</option>
+                      <option value="Retomada planejada">Retomada planejada</option>
+                      <option value="Revisar Finalização da Obra">Revisar Finalização da Obra</option>
+                    </Input>
                   </div>
-
-                  <div className="col-sm-3">
-                    Data de Aceite da Demanda (Dia)
+                  <div className="col-sm-4">
+                    Situação Integração
                     <Input
-                      type="date"
-                      onChange={(e) => setdataaceitedemandadia(e.target.value)}
-                      value={dataaceitedemandadia}
-                      placeholder="Descrição completa"
-                      disabled
-                    />
-                  </div>
-                </div>
-
-                <div className="row g-3">
-                  <div className="col-sm-3">
-                    Data de Início / Entrega (MOS - Planejado) (Dia)
-                    <Input
-                      type="date"
-                      onChange={(e) => setdatainicioentregamosplanejadodia(e.target.value)}
-                      value={datainicioentregamosplanejadodia}
-                      placeholder="Descrição completa"
-                    />
-                  </div>
-
-                  <div className="col-sm-3">
-                    Data de Recebimento do Site (MOS - Reportado) (Dia)
-                    <Input
-                      type="date"
-                      onChange={(e) => setdatarecebimentodositemosreportadodia(e.target.value)}
-                      value={datarecebimentodositemosreportadodia}
-                      placeholder="Código SKU ou referência"
-                      disabled
-                    />
-                  </div>
-                </div>
-
-                <div className="row g-3">
-                  <div className="col-sm-3">
-                    Data de Fim de Instalação (Planejado) (Dia)
-                    <Input
-                      type="date"
-                      onChange={(e) => setdatafiminstalacaoplanejadodia(e.target.value)}
-                      value={datafiminstalacaoplanejadodia}
-                      placeholder="Descrição completa"
-                    />
-                  </div>
-
-                  <div className="col-sm-3">
-                    Data de Conclusão (Reportado) (Dia)
-                    <Input
-                      type="date"
-                      onChange={(e) => setdataconclusaoreportadodia(e.target.value)}
-                      value={dataconclusaoreportadodia}
-                      placeholder="Descrição completa"
-                      disabled
-                    />
-                  </div>
-
-                  <div className="col-sm-3">
-                    Data de Validação da Instalação (Dia)
-                    <Input
-                      type="date"
-                      onChange={(e) => setdatavalidacaoinstalacaodia(e.target.value)}
-                      value={datavalidacaoinstalacaodia}
-                      placeholder="Código SKU ou referência"
-                      disabled
-                    />
+                      type="select"
+                      onChange={(e) => setsituacaodaintegracao(e.target.value)}
+                      value={situacaodaintegracao}
+                      name="Tipo Pessoa"
+                    >
+                      <option value="">Selecione</option>
+                      <option value="Completa">Completa</option>
+                      <option value="Em Andamento">Em Andamento</option>
+                      <option value="Não Iniciou">Não Iniciou</option>
+                    </Input>
                   </div>
                 </div>
 
                 <div className="row g-3">
-                  <div className="col-sm-3">
-                    Data de Integração (Planejado) (Dia)
-                    <Input
-                      type="date"
-                      onChange={(e) => setdataintegracaoplanejadodia(e.target.value)}
-                      value={dataintegracaoplanejadodia}
-                      placeholder="Descrição completa"
-                    />
+                  <div className="row g-3">
+                    <div className="col-sm-4">
+                      Data da Criação Demanda (Dia)
+                      <Input
+                        type="date"
+                        onChange={(e) => setdatadacriacaodademandadia(e.target.value)}
+                        value={datadacriacaodademandadia}
+                        placeholder=""
+                        disabled
+                      />
+                    </div>
+
+                    <div className="col-sm-4">
+                      Data de Aceite da Demanda (Dia)
+                      <Input
+                        type="date"
+                        onChange={(e) => setdataaceitedemandadia(e.target.value)}
+                        value={dataaceitedemandadia}
+                        placeholder="Descrição completa"
+                        disabled
+                      />
+                    </div>
                   </div>
 
-                  <div className="col-sm-3">
-                    Data de Validação ERIBOX
-                    <br />
-                    (Dia)
-                    <Input
-                      type="date"
-                      onChange={(e) => setdatavalidacaoeriboxedia(e.target.value)}
-                      value={datavalidacaoeriboxedia}
-                      placeholder="Descrição completa"
-                      disabled
-                    />
+                  <div className="row g-3">
+                    <div className="col-sm-4">
+                      Data de Início / Entrega (MOS - Planejado) (Dia)
+                      <Input
+                        type="date"
+                        onChange={(e) => setdatainicioentregamosplanejadodia(e.target.value)}
+                        value={datainicioentregamosplanejadodia}
+                        placeholder=""
+                      />
+                    </div>
+
+                    <div className="col-sm-4">
+                      Data de Recebimento do Site (MOS - Reportado) (Dia)
+                      <Input
+                        type="date"
+                        onChange={(e) => setdatarecebimentodositemosreportadodia(e.target.value)}
+                        value={datarecebimentodositemosreportadodia}
+                        placeholder=""
+                        disabled
+                      />
+                    </div>
                   </div>
 
-                  <div className="col-sm-3">
-                    Aceitação Final
-                    <br />
-                    (Dia)
-                    <Input
-                      type="date"
-                      onChange={(e) => setaceitacao(e.target.value)}
-                      value={aceitacao}
-                      placeholder="Descrição completa"
-                      disabled
-                    />
+                  <div className="row g-3">
+                    <div className="col-sm-4">
+                      Data de Fim de Instalação (Planejado) (Dia)
+                      <Input
+                        type="date"
+                        onChange={(e) => setdatafiminstalacaoplanejadodia(e.target.value)}
+                        value={datafiminstalacaoplanejadodia}
+                        placeholder="Descrição completa"
+                      />
+                    </div>
+
+                    <div className="col-sm-4">
+                      Data de Conclusão (Reportado) (Dia)
+                      <Input
+                        type="date"
+                        onChange={(e) => setdataconclusaoreportadodia(e.target.value)}
+                        value={dataconclusaoreportadodia}
+                        placeholder="Descrição completa"
+                        disabled
+                      />
+                    </div>
+
+                    <div className="col-sm-4">
+                      Data de Validação da Instalação (Dia)
+                      <Input
+                        type="date"
+                        onChange={(e) => setdatavalidacaoinstalacaodia(e.target.value)}
+                        value={datavalidacaoinstalacaodia}
+                        placeholder="Código SKU ou referência"
+                        disabled
+                      />
+                    </div>
+                  </div>
+
+                  <div className="row g-3">
+                    <div className="col-sm-4">
+                      Data de Integração (Planejado) (Dia)
+                      <Input
+                        type="date"
+                        onChange={(e) => setdataintegracaoplanejadodia(e.target.value)}
+                        value={dataintegracaoplanejadodia}
+                        placeholder="Descrição completa"
+                      />
+                    </div>
+
+                    <div className="col-sm-4">
+                      Data de Validação ERIBOX (Dia)
+                      <Input
+                        type="date"
+                        onChange={(e) => setdatavalidacaoeriboxedia(e.target.value)}
+                        value={datavalidacaoeriboxedia}
+                        placeholder="Descrição completa"
+                        disabled
+                      />
+                    </div>
+
+                    <div className="col-sm-4">
+                      Aceitação Final (Dia)
+                      <Input
+                        type="date"
+                        onChange={(e) => setaceitacao(e.target.value)}
+                        value={aceitacao}
+                        placeholder="Descrição completa"
+                        disabled
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-              <br />
-              <div className="row g-3">
-                <div className="col-sm-6">
-                  Pendências Obras
-                  <Input
-                    type="text"
-                    onChange={(e) => setpendencia(e.target.value)}
-                    value={pendencia}
-                    placeholder="Pendências Obras"
-                    disabled
-                  />
+                <br />
+                <div className="row g-3">
+                  <div className="col-sm-12">
+                    Pendências Obras
+                    <Input
+                      type="text"
+                      onChange={(e) => setpendencia(e.target.value)}
+                      value={pendencia}
+                      placeholder="Pendências Obras"
+                      disabled
+                    />
+                  </div>
                 </div>
               </div>
 

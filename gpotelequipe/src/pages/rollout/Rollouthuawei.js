@@ -60,6 +60,168 @@ const Rollouthuawei = ({ setshow, show }) => {
     deletado: 0,
   };
 
+  const getFromPaths = (obj, paths) => {
+    if (!Array.isArray(paths)) return undefined;
+    const values = paths.map((p) =>
+      p.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj)
+    );
+    return values.find((val) => val !== undefined && val !== null);
+  };
+
+  const fisicoPaths = {
+    fisicoSituacaoImplantacao: [
+      'fisicoSituacaoImplantacao',
+      'fisico_situacao_implantacao',
+      'fisico.situacaoImplantacao',
+      'fisico.situacao_implantacao',
+      'acompanhamentoFisico.situacaoImplantacao',
+      'acompanhamentoFisico.situacao_implantacao',
+      'fisicosituacaoimplantacao'
+    ],
+    fisicoSituacaoIntegracao: [
+      'fisicoSituacaoIntegracao',
+      'fisico_situacao_integracao',
+      'fisico.situacaoIntegracao',
+      'fisico.situacao_integracao',
+      'acompanhamentoFisico.situacaoIntegracao',
+      'acompanhamentoFisico.situacao_integracao',
+      'fisicosituacaointegracao'
+    ],
+    fisicoDataCriacaoDemanda: [
+      'fisicoDataCriacaoDemanda',
+      'fisico_data_criacao_demanda',
+      'fisico.dataCriacaoDemanda',
+      'fisico.data_criacao_demanda',
+      'acompanhamentoFisico.dataCriacaoDemanda',
+      'acompanhamentoFisico.data_criacao_demanda',
+      'fisicodatacriacaodemanda'
+    ],
+    fisicoDataAceiteDemanda: [
+      'fisicoDataAceiteDemanda',
+      'fisico_data_aceite_demanda',
+      'fisico.dataAceiteDemanda',
+      'fisico.data_aceite_demanda',
+      'acompanhamentoFisico.dataAceiteDemanda',
+      'acompanhamentoFisico.data_aceite_demanda',
+      'fisicodataaceitedemanda'
+    ],
+    fisicoDataInicioPlanejado: [
+      'fisicoDataInicioPlanejado',
+      'fisico_data_inicio_planejado',
+      'fisico.dataInicioPlanejado',
+      'fisico.data_inicio_planejado',
+      'acompanhamentoFisico.dataInicioPlanejado',
+      'acompanhamentoFisico.data_inicio_planejado',
+      'fisicodatainicioplanejado'
+    ],
+    fisicoDataEntregaPlanejado: [
+      'fisicoDataEntregaPlanejado',
+      'fisico_data_entrega_planejado',
+      'fisico.dataEntregaPlanejado',
+      'fisico.data_entrega_planejado',
+      'acompanhamentoFisico.dataEntregaPlanejado',
+      'acompanhamentoFisico.data_entrega_planejado',
+      'fisicodataentregaplanejado'
+    ],
+    fisicoDataRecebimentoReportado: [
+      'fisicoDataRecebimentoReportado',
+      'fisico_data_recebimento_reportado',
+      'fisico.dataRecebimentoReportado',
+      'fisico.data_recebimento_reportado',
+      'acompanhamentoFisico.dataRecebimentoReportado',
+      'acompanhamentoFisico.data_recebimento_reportado',
+      'fisicodatarecebimentoreportado'
+    ],
+    fisicoDataFimInstalacaoPlanejado: [
+      'fisicoDataFimInstalacaoPlanejado',
+      'fisico_data_fim_instalacao_planejado',
+      'fisico.dataFimInstalacaoPlanejado',
+      'fisico.data_fim_instalacao_planejado',
+      'acompanhamentoFisico.dataFimInstalacaoPlanejado',
+      'acompanhamentoFisico.data_fim_instalacao_planejado',
+      'fisicodatafiminstalacaoplanejado'
+    ],
+    fisicoDataConclusaoReportado: [
+      'fisicoDataConclusaoReportado',
+      'fisico_data_conclusao_reportado',
+      'fisico.dataConclusaoReportado',
+      'fisico.data_conclusao_reportado',
+      'acompanhamentoFisico.dataConclusaoReportado',
+      'acompanhamentoFisico.data_conclusao_reportado',
+      'fisicodataconclusaoreportado'
+    ],
+    fisicoDataValidacaoInstalacao: [
+      'fisicoDataValidacaoInstalacao',
+      'fisico_data_validacao_instalacao',
+      'fisico.dataValidacaoInstalacao',
+      'fisico.data_validacao_instalacao',
+      'acompanhamentoFisico.dataValidacaoInstalacao',
+      'acompanhamentoFisico.data_validacao_instalacao',
+      'fisicodatavalidacaoinstalacao'
+    ],
+    fisicoDataIntegracaoPlanejado: [
+      'fisicoDataIntegracaoPlanejado',
+      'fisico_data_integracao_planejado',
+      'fisico.dataIntegracaoPlanejado',
+      'fisico.data_integracao_planejado',
+      'acompanhamentoFisico.dataIntegracaoPlanejado',
+      'acompanhamentoFisico.data_integracao_planejado',
+      'fisicodataintegracaoplanejado'
+    ],
+    fisicoDataValidacaoEribox: [
+      'fisicoDataValidacaoEribox',
+      'fisico_data_validacao_eribox',
+      'fisico.dataValidacaoEribox',
+      'fisico.data_validacao_eribox',
+      'acompanhamentoFisico.dataValidacaoEribox',
+      'acompanhamentoFisico.data_validacao_eribox',
+      'fisicodatavalidacaoeribox'
+    ],
+    fisicoDataAceitacaoFinal: [
+      'fisicoDataAceitacaoFinal',
+      'fisico_data_aceitacao_final',
+      'fisico.dataAceitacaoFinal',
+      'fisico.data_aceitacao_final',
+      'acompanhamentoFisico.dataAceitacaoFinal',
+      'acompanhamentoFisico.data_aceitacao_final',
+      'fisicodataaceitacaofinal'
+    ],
+    fisicoPendenciasObras: [
+      'fisicoPendenciasObras',
+      'fisico_pendencias_obras',
+      'fisico.pendenciasObras',
+      'fisico.pendencias_obras',
+      'acompanhamentoFisico.pendenciasObras',
+      'acompanhamentoFisico.pendencias_obras',
+      'fisicopendenciasobras'
+    ],
+    fisicoObservacoes: [
+      'fisicoObservacoes',
+      'fisico_observacoes',
+      'fisico.observacoes',
+      'acompanhamentoFisico.observacoes',
+      'fisicoobservacoes'
+    ],
+    fisicoCriadoEm: [
+      'fisicoCriadoEm',
+      'fisico_criado_em',
+      'fisico.criadoEm',
+      'fisico.criado_em',
+      'acompanhamentoFisico.criadoEm',
+      'acompanhamentoFisico.criado_em',
+      'fisicocriadoem'
+    ],
+    fisicoAtualizadoEm: [
+      'fisicoAtualizadoEm',
+      'fisico_atualizado_em',
+      'fisico.atualizadoEm',
+      'fisico.atualizado_em',
+      'acompanhamentoFisico.atualizadoEm',
+      'acompanhamentoFisico.atualizado_em',
+      'fisicoatualizadoem'
+    ],
+  };
+
   const listarollouthuawei = async () => {
     try {
       setLoading(true);
@@ -599,7 +761,14 @@ const Rollouthuawei = ({ setshow, show }) => {
       { field: 'acionamentosrecentes', headerName: 'Acionamentos Recentes', width: 200, editable: true, headerClassName: 'col-acesso-header' },
 
       { field: 'regiao', headerName: 'Região', width: 150, editable: true, headerClassName: 'col-acesso-header' },
-      { field: 'acessoequipenomes', headerName: 'Acesso Equipe Nomes', width: 300, editable: false, headerClassName: 'col-acesso-header' },
+      {
+        field: 'acessoequipenomes',
+        headerName: 'Acesso Equipe Nomes',
+        width: 300,
+        editable: false,
+        headerClassName: 'col-acesso-header',
+        valueGetter: (p) => p.row.acessoequipenomes ?? p.row.acessoEquipeNomes,
+      },
 
       { field: 'detentora', headerName: 'Detentora', width: 150, editable: true },
       { field: 'idDetentora', headerName: 'ID Detentora (Legacy)', width: 170, editable: true },
@@ -664,6 +833,186 @@ const Rollouthuawei = ({ setshow, show }) => {
         width: 200,
         valueGetter: (cell) => (cell.value ? createLocalDate(cell.value) : null),
       },
+
+      {
+        field: 'fisicoSituacaoImplantacao',
+        headerName: 'Físico • Situação Implantação',
+        width: 240,
+        editable: false,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => getFromPaths(p.row, fisicoPaths.fisicoSituacaoImplantacao),
+      },
+      {
+        field: 'fisicoSituacaoIntegracao',
+        headerName: 'Físico • Situação Integração',
+        width: 230,
+        editable: false,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => getFromPaths(p.row, fisicoPaths.fisicoSituacaoIntegracao),
+      },
+
+      {
+        field: 'fisicoDataCriacaoDemanda',
+        headerName: 'Físico • Criação Demanda',
+        type: 'date',
+        width: 190,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => {
+          const v = getFromPaths(p.row, fisicoPaths.fisicoDataCriacaoDemanda);
+          return v ? createLocalDate(v) : null;
+        },
+      },
+      {
+        field: 'fisicoDataAceiteDemanda',
+        headerName: 'Físico • Aceite Demanda',
+        type: 'date',
+        width: 185,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => {
+          const v = getFromPaths(p.row, fisicoPaths.fisicoDataAceiteDemanda);
+          return v ? createLocalDate(v) : null;
+        },
+      },
+      {
+        field: 'fisicoDataInicioPlanejado',
+        headerName: 'Físico • Início Planejado',
+        type: 'date',
+        width: 195,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => {
+          const v = getFromPaths(p.row, fisicoPaths.fisicoDataInicioPlanejado);
+          return v ? createLocalDate(v) : null;
+        },
+      },
+      {
+        field: 'fisicoDataEntregaPlanejado',
+        headerName: 'Físico • Entrega Planejado',
+        type: 'date',
+        width: 200,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => {
+          const v = getFromPaths(p.row, fisicoPaths.fisicoDataEntregaPlanejado);
+          return v ? createLocalDate(v) : null;
+        },
+      },
+      {
+        field: 'fisicoDataRecebimentoReportado',
+        headerName: 'Físico • Receb. Reportado',
+        type: 'date',
+        width: 205,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => {
+          const v = getFromPaths(p.row, fisicoPaths.fisicoDataRecebimentoReportado);
+          return v ? createLocalDate(v) : null;
+        },
+      },
+      {
+        field: 'fisicoDataFimInstalacaoPlanejado',
+        headerName: 'Físico • Fim Instalação (Plan)',
+        type: 'date',
+        width: 230,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => {
+          const v = getFromPaths(p.row, fisicoPaths.fisicoDataFimInstalacaoPlanejado);
+          return v ? createLocalDate(v) : null;
+        },
+      },
+      {
+        field: 'fisicoDataConclusaoReportado',
+        headerName: 'Físico • Conclusão Reportado',
+        type: 'date',
+        width: 220,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => {
+          const v = getFromPaths(p.row, fisicoPaths.fisicoDataConclusaoReportado);
+          return v ? createLocalDate(v) : null;
+        },
+      },
+      {
+        field: 'fisicoDataValidacaoInstalacao',
+        headerName: 'Físico • Validação Instalação',
+        type: 'date',
+        width: 220,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => {
+          const v = getFromPaths(p.row, fisicoPaths.fisicoDataValidacaoInstalacao);
+          return v ? createLocalDate(v) : null;
+        },
+      },
+      {
+        field: 'fisicoDataIntegracaoPlanejado',
+        headerName: 'Físico • Integração (Plan)',
+        type: 'date',
+        width: 210,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => {
+          const v = getFromPaths(p.row, fisicoPaths.fisicoDataIntegracaoPlanejado);
+          return v ? createLocalDate(v) : null;
+        },
+      },
+      {
+        field: 'fisicoDataValidacaoEribox',
+        headerName: 'Físico • Validação Eribox',
+        type: 'date',
+        width: 200,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => {
+          const v = getFromPaths(p.row, fisicoPaths.fisicoDataValidacaoEribox);
+          return v ? createLocalDate(v) : null;
+        },
+      },
+      {
+        field: 'fisicoDataAceitacaoFinal',
+        headerName: 'Físico • Aceitação Final',
+        type: 'date',
+        width: 200,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => {
+          const v = getFromPaths(p.row, fisicoPaths.fisicoDataAceitacaoFinal);
+          return v ? createLocalDate(v) : null;
+        },
+      },
+
+      {
+        field: 'fisicoPendenciasObras',
+        headerName: 'Físico • Pendências de Obras',
+        width: 260,
+        editable: false,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => getFromPaths(p.row, fisicoPaths.fisicoPendenciasObras),
+      },
+      {
+        field: 'fisicoObservacoes',
+        headerName: 'Físico • Observações',
+        width: 260,
+        editable: false,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => getFromPaths(p.row, fisicoPaths.fisicoObservacoes),
+      },
+
+      {
+        field: 'fisicoCriadoEm',
+        headerName: 'Físico • Criado Em',
+        type: 'dateTime',
+        width: 190,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => {
+          const v = getFromPaths(p.row, fisicoPaths.fisicoCriadoEm);
+          return v ? createLocalDate(v) : null;
+        },
+      },
+      {
+        field: 'fisicoAtualizadoEm',
+        headerName: 'Físico • Atualizado Em',
+        type: 'dateTime',
+        width: 200,
+        headerClassName: 'col-fisico-header',
+        valueGetter: (p) => {
+          const v = getFromPaths(p.row, fisicoPaths.fisicoAtualizadoEm);
+          return v ? createLocalDate(v) : null;
+        },
+      },
+
     ],
     [empresas, pessoas, t2editar]
   );
@@ -715,6 +1064,11 @@ const Rollouthuawei = ({ setshow, show }) => {
     'REGIONAL_LIB_SITE_R', 'EQUIPAMENTO_ENTREGA_P', 'REGIONAL_CARIMBO', 'ATIVACAO_REAL', 'DOCUMENTACAO',
     'INITIAL_TUNNING_REAL', 'INITIAL_TUNNING_STATUS', 'VISTORIA_PLAN', 'VISTORIA_REAL',
     'DOCUMENTACAO_VISTORIA_PLAN', 'DOCUMENTACAO_VISTORIA_REAL', 'REQ', 'datasolicitado', 'datainicio', 'datafim',
+    'ACCEPTANCE DATE', 'ENVIO DA DEMANDA',
+    'FÍSICO • CRIAÇÃO DEMANDA', 'FÍSICO • ACEITE DEMANDA', 'FÍSICO • INÍCIO PLANEJADO',
+    'FÍSICO • ENTREGA PLANEJADO', 'FÍSICO • RECEBIMENTO REPORTADO', 'FÍSICO • FIM INSTALAÇÃO (PLAN)',
+    'FÍSICO • CONCLUSÃO REPORTADO', 'FÍSICO • VALIDAÇÃO INSTALAÇÃO', 'FÍSICO • INTEGRAÇÃO (PLAN)',
+    'FÍSICO • VALIDAÇÃO ERIBOX', 'FÍSICO • ACEITAÇÃO FINAL', 'FÍSICO • CRIADO EM', 'FÍSICO • ATUALIZADO EM',
   ]);
 
   const toBRDate = (v) => {
@@ -836,7 +1190,25 @@ const Rollouthuawei = ({ setshow, show }) => {
           'META PLAN': item.metaplan,
           'ATIVIDADE ESCOPO': item.atividadeescopo,
           'ACIONAMENTOS RECENTES': item.acionamentosrecentes,
-          'ACESSO EQUIPE NOMES': item.acessoequipenomes,
+          'ACESSO EQUIPE NOMES': item.acessoequipenomes ?? item.acessoEquipeNomes,
+          'FÍSICO • ID PROJETO HUAWEI': getFromPaths(item, ['fisicoIdProjetohuawei', 'fisico.idProjetohuawei', 'acompanhamentoFisico.idProjetohuawei']),
+          'FÍSICO • SITUAÇÃO IMPLANTAÇÃO': getFromPaths(item, fisicoPaths.fisicoSituacaoImplantacao),
+          'FÍSICO • SITUAÇÃO INTEGRAÇÃO': getFromPaths(item, fisicoPaths.fisicoSituacaoIntegracao),
+          'FÍSICO • CRIAÇÃO DEMANDA': getFromPaths(item, fisicoPaths.fisicoDataCriacaoDemanda),
+          'FÍSICO • ACEITE DEMANDA': getFromPaths(item, fisicoPaths.fisicoDataAceiteDemanda),
+          'FÍSICO • INÍCIO PLANEJADO': getFromPaths(item, fisicoPaths.fisicoDataInicioPlanejado),
+          'FÍSICO • ENTREGA PLANEJADO': getFromPaths(item, fisicoPaths.fisicoDataEntregaPlanejado),
+          'FÍSICO • RECEBIMENTO REPORTADO': getFromPaths(item, fisicoPaths.fisicoDataRecebimentoReportado),
+          'FÍSICO • FIM INSTALAÇÃO (PLAN)': getFromPaths(item, fisicoPaths.fisicoDataFimInstalacaoPlanejado),
+          'FÍSICO • CONCLUSÃO REPORTADO': getFromPaths(item, fisicoPaths.fisicoDataConclusaoReportado),
+          'FÍSICO • VALIDAÇÃO INSTALAÇÃO': getFromPaths(item, fisicoPaths.fisicoDataValidacaoInstalacao),
+          'FÍSICO • INTEGRAÇÃO (PLAN)': getFromPaths(item, fisicoPaths.fisicoDataIntegracaoPlanejado),
+          'FÍSICO • VALIDAÇÃO ERIBOX': getFromPaths(item, fisicoPaths.fisicoDataValidacaoEribox),
+          'FÍSICO • ACEITAÇÃO FINAL': getFromPaths(item, fisicoPaths.fisicoDataAceitacaoFinal),
+          'FÍSICO • PENDÊNCIAS OBRAS': getFromPaths(item, fisicoPaths.fisicoPendenciasObras),
+          'FÍSICO • OBSERVAÇÕES': getFromPaths(item, fisicoPaths.fisicoObservacoes),
+          'FÍSICO • CRIADO EM': getFromPaths(item, fisicoPaths.fisicoCriadoEm),
+          'FÍSICO • ATUALIZADO EM': getFromPaths(item, fisicoPaths.fisicoAtualizadoEm),
         }))
         .map(formatDatesBR)
         .map(upperStrings);
@@ -919,9 +1291,10 @@ const Rollouthuawei = ({ setshow, show }) => {
           .MuiDataGrid-cell { color: rgba(0, 0, 0, 0.87); }
           .col-acesso-header { background-color: #2e7d32 !important; color: #fff !important; }
           .col-acesso-verde { background-color: #e8f5e9 !important; }
-          .col-cinza { background-color: #fafafa !important; }
+          .col-cinza { background-color: #fafafa !important; }          
         `}
       </style>
+      {/* .col-fisico-header { background-color: #0d47a1 !important; color: #fff !important; } */}
 
       {telacadastroedicao ? (
         <Rollouthuaweiedicao
