@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Box, CircularProgress, Alert } from '@mui/material';
+import { Box, CircularProgress, Alert, Autocomplete, TextField, Chip } from '@mui/material';
 import { Button, Modal, ModalBody, ModalHeader, ModalFooter } from 'reactstrap';
 import {
   DataGrid,
@@ -26,6 +26,59 @@ import Telat2editar from '../../components/formulario/projeto/Telat2editar';
 import FiltroRolloutHuawei from '../../components/modals/filtros/FiltroRolloutHuawei';
 import ConfirmaModal from '../../components/modals/ConfirmacaoModal';
 import Loader from '../../layouts/loader/Loader';
+
+const normalizeIds = (val) => {
+  if (val == null) return [];
+  if (Array.isArray(val)) return val.filter((v) => v !== '' && v != null);
+  if (typeof val === 'string') {
+    return val
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => (Number.isNaN(Number(s)) ? s : Number(s)));
+  }
+  if (typeof val === 'number') return [val];
+  return [];
+};
+
+const AcessoEquipeMultiEdit = (props) => {
+  const { id, field, value, api: gridApi, row, colDef } = props;
+  const options = colDef.valueOptions || [];
+  const currentIds = normalizeIds(value ?? row?.acessoequipenomes ?? row?.acessoEquipeNomes);
+  const selectedOptions = options.filter((o) => currentIds.includes(o.value));
+
+  const handleChange = (_e, newOptions) => {
+    const ids = (newOptions || []).map((o) => o.value);
+    gridApi.setEditCellValue({ id, field, value: ids }, undefined);
+  };
+
+  return (
+    <Autocomplete
+      multiple
+      disableCloseOnSelect
+      options={options}
+      value={selectedOptions}
+      onChange={handleChange}
+      getOptionLabel={(o) => o.label ?? String(o)}
+      renderInput={(params) => <TextField {...params} size="small" placeholder="Selecionar..." />}
+      renderTags={(tagValue, getTagProps) =>
+        tagValue.map((option, index) => (
+          <Chip {...getTagProps({ index })} key={option.value} label={option.label} />
+        ))
+      }
+      sx={{ width: '100%' }}
+    />
+  );
+};
+
+AcessoEquipeMultiEdit.propTypes = {
+  id: PropTypes.any,
+  field: PropTypes.string,
+  value: PropTypes.any,
+  api: PropTypes.object,
+  row: PropTypes.object,
+  colDef: PropTypes.object,
+};
 
 const Rollouthuawei = ({ setshow, show }) => {
   const [pageSize, setPageSize] = useState(100);
@@ -58,6 +111,22 @@ const Rollouthuawei = ({ setshow, show }) => {
     idusuario: localStorage.getItem('sessionId'),
     idloja: localStorage.getItem('sessionloja'),
     deletado: 0,
+  };
+
+  const clearMensagem = useCallback(() => setmensagem(''), []);
+
+  const toISODate = (v) => {
+    if (!v) return null;
+    if (typeof v === 'string') {
+      const m = v.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    }
+    const d = v instanceof Date ? v : new Date(v);
+    if (Number.isNaN(d.getTime())) return null;
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   };
 
   const getFromPaths = (obj, paths) => {
@@ -246,6 +315,17 @@ const Rollouthuawei = ({ setshow, show }) => {
     [totalacionamento]
   );
 
+  const mapFieldToBackend = (f) => {
+    const m = {
+      infra: 'tipodeinfra',
+      detentorarea: 'detentordaarea',
+      idDetentora: 'iddetentora',
+      formaDeAcesso: 'formaacesso',
+      acessoequipenomes: 'equipe',
+    };
+    return m[f] ?? f;
+  };
+
   const handleConfirmEdit = async () => {
     if (!rowSelectionModel.length) {
       toast.warning('Nenhuma atividade selecionada.');
@@ -282,6 +362,16 @@ const Rollouthuawei = ({ setshow, show }) => {
       if (campo === 'ddd1') { campoFinal = 'ddd'; valorFinal = row.ddd1; }
       if (campo === 'latitude1') { campoFinal = 'latitude'; valorFinal = row.latitude1; }
       if (campo === 'longitude1') { campoFinal = 'longitude'; valorFinal = row.longitude1; }
+      if (campo === 'tipoinfra') { campoFinal = 'tipodeinfra'; }
+      if (campo === 'datasolicitado' || campo === 'datainicio' || campo === 'datafim') {
+        valorFinal = toISODate(valorFinal);
+      }
+      if (campo === 'acessoequipenomes') {
+        const ids = normalizeIds(valorFinal);
+        valorFinal = ids.join(',');
+      }
+
+      campoFinal = mapFieldToBackend(campoFinal);
 
       await api.post('v1/rollouthuawei/editaremmassa', {
         id: idsSelecionados,
@@ -295,6 +385,7 @@ const Rollouthuawei = ({ setshow, show }) => {
 
       const response = await api.get('v1/rollouthuawei', { params: filtroParams });
       settotalacionamento(response.data);
+      setmensagem('');
       toast.success('Registro atualizado com sucesso!');
     } catch (err) {
       setmensagem(err.message || 'Erro ao atualizar o registro');
@@ -308,6 +399,7 @@ const Rollouthuawei = ({ setshow, show }) => {
 
   const handleCancelEdit = () => {
     setConfirmDialogOpen(false);
+    clearMensagem();
     toast.info('Edição cancelada');
     listarollouthuawei();
   };
@@ -324,8 +416,16 @@ const Rollouthuawei = ({ setshow, show }) => {
 
   const listapessoas = async () => {
     try {
-      const response = await api.get('/v1/pessoa', { params });
-      setPessoas(response.data.map((i) => i.nome));
+      const { data } = await api.get('/v1/pessoa/select');
+      const opts = (Array.isArray(data) ? data : [])
+        .map((o) => {
+          const value = o?.value ?? o?.id ?? o?.codigo ?? null;
+          const label = String(o?.label ?? o?.nome ?? o?.name ?? '').trim();
+          if (value == null || !label) return null;
+          return { value, label };
+        })
+        .filter(Boolean);
+      setPessoas(opts);
     } catch (err) {
       setmensagem(err.message);
       toast.error(`Erro ao carregar pessoas: ${err.message}`);
@@ -483,7 +583,7 @@ const Rollouthuawei = ({ setshow, show }) => {
         width: 200,
         editable: true,
         type: 'singleSelect',
-        valueOptions: pessoas,
+        valueOptions: pessoas.map((p) => p.label),
       },
 
       {
@@ -695,7 +795,9 @@ const Rollouthuawei = ({ setshow, show }) => {
         headerName: 'Data Solicitada',
         type: 'date',
         width: 160,
+        editable: true,
         valueGetter: (c) => (c.value ? createLocalDate(c.value) : null),
+        valueSetter: (p) => ({ ...p.row, datasolicitado: toISODate(p.value) }),
         headerClassName: 'col-acesso-header',
       },
       {
@@ -703,7 +805,9 @@ const Rollouthuawei = ({ setshow, show }) => {
         headerName: 'Data Início',
         type: 'date',
         width: 160,
+        editable: true,
         valueGetter: (c) => (c.value ? createLocalDate(c.value) : null),
+        valueSetter: (p) => ({ ...p.row, datainicio: toISODate(p.value) }),
         headerClassName: 'col-acesso-header',
       },
       {
@@ -711,7 +815,9 @@ const Rollouthuawei = ({ setshow, show }) => {
         headerName: 'Data Fim',
         type: 'date',
         width: 160,
+        editable: true,
         valueGetter: (c) => (c.value ? createLocalDate(c.value) : null),
+        valueSetter: (p) => ({ ...p.row, datafim: toISODate(p.value) }),
         headerClassName: 'col-acesso-header',
       },
 
@@ -760,14 +866,38 @@ const Rollouthuawei = ({ setshow, show }) => {
       { field: 'atividadeescopo', headerName: 'Atividade Escopo', width: 200, editable: true, headerClassName: 'col-acesso-header' },
       { field: 'acionamentosrecentes', headerName: 'Acionamentos Recentes', width: 200, editable: true, headerClassName: 'col-acesso-header' },
 
-      { field: 'regiao', headerName: 'Região', width: 150, editable: true, headerClassName: 'col-acesso-header' },
+      {
+        field: 'regiao',
+        headerName: 'Região',
+        width: 150,
+        editable: true,
+        type: 'singleSelect',
+        valueOptions: ['Interior', 'Capital'],
+        headerClassName: 'col-acesso-header',
+      },
+
       {
         field: 'acessoequipenomes',
         headerName: 'Acesso Equipe Nomes',
         width: 300,
-        editable: false,
+        editable: true,
         headerClassName: 'col-acesso-header',
-        valueGetter: (p) => p.row.acessoequipenomes ?? p.row.acessoEquipeNomes,
+        valueOptions: pessoas,
+        renderEditCell: (value) => <AcessoEquipeMultiEdit {...value} />,
+        valueSetter: (value) => {
+          const ids = normalizeIds(value.value);
+          return { ...value.row, acessoequipenomes: ids, acessoEquipeNomes: ids };
+        },
+        valueFormatter: (value) => {
+          const ids = normalizeIds(value.value ?? value.row?.acessoequipenomes ?? value.row?.acessoEquipeNomes);
+          if (!ids.length) return '';
+          return ids
+            .map((id) => {
+              const opt = (pessoas || []).find((o) => o.value === id);
+              return opt ? opt.label : String(id);
+            })
+            .join(', ');
+        },
       },
 
       { field: 'detentora', headerName: 'Detentora', width: 150, editable: true },
@@ -1012,7 +1142,6 @@ const Rollouthuawei = ({ setshow, show }) => {
           return v ? createLocalDate(v) : null;
         },
       },
-
     ],
     [empresas, pessoas, t2editar]
   );
@@ -1044,7 +1173,8 @@ const Rollouthuawei = ({ setshow, show }) => {
   const iniciatabelas = async () => {
     try {
       setLoading(true);
-      await Promise.all([listarollouthuawei(), listaempresa(), listapessoas()]);
+      await listapessoas();
+      await Promise.all([listarollouthuawei(), listaempresa()]);
     } catch {
       toast.error('Erro ao carregar dados iniciais');
     } finally {
@@ -1190,7 +1320,9 @@ const Rollouthuawei = ({ setshow, show }) => {
           'META PLAN': item.metaplan,
           'ATIVIDADE ESCOPO': item.atividadeescopo,
           'ACIONAMENTOS RECENTES': item.acionamentosrecentes,
-          'ACESSO EQUIPE NOMES': item.acessoequipenomes ?? item.acessoEquipeNomes,
+          'ACESSO EQUIPE NOMES': Array.isArray(item.acessoequipenomes ?? item.acessoEquipeNomes)
+            ? (item.acessoequipenomes ?? item.acessoEquipeNomes).join(',')
+            : (item.acessoequipenomes ?? item.acessoEquipeNomes),
           'FÍSICO • ID PROJETO HUAWEI': getFromPaths(item, ['fisicoIdProjetohuawei', 'fisico.idProjetohuawei', 'acompanhamentoFisico.idProjetohuawei']),
           'FÍSICO • SITUAÇÃO IMPLANTAÇÃO': getFromPaths(item, fisicoPaths.fisicoSituacaoImplantacao),
           'FÍSICO • SITUAÇÃO INTEGRAÇÃO': getFromPaths(item, fisicoPaths.fisicoSituacaoIntegracao),
@@ -1294,7 +1426,6 @@ const Rollouthuawei = ({ setshow, show }) => {
           .col-cinza { background-color: #fafafa !important; }          
         `}
       </style>
-      {/* .col-fisico-header { background-color: #0d47a1 !important; color: #fff !important; } */}
 
       {telacadastroedicao ? (
         <Rollouthuaweiedicao

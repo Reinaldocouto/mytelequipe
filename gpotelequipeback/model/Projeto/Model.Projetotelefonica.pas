@@ -580,7 +580,7 @@ begin
 
     qry.SQL.Add('  UNION ALL');
 
-    qry.SQL.Add('  SELECT av.idpmts, CONCAT(ge.nome, '' '', lp.CODIGOLPUVIVO) AS descricao, lp.VALORPJ, av.dataacionamento, gu.nome, ''ACIONAMENTO PJ'' AS tipo, rolloutvivo.ufsigla , rolloutvivo.pmosigla ');
+    qry.SQL.Add('  SELECT av.idpmts, CONCAT(ge.nome, '' '', lp.CODIGOLPUVIVO) AS descricao, av.valor, av.dataacionamento, gu.nome, ''ACIONAMENTO PJ'' AS tipo, rolloutvivo.ufsigla , rolloutvivo.pmosigla ');
     qry.SQL.Add('  FROM acionamentovivo av');
     qry.SQL.Add('  INNER JOIN lpuvivo lp ON lp.ID = av.idpacote AND lp.HISTORICO = av.lpu');
     qry.SQL.Add('  INNER JOIN gesempresas ge ON ge.idempresa = av.idcolaborador');
@@ -602,28 +602,47 @@ begin
 
     qry.SQL.Add('  UNION ALL');
 
-    qry.SQL.Add('  SELECT ');
-    qry.SQL.Add('    acionamentovivo.idpmts AS idpmts,');
-    qry.SQL.Add('    despesas.descricao AS descricao,');
-    qry.SQL.Add('    (despesas.valorparcela / 30) * ');
-    qry.SQL.Add('    CASE ');
-    qry.SQL.Add('      WHEN telefonicacontrolet2.atividade = ''Test'' AND rolloutvivo.DTPLan <> ''1899-12-30'' AND rolloutvivo.DTReal <> ''1899-12-30'' THEN DATEDIFF(rolloutvivo.DTPLan, rolloutvivo.DTReal) + 1');
-    qry.SQL.Add('      WHEN telefonicacontrolet2.atividade = ''Instalação'' AND rolloutvivo.FimInstalacaoPlan <> ''1899-12-30'' AND rolloutvivo.FimInstalacaoReal <> ''1899-12-30'' THEN DATEDIFF(rolloutvivo.FimInstalacaoPlan, rolloutvivo.FimInstalacaoReal) + 1');
-    qry.SQL.Add('      WHEN telefonicacontrolet2.atividade = ''Vistoria'' AND rolloutvivo.vistoriareal <> ''1899-12-30'' AND rolloutvivo.vistoriaplan <> ''1899-12-30'' THEN DATEDIFF(rolloutvivo.vistoriareal, rolloutvivo.vistoriaplan) + 1');
-    qry.SQL.Add('      ELSE 0');
-    qry.SQL.Add('    END AS valor,');
-    qry.SQL.Add('    despesas.datalancamento AS dataacionamento,');
-    qry.SQL.Add('    gesempresas.nome,');
-    qry.SQL.Add('    ''CUSTO DE FROTAS'' AS tipo,');
-    qry.SQL.Add('    rolloutvivo.ufsigla,');
-    qry.SQL.Add('    rolloutvivo.pmosigla');
-    qry.SQL.Add('  FROM acionamentovivo');
-    qry.SQL.Add('    LEFT JOIN telefonicacontrolet2 ON telefonicacontrolet2.ID = acionamentovivo.idatividade');
-    qry.SQL.Add('    LEFT JOIN lpuvivo ON lpuvivo.ID = acionamentovivo.idpacote');
-    qry.SQL.Add('    LEFT JOIN gesempresas ON gesempresas.idempresa = acionamentovivo.idcolaborador');
-    qry.SQL.Add('    LEFT JOIN rolloutvivo ON rolloutvivo.UIDIDPMTS = acionamentovivo.idpmts');
-    qry.SQL.Add('    LEFT JOIN gesdespesas despesas ON despesas.idempresa = acionamentovivo.idcolaborador');
-    qry.SQL.Add('  WHERE despesas.categoria = ''Locação''');
+    qry.SQL.Add('SELECT');
+    qry.SQL.Add('  acionamentovivo.idpmts AS idpmts,');
+    qry.SQL.Add('  despesas.descricao AS descricao,');
+
+    qry.SQL.Add('  COALESCE(');
+    qry.SQL.Add('    NULLIF((');
+    qry.SQL.Add('      (despesas.valorparcela / 30) * CASE');
+    qry.SQL.Add('        WHEN telefonicacontrolet2.atividade = ''Test''');
+    qry.SQL.Add('          AND rolloutvivo.DTPLan <> ''1899-12-30''');
+    qry.SQL.Add('          AND rolloutvivo.DTReal <> ''1899-12-30''');
+    qry.SQL.Add('          THEN DATEDIFF(rolloutvivo.DTPLan, rolloutvivo.DTReal) + 1');
+    qry.SQL.Add('        WHEN telefonicacontrolet2.atividade = ''Instalação''');
+    qry.SQL.Add('          AND rolloutvivo.FimInstalacaoPlan <> ''1899-12-30''');
+    qry.SQL.Add('          AND rolloutvivo.FimInstalacaoReal <> ''1899-12-30''');
+    qry.SQL.Add('          THEN DATEDIFF(rolloutvivo.FimInstalacaoPlan, rolloutvivo.FimInstalacaoReal) + 1');
+    qry.SQL.Add('        WHEN telefonicacontrolet2.atividade = ''Vistoria''');
+    qry.SQL.Add('          AND rolloutvivo.vistoriareal <> ''1899-12-30''');
+    qry.SQL.Add('          AND rolloutvivo.vistoriaplan <> ''1899-12-30''');
+    qry.SQL.Add('          THEN DATEDIFF(rolloutvivo.vistoriareal, rolloutvivo.vistoriaplan) + 1');
+    qry.SQL.Add('        ELSE 0');
+    qry.SQL.Add('      END');
+    qry.SQL.Add('    ), 0),'); // ① se resultado for 0, vira NULL
+    qry.SQL.Add('    NULLIF(acionamentovivo.valor, 0),'); // ② se for 0, pula
+    qry.SQL.Add('    NULLIF(lpuvivo.valorpj, 0),');           // ③ se for 0, pula
+    qry.SQL.Add('    0');                                   // ⑤ fallback final
+    qry.SQL.Add('  ) AS valor,');
+
+
+    qry.SQL.Add('  despesas.datalancamento AS dataacionamento,');
+    qry.SQL.Add('  gesempresas.nome,');
+    qry.SQL.Add('  ''Outros'' AS tipo,');
+    qry.SQL.Add('  rolloutvivo.ufsigla,');
+    qry.SQL.Add('  rolloutvivo.pmosigla');
+
+    qry.SQL.Add('FROM acionamentovivo');
+    qry.SQL.Add('  LEFT JOIN telefonicacontrolet2 ON telefonicacontrolet2.ID = acionamentovivo.idatividade');
+    qry.SQL.Add('  LEFT JOIN lpuvivo ON lpuvivo.ID = acionamentovivo.idpacote');
+    qry.SQL.Add('  LEFT JOIN gesempresas ON gesempresas.idempresa = acionamentovivo.idcolaborador');
+    qry.SQL.Add('  LEFT JOIN rolloutvivo ON rolloutvivo.UIDIDPMTS = acionamentovivo.idpmts');
+    qry.SQL.Add('  LEFT JOIN gesdespesas despesas ON despesas.idempresa = acionamentovivo.idcolaborador');
+    qry.SQL.Add(' WHERE acionamentovivo.deletado = 0');
     qry.SQL.Add('  UNION ALL');
 
     qry.SQL.Add('  SELECT gd.siteid AS idpmts, gd.descricao, gd.valortotal AS valor, gd.datasolicitacao AS dataacionamento, gd.nomecolaborador AS nome, ''DIARIA'' AS tipo, rolloutvivo.ufsigla , rolloutvivo.pmosigla  ');
@@ -5712,7 +5731,7 @@ begin
       SQL.Add('lpuvivo.brevedescricaoingles, ');
       SQL.Add('lpuvivo.brevedescricao, ');
       SQL.Add('lpuvivo.codigolpuvivo, ');
-      SQL.Add('lpuvivo.valorpj, ');
+      SQL.Add('acionamentovivo.valor as valorpj, ');
       SQL.Add('acionamentovivo.dataacionamento, ');
       SQL.Add('acionamentovivo.observacao, ');
       SQL.Add('acionamentovivo.dataenvioemail ');

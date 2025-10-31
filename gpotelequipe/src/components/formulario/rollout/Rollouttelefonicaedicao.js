@@ -2040,7 +2040,7 @@ const Rollouttelefonicaedicao = ({
           idusuario: localStorage.getItem('sessionId'),
         })
         .then((response) => {
-          if (response.status === 200) {
+          if (response.status === 201) {
             setmostra(true);
             setmotivo(1);
             setmensagemtela('Email Enviando com Sucesso!');
