@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Button, InputGroup, Input, Modal, ModalBody, ModalHeader, ModalFooter } from 'reactstrap';
 import { Box } from '@mui/material';
@@ -250,14 +251,14 @@ const Rollouttelefonica = ({ setshow, show }) => {
         // Botão de exclusão apenas para sites manuais
         ...(parametros.row.origem === 'Manual'
           ? [
-              <GridActionsCellItem
-                icon={<DeleteIcon />}
-                label="Excluir"
-                hint="Excluir Site Manual"
-                onClick={() => deleteUser(parametros.row.id)}
-                sx={{ color: 'red' }}
-              />,
-            ]
+            <GridActionsCellItem
+              icon={<DeleteIcon />}
+              label="Excluir"
+              hint="Excluir Site Manual"
+              onClick={() => deleteUser(parametros.row.id)}
+              sx={{ color: 'red' }}
+            />,
+          ]
           : []),
       ],
     },
@@ -1247,8 +1248,8 @@ const Rollouttelefonica = ({ setshow, show }) => {
       valueFormatter: (acessoDataSolicitacao) =>
         acessoDataSolicitacao.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(
-              acessoDataSolicitacao.value,
-            )
+            acessoDataSolicitacao.value,
+          )
           : '',
       editable: true,
     },
@@ -1577,85 +1578,65 @@ const Rollouttelefonica = ({ setshow, show }) => {
     );
 
   /* ---------- função principal ---------------------------------------- */
-  const gerarexcel = () => {
-    const excelData = totalacionamento
-      .map((item) => ({
-        'PMO - REF': item.pmoref,
-        'PMO - CATEGORIA': item.pmocategoria,
-        UIDIDPMTS: item.uididpmts,
-        UFSIGLA: item.ufsigla,
-        PMOSIGLA: item.pmosigla,
-        PMOUF: item.pmouf,
-        PMOREGIONAL: item.pmoregional,
-        CIDADE: item.cidade,
-        EAPAUTOMATICA: item.eapautomatica,
-        REGIONAL_EAP_INFRA: item.regionaleapinfra,
-        REGIONAL_PRE_ACEITE_EAP: item.regionalpreaceiteeap,
-        REGIONAL_PRE_ACEITE_RESPONSAVEL: item.regionalpreaceiteresponsavel,
-        STATUS_MENSAL_TX: item.statusmensaltx,
-        MASTEROBR_STATUS_ROLLOUT: item.masterobrastatusrollout,
-        REGIONAL_LIB_SITE_P: item.regionallibsitep,
-        REGIONAL_LIB_SITE_R: item.regionallibsiter,
-        EQUIPAMENTO_ENTREGA_P: item.equipamentoentregap,
-        REGIONAL_CARIMBO: item.regionalcarimbo,
-        RSORSA_SCI: item.rsorsasci,
-        RSORSA_SCI_STATUS: item.rsorsascistatus,
-        REGIONAL_OFENSOR_DETALHE: item.regionalofensordetalhe,
-        VENDOR_VISTORIA: item.vendorvistoria,
-        VENDOR_PROJETO: item.vendorprojeto,
-        VENDOR_INSTALADOR: item.vendorinstalador,
-        VENDOR_INTEGRADOR: item.vendorintegrador,
-        PMO_TECN_EQUIP: item.pmotecnequip,
-        PMO_FREQ_EQUIP: item.pmofreqequip,
-        UID_IDCPOMRF: item.uididcpomrf,
-        STATUS_OBRA: item.statusobra,
-        VISTORIA_PLAN: item.vistoriaplan,
-        VISTORIA_REAL: item.vistoriareal,
-        DOCUMENTACAO_VISTORIA_PLAN: item.docplan,
-        DOCUMENTACAO_VISTORIA_REAL: item.docvitoriareal,
-        REQ: item.req,
-        ENTREGA_PLAN: item.entregaplan,
-        ENTREGA_REAL: item.entregareal,
-        FIM_INSTALACAO_PLAN: item.fiminstalacaoplan,
-        FIM_INSTALACAO_REAL: item.fiminstalacaoreal,
-        INTEGRACAO_PLAN: item.integracaoplan,
-        INTEGRACAO_REAL: item.integracaoreal,
-        ATIVACAO_REAL: item.ativacao,
-        DOCUMENTACAO: item.documentacao,
-        INVENTARIO_DESINSTALACAO: item.datainventariodesinstalacao,
-        DATA_IMPRODUTIVA: item.dataimprodutiva,
-        INITIAL_TUNNING_REAL: item.initialtunningreal,
-        INITIAL_TUNNING_REAL_FINAL: item.initialtunningrealfinal,
-        APROVACAO_SSV: item.aprovacaossv,
-        STATUS_APROVACAO_SSV: item.statusaprovacaossv,
-        INITIAL_TUNNING_STATUS: item.initialtunningstatus,
-        DT_PLAN: item.dtplan,
-        DT_REAL: item.dtreal,
-        OBSERVACAO: item.acompanhamentofisicoobservacao,
-        ROLLOUT: item.rollout,
-        PMO_ACEITACAO_PLAN: item.pmoaceitacaop,
-        PMO_ACEITACAO_REAL: item.pmoaceitacaor,
-        ACIONAMENTO: item.acionamento,
-        NOME_DO_SITE: item.nomedosite,
-        ENDERECO: item.endereco,
-        RSORSA_DETENTORA: item.rsorsadetentora,
-        RSORSA_ID_DETENTORA: item.rsorsaiddetentora,
-        RESUMO_DA_FASE: item.resumodafase,
-        INFRA_VIVO: item.infravivo,
-        EQUIPE: item.equipe,
-        DOCA_PLAN: item.docaplan,
-        DELIVERY_PLAN: item.deliverypolan,
-        OV: item.ov,
-        ACESSO: item.acesso,
-        ORIGEM: item.origem || 'PMTS',
-        AVULSO: item.avulso === 1 ? 'SIM' : 'NÃO',
-        DELETADO: item.deletado === 1 ? 'SIM' : 'NÃO',
-      }))
-      .map(formatDatesBR) // 1. converte datas / zera 1899-12-xx
-      .map(upperStrings); // 2. caixa-alta
+  const isExcelZeroDate = (d) =>
+    d &&
+    (d.getFullYear() === 1899 &&
+      d.getMonth() === 11 && // Dezembro
+      (d.getDate() === 29 || d.getDate() === 30));
 
-    exportExcel({ excelData, fileName: 'ROLLOUT TELEFONICA' });
+  const formatGridDate = (value) => {
+    if (!value) return '';
+    const d = createLocalDate(value);
+    if (!d || Number.isNaN(d.getTime()) || isExcelZeroDate(d)) return '';
+    return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(d);
   };
+
+  const formatCellForExcel = (field, rawValue) => {
+    // campos com render/formatter igual à tela:
+    if (field === 'origem') {
+      // Na tela: mostra 'Manual' ou 'PMTS'
+      const val = rawValue ?? '';
+      return val && String(val).trim().length > 0 ? String(val) : 'PMTS';
+    }
+
+    if (field === 'avulso') {
+      // Na tela: badge 'Sim'/'Não'
+      return Number(rawValue) === 1 ? 'Sim' : 'Não';
+    }
+
+    return rawValue ?? '';
+  };
+
+  const gerarexcel = () => {
+    // 1) Filtra colunas visíveis/exportáveis e mantém a mesma ORDEM do grid
+    const exportableColumns = columns
+      .filter((c) => c.field && c.headerName && c.field !== 'actions'); // sem col de ações
+
+    // 2) Cabeçalhos exatamente como no grid (headerName)
+    const headers = exportableColumns.map((c) => c.headerName);
+
+    // 3) Mapeia cada linha aplicando a mesma formatação de exibição do grid
+    const excelData = totalacionamento.map((row) => {
+      const out = {};
+
+      exportableColumns.forEach((col) => {
+        const { field, headerName: header, type } = col;
+        const raw = row[field];
+
+        if (type === 'date') {
+          out[header] = formatGridDate(raw);
+        } else {
+          out[header] = formatCellForExcel(field, raw);
+        }
+      });
+
+      return out;
+    });
+
+    // 4) Exporta preservando a ordem de headers do grid
+    exportExcel({ excelData, fileName: 'ROLLOUT TELEFONICA', headers });
+  };
+
   const [changedField, setChangedField] = useState(null);
 
   const handleFileUpload = async () => {
@@ -1906,29 +1887,29 @@ const Rollouttelefonica = ({ setshow, show }) => {
                     </Button>
                     {JSON.parse(localStorage.getItem('permission'))?.marcardesmarcarsiteavulso ===
                       1 && (
-                      <div>
-                        <Button color="primary" onClick={() => marcarComoAvulso()} className="me-2">
-                          Marcar como Avulso
-                        </Button>
-                        <Button
-                          color="primary"
-                          onClick={() => desmarcarComoAvulso()}
-                          className="me-2"
-                        >
-                          Desmarcar como Avulso
-                        </Button>
-                      </div>
-                    )}
+                        <div>
+                          <Button color="primary" onClick={() => marcarComoAvulso()} className="me-2">
+                            Marcar como Avulso
+                          </Button>
+                          <Button
+                            color="primary"
+                            onClick={() => desmarcarComoAvulso()}
+                            className="me-2"
+                          >
+                            Desmarcar como Avulso
+                          </Button>
+                        </div>
+                      )}
                     {JSON.parse(localStorage.getItem('permission'))
                       ?.adicionarsitemanualmentetelefonica === 1 && (
-                      <Button
-                        color="success"
-                        onClick={() => setShowAdicionarSiteManual(true)}
-                        className="me-2"
-                      >
-                        Adicionar SITE manualmente
-                      </Button>
-                    )}
+                        <Button
+                          color="success"
+                          onClick={() => setShowAdicionarSiteManual(true)}
+                          className="me-2"
+                        >
+                          Adicionar SITE manualmente
+                        </Button>
+                      )}
                   </div>
                 </div>
               </div>

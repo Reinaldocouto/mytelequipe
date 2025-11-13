@@ -406,6 +406,7 @@ type
     function EditarEmMassa(const AJsonBody: string; out erro: string): Boolean;
     function SendEmailEquipeResponsavel(out erro: string): Boolean;
     function ListaTP(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function PrepararT4(const id: string;out DataBase, DataEntrega: TDateTime;out Erro: string): Boolean;
 
   end;
 
@@ -6482,9 +6483,12 @@ begin
       qry := TFDQuery.Create(nil);
       try
         qry.Connection := FConn;
-        qry.SQL.Text := 'UPDATE telefonicacontrolet2 ' +
-                        'SET statusfaturamento = :statusfaturamento ' +
-                        'WHERE id = :id';
+        qry.SQL.Text :=
+          'UPDATE telefonicacontrolet2 ' +
+          'SET statusfaturamento = :statusfaturamento, ' +
+          '    datat4gerada = NOW(), ' +
+          '    dataentrega = DATE_ADD(NOW(), INTERVAL 30 DAY) ' +
+          'WHERE id = :id';
 
         // Atribuir parâmetros
         qry.ParamByName('statusfaturamento').AsString := statusFaturamento;
@@ -6543,7 +6547,111 @@ begin
   end;
 end;
 
+function TProjetotelefonica.PrepararT4(
+  const id: string;
+  out DataBase, DataEntrega: TDateTime;
+  out Erro: string
+): Boolean;
+var
+  qry: TFDQuery;
+  iID: Integer;
+  precisaAtualizar: Boolean;
+begin
+  Result := False;
+  Erro := '';
+  precisaAtualizar := False;
 
+  // === Validação de entrada ===
+  if Trim(id) = '' then
+  begin
+    Erro := 'ID não pode ser vazio.';
+    Exit;
+  end;
+
+  if not TryStrToInt(id, iID) then
+  begin
+    Erro := 'ID inválido: deve ser numérico.';
+    Exit;
+  end;
+
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConn;
+    qry.SQL.Text := 'SELECT datat4gerada, dataentrega FROM telefonicacontrolet2 WHERE id = :id';
+    qry.ParamByName('id').AsInteger := iID;
+
+    try
+      qry.Open;
+    except
+      on E: Exception do
+      begin
+        Erro := 'Erro ao executar consulta: ' + E.Message;
+        Exit;
+      end;
+    end;
+
+    if qry.IsEmpty then
+    begin
+      Erro := Format('Nenhum registro encontrado com ID %s.', [id]);
+      Exit;
+    end;
+
+    // === Verifica se já existem datas gravadas ===
+    if (not qry.FieldByName('datat4gerada').IsNull) and
+       (not qry.FieldByName('dataentrega').IsNull) then
+    begin
+      DataBase := qry.FieldByName('datat4gerada').AsDateTime;
+      DataEntrega := qry.FieldByName('dataentrega').AsDateTime;
+      Writeln(Format('PrepararT4 → Datas já existentes: T4=%s / Entrega=%s',
+        [DateToStr(DataBase), DateToStr(DataEntrega)]));
+    end
+    else
+    begin
+      // === Gera novas datas ===
+      DataBase := Now;
+      DataEntrega := IncDay(DataBase, 30);
+      precisaAtualizar := True;
+    end;
+
+    // === Atualiza no banco caso necessário ===
+    if precisaAtualizar then
+    begin
+      qry.Close;
+      qry.SQL.Text :=
+        'UPDATE telefonicacontrolet2 ' +
+        'SET datat4gerada = :t4, ' +
+        '    dataentrega = :entrega, ' +
+        '    statusfaturamento = "Gerada T4" ' +
+        'WHERE id = :id';
+      qry.ParamByName('t4').AsDate := DataBase;
+      qry.ParamByName('entrega').AsDate := DataEntrega;
+      qry.ParamByName('id').AsInteger := iID;
+
+      try
+        if not FConn.InTransaction then
+          FConn.StartTransaction;
+
+        qry.ExecSQL;
+        FConn.Commit;
+
+        Writeln(Format('PrepararT4 → Datas geradas e atualizadas: T4=%s / Entrega=%s',
+          [DateToStr(DataBase), DateToStr(DataEntrega)]));
+      except
+        on E: Exception do
+        begin
+          if FConn.InTransaction then
+            FConn.Rollback;
+          Erro := 'Erro ao atualizar datas da T4: ' + E.Message;
+          Exit;
+        end;
+      end;
+    end;
+
+    Result := True;
+  finally
+    qry.Free;
+  end;
+end;
 
 function TProjetotelefonica.ListPrevisaoFechamento(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var

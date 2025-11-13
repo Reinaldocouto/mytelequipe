@@ -96,6 +96,8 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
   const [titulotarefa, settitulotarefa] = useState('');
   const [pageSize, setPageSize] = useState(10);
   const [valorhora, setvalorhora] = useState('');
+  const [rowSelectionEquipeFixaModel, setRowSelectionEquipeFixaModel] = useState([]);
+
   const [paginationModeldiarias, setPaginationModeldiarias] = useState({
     pageSize: 5,
     page: 0,
@@ -233,6 +235,10 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
   const [crqLoading, setCrqLoading] = useState(false);
   const [telaexclusaocrq, settelaexclusaocrq] = useState(false);
   const [idCrqExclusao, setIdCrqExclusao] = useState(null);
+  const [paginationModelEquipeFixa, setPaginationModellEquipeFixa] = useState({
+    pageSize: 5,
+    page: 0,
+  });
 
   const abrirCrqModal = () => {
     setCrqForm(null);
@@ -1708,6 +1714,85 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
   const handleSolicitarMaterial = () => {
     novocadastro();
   };
+  const enviaremailEquipeFixa = () => {
+    const idsEquipeFixa = rowSelectionEquipeFixaModel.map((item) => {
+      const partes = item.trim().split(/\s+/); // divide por espaço(s)
+      return partes[partes.length - 1]; // pega o último elemento
+    });
+    console.log(idsEquipeFixa);
+    if (rowSelectionEquipeFixaModel.length === 0) {
+      toast.info('Falta Selecionar um responsável da equipe!');
+    } else {
+      const payload = {
+        equiperesponsavel: idsEquipeFixa.join(','),
+        idusuario: localStorage.getItem('sessionId'),
+        numero,
+        cliente,
+        regiona,
+        site,
+        situacaoimplantacao,
+        situacaodaintegracao,
+        datadacriacaodademandadia,
+        dataaceitedemandadia,
+        datainicioentregamosplanejadodia,
+        datarecebimentodositemosreportadodia,
+        datafiminstalacaoplanejadodia,
+        dataconclusaoreportadodia,
+        datavalidacaoinstalacaodia,
+        dataintegracaoplanejadodia,
+        datavalidacaoeriboxedia,
+        dataInicial,
+        dataFinal,
+        dataSolicitacao,
+        obs,
+        aceitacao,
+        pendencia,
+        outros,
+        formaAcesso,
+        statussydle,
+        atividade,
+        tipoinstalacao,
+        impacto,
+        ncrq,
+        iniciocrq,
+        fimcrq,
+        statuscrq,
+        crqdeinstalacao,
+        observacoes,
+        statusAcesso,
+        central,
+        municipio,
+        detentora,
+        iddentedora,
+        numeroativo,
+        obraPreenchidaNaSydle,
+        ddd,
+        nomeEricsson,
+        enderecoSite,
+        latitude,
+        longitude,
+        solicitacao,
+        equipefixaIds: Array.isArray(equipefixa) ? equipefixa.map((o) => o.value) : [],
+        equipefixaNomes: Array.isArray(equipefixa) ? equipefixa.map((o) => o.label) : [],
+      };
+      api
+        .post('v1/projetoericsson/enviaremailfixa', payload)
+        .then((response) => {
+          if (response.status === 201) {
+            toast.success('Email enviado com sucesso!');
+          } else {
+            toast.error('Erro ao enviar a mensagem!');
+          }
+        })
+        .catch((err) => {
+          if (err.response) {
+            toast.error(err.response.data.erro);
+          } else {
+            toast.error('Ocorreu um erro na requisição.');
+          }
+        });
+    }
+  };
 
   const uploadanexo = async (e) => {
     e.preventDefault();
@@ -1953,6 +2038,16 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
           {parametros.value}
         </div>
       ),
+    },
+  ];
+  const colunasequipefixo = [
+    {
+      field: 'label',
+      headerName: 'Nome',
+      width: 250,
+      align: 'left',
+      editable: false,
+      renderCell: (parametros) => <div style={{ whiteSpace: 'pre-wrap' }}>{parametros.value}</div>,
     },
   ];
 
@@ -2483,6 +2578,41 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
                 value={observacoes}
                 onChange={(e) => setobservacoes(e.target.value)}
               />
+            </div>
+          </div>
+
+          <div className="row g-3">
+            <Box sx={{ height: equipefixa.length > 0 ? '100%' : 400, width: '100%' }}>
+              <DataGrid
+                rows={equipefixa}
+                columns={colunasequipefixo}
+                loading={loading}
+                getRowId={(data) => data.label.concat(` ${data.value}`)}
+                disableSelectionOnClick
+                checkboxSelection
+                experimentalFeatures={{ newEditingApi: true }}
+                components={{
+                  Pagination: CustomPagination,
+                  LoadingOverlay: LinearProgress,
+                  NoRowsOverlay: CustomNoRowsOverlay,
+                }}
+                localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                paginationModel={paginationModelEquipeFixa}
+                onPaginationModelChange={setPaginationModellEquipeFixa}
+                onRowSelectionModelChange={(newRowSelectionModel) => {
+                  setRowSelectionEquipeFixaModel(newRowSelectionModel);
+                }}
+              />
+            </Box>
+            <br></br>
+            <div className=" col-sm-12 d-flex flex-row-reverse">
+              <Button
+                color="secondary"
+                onClick={enviaremailEquipeFixa}
+                disabled={modoVisualizador()}
+              >
+                Enviar E-mail para equipe fixa <Icon.Mail />
+              </Button>
             </div>
           </div>
           <div className="col-sm-12 align-items-end">

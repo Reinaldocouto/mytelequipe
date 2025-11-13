@@ -16,7 +16,9 @@ uses
   Classes,
   ComObj,
   UtFuncao,
-  System.JSON;
+  System.JSON,
+  Model.Email,
+  System.Math;
 
 type
   TProjetoericsson = class
@@ -261,6 +263,7 @@ type
     procedure SetDateParamExplicit(qry: TFDQuery; const paramName: string; const dateValue: string);
     function EditarCRQ(const ABody: TJSONObject; out erro: string): Boolean;
     function ListarCRQ(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+    function SendEmailEquipeFixa(const AQuery: TDictionary<string, string>; out erro: string): Boolean;
 
   end;
 
@@ -3827,6 +3830,224 @@ begin
   end;
 end;
 
+function TProjetoericsson.SendEmailEquipeFixa(const AQuery: TDictionary<string, string>; out erro: string): Boolean;
+var
+  servico: TEmail;
+  qry: TFDQuery;
+  destinatarios, empresaLista: TStringList;
+  idsStr, idsIn, assunto, html1, html2, html3, htmlFinal: string;
+  ids: TArray<string>;
+  i: Integer;
+
+  function IsNumeric(const S: string): Boolean;
+  var
+    V: Integer;
+  begin
+    Result := TryStrToInt(Trim(S), V);
+  end;
+
+  function GetValue(const Key: string): string;
+  begin
+    if AQuery.ContainsKey(Key) then
+      Result := AQuery.Items[Key]
+    else
+      Result := '';
+  end;
+
+  function FormatarDataBR(const S: string): string;
+  var
+    dt: TDateTime;
+  begin
+    Result := '';
+    if Trim(S) = '' then Exit;
+    try
+      if Pos('T', S) > 0 then
+        dt := ISO8601ToDate(S)
+      else
+        dt := StrToDate(S);
+      Result := FormatDateTime('dd/mm/yyyy', dt);
+    except
+      Result := S;
+    end;
+  end;
+
+begin
+  Result := False;
+  erro := '';
+
+  idsStr := GetValue('equipefixa');
+  if Trim(idsStr) = '' then
+  begin
+    erro := 'Equipe fixa não informada.';
+    Exit;
+  end;
+
+  servico := TEmail.Create;
+  destinatarios := TStringList.Create;
+  empresaLista := TStringList.Create;
+  qry := TFDQuery.Create(nil);
+
+  try
+    qry.Connection := FConn;
+
+    // === Normaliza IDs ===
+    idsStr := StringReplace(idsStr, ';', ',', [rfReplaceAll]);
+    idsStr := StringReplace(idsStr, ' ', '', [rfReplaceAll]);
+    ids := idsStr.Split([',']);
+    idsIn := '';
+    for i := 0 to High(ids) do
+      if IsNumeric(ids[i]) then
+      begin
+        if idsIn <> '' then idsIn := idsIn + ',';
+        idsIn := idsIn + Trim(ids[i]);
+      end;
+
+    if idsIn = '' then
+    begin
+      erro := 'Nenhum ID válido em equipeResponsavel.';
+      Exit;
+    end;
+
+    // === Consulta equipe ===
+    with qry do
+    begin
+      Close;
+      SQL.Clear;
+      SQL.Add('SELECT');
+      SQL.Add('  p.idpessoa,');
+      SQL.Add('  p.nome,');
+      SQL.Add('  p.email,');
+      SQL.Add('  COALESCE(p.rgrne, p.rg) AS rg,');
+      SQL.Add('  p.cpf,');
+      SQL.Add('  e.nome AS empresa');
+      SQL.Add('FROM gespessoa p');
+      SQL.Add('LEFT JOIN gesempresas e ON e.idempresa = p.empresa');
+      SQL.Add('WHERE p.deletado = 0');
+      SQL.Add('  AND p.idpessoa IN (' + idsIn + ')');
+      Open;
+    end;
+
+    // === Monta lista de destinatários ===
+    while not qry.Eof do
+    begin
+      if servico.IsValidEmail(qry.FieldByName('email').AsString) then
+        if destinatarios.IndexOf(qry.FieldByName('email').AsString) = -1 then
+          destinatarios.Add(qry.FieldByName('email').AsString);
+
+      if empresaLista.IndexOf(qry.FieldByName('empresa').AsString) = -1 then
+        empresaLista.Add(qry.FieldByName('empresa').AsString);
+
+      qry.Next;
+    end;
+
+    if destinatarios.Count = 0 then
+    begin
+      erro := 'Nenhum e-mail válido encontrado para os IDs informados.';
+      Exit;
+    end;
+
+    // === Montagem do assunto ===
+    assunto := 'Solicitação de Acesso – ' + GetValue('site') +
+               ' | ' + GetValue('detentora') +
+               ' - ' + GetValue('iddetentora') +
+               ' / ' + GetValue('enderecoSite') +
+               ' / ' + GetValue('tipoinstalacao');
+
+    if Trim(GetValue('numero')) <> '' then
+      assunto := assunto + ' | CRQ ' + GetValue('numero');
+
+    // === Início do HTML ===
+    html1 := '<!DOCTYPE html><html lang="pt-BR"><head>' +
+             '<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+             '<title>Solicitação de Acesso</title>' +
+             '<style>' +
+             'body{font-family:Arial,sans-serif;color:#333;}' +
+             'table{border-collapse:collapse;width:100%;}' +
+             'th,td{border:1px solid #000;padding:6px;font-size:12px;}' +
+             'th{background-color:#eaeaea;text-transform:uppercase;}' +
+             '.section-title{font-weight:bold;margin:8px 0 4px 0;}' +
+             '</style></head><body>';
+
+    html1 := html1 +
+             '<p class="section-title">Prezados(as),</p>' +
+             '<p>Uso deste para formalizar necessidade de liberação de acesso para início/realização de atividades conforme descrito.</p>' +
+             '<p>As atividades serão realizadas pelos colaboradores incluídos no documento e e-mail.</p>';
+
+    // === Cabeçalho do site ===
+    html1 := html1 +
+             '<table><thead><tr>' +
+             '<th>TIPO</th><th>SITE</th><th>DETENTORA</th><th>ID DETENTORA</th><th>MUNICÍPIO</th<th>ENDEREÇO</th>' +
+             '</tr></thead><tbody><tr>' +
+             '<td>' + UTF8Encode(GetValue('tipoinstalacao')) + '</td>' +
+             '<td>' + UTF8Encode(GetValue('site')) + '</td>' +
+             '<td>' + UTF8Encode(GetValue('detentora')) + '</td>' +
+             '<td>' + UTF8Encode(GetValue('iddetentora')) + '</td>' +
+             '<td>' + UTF8Encode(GetValue('municipio')) + '</td>' +
+             '<td>' + UTF8Encode(GetValue('enderecoSite')) + '</td>' +
+             '</tr></tbody></table>';
+
+    // === Empresas responsáveis ===
+    html1 := html1 + '<p class="section-title">EMPRESAS RESPONSÁVEIS:</p>';
+    if empresaLista.Count > 0 then
+      html1 := html1 + '<p>' + UTF8Encode(StringReplace(empresaLista.Text, sLineBreak, ' / ', [rfReplaceAll])) +
+                       ' / À SERVIÇO DA VIVO.</p>'
+    else
+      html1 := html1 + '<p>TELEQUIPE PROJETOS / À SERVIÇO DA VIVO.</p>';
+
+    // === Datas e Atividade ===
+    html1 := html1 +
+             '<p class="section-title">DATA DE INÍCIO:</p><p>' + FormatarDataBR(GetValue('dataInicial')) + '</p>' +
+             '<p class="section-title">DATA FINAL:</p><p>' + FormatarDataBR(GetValue('dataFinal')) + '</p>' +
+             '<p class="section-title">DESCRIÇÃO DA ATIVIDADE:</p><p>' + UTF8Encode(GetValue('atividade')) + '</p>';
+
+    // === Lista de técnicos ===
+    html1 := html1 +
+             '<p class="section-title">LISTA DE TÉCNICOS AUTORIZADOS:</p>' +
+             '<table><thead><tr><th>EMPRESA</th><th>COLABORADOR</th><th>CPF</th><th>RG/RNE</th></tr></thead><tbody>';
+
+    qry.First;
+    while not qry.Eof do
+    begin
+      html2 := html2 + '<tr>' +
+                       '<td>' + UTF8Encode(qry.FieldByName('empresa').AsString) + '</td>' +
+                       '<td>' + UTF8Encode(qry.FieldByName('nome').AsString) + '</td>' +
+                       '<td>' + UTF8Encode(qry.FieldByName('cpf').AsString) + '</td>' +
+                       '<td>' + UTF8Encode(qry.FieldByName('rg').AsString) + '</td>' +
+                       '</tr>';
+      qry.Next;
+    end;
+    html2 := html2 + '</tbody></table>';
+
+    // === Rodapé e assinatura ===
+    html3 := '</body></html>';
+    servico.assinatura;
+    htmlFinal := html1 + html2 + servico.assinaturamontada + html3;
+
+    // === Envio do e-mail ===
+    if servico.SendEmail(StringReplace(destinatarios.Text, sLineBreak, ';', [rfReplaceAll]), assunto, htmlFinal) then
+    begin
+      Result := True;
+      erro := '';
+    end
+    else
+    begin
+      Result := False;
+      erro := 'Falha ao enviar e-mail.';
+    end;
+
+  except
+    on E: Exception do
+    begin
+      Result := False;
+      erro := 'Erro ao enviar e-mail: ' + E.Message;
+    end;
+  end;
+
+  destinatarios.Free;
+  empresaLista.Free;
+  qry.Free;
+  servico.Free;
+end;
 
 end.
 

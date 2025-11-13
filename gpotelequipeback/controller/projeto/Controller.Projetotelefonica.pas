@@ -2863,260 +2863,139 @@ const
   xlOpenXMLWorkbookMacroEnabled = 52; // formato .xlsm
 var
   ExcelApp, Workbook, Sheet: OleVariant;
-  TempFileName, TemplatePath: string;
-  FileStream: TFileStream;
-  FS: TFormatSettings;
-  DataAcionamento: TDateTime;
-  i: Integer;
-  ParamName, ParamValue: string;
-  ParamList: TStringList;
-  TempDir: string;
-  ErrorStage: string;
+  TempFileName, TemplatePath, TempDir, ErrorStage: string;
   FileBytes: TBytes;
+  FS: TFormatSettings;
   servico: TProjetotelefonica;
-  id, statusfaturamento: string;
-
-function ParseISODate(const ISODate: string): TDateTime;
-  var
-    DateTimeStr: string;
-  begin
-    DateTimeStr := StringReplace(ISODate, 'T', ' ', []);
-    try
-      Result := StrToDateTime(DateTimeStr, FS);
-    except
-      Result := EncodeDate(
-        StrToIntDef(Copy(ISODate, 1, 4), 2025),
-        StrToIntDef(Copy(ISODate, 6, 2), 1),
-        StrToIntDef(Copy(ISODate, 9, 2), 1)
-      );
-    end;
-  end;
-
+  id, ParamValue, Erro: string;
+  dataT4, dataEntrega: TDateTime;
 begin
   FS := TFormatSettings.Create;
-  FS.DecimalSeparator := '.';
   FS.DateSeparator := '/';
   FS.ShortDateFormat := 'dd/mm/yyyy';
 
+  servico := TProjetotelefonica.Create;
   try
-    // Stage 1: Log all received parameters
-    ErrorStage := 'Logging parameters';
-    ParamList := TStringList.Create;
+    // ========================================
+    // Etapa 1: Obter o ID e preparar o registro T4
+    // ========================================
+    if not Req.Query.TryGetValue('tid', id) then
+      raise Exception.Create('Parâmetro "tid" é obrigatório.');
 
+    // Garante que T4 existe no banco e retorna as datas corretas
+    if not servico.PrepararT4(id, dataT4, dataEntrega, Erro) then
+      raise Exception.Create('Falha ao preparar T4: ' + Erro);
 
-    // Stage 2: Prepare temporary directory
-    ErrorStage := 'Creating temp directory';
+    // ========================================
+    // Etapa 2: Configurar diretório temporário e Excel
+    // ========================================
+    ErrorStage := 'Preparando diretório temporário';
     TempDir := TPath.Combine(ExtractFilePath(ParamStr(0)), 'TempExcelFiles');
     if not DirectoryExists(TempDir) then
       ForceDirectories(TempDir);
 
-    // Stage 3: Generate temp filename
-    ErrorStage := 'Generating temp filename';
     TempFileName := TPath.Combine(TempDir, 'generatecartataf.xlsm');
 
-
-    // Stage 4: Initialize COM and Excel
-    ErrorStage := 'Initializing Excel';
+    ErrorStage := 'Inicializando Excel';
     CoInitialize(nil);
-    try
-      ExcelApp := CreateOleObject('Excel.Application');
-      ExcelApp.Visible := False;
-      ExcelApp.DisplayAlerts := False;
+    ExcelApp := CreateOleObject('Excel.Application');
+    ExcelApp.Visible := False;
+    ExcelApp.DisplayAlerts := False;
 
-      // Stage 5: Verify template exists
-      ErrorStage := 'Checking template file';
-      TemplatePath := TPath.Combine(ExtractFilePath(ParamStr(0)), 'documents\cartataf.xlsm');
-      if not FileExists(TemplatePath) then
-        raise Exception.Create(Format('Template file not found: %s', [TemplatePath]));
+    TemplatePath := TPath.Combine(ExtractFilePath(ParamStr(0)), 'documents\cartataf.xlsm');
+    if not FileExists(TemplatePath) then
+      raise Exception.Create('Template cartataf.xlsm não encontrado.');
 
-      // Stage 6: Open workbook
-      ErrorStage := 'Opening workbook';
-      Workbook := ExcelApp.Workbooks.Open(TemplatePath);
-      Sheet := Workbook.Worksheets[1];
+    Workbook := ExcelApp.Workbooks.Open(TemplatePath);
+    Sheet := Workbook.Worksheets[1];
 
-      try
-        // Stage 7: Process parameters
-        ErrorStage := 'Processing parameters';
+    // ========================================
+    // Etapa 3: Preencher Excel com as informações
+    // ========================================
+    Sheet.Cells[10, 27].NumberFormat := '@';
+    Sheet.Cells[10, 27].Value := FormatDateTime('dd/mm/yyyy', dataT4);      // Data Base (AA10)
+    Sheet.Cells[17, 16].Value := FormatDateTime('dd/mm/yyyy', dataEntrega); // Data Entrega (P17)
+    Sheet.Cells[10, 1].ClearContents; // limpa A10
 
-        // Parse date if provided
-        if Req.Query.TryGetValue('dataacionamento', ParamValue) then
-          DataAcionamento := ParseISODate(ParamValue);
-
-        // Fill cells with parameter validation
-        ErrorStage := 'Filling cell Z6';
-        if Req.Query.TryGetValue('pepnivel3', ParamValue) then
-        begin
-          Sheet.Cells[6, 26].Value := ParamValue;
-          Sheet.Name := ParamValue;
-
-          var operacao: string := 'S';
-          var pos := LastDelimiter('-', ParamValue);
-
-          if (pos > 0) and (pos < Length(ParamValue)) then
-            operacao := Copy(ParamValue, pos + 1, MaxInt);
-
-          Sheet.Cells[23, 11].NumberFormat := '@';
-          Sheet.Cells[23, 11].Value := '10'+ operacao;
-        end;
-
-
-        ErrorStage := 'Filling cell E9';
-        if Req.Query.TryGetValue('numerodocontrato', ParamValue) then
-          Sheet.Cells[9, 5].Value := ParamValue;
-
-        if Req.Query.TryGetValue('codfornecedor', ParamValue) then
-        begin
-          ErrorStage := 'Filling cells I7 and C16';
-          Sheet.Cells[9, 8].Value := ParamValue;
-        end;
-
-      ErrorStage := 'Filling cell A10 with current date (string)';
-      Sheet.Cells[10, 1].NumberFormat := '@';
-      Sheet.Cells[10, 1].Value := FormatDateTime('dd/mm/yyyy', Date);
-
-
-        ErrorStage := 'Filling cell K7';
-        if Req.Query.TryGetValue('empresa', ParamValue) then
-          Sheet.Cells[7, 11].Value := ParamValue;
-
-        // Campo Estação/Lote - corrigindo para usar o SITE correto
-        ErrorStage := 'Filling Estação/Lote field';
-        if Req.Query.TryGetValue('site', ParamValue) then
-          Sheet.Cells[7, 6].Value := ParamValue; // Assumindo coluna C (3) para Estação/Lote
-
-        // Campo Operação - incluindo prefixo 'S' e número do elemento PEP
-        ErrorStage := 'Filling Operação field';
-        if Req.Query.TryGetValue('pepnivel3', ParamValue) then
-        begin
-          // Extrair o número do elemento PEP (assumindo formato como "IJE2" -> "S2")
-          var operacao: string := 'S';
-          if Length(ParamValue) > 3 then
-            operacao := operacao + Copy(ParamValue, 4, Length(ParamValue) - 3);
-        end;
-
-        ErrorStage := 'Filling cell D16';
-        // Campo Descrição - padronizando para 'M_REDE ACESSO RÁDIO-RAN-SERV-NAC'
-        Sheet.Cells[17, 5].Value := 'M_REDE ACESSO RÁDIO-RAN-SERV-NAC';
-
-        ErrorStage := 'Clearing cell F17';
-        Sheet.Cells[17, 6].ClearContents;
-
-
-        ErrorStage := 'Filling cell J16';
-        if Req.Query.TryGetValue('quant', ParamValue) then
-          Sheet.Cells[17, 14].Value := ParamValue
-        else if Req.Query.TryGetValue('quantidade', ParamValue) then
-          Sheet.Cells[17, 14].Value := ParamValue;
-
-        ErrorStage := 'Filling cell M16';
-        if Req.Query.TryGetValue('valor', ParamValue) then
-          Sheet.Cells[17, 15].Value := ParamValue;
-
-        // Campo Data Base - emissão T4 + 30 dias
-        ErrorStage := 'Filling Data Base field';
-        var dataBase := Now + 30; // Data atual + 30 dias
-        Sheet.Cells[17, 16].Value := FormatDateTime('dd/mm/yyyy', dataBase); // Assumindo coluna P (16) para Data Base
-
-       if Req.Query.TryGetValue('tid', ParamValue) then
-          id := ParamValue;
-
-       servico := TProjetotelefonica.Create;
-
-        if Req.Query.TryGetValue('statusfaturamento', ParamValue) then
-        begin
-          if ParamValue = 'Retorno T2' then
-            servico.UpdateStatusFaturamento(id, 'Gerada T4', ErrorStage);
-        end;
-
-        // Stage 8: Save workbook
-        ErrorStage := 'Saving workbook';
-        if FileExists(TempFileName) then
-        begin
-          try
-            DeleteFile(TempFileName);
-          except
-            on E: Exception do
-              raise Exception.CreateFmt('Erro ao tentar sobrescrever o arquivo "%s": %s', [TempFileName, E.Message]);
-          end;
-        end;
-        Workbook.SaveAs(TempFileName, xlOpenXMLWorkbookMacroEnabled);
-      except
-        on E: Exception do
-        begin
-          // Add stage info to error message
-          raise Exception.Create(Format('Error during %s: %s', [ErrorStage, E.Message]));
-        end;
-      end;
-
-    finally
-      // Stage 9: Cleanup Excel
-      ErrorStage := 'Cleaning up Excel';
-      if not VarIsEmpty(Sheet) then Sheet := Unassigned;
-      if not VarIsEmpty(Workbook) then
-      begin
-        Workbook.Close(False);
-        Workbook := Unassigned;
-      end;
-      if not VarIsEmpty(ExcelApp) then
-      begin
-        ExcelApp.Quit;
-        ExcelApp := Unassigned;
-      end;
-      CoUninitialize;
+    // Campos adicionais vindos do front
+    if Req.Query.TryGetValue('pepnivel3', ParamValue) then
+    begin
+      Sheet.Cells[6, 26].Value := ParamValue;
+      Sheet.Name := ParamValue;
     end;
 
-    // Stage 10: Verify output file
-    ErrorStage := 'Verifying output file';
+    if Req.Query.TryGetValue('empresa', ParamValue) then
+      Sheet.Cells[7, 11].Value := ParamValue;
+
+    if Req.Query.TryGetValue('site', ParamValue) then
+      Sheet.Cells[7, 6].Value := ParamValue;
+
+    if Req.Query.TryGetValue('numerodocontrato', ParamValue) then
+      Sheet.Cells[9, 5].Value := ParamValue;
+
+    if Req.Query.TryGetValue('codfornecedor', ParamValue) then
+      Sheet.Cells[9, 8].Value := ParamValue;
+
+    if Req.Query.TryGetValue('quantidade', ParamValue) then
+      Sheet.Cells[17, 14].Value := ParamValue;
+
+    if Req.Query.TryGetValue('valor', ParamValue) then
+      Sheet.Cells[17, 15].Value := ParamValue;
+
+    Sheet.Cells[17, 5].Value := 'M_REDE ACESSO RÁDIO-RAN-SERV-NAC';
+
+    // ========================================
+    // Etapa 4: Salvar planilha temporária
+    // ========================================
+    if FileExists(TempFileName) then
+      DeleteFile(TempFileName);
+
+    Workbook.SaveAs(TempFileName, xlOpenXMLWorkbookMacroEnabled);
+
+    // ========================================
+    // Etapa 5: Encerrar Excel e enviar arquivo
+    // ========================================
+    Workbook.Close(False);
+    ExcelApp.Quit;
+    Sheet := Unassigned;
+    Workbook := Unassigned;
+    ExcelApp := Unassigned;
+    CoUninitialize;
+
     if not FileExists(TempFileName) then
-      raise Exception.Create(Format('Output file not created: %s', [TempFileName]));
+      raise Exception.Create('Erro: Arquivo não foi gerado.');
 
-    // Stage 11: Send response
-    ErrorStage := 'Sending response';
-    try
-      // Lê o arquivo como array de bytes e envia
-        FileBytes := TFile.ReadAllBytes(TempFileName);
+    FileBytes := TFile.ReadAllBytes(TempFileName);
+    Res.ContentType('application/vnd.ms-excel.sheet.macroEnabled.12');
+    Res.AddHeader('Content-Disposition', 'attachment; filename="cartataf_gerado.xlsm"');
+    Res.Status(THTTPStatus.OK);
+    Res.SendFile(TempFileName);
 
-        // Configura os headers e envia a resposta
-        Res.ContentType('application/vnd.ms-excel.sheet.macroEnabled.12');
-        Res.AddHeader('Content-Disposition', 'attachment; filename="cartataf_gerado.xlsm"');
-        Res.Status(THTTPStatus.OK);
-        Res.SendFile(TempFileName);
-
-    except
-      on E: Exception do
-      begin
-        Writeln('Erro ao enviar arquivo: ' + E.Message);
-        raise;
-      end;
-    end;
   except
     on E: Exception do
     begin
-      // Stage 12: Error handling
-      Writeln(Format('Error at stage "%s": %s', [ErrorStage, E.Message]));
-
-      // Cleanup temp file if exists
+      Writeln(Format('Erro ao gerar carta T4: %s', [E.Message]));
       if (TempFileName <> '') and FileExists(TempFileName) then
         DeleteFile(TempFileName);
-
-      // Return detailed error to client
-      Res.Send(Format('Erro ao gerar carta TAF (etapa: %s): %s',
-        [ErrorStage, E.Message]))
-        .Status(THTTPStatus.InternalServerError);
+      Res.Send(Format('Erro ao gerar carta T4: %s', [E.Message]))
+         .Status(THTTPStatus.InternalServerError);
     end;
   end;
+
+  servico.Free;
 end;
+
 
 procedure GerarT4CSV(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 const
-  xlOpenXMLWorkbookMacroEnabled = 52; // .xlsm
+  xlCSV = 6; // formato CSV no Excel
 var
   ExcelApp, Workbook, Sheet: OleVariant;
   TempFileName, TemplatePath, TempDir, ErrorStage: string;
   FS: TFormatSettings;
-  DataAcionamento: TDateTime;
+  DataBase, DataEntrega: TDateTime;
   servico: TProjetotelefonica;
-  id: string;
+  id, ParamValue, Erro, s: string;
 
   function UrlDecodePlus(const S: string): string;
   var s2: string;
@@ -3144,225 +3023,119 @@ var
       Result := Default;
   end;
 
-  function ParseISODate(const ISODate: string): TDateTime;
-  var s: string;
-  begin
-    s := StringReplace(ISODate, 'T', ' ', []);
-    try
-      Result := StrToDateTime(s, FS);
-    except
-      Result := EncodeDate(
-        StrToIntDef(Copy(ISODate, 1, 4), 2025),
-        StrToIntDef(Copy(ISODate, 6, 2), 1),
-        StrToIntDef(Copy(ISODate, 9, 2), 1)
-      );
-    end;
-  end;
-
-  function IsAllAlphaUpper3(const S: string): Boolean;
-  begin
-    Result := (Length(S) = 3) and
-              CharInSet(S[1], ['A'..'Z']) and
-              CharInSet(S[2], ['A'..'Z']) and
-              CharInSet(S[3], ['A'..'Z']);
-  end;
-
-  function ExtractSiteFromPep(const Pep: string): string;
-  var parts: TArray<string>; p: string;
-  begin
-    Result := '';
-    if Pep = '' then Exit;
-    parts := UpperCase(Pep).Split(['-']);
-    for p in parts do
-      if IsAllAlphaUpper3(p) then
-        Exit(p);
-    if Length(parts) > 0 then
-      Result := parts[High(parts)];
-  end;
-
-  function ExtractSiteFinal(const SiteParam, PepNivel3, IdLocalidade: string): string;
-  var s: string; i: Integer;
-  begin
-    if Trim(SiteParam) <> '' then Exit(UpperCase(SiteParam));
-    s := ExtractSiteFromPep(PepNivel3);
-    if s <> '' then Exit(s);
-    s := '';
-    for i := 1 to Length(IdLocalidade) do
-      if CharInSet(IdLocalidade[i], ['A'..'Z','a'..'z']) then s := s + IdLocalidade[i];
-    if (Length(s) >= 2) and (Length(s) <= 4) then Exit(UpperCase(s));
-    Result := '';
-  end;
-
-var
-  pepnivel3, siteParam, idLocalidade, siteFinal, s: string;
 begin
   FS := TFormatSettings.Create;
   FS.DecimalSeparator := '.';
   FS.DateSeparator := '/';
   FS.ShortDateFormat := 'dd/mm/yyyy';
 
+  servico := TProjetotelefonica.Create;
   try
-    ErrorStage := 'Creating temp directory';
+    // ========================================================
+    // Etapa 1: Obter ID e garantir T4 (gera ou carrega do banco)
+    // ========================================================
+    if not Req.Query.TryGetValue('tid', id) then
+      raise Exception.Create('Parâmetro "tid" é obrigatório.');
+
+    if not servico.PrepararT4(id, DataBase, DataEntrega, Erro) then
+      raise Exception.Create('Falha ao preparar T4: ' + Erro);
+
+    // ========================================================
+    // Etapa 2: Inicializar Excel e abrir template CSV
+    // ========================================================
+    ErrorStage := 'Preparando diretório temporário';
     TempDir := TPath.Combine(ExtractFilePath(ParamStr(0)), 'TempExcelFiles');
     if not DirectoryExists(TempDir) then
       ForceDirectories(TempDir);
-    TempFileName := TPath.Combine(TempDir, 'cartataf_gerado.xlsm');
 
-    ErrorStage := 'Initializing Excel';
+    TempFileName := TPath.Combine(TempDir, 'cartataf_gerado.csv');
+
+    ErrorStage := 'Inicializando Excel';
     CoInitialize(nil);
-    try
-      ExcelApp := CreateOleObject('Excel.Application');
-      ExcelApp.Visible := False;
-      ExcelApp.DisplayAlerts := False;
+    ExcelApp := CreateOleObject('Excel.Application');
+    ExcelApp.Visible := False;
+    ExcelApp.DisplayAlerts := False;
 
-      ErrorStage := 'Checking template file';
-      TemplatePath := TPath.Combine(ExtractFilePath(ParamStr(0)), 'documents\cartatafcsv.csv');
-      if not FileExists(TemplatePath) then
-        raise Exception.CreateFmt('Template file not found: %s', [TemplatePath]);
+    TemplatePath := TPath.Combine(ExtractFilePath(ParamStr(0)), 'documents\cartatafcsv.csv');
+    if not FileExists(TemplatePath) then
+      raise Exception.CreateFmt('Template não encontrado: %s', [TemplatePath]);
 
-      ErrorStage := 'Opening workbook';
-      Workbook := ExcelApp.Workbooks.Open(TemplatePath);
-      Sheet := Workbook.Worksheets[1];
+    Workbook := ExcelApp.Workbooks.Open(TemplatePath);
+    Sheet := Workbook.Worksheets[1];
 
-      ErrorStage := 'Processing parameters';
+    // ========================================================
+    // Etapa 3: Preencher campos (igual ao Excel)
+    // ========================================================
+    // Data Base e Data Entrega
+    Sheet.Cells[10, 27].NumberFormat := '@';
+    Sheet.Cells[10, 27].Value := FormatDateTime('dd/mm/yyyy', DataBase);     // AA10
+    Sheet.Cells[17, 16].Value := FormatDateTime('dd/mm/yyyy', DataEntrega);  // P17
+    Sheet.Cells[10, 1].ClearContents; // limpa A10
 
-      pepnivel3    := GetAnyQS(['pepnivel3']);
-      siteParam    := GetAnyQS(['site']);
-      idLocalidade := GetAnyQS(['idlocalidade']);
-
-      if TryGetAnyQS(['dataacionamento'], s) then
-        DataAcionamento := ParseISODate(s);
-
-      // calcula SITE
-      siteFinal := ExtractSiteFinal(siteParam, pepnivel3, idLocalidade);
-
-      // Z6 = SITE (se você usa também nessa célula)
-      if siteFinal <> '' then
-        Sheet.Cells[6, 26].Value := siteFinal;
-
-      // F7 (coluna 6) = valor ao lado de "Estação/Lote:"
-      if siteFinal <> '' then
-        Sheet.Cells[7, 6].Value := siteFinal;
-
-      // Nome da planilha = pepnivel3 (ignora erro em CSV)
-      if pepnivel3 <> '' then
-      begin
-        Sheet.Cells[6, 26].Value := pepnivel3;
-
-        try
-          Sheet.Name := pepnivel3;
-        except
-        end;
-
-        var operacao: string := 'S';
-        var pos := LastDelimiter('-', pepnivel3);
-        if (pos > 0) and (pos < Length(pepnivel3)) then
-          operacao := Copy(pepnivel3, pos + 1, MaxInt);
-
-        Sheet.Cells[23, 11].NumberFormat := '@';
-        Sheet.Cells[23, 11].Value := '10' + operacao;
-      end;
-
-
-      ErrorStage := 'Filling cell A10 with current date (string)';
-      Sheet.Cells[10, 1].NumberFormat := '@';
-      Sheet.Cells[10, 1].Value := FormatDateTime('dd/mm/yyyy', Date);
-
-      ErrorStage := 'Clearing cell F17';
-      Sheet.Cells[17, 6].ClearContents;
-      Sheet.Cells[17, 4].Value := 14069263;
-
-
-      // E9 = número do contrato
-      if TryGetAnyQS(['numerodocontrato'], s) then
-        Sheet.Cells[9, 6].Value := s;
-
-      // I9 e D17 = codfornecedor
-      if TryGetAnyQS(['codfornecedor'], s) then
-      begin
-        Sheet.Cells[9, 11].Value := s;  // I9
-      end;
-
-      Sheet.Cells[17, 4].Value := 14069263;
-
-      if TryGetAnyQS(['pepnivel3'], s) then
-      begin
-        Sheet.Cells[6, 26].Value := s; // Z6
-        var operacao: string := 'S';
-        var pos := LastDelimiter('-', s);
-        if (pos > 0) and (pos < Length(s)) then
-          operacao := Copy(s, pos + 1, MaxInt);
-
-        Sheet.Cells[23, 11].NumberFormat := '@';
-        Sheet.Cells[23, 11].Value :=' 10'+ operacao;
-      end;
-
-      // K7 = empresa
-      if TryGetAnyQS(['empresa'], s) then
-        Sheet.Cells[7, 11].Value := s;
-
-      // D16 = t2descricaocod
-
-      Sheet.Cells[17, 5].Value := 'M_REDE ACESSO RÁDIO-RAN-SERV-NAC';
-
-      // J16 = quantidade
-      if TryGetAnyQS(['quantidade','quant'], s) then
-        Sheet.Cells[17, 14].Value := s;
-
-      // M16 = valor (aceita aliases)
-      if TryGetAnyQS(['vlrunitarioliq'], s) then
-        Sheet.Cells[17, 15].Value := s;
-
-      // id e faturamento
-      id := GetAnyQS(['tid','tId','id']);
-      s := GetAnyQS(['statusfaturamento']);
-      if SameText(s, 'Retorno T2') and (id <> '') then
-      begin
-        servico := TProjetotelefonica.Create;
-        try
-          servico.UpdateStatusFaturamento(id, 'Gerada T4', s);
-        finally
-          servico.Free;
-        end;
-      end;
-
-      ErrorStage := 'Saving workbook';
-      if FileExists(TempFileName) then
-        if not DeleteFile(TempFileName) then
-          raise Exception.CreateFmt('Não foi possível sobrescrever: %s', [TempFileName]);
-
-      Workbook.SaveAs(TempFileName, xlOpenXMLWorkbookMacroEnabled);
-    except
-      on E: Exception do
-        raise Exception.CreateFmt('Erro em %s: %s', [ErrorStage, E.Message]);
+    // Campos básicos
+    if Req.Query.TryGetValue('pepnivel3', ParamValue) then
+    begin
+      Sheet.Cells[6, 26].Value := ParamValue;
+      Sheet.Name := ParamValue;
     end;
-  finally
-    ErrorStage := 'Cleaning up Excel';
-    try
-      if not VarIsEmpty(Sheet) then Sheet := Unassigned;
-      if not VarIsEmpty(Workbook) then
-      begin
-        Workbook.Close(False);
-        Workbook := Unassigned;
-      end;
-      if not VarIsEmpty(ExcelApp) then
-      begin
-        ExcelApp.Quit;
-        ExcelApp := Unassigned;
-      end;
-    finally
-      CoUninitialize;
+
+    if Req.Query.TryGetValue('empresa', ParamValue) then
+      Sheet.Cells[7, 11].Value := ParamValue;
+
+    if Req.Query.TryGetValue('site', ParamValue) then
+      Sheet.Cells[7, 6].Value := ParamValue;
+
+    if Req.Query.TryGetValue('numerodocontrato', ParamValue) then
+      Sheet.Cells[9, 5].Value := ParamValue;
+
+    if Req.Query.TryGetValue('codfornecedor', ParamValue) then
+      Sheet.Cells[9, 8].Value := ParamValue;
+
+    if Req.Query.TryGetValue('quantidade', ParamValue) then
+      Sheet.Cells[17, 14].Value := ParamValue;
+
+    if Req.Query.TryGetValue('valor', ParamValue) then
+      Sheet.Cells[17, 15].Value := ParamValue;
+
+    Sheet.Cells[17, 5].Value := 'M_REDE ACESSO RÁDIO-RAN-SERV-NAC';
+
+    // ========================================================
+    // Etapa 4: Salvar como CSV
+    // ========================================================
+    if FileExists(TempFileName) then
+      DeleteFile(TempFileName);
+
+    Workbook.SaveAs(TempFileName, xlCSV);
+
+    // ========================================================
+    // Etapa 5: Encerrar Excel e enviar arquivo
+    // ========================================================
+    Workbook.Close(False);
+    ExcelApp.Quit;
+    Sheet := Unassigned;
+    Workbook := Unassigned;
+    ExcelApp := Unassigned;
+    CoUninitialize;
+
+    if not FileExists(TempFileName) then
+      raise Exception.Create('Erro: Arquivo CSV não foi gerado.');
+
+    Res.ContentType('text/csv');
+    Res.AddHeader('Content-Disposition', 'attachment; filename="cartataf_gerado.csv"');
+    Res.SendFile(TempFileName).Status(THTTPStatus.OK);
+
+  except
+    on E: Exception do
+    begin
+      Writeln(Format('Erro ao gerar CSV da carta T4: %s', [E.Message]));
+      if (TempFileName <> '') and FileExists(TempFileName) then
+        DeleteFile(TempFileName);
+      Res.Send(Format('Erro ao gerar carta T4 (CSV): %s', [E.Message]))
+         .Status(THTTPStatus.InternalServerError);
     end;
   end;
 
-  ErrorStage := 'Verifying output file';
-  if not FileExists(TempFileName) then
-    raise Exception.CreateFmt('Arquivo não gerado: %s', [TempFileName]);
-
-  ErrorStage := 'Sending response';
-  Res.ContentType('application/vnd.ms-excel.sheet.macroEnabled.12');
-  Res.AddHeader('Content-Disposition', 'attachment; filename="cartataf_gerado.xlsm"');
-  Res.SendFile(TempFileName).Status(THTTPStatus.OK);
+  servico.Free;
 end;
 
 procedure verificarduplicidaderollout(Req: THorseRequest; Res: THorseResponse; Next: TProc);

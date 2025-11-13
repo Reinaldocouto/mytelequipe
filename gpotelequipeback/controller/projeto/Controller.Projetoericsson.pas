@@ -88,6 +88,7 @@ procedure EditarEmMassaFaturamento(Req: THorseRequest; Res: THorseResponse; Next
 procedure EditarEmMassaRollout(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure ListaCRQ(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure EditarCRQ(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+procedure EnviarEmailFixa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 implementation
 
@@ -139,6 +140,7 @@ begin
   THorse.post('v1/projetoericsson/editaremmassarollout', EditarEmMassaRollout);
   THorse.post('v1/projetoericsson/crq', EditarCRQ);
   THorse.get('v1/projetoericsson/crq', ListaCRQ);
+  THorse.post('v1/projetoericsson/enviaremailfixa', EnviarEmailFixa);
 end;
 
 
@@ -401,6 +403,34 @@ begin
   end;
 end;
 
+procedure EnviarEmailFixa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  body: TJSONObject;
+  erro: string;
+begin
+  servico := TProjetoericsson.Create;
+  try
+    erro := '';
+    try
+      // Lê o corpo da requisição como TJSONObject
+      body := Req.Body<TJSONObject>;
+
+      // Execução principal
+
+    servico.SendEmailEquipeFixa(Req.Query.Dictionary, erro);
+    Res.Send<TJSONObject>(CreateJsonObj('retorno', 'Enviado com sucesso'))
+      .Status(THTTPStatus.Created);
+    except
+      on Ex: Exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', Ex.Message))
+          .Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    servico.Free;
+  end;
+end;
+
 procedure Extratopagamentototal(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: TProjetoericsson;
@@ -433,6 +463,7 @@ begin
     servico.Free;
   end;
 end;
+
 
 procedure Editarpagamento(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
