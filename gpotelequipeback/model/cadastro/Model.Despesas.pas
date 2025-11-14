@@ -17,14 +17,14 @@ type
   TDespesaRateio = class
   private
     Fid: Integer;
-    Fiddespesas: Integer;   // <- guarda o valor do idgeral da despesa (chave FK)
-    Ftipo: string;          // 'DEPARTAMENTO' | 'SITE'
+    Fiddespesas: Integer;
+    Ftipo: string;
     Fdepartamento: string;
     Fidsite: string;
     Fpercentual: Double;
   public
     property id: Integer read Fid write Fid;
-    property iddespesas: Integer read Fiddespesas write Fiddespesas; // = idgeral
+    property iddespesas: Integer read Fiddespesas write Fiddespesas;
     property tipo: string read Ftipo write Ftipo;
     property departamento: string read Fdepartamento write Fdepartamento;
     property idsite: string read Fidsite write Fidsite;
@@ -54,18 +54,18 @@ type
     Fvalordaparcela: string;
     Fdespesacadastradapor: string;
     FdataInicio: string;
-
+    Fgesdespesas_frota: string;
+    Fidprojeto: Integer;
     FRateios: TObjectList<TDespesaRateio>;
 
-    function BuscarIdGeralAtual: Integer; // obtém idgeral da linha (pelo trio idcliente/idloja/iddespesas)
-    procedure SalvarRateiosOrThrow(const AIdGeral: Integer); // grava rateio usando AIdGeral
-    procedure CarregarRateiosIntoList(const AIdGeral: Integer); // lê rateio por AIdGeral
+    function BuscarIdGeralAtual: Integer;
+    procedure SalvarRateiosOrThrow(const AIdGeral: Integer);
+    procedure CarregarRateiosIntoList(const AIdGeral: Integer);
 
   public
     constructor Create;
     destructor Destroy; override;
 
-    // Propriedades da despesa
     property iddespesas: Integer read Fiddespesas write Fiddespesas;
     property idcliente: Integer read Fidcliente write Fidcliente;
     property idloja: Integer read Fidloja write Fidloja;
@@ -86,20 +86,23 @@ type
     property dataInicio: string read FdataInicio write FdataInicio;
     property parceladoEm: string read FparceladoEm write FparceladoEm;
     property despesacadastradapor: string read Fdespesacadastradapor write Fdespesacadastradapor;
+    property gesdespesas_frota: string read Fgesdespesas_frota write Fgesdespesas_frota;
+    property idprojeto: Integer read Fidprojeto write Fidprojeto;
 
-    // Rateio
     property Rateios: TObjectList<TDespesaRateio> read FRateios;
     procedure ClearRateios;
     procedure AddRateio_Departamento(const ANomeDepto: string; APercentual: Double);
     procedure AddRateio_Site(const AIdSite: string; APercentual: Double);
     procedure LoadRateiosFromJSONArray(const AJSONArray: TJSONArray);
-    function CarregarRateios: Boolean; // resolve idgeral e preenche FRateios
+    function CarregarRateios: Boolean;
 
-    // API
     function Lista(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Listaid(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
     function Editar(out erro: string): Boolean;
     function NovoCadastro(out erro: string): Integer;
+
+    function ListaFrotas(out erro: string): TFDQuery;
+    function ListaDepartamentos(out erro: string): TFDQuery;
   end;
 
 implementation
@@ -129,7 +132,7 @@ var
 begin
   R := TDespesaRateio.Create;
   R.id := 0;
-  R.iddespesas := 0; // será setado com idgeral ao salvar
+  R.iddespesas := 0;
   R.tipo := 'DEPARTAMENTO';
   R.departamento := ANomeDepto;
   R.idsite := '';
@@ -143,7 +146,7 @@ var
 begin
   R := TDespesaRateio.Create;
   R.id := 0;
-  R.iddespesas := 0; // será setado com idgeral ao salvar
+  R.iddespesas := 0;
   R.tipo := 'SITE';
   R.departamento := '';
   R.idsite := AIdSite;
@@ -169,7 +172,7 @@ begin
 
     Obj := TJSONObject(AJSONArray.Items[I]);
 
-    Tipo  := Obj.GetValue<string>('tipo', '');
+    Tipo := Obj.GetValue<string>('tipo', '');
     Depto := Obj.GetValue<string>('departamento', '');
     if Depto = '' then
       Depto := Obj.GetValue<string>('iddepartamento', '');
@@ -228,13 +231,11 @@ begin
   try
     qry.Connection := FConn;
 
-    // Apaga (por idgeral)
     qry.SQL.Text := 'DELETE FROM gesdespesas_rateio WHERE iddespesas = :id';
     qry.ParamByName('id').DataType := ftInteger;
     qry.ParamByName('id').AsInteger := AIdGeral;
     qry.ExecSQL;
 
-    // Reinsere usando idgeral
     for r in FRateios do
     begin
       qry.SQL.Text :=
@@ -242,7 +243,7 @@ begin
         '(iddespesas, tipo, departamento, idsite, percentual) '+
         'VALUES (:iddespesas, :tipo, :departamento, :idsite, :percentual)';
 
-      qry.ParamByName('iddespesas').DataType := ftInteger;  // <- idgeral
+      qry.ParamByName('iddespesas').DataType := ftInteger;
       qry.ParamByName('tipo').DataType := ftString;
       qry.ParamByName('departamento').DataType := ftString;
       qry.ParamByName('idsite').DataType := ftString;
@@ -290,12 +291,12 @@ begin
     while not qry.Eof do
     begin
       r := TDespesaRateio.Create;
-      r.id          := qry.FieldByName('id').AsInteger;
-      r.iddespesas  := qry.FieldByName('iddespesas').AsInteger; // = idgeral
-      r.tipo        := qry.FieldByName('tipo').AsString;
-      r.departamento:= qry.FieldByName('departamento').AsString;
-      r.idsite      := qry.FieldByName('idsite').AsString;
-      r.percentual  := qry.FieldByName('percentual').AsFloat;
+      r.id := qry.FieldByName('id').AsInteger;
+      r.iddespesas := qry.FieldByName('iddespesas').AsInteger;
+      r.tipo := qry.FieldByName('tipo').AsString;
+      r.departamento := qry.FieldByName('departamento').AsString;
+      r.idsite := qry.FieldByName('idsite').AsString;
+      r.percentual := qry.FieldByName('percentual').AsFloat;
       FRateios.Add(r);
       qry.Next;
     end;
@@ -401,12 +402,12 @@ begin
           SQL.Add('INSERT INTO gesdespesas(');
           SQL.Add('  iddespesas, datalancamento, parceladoem, datainicio, valorparcela, despesacadastradapor,');
           SQL.Add('  valordespesa, descricao, comprovante, observacao,');
-          SQL.Add('  idempresa, idpessoa, idveiculo, deletado, idcliente, idloja,');
+          SQL.Add('  idempresa, idpessoa, idveiculo, idprojeto, deletado, idcliente, idloja,');
           SQL.Add('  periodo, periodicidade, categoria, datadocadastro)');
           SQL.Add('VALUES(');
           SQL.Add('  :iddespesas, :datalancamento, :parceladoem, :datainicio, :valorparcela, :despesacadastradapor,');
           SQL.Add('  :valordespesa, :descricao, :comprovante, :observacao,');
-          SQL.Add('  :idempresa, :idpessoa, :idveiculo, :deletado, :idcliente, :idloja,');
+          SQL.Add('  :idempresa, :idpessoa, :idveiculo, :idprojeto, :deletado, :idcliente, :idloja,');
           SQL.Add('  :periodo, :periodicidade, :categoria, :datadocadastro)');
           Params.ParamByName('datadocadastro').AsDateTime := Now;
         end
@@ -430,11 +431,11 @@ begin
           SQL.Add('  observacao = :observacao,');
           SQL.Add('  idempresa = :idempresa,');
           SQL.Add('  idpessoa = :idpessoa,');
-          SQL.Add('  idveiculo = :idveiculo');
+          SQL.Add('  idveiculo = :idveiculo,');
+          SQL.Add('  idprojeto = :idprojeto');
           SQL.Add('WHERE idcliente = :idcliente AND idloja = :idloja AND iddespesas = :iddespesas');
         end;
 
-        // Tipagem
         ParamByName('parceladoem').DataType := ftString;
         ParamByName('datainicio').DataType := ftString;
         ParamByName('valorparcela').DataType := ftString;
@@ -454,8 +455,8 @@ begin
         ParamByName('idpessoa').DataType := ftInteger;
         ParamByName('idveiculo').DataType := ftInteger;
         ParamByName('periodo').DataType := ftString;
+        ParamByName('idprojeto').DataType := ftInteger;
 
-        // Valores
         ParamByName('parceladoem').AsString := parceladoem;
         ParamByName('datainicio').AsString := datainicio;
         ParamByName('valorparcela').AsString := valordaparcela;
@@ -475,17 +476,16 @@ begin
         ParamByName('idpessoa').AsInteger := idpessoa;
         ParamByName('idveiculo').AsInteger := idveiculo;
         ParamByName('periodo').AsString := periodo;
+        ParamByName('idprojeto').AsInteger := idprojeto;
 
         ExecSQL;
       end;
 
-      // Salvar rateios usando idgeral
       LIdGeral := BuscarIdGeralAtual;
       if LIdGeral <= 0 then
         raise Exception.Create('Não foi possível localizar idgeral da despesa para salvar o rateio.');
       SalvarRateiosOrThrow(LIdGeral);
 
-      // Histórico (somente no insert)
       if IsInsert then
       begin
         qHist := TFDQuery.Create(nil);
@@ -718,6 +718,48 @@ begin
     on ex: Exception do
     begin
       erro := 'Erro ao consultar : ' + ex.Message;
+      Result := nil;
+    end;
+  end;
+end;
+
+function TDespesas.ListaFrotas(out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+begin
+  try
+    qry := TFDQuery.Create(nil);
+    qry.Connection := FConn;
+    qry.SQL.Text :=
+      'SELECT idgesdespesas_frota AS id, nome FROM gesdespesas_frota WHERE ativo = 1 ORDER BY idgesdespesas_frota';
+    qry.Open;
+    erro := '';
+    Result := qry;
+  except
+    on ex: Exception do
+    begin
+      erro := 'Erro ao consultar opções de frota: ' + ex.Message;
+      Result := nil;
+    end;
+  end;
+end;
+
+function TDespesas.ListaDepartamentos(out erro: string): TFDQuery;
+var
+  qry: TFDQuery;
+begin
+  try
+    qry := TFDQuery.Create(nil);
+    qry.Connection := FConn;
+    qry.SQL.Text :=
+      'SELECT * FROM gesdespesas_departamento';
+    qry.Open;
+    erro := '';
+    Result := qry;
+  except
+    on ex: Exception do
+    begin
+      erro := 'Erro ao consultar opções de frota: ' + ex.Message;
       Result := nil;
     end;
   end;

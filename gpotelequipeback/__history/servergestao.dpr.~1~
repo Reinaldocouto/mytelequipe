@@ -105,7 +105,7 @@ uses
   Model.Projetozte in 'model\Projeto\Model.Projetozte.pas',
   Controller.Projetozte in 'controller\projeto\Controller.Projetozte.pas',
   Controller.Projetohuawei in 'controller\projeto\Controller.Projetohuawei.pas',
-  Controller.Rollout in 'controller\projeto\Controller.Rollout.pas',
+  Contrller.Rollout in 'controller\projeto\Controller.Rollout.pas',
   Model.Huawei in 'model\Projeto\Model.Huawei.pas',
   Cron.Huawei in 'cron\Cron.Huawei.pas',
   Cron.VerificaData in 'cron\Cron.VerificaData.pas',
@@ -168,7 +168,6 @@ begin
   Controller.Empresas.Registry;
   Controller.Configempresafilial.Registry;
   Controller.Projetoericsson.Registry;
-  Controller.Rollout.Registry;
   Controller.Veiculos.Registry;
   UtFuncao.Registry;
   Controller.Solicitacao.Registry;

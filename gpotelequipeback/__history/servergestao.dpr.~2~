@@ -168,7 +168,6 @@ begin
   Controller.Empresas.Registry;
   Controller.Configempresafilial.Registry;
   Controller.Projetoericsson.Registry;
-  Controller.Rollout.Registry;
   Controller.Veiculos.Registry;
   UtFuncao.Registry;
   Controller.Solicitacao.Registry;

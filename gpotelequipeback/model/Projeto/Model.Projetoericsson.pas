@@ -3349,85 +3349,168 @@ begin
 
 end;
 
-function TProjetoericsson.ObterRelatorioDespesas(const AFiltros: TDictionary<string, string>; out AErro: string): TFDQuery;
+function TProjetoericsson.ObterRelatorioDespesas(
+  const AFiltros: TDictionary<string, string>; out AErro: string
+): TFDQuery;
 var
   Qry: TFDQuery;
-  a:string;
 begin
   Qry := TFDQuery.Create(nil);
   try
     Qry.Connection := FConn;
 
-    // Construção da query principal
-    Qry.SQL.Text := 'SET @rownum := 0; ' + 'SELECT ' + '  @rownum := @rownum + 1 AS id, ' + '  d.idpmts, ' + '  d.descricao, ' + '  d.valor, ' + '  d.dataacionamento, ' + '  d.nome, ' + '  d.tipo ' + 'FROM ( ' + '  SELECT ' + '      e.site as idpmts, ' + '      gp.nome AS descricao, ' + '      (ac.totalhorasclt * ac.valorhora) AS valor, ' + '      ac.dataacionamento, ' + '      gu.nome, ' + '      ''ACIONAMENTO CLT'' AS tipo ' + '  FROM ' + '      obraericssonatividadeclt ac ' + '      LEFT JOIN obraericsson e ON ac.numero = e.numero ' + '      INNER JOIN gespessoa gp ON gp.idpessoa = ac.idcolaboradorclt ' + '      INNER JOIN gesusuario gu ON gu.idusuario = ac.idcolaboradorclt ' + '  WHERE ' + '      ac.deletado = 0 ';
+    // Resetar rownum
+    Qry.SQL.Clear;
+    Qry.SQL.Add('SET @rownum := 0;');
 
-    // Parte PJ
-    Qry.SQL.Add('  UNION ALL ' + '  SELECT ' + '      oe.numero as idpmts, ' + '      oap.descricaoservico AS descricao, ' + '      oem.medidafiltro as valor, ' + '      oap.dataacionamento, ' + '      ge.nome AS nome, ' + '      ''ACIONAMENTO PJ'' AS tipo ' + '  FROM ' + '      obraericssonatividadepj oap ' + '      LEFT JOIN gesempresas ge ON ge.idempresa = oap.idcolaboradorpj ' + '      LEFT JOIN obraericsson oe ON oe.numero = oap.numero ' + '      LEFT JOIN obraericssonmigo oem ON oem.poritem = oap.poitem ' + '  WHERE ' + '      oap.deletado = 0 ');
+    // SELECT principal
+    Qry.SQL.Add('SELECT');
+    Qry.SQL.Add('  @rownum := @rownum + 1 AS id,');
+    Qry.SQL.Add('  d.idpmts,');
+    Qry.SQL.Add('  d.descricao,');
+    Qry.SQL.Add('  d.valor,');
+    Qry.SQL.Add('  d.dataacionamento,');
+    Qry.SQL.Add('  d.nome,');
+    Qry.SQL.Add('  d.tipo');
+    Qry.SQL.Add('FROM (');
 
-    // Parte Material e Serviço
-    Qry.SQL.Add('  UNION ALL ');
-    Qry.SQL.Add(' Select ');
-    Qry.SQL.Add(' gs.obra as idpmts, ');
-    Qry.SQL.Add(' gp.descricao, ');
-    Qry.SQL.Add(' Coalesce((Select ');
-    Qry.SQL.Add(' gce.valor ');
-    Qry.SQL.Add(' From ');
-    Qry.SQL.Add(' gescontroleestoque gce ');
-    Qry.SQL.Add(' Where ');
-    Qry.SQL.Add(' gce.idtipomovimentacao = 1 And ');
-    Qry.SQL.Add(' gce.idproduto = gsi.idproduto ');
-    Qry.SQL.Add(' Limit 1), 0) As valor, ');
-    Qry.SQL.Add(' gs.data As dataacionamento, ');
-    Qry.SQL.Add(' gu.nome, ');
-    Qry.SQL.Add(' ''MATERIAL E SERVIÇO'' As tipo ');
-    Qry.SQL.Add(' From ');
-    Qry.SQL.Add(' gessolicitacao gs left Join ');
-    Qry.SQL.Add(' gessolicitacaoitens gsi On gsi.idsolicitacao = gs.idsolicitacao left Join ');
-    Qry.SQL.Add(' gesproduto gp On gp.idproduto = gsi.idproduto left Join ');
-    Qry.SQL.Add(' gesusuario gu On gu.idusuario = gs.idcolaborador ');
-    Qry.SQL.Add(' Where gs.projeto = ''ERICSSON'' and gsi.deletado = 0 ');
+    // ---------------------------------------------------------------
+    // ACIONAMENTO CLT
+    // ---------------------------------------------------------------
+    Qry.SQL.Add('  SELECT');
+    Qry.SQL.Add('    e.site AS idpmts,');
+    Qry.SQL.Add('    gp.nome AS descricao,');
+    Qry.SQL.Add('    (ac.totalhorasclt * ac.valorhora) AS valor,');
+    Qry.SQL.Add('    ac.dataacionamento,');
+    Qry.SQL.Add('    gu.nome,');
+    Qry.SQL.Add('    ''ACIONAMENTO CLT'' AS tipo');
+    Qry.SQL.Add('  FROM obraericssonatividadeclt ac');
+    Qry.SQL.Add('    LEFT JOIN obraericsson e ON ac.numero = e.numero');
+    Qry.SQL.Add('    INNER JOIN gespessoa gp ON gp.idpessoa = ac.idcolaboradorclt');
+    Qry.SQL.Add('    INNER JOIN gesusuario gu ON gu.idusuario = ac.idcolaboradorclt');
+    Qry.SQL.Add('  WHERE ac.deletado = 0');
 
-    // Parte Diária
-    Qry.SQL.Add('  UNION ALL ' + '  SELECT ' + '      gd.siteid AS idpmts, ' + '      gd.descricao, ' + '      gd.valortotal AS valor, ' + '      gd.datasolicitacao AS dataacionamento, ' + '      gd.nomecolaborador AS nome, ' + '      ''DIARIA'' AS tipo ' + '  FROM ' + '      gesdiaria gd ' + '  WHERE ' + '      gd.projeto = ''ERICSSON'' ');
+    // ---------------------------------------------------------------
+    // ACIONAMENTO PJ
+    // ---------------------------------------------------------------
+    Qry.SQL.Add('  UNION ALL');
+    Qry.SQL.Add('  SELECT');
+    Qry.SQL.Add('    oe.numero AS idpmts,');
+    Qry.SQL.Add('    oap.descricaoservico AS descricao,');
+    Qry.SQL.Add('    oem.medidafiltro AS valor,');
+    Qry.SQL.Add('    oap.dataacionamento,');
+    Qry.SQL.Add('    ge.nome AS nome,');
+    Qry.SQL.Add('    ''ACIONAMENTO PJ'' AS tipo');
+    Qry.SQL.Add('  FROM obraericssonatividadepj oap');
+    Qry.SQL.Add('    LEFT JOIN gesempresas ge ON ge.idempresa = oap.idcolaboradorpj');
+    Qry.SQL.Add('    LEFT JOIN obraericsson oe ON oe.numero = oap.numero');
+    Qry.SQL.Add('    LEFT JOIN obraericssonmigo oem ON oem.poritem = oap.poitem');
+    Qry.SQL.Add('  WHERE oap.deletado = 0');
 
-    Qry.SQL.Add(') AS d ' + 'WHERE 1=1 ');
+    // ---------------------------------------------------------------
+    // MATERIAL E SERVIÇO
+    // ---------------------------------------------------------------
+    Qry.SQL.Add('  UNION ALL');
+    Qry.SQL.Add('  SELECT');
+    Qry.SQL.Add('    gs.obra AS idpmts,');
+    Qry.SQL.Add('    gp.descricao,');
+    Qry.SQL.Add('    COALESCE((');
+    Qry.SQL.Add('      SELECT gce.valor');
+    Qry.SQL.Add('      FROM gescontroleestoque gce');
+    Qry.SQL.Add('      WHERE gce.idtipomovimentacao = 1');
+    Qry.SQL.Add('        AND gce.idproduto = gsi.idproduto');
+    Qry.SQL.Add('      LIMIT 1), 0) AS valor,');
+    Qry.SQL.Add('    gs.data AS dataacionamento,');
+    Qry.SQL.Add('    gu.nome,');
+    Qry.SQL.Add('    ''MATERIAL E SERVIÇO'' AS tipo');
+    Qry.SQL.Add('  FROM gessolicitacao gs');
+    Qry.SQL.Add('    LEFT JOIN gessolicitacaoitens gsi ON gsi.idsolicitacao = gs.idsolicitacao');
+    Qry.SQL.Add('    LEFT JOIN gesproduto gp ON gp.idproduto = gsi.idproduto');
+    Qry.SQL.Add('    LEFT JOIN gesusuario gu ON gu.idusuario = gs.idcolaborador');
+    Qry.SQL.Add('  WHERE gs.projeto = ''ERICSSON'' AND gsi.deletado = 0');
 
+    // ---------------------------------------------------------------
+    // DIÁRIA
+    // (você tinha 3 blocos repetidos — removi os duplicados)
+    // ---------------------------------------------------------------
+    Qry.SQL.Add('  UNION ALL');
+    Qry.SQL.Add('  SELECT');
+    Qry.SQL.Add('    gd.siteid AS idpmts,');
+    Qry.SQL.Add('    gd.descricao,');
+    Qry.SQL.Add('    gd.valortotal AS valor,');
+    Qry.SQL.Add('    gd.datasolicitacao AS dataacionamento,');
+    Qry.SQL.Add('    gd.nomecolaborador AS nome,');
+    Qry.SQL.Add('    ''DIARIA'' AS tipo');
+    Qry.SQL.Add('  FROM gesdiaria gd');
+    Qry.SQL.Add('  WHERE gd.projeto = ''ERICSSON''');
+
+    // ---------------------------------------------------------------
+    // FROTAS
+    // ---------------------------------------------------------------
+    Qry.SQL.Add('  UNION ALL');
+    Qry.SQL.Add('  SELECT');
+    Qry.SQL.Add('    ge.siteid AS idpmts,');
+    Qry.SQL.Add('    gr.descricao,');
+    qry.SQL.Add('    despesas.valordespesa *');
+    qry.SQL.Add('    (');
+    qry.SQL.Add('        LEAST((');
+    qry.SQL.Add('            SELECT SUM(r2.percentual)');
+    qry.SQL.Add('            FROM gesdespesas_rateio r2');
+    qry.SQL.Add('            WHERE r2.iddespesas = despesas.idgeral');
+    qry.SQL.Add('        ), 100) / 100');
+    qry.SQL.Add('    ) AS valor,');
+    Qry.SQL.Add('    ge.datalancamento AS dataacionamento,');
+    Qry.SQL.Add('    ge.despesacadastradapor AS nome,');
+    qry.SQL.Add('    ''CUSTO DE FROTAS'' AS tipo');
+    Qry.SQL.Add('  FROM gesdespesas gr');
+    Qry.SQL.Add('    JOIN gesdespesas_rateio ge ON ge.iddespesas = gr.idgeral');
+
+    // Fecha subquery
+    Qry.SQL.Add(') AS d');
+    Qry.SQL.Add('WHERE 1=1');
+
+    // ---------------------------------------------------------------
+    // FILTROS
+    // ---------------------------------------------------------------
     if AFiltros.ContainsKey('site') and (AFiltros['site'] <> '') then
-      Qry.SQL.Add('      AND d.idpmts LIKE ''%' + StringReplace(AFiltros['site'], '''', '''''', [rfReplaceAll]) + '%'' ');
+      Qry.SQL.Add('  AND d.idpmts LIKE ''%' +
+                  StringReplace(AFiltros['site'], '''', '''''', [rfReplaceAll]) + '%''');
 
-    a := AFiltros['site'];
-    // Filtro por nome
     if AFiltros.ContainsKey('nome') and (AFiltros['nome'] <> '') then
-      Qry.SQL.Add('      AND d.nome LIKE ''%' + StringReplace(AFiltros['nome'], '''', '''''', [rfReplaceAll]) + '%'' ');
+      Qry.SQL.Add('  AND d.nome LIKE ''%' +
+                  StringReplace(AFiltros['nome'], '''', '''''', [rfReplaceAll]) + '%''');
 
+    // Filtros de data
     if AFiltros.ContainsKey('datainicio') and (AFiltros['datainicio'] <> '') then
     begin
       if AFiltros.ContainsKey('datafim') and (AFiltros['datafim'] <> '') then
       begin
-        // Ambas as datas informadas
-        if AFiltros['datainicio'] = AFiltros['datafim'] then
-          Qry.SQL.Add('      AND d.dataacionamento BETWEEN ''' + AFiltros['datainicio'] + ' 00:00:00'' ' + '      AND DATE_ADD(''' + AFiltros['datafim'] + ''', INTERVAL 1 DAY) ')
-        else
-          Qry.SQL.Add('      AND d.dataacionamento BETWEEN ''' + AFiltros['datainicio'] + ' 00:00:00'' ' + '      AND DATE_ADD(''' + AFiltros['datafim'] + ''', INTERVAL 1 DAY) ');
+        Qry.SQL.Add(
+          '  AND d.dataacionamento BETWEEN ''' + AFiltros['datainicio'] + ' 00:00:00'' ' +
+          '  AND DATE_ADD(''' + AFiltros['datafim'] + ''', INTERVAL 1 DAY)'
+        );
       end
       else
-      begin
-        // Apenas data inicial informada
-        Qry.SQL.Add('      AND d.dataacionamento >= ''' + AFiltros['datainicio'] + ' 00:00:00'' ');
-      end;
+        Qry.SQL.Add(
+          '  AND d.dataacionamento >= ''' + AFiltros['datainicio'] + ' 00:00:00'''
+        );
     end
     else if AFiltros.ContainsKey('datafim') and (AFiltros['datafim'] <> '') then
-    begin
-      Qry.SQL.Add('      AND d.dataacionamento < DATE_ADD(''' + AFiltros['datafim'] + ''', INTERVAL 1 DAY)');
-    end;
+      Qry.SQL.Add(
+        '  AND d.dataacionamento < DATE_ADD(''' + AFiltros['datafim'] + ''', INTERVAL 1 DAY)'
+      );
 
+    // ORDER
     Qry.SQL.Add('ORDER BY d.dataacionamento, d.tipo');
 
+    // ---------------------------------------------------------------
+    // EXECUÇÃO
+    // ---------------------------------------------------------------
     try
       Qry.Open;
       AErro := '';
       Result := Qry;
-      qry := nil;
+      Qry := nil;
     except
       on E: Exception do
       begin
@@ -3436,6 +3519,7 @@ begin
         Result := nil;
       end;
     end;
+
   except
     on E: Exception do
     begin
@@ -3445,6 +3529,7 @@ begin
     end;
   end;
 end;
+
 
 
 function TProjetoericsson.EditarEmMassa(const AJsonBody: string; out erro: string): Boolean;

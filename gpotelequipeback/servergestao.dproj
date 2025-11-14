@@ -204,6 +204,7 @@
         <DCCReference Include="model\Projeto\Model.Projetozte.pas"/>
         <DCCReference Include="controller\projeto\Controller.Projetozte.pas"/>
         <DCCReference Include="controller\projeto\Controller.Projetohuawei.pas"/>
+        <DCCReference Include="controller\projeto\Controller.Rollout.pas"/>
         <DCCReference Include="model\Projeto\Model.Huawei.pas"/>
         <DCCReference Include="cron\Cron.Huawei.pas"/>
         <DCCReference Include="cron\Cron.VerificaData.pas"/>
@@ -253,14 +254,56 @@
                 <DeployFile LocalName="$(BDS)\Redist\iossimulator\libpcre.dylib" Class="DependencyModule"/>
                 <DeployFile LocalName="$(BDS)\Redist\osx32\libcgunwind.1.0.dylib" Class="DependencyModule"/>
                 <DeployFile LocalName="..\gpotelequipe\src\assets\documents\cartataf.xlsm" Configuration="Debug" Class="ProjectFile"/>
+                <DeployFile LocalName="..\gpotelequipe\src\assets\documents\cartataf.xlsm" Configuration="Debug" Class="ProjectFile">
+                    <Platform Name="Win32">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="..\gpotelequipe\src\assets\documents\cartatafcsv.csv" Configuration="Debug" Class="ProjectFile"/>
+                <DeployFile LocalName="..\gpotelequipe\src\assets\documents\cartatafcsv.csv" Configuration="Debug" Class="ProjectFile">
+                    <Platform Name="Win32">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="..\gpotelequipe\src\assets\documents\~$cartataf.xlsm" Configuration="Debug" Class="ProjectFile"/>
+                <DeployFile LocalName="..\gpotelequipe\src\assets\documents\~$cartataf.xlsm" Configuration="Debug" Class="ProjectFile">
+                    <Platform Name="Win32">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="..\servergpo2exec\Win32\Debug\servergestao.exe" Configuration="Debug" Class="ProjectOutput"/>
                 <DeployFile LocalName="C:\trabalho\cliente\GPO2Dev\servergpo2exec\Win32\Debug\servergestao.exe" Configuration="Debug" Class="ProjectOutput"/>
                 <DeployFile LocalName="C:\trabalho\cliente\gpo2renovado\exe\Win32\Debug\servergestao.exe" Configuration="Debug" Class="ProjectOutput"/>
+                <DeployFile LocalName="C:\trabalho\cliente\gpo2renovado\exe\Win32\Debug\servergestao.exe" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win32">
+                        <RemoteName>servergestao.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="documents\cartataf.xlsm" Configuration="Debug" Class="ProjectFile"/>
+                <DeployFile LocalName="documents\cartataf.xlsm" Configuration="Debug" Class="ProjectFile">
+                    <Platform Name="Win32">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="documents\cartatafcsv.csv" Configuration="Debug" Class="ProjectFile"/>
+                <DeployFile LocalName="documents\cartatafcsv.csv" Configuration="Debug" Class="ProjectFile">
+                    <Platform Name="Win32">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="documents\~$cartataf.xlsm" Configuration="Debug" Class="ProjectFile"/>
+                <DeployFile LocalName="documents\~$cartataf.xlsm" Configuration="Debug" Class="ProjectFile">
+                    <Platform Name="Win32">
+                        <RemoteDir>.\</RemoteDir>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployClass Name="AdditionalDebugSymbols">
                     <Platform Name="iOSSimulator">
                         <Operation>1</Operation>

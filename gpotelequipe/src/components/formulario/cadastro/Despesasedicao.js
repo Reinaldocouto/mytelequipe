@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { Box } from '@mui/material';
 import Typography from '@mui/material/Typography';
 import { Col, Button, FormGroup, Input, Modal, ModalBody, ModalHeader, ModalFooter } from 'reactstrap';
 import Select from 'react-select';
+import AsyncSelect from 'react-select/async';
 import Loader from '../../../layouts/loader/Loader';
 import api from '../../../services/api';
 import S3Service from '../../../services/s3Service';
@@ -102,26 +103,6 @@ TabPanel.propTypes = {
   value: PropTypes.number.isRequired,
 };
 
-const regionaisBase = [
-  { value: 'DEP:ERICSSON - MG', label: 'ERICSSON - MG' },
-  { value: 'DEP:ERICSSON - NE', label: 'ERICSSON - NE' },
-  { value: 'DEP:ERICSSON - RJ', label: 'ERICSSON - RJ' },
-  { value: 'DEP:ERICSSON - SP', label: 'ERICSSON - SP' },
-  { value: 'DEP:HUAWEI - MG', label: 'HUAWEI - MG' },
-  { value: 'DEP:HUAWEI - NE', label: 'HUAWEI - NE' },
-  { value: 'DEP:HUAWEI - RJ', label: 'HUAWEI - RJ' },
-  { value: 'DEP:HUAWEI - SP', label: 'HUAWEI - SP' },
-  { value: 'DEP:TELEFONICA - MG', label: 'TELEFONICA - MG' },
-  { value: 'DEP:TELEFONICA - NE', label: 'TELEFONICA - NE' },
-  { value: 'DEP:TELEFONICA - NO', label: 'TELEFONICA - NO' },
-  { value: 'DEP:TELEFONICA - SP', label: 'TELEFONICA - SP' },
-  { value: 'DEP:ZTE - MG', label: 'ZTE - MG' },
-  { value: 'DEP:ZTE - NE', label: 'ZTE - NE' },
-  { value: 'DEP:ZTE - NO', label: 'ZTE - NO' },
-  { value: 'DEP:ZTE - RJ', label: 'ZTE - RJ' },
-  { value: 'DEP:ZTE - SP', label: 'ZTE - SP' },
-];
-
 const Despesasedicao = ({
   setshow,
   show,
@@ -161,16 +142,31 @@ const Despesasedicao = ({
   const [valordaparcela, setvalordaparcela] = useState('');
   const [dataInicio, setDataInicio] = useState('');
 
-  const [siteInput, setSiteInput] = useState('');
   const [sitesOptions, setSitesOptions] = useState([]);
   const [alocacoesSelecionadas, setAlocacoesSelecionadas] = useState([]);
   const [rateioItens, setRateioItens] = useState([]);
+
+  const [departamentos, setDepartamentos] = useState([]);
 
   const [idmulta, setIdmulta] = useState(null);
   const isEditing = !!iddespesas;
   const isFromMulta = !!idmulta;
 
+  const [projetos, setProjetos] = useState([]);
+  const projetoOptions = useMemo(
+    () =>
+      Array.isArray(projetos)
+        ? projetos.map((p) => ({
+          value: p?.id ?? p?.ID ?? p?.value ?? null,
+          label: p?.nome ?? p?.NOME ?? p?.label ?? String(p ?? ''),
+        }))
+        : [],
+    [projetos]
+  );
+  const [selectedProjeto, setSelectedProjeto] = useState(null);
+
   const mountedRef = useRef(true);
+  const debounceRef = useRef(null);
 
   const params = {
     idcliente: 1,
@@ -180,6 +176,37 @@ const Despesasedicao = ({
     deletado: 0,
   };
 
+  const debounce = useCallback((fn, delay = 300) => {
+    return (...args) =>
+      new Promise((resolve) => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(async () => {
+          const result = await fn(...args);
+          resolve(result);
+        }, delay);
+      });
+  }, []);
+
+  const loadSites = useMemo(
+    () =>
+      debounce(async (inputValue) => {
+        const q = inputValue?.trim() || '';
+        try {
+          const res = await api.get('v1/rollout/unificado', {
+            params: { ...params, q, limit: 50 },
+          });
+          const data = Array.isArray(res.data) ? res.data : [];
+          return data.map((item) => ({
+            value: item.chave || item.site || item.id,
+            label: item.site || item.chave || item.nome || `SITE-${item.id}`,
+          }));
+        } catch {
+          return [];
+        }
+      }, 300),
+    [params, debounce]
+  );
+
   const listFilesFromS3 = async (id) => {
     try {
       const prefix = `despesas/${id}/`;
@@ -188,7 +215,7 @@ const Despesasedicao = ({
         files.map(async (filee) => {
           const url = await s3Service.getFileUrl(filee.Key);
           return { name: filee.Key.split('/').pop(), url, key: filee.Key };
-        }),
+        })
       );
       if (mountedRef.current) setUploadedFiles(fileUrls);
     } catch {
@@ -200,11 +227,31 @@ const Despesasedicao = ({
     try {
       const res = await api.get(`v1/pessoa/selectfuncionario/${id}`);
       if (mountedRef.current) {
-        setfuncionariolista(res.data);
+        setfuncionariolista(res.data ?? []);
         setmensagem('');
       }
     } catch (err) {
       if (mountedRef.current) setmensagem(err.message);
+    }
+  };
+
+  const listaDespesasFrota = async () => {
+    try {
+      const res = await api.get('v1/despesas/despesasfrotas');
+      const data = Array.isArray(res.data) ? res.data : [];
+      setProjetos(data);
+    } catch (err) {
+      setmensagem(err.message);
+    }
+  };
+
+  const listaDespesasDepartamento = async () => {
+    try {
+      const res = await api.get('v1/despesas/departamentos');
+      const data = Array.isArray(res.data) ? res.data : [];
+      setDepartamentos(data);
+    } catch (err) {
+      setmensagem(err.message);
     }
   };
 
@@ -221,7 +268,7 @@ const Despesasedicao = ({
   const listaveiculos = async () => {
     try {
       const response = await api.get('v1/veiculos', { params });
-      const lista = response.data.map((item) => ({
+      const lista = (response.data ?? []).map((item) => ({
         value: item.id,
         label: `${item.placa}${item.modelo ? ` - ${item.modelo}` : ''}`,
         empresaId: item.idempresa,
@@ -234,6 +281,8 @@ const Despesasedicao = ({
     }
   };
 
+  const menuPortal = { menuPortal: (base) => ({ ...base, zIndex: 99999 }) };
+
   const listadespesas = async (veiculosArg) => {
     try {
       const response = await api.get('v1/despesasid', { params });
@@ -243,7 +292,7 @@ const Despesasedicao = ({
       const id = data.iddespesas || ididentificador;
       if (s3Service && id) await listFilesFromS3(id);
 
-      setIdmulta((data.idmulta || data.categoria.toLowerCase() === 'multas') ?? null);
+      setIdmulta((data.idmulta || data?.categoria?.toLowerCase() === 'multas') ?? null);
 
       const source = Array.isArray(veiculosArg) && veiculosArg.length ? veiculosArg : veiculoslista;
       const veiculoSelecionado = source.find((item) => Number(item?.value) === Number(data.idveiculo));
@@ -270,26 +319,65 @@ const Despesasedicao = ({
         setselectedoptionempresa({ value: data.idempresa, label: data.empresa });
       }
 
+      if (data.idpessoa && data.funcionario) {
+        setselectedoptionfuncionario({ value: data.idpessoa, label: data.funcionario });
+      }
+
+      if (data.idprojeto) { setSelectedProjeto(projetos.find((p) => String(p.value) === String(data.id))); }
+
+      let depsSelections = [];
+      let sitesSelections = [];
+      let rateioFromApi = [];
 
       if (Array.isArray(data.rateio) && data.rateio.length > 0) {
-        const sitesFromApi = data.rateio
-          .filter((r) => r.tipo === 'SITE' && r.idsite != null)
-          .map((r) => ({ value: `SITE:${r.idsite}`, label: `SITE-${r.idsite}` }));
-        if (sitesFromApi.length) {
-          setSitesOptions((prev) => {
-            const mapPrev = new Map(prev.map((o) => [o.value, o]));
-            sitesFromApi.forEach((o) => mapPrev.set(o.value, o));
-            return Array.from(mapPrev.values());
+        depsSelections = data.rateio
+          .filter((r) => r.tipo === 'DEPARTAMENTO' && (r.departamento || r.iddepartamento))
+          .map((r) => {
+            const dep = r.departamento ?? r.iddepartamento;
+            return { value: `DEP:${dep}`, label: dep };
           });
-        }
 
-        const depsSelections = data.rateio
-          .filter((r) => r.tipo === 'DEPARTAMENTO')
-          .map((r) => ({ value: `DEP:${r.departamento}`, label: r.departamento }));
-        setAlocacoesSelecionadas(depsSelections);
-      } else {
-        setSitesOptions([]);
-        setAlocacoesSelecionadas([]);
+        const uniques = new Set(
+          data.rateio.filter((r) => r.tipo === 'SITE' && r.idsite).map((r) => r.idsite)
+        );
+        sitesSelections = Array.from(uniques).map((s) => ({ value: `SITE:${s}`, label: `SITE-${s}` }));
+
+        rateioFromApi = data.rateio
+          .map((r) => {
+            if (r.tipo === 'DEPARTAMENTO' && (r.departamento || r.iddepartamento)) {
+              const dep = r.departamento ?? r.iddepartamento;
+              return {
+                key: `DEP:${dep}`,
+                tipo: 'DEPARTAMENTO',
+                iddepartamento: dep,
+                idsite: null,
+                label: dep,
+                percentual: String(r.percentual ?? ''),
+              };
+            }
+            if (r.tipo === 'SITE' && r.idsite) {
+              const siteId = r.idsite;
+              return {
+                key: `SITE:${siteId}`,
+                tipo: 'SITE',
+                iddepartamento: null,
+                idsite: siteId,
+                label: `SITE-${siteId}`,
+                percentual: String(r.percentual ?? ''),
+              };
+            }
+            return null;
+          })
+          .filter(Boolean);
+      }
+
+      setAlocacoesSelecionadas(depsSelections);
+      setSitesOptions(sitesSelections);
+      setRateioItens(rateioFromApi);
+
+      if (data.idprojeto && projetoOptions.length) {
+        const opt = projetoOptions.find((o) => String(o.value) === String(data.idprojeto));
+        if (opt) setSelectedProjeto(opt);
       }
     } catch (err) {
       setmensagem(err.message || 'Erro inesperado ao buscar despesas.');
@@ -305,6 +393,9 @@ const Despesasedicao = ({
         await fetchS3Credentials();
 
         const [empresas, veiculos] = await Promise.all([listaempresa(), listaveiculos()]);
+        await listaDespesasFrota();
+        await listaDespesasDepartamento();
+
         if (!mountedRef.current) return;
 
         setempresalista(empresas);
@@ -336,6 +427,34 @@ const Despesasedicao = ({
   }, []);
 
   useEffect(() => {
+    if (!selectedProjeto && projetoOptions.length && iddespesas) {
+      (async () => {
+        try {
+          const { data } = await api.get('v1/despesasid', { params });
+          if (data?.idprojeto) {
+            const opt = projetoOptions.find((o) => String(o.value) === String(data.idprojeto));
+            if (opt) setSelectedProjeto(opt);
+          }
+        } catch {
+          console.log('Erro ao buscar despesa para reconciliar projeto');
+        }
+      })();
+    }
+  }, [projetoOptions]);
+
+  // Seleciona "Frota" como projeto padrão em novos lançamentos
+  useEffect(() => {
+    if (!iddespesas && !selectedProjeto && projetoOptions.length) {
+      const frotaOption = projetoOptions.find(
+        (p) => String(p.label).toLowerCase() === 'frota'
+      );
+      if (frotaOption) {
+        setSelectedProjeto(frotaOption);
+      }
+    }
+  }, [iddespesas, selectedProjeto, projetoOptions]);
+
+  useEffect(() => {
     if (idempresa && empresalista && empresalista.length > 0) {
       const empresaSelecionada = empresalista.find((e) => e.value === idempresa);
       setselectedoptionempresa(empresaSelecionada || null);
@@ -344,8 +463,14 @@ const Despesasedicao = ({
 
   useEffect(() => {
     if (idpessoa && funcionariolista && funcionariolista.length > 0) {
-      const funcionarioSelecionado = funcionariolista.find((f) => f.value === idpessoa);
-      setselectedoptionfuncionario(funcionarioSelecionado || null);
+      const funcionarioSelecionado =
+        funcionariolista.find((f) => f.value === idpessoa || f.id === idpessoa || f.idpessoa === idpessoa) || null;
+      if (funcionarioSelecionado) {
+        setselectedoptionfuncionario({
+          value: funcionarioSelecionado.value ?? funcionarioSelecionado.id ?? funcionarioSelecionado.idpessoa,
+          label: funcionarioSelecionado.label ?? funcionarioSelecionado.nome ?? funcionarioSelecionado.descricao ?? '',
+        });
+      }
     }
   }, [funcionariolista, idpessoa]);
 
@@ -380,12 +505,11 @@ const Despesasedicao = ({
         setmensagem("O campo 'Valor da Parcela' é obrigatório para despesas parceladas.");
         return false;
       }
-      if (parceladoEm < 2) {
+      if (Number(parceladoEm) < 2) {
         setmensagem('O número de parcelas deve ser 2 ou mais.');
         return false;
       }
     }
-
 
     const totalItensRateio = (alocacoesSelecionadas?.length || 0) + (sitesOptions?.length || 0);
 
@@ -408,7 +532,8 @@ const Despesasedicao = ({
       return acc + v;
     }, 0);
     const arred = Math.round(soma * 100) / 100;
-    if (arred !== 100) {
+
+    if (arred !== 100 && !(categoriaDespesa === 'Multas' || isFromMulta)) {
       setmensagem('A soma dos percentuais deve ser igual a 100%.');
       return false;
     }
@@ -430,7 +555,7 @@ const Despesasedicao = ({
     if (!validarCampos()) return;
 
     if (periodicidade !== 'Unica') {
-      const totalParcelas = Math.round(parceladoEm * Number(String(valordaparcela).replace(',', '.')) * 100) / 100;
+      const totalParcelas = Math.round(Number(parceladoEm) * Number(String(valordaparcela).replace(',', '.')) * 100) / 100;
       const totalInformado = Math.round(Number(String(valordespesa).replace(',', '.')) * 100) / 100;
       if (totalInformado !== totalParcelas) {
         setmensagem('Valor da parcela multiplicado pelo número de parcelas não é igual ao valor total.');
@@ -442,36 +567,42 @@ const Despesasedicao = ({
     setmensagemsucesso('');
     setloading(true);
 
+    const idProjetoAtual = selectedProjeto?.value ?? null;
+
     const payloadRateio = rateioItens.map((r) => ({
       tipo: r.tipo,
       iddepartamento: r.tipo === 'DEPARTAMENTO' ? r.iddepartamento : null,
       idsite: r.tipo === 'SITE' ? r.idsite : null,
-      percentual: (categoriaDespesa === 'Multas' || isFromMulta) ? 100 : parseFloat(String(r.percentual).replace(',', '.')) || 0,
+      percentual: categoriaDespesa === 'Multas' || isFromMulta ? 100 : parseFloat(String(r.percentual).replace(',', '.')) || 0,
+      idprojeto: idProjetoAtual,
     }));
 
+    const payload = {
+      iddespesas: ididentificador,
+      datalancamento: datalancamento ?? dataNow,
+      valordespesa,
+      descricao,
+      comprovante,
+      observacao,
+      idveiculo,
+      dataInicio,
+      valordaparcela: moedaParaNumero(valordaparcela),
+      parceladoEm,
+      categoria: isFromMulta ? 'Multas' : categoriaDespesa,
+      periodicidade,
+      idempresa,
+      idpessoa,
+      idmulta,
+      idprojeto: idProjetoAtual,
+      rateio: payloadRateio,
+      despesacadastradapor: localStorage.getItem('sessionNome'),
+      idcliente: 1,
+      idusuario: 1,
+      idloja: 1,
+    };
+
     api
-      .post('v1/despesas', {
-        iddespesas: ididentificador,
-        datalancamento: datalancamento ?? dataNow,
-        valordespesa,
-        descricao,
-        comprovante,
-        observacao,
-        idveiculo,
-        dataInicio,
-        valordaparcela: moedaParaNumero(valordaparcela),
-        parceladoEm,
-        categoria: (isFromMulta ? 'Multas' : categoriaDespesa),
-        periodicidade,
-        idempresa,
-        idpessoa,
-        idmulta,
-        rateio: payloadRateio,
-        despesacadastradapor: localStorage.getItem('sessionNome'),
-        idcliente: 1,
-        idusuario: 1,
-        idloja: 1,
-      })
+      .post('v1/despesas', payload)
       .then(async (response) => {
         if (response.status === 201) {
           setmensagem('');
@@ -487,7 +618,7 @@ const Despesasedicao = ({
         }
       })
       .catch((err) => {
-        if (err.response) {
+        if (err.response?.data?.erro) {
           setmensagem(err.response.data.erro);
         } else {
           setmensagem('Ocorreu um erro na requisição.');
@@ -505,7 +636,7 @@ const Despesasedicao = ({
       setselectedoptionfuncionario({ value: stat.value, label: stat.label });
     } else {
       setidpessoa(0);
-      setselectedoptionfuncionario({ value: null, label: null });
+      setselectedoptionfuncionario(null);
     }
   };
 
@@ -516,7 +647,7 @@ const Despesasedicao = ({
       listafuncionario(stat.value);
     } else {
       setidempresa(0);
-      setselectedoptionempresa({ value: null, label: null });
+      setselectedoptionempresa(null);
     }
   };
 
@@ -591,42 +722,13 @@ const Despesasedicao = ({
     }
   };
 
-  const parseSiteId = (raw) => {
-    const s = String(raw).trim();
-    if (!s) return '';
-    const m = s.match(/^(?:SITE[\s:-]+)?(.+)$/i);
-    return m ? m[1].trim() : '';
-  };
-
-  const addSite = () => {
-    const id = parseSiteId(siteInput);
-    if (!id) return;
-    const value = `SITE:${id}`;
-    const label = `SITE-${id}`;
-    const existsInOptions = sitesOptions.some((o) => o.value === value);
-
-    if (isFromMulta || categoriaDespesa === 'Multas') {
-
-      setAlocacoesSelecionadas([]);
-      setSitesOptions(existsInOptions ? sitesOptions : [{ value, label }]);
-    } else if (!existsInOptions) {
-      setSitesOptions((prev) => [...prev, { value, label }]);
-    }
-    setSiteInput('');
-  };
-
   const removeSiteOption = (value) => {
-    setSitesOptions((prev) => prev.filter((o) => o.value !== value));
+    setSitesOptions((prev) => prev.filter((s) => s.value !== value));
   };
-
-
-  const combinedOptions = useMemo(() => [...regionaisBase], []);
 
   const onChangeAlocacoes = (vals) => {
-
     if (categoriaDespesa === 'Multas' || isFromMulta) {
       const last = Array.isArray(vals) && vals.length ? vals[vals.length - 1] : null;
-
       if (last) setSitesOptions([]);
       setAlocacoesSelecionadas(last ? [last] : []);
     } else {
@@ -634,13 +736,10 @@ const Despesasedicao = ({
     }
   };
 
-
   useEffect(() => {
     setRateioItens((prev) => {
       const prevMap = new Map(prev.map((p) => [p.key, p]));
       let next = [];
-
-
       (alocacoesSelecionadas || []).forEach((opt) => {
         const val = String(opt.value);
         if (val.startsWith('DEP:')) {
@@ -649,13 +748,11 @@ const Despesasedicao = ({
           const found = prevMap.get(key);
           next.push(
             found
-              ? { ...found, tipo: 'DEPARTAMENTO', iddepartamento: depName, label: depName }
-              : { key, tipo: 'DEPARTAMENTO', iddepartamento: depName, idsite: null, label: depName, percentual: '' },
+              ? { ...found, tipo: 'DEPARTAMENTO', iddepartamento: depName, idsite: null, label: depName }
+              : { key, tipo: 'DEPARTAMENTO', iddepartamento: depName, idsite: null, label: depName, percentual: '' }
           );
         }
       });
-
-
       (sitesOptions || []).forEach((opt) => {
         const val = String(opt.value);
         if (val.startsWith('SITE:')) {
@@ -664,18 +761,15 @@ const Despesasedicao = ({
           const found = prevMap.get(key);
           next.push(
             found
-              ? { ...found, tipo: 'SITE', idsite: siteId, label: `SITE-${siteId}` }
-              : { key, tipo: 'SITE', iddepartamento: null, idsite: siteId, label: `SITE-${siteId}`, percentual: '' },
+              ? { ...found, tipo: 'SITE', idsite: siteId, iddepartamento: null, label: `SITE-${siteId}` }
+              : { key, tipo: 'SITE', iddepartamento: null, idsite: siteId, label: `SITE-${siteId}`, percentual: '' }
           );
         }
       });
-
-
       if ((categoriaDespesa === 'Multas' || isFromMulta) && next.length) {
         const first = { ...next[0], percentual: '100' };
         next = [first];
       }
-
       return next;
     });
   }, [alocacoesSelecionadas, sitesOptions, categoriaDespesa, isFromMulta]);
@@ -697,11 +791,9 @@ const Despesasedicao = ({
   };
 
   const removerItemRateio = (key) => {
-
     if (key.startsWith('DEP:')) {
       setAlocacoesSelecionadas((prev) => prev.filter((o) => o.value !== key));
     }
-
     if (key.startsWith('SITE:')) {
       setSitesOptions((prev) => prev.filter((o) => o.value !== key));
     }
@@ -709,31 +801,25 @@ const Despesasedicao = ({
 
   const onChangeCategoria = (e) => {
     const { value } = e.target;
-
     if (value === 'Multas' && !isEditing) {
       setmensagem('Multas não pode ser criado normalmente.');
       return;
     }
-
     if (isFromMulta) {
       setmensagem('Despesa vinculada a multa: a categoria é fixa em "Multas".');
       setCategoriaDespesa('Multas');
       return;
     }
-
     setCategoriaDespesa(value);
-
     if (value === 'Unica') {
       setParceladoEm('1');
       setvalordaparcela(valordespesa);
     }
-
     if (value === 'Multas') {
-
-      const temSite = sitesOptions.length > 0;
-      if (temSite) {
-        setAlocacoesSelecionadas([]);
-      } else if (alocacoesSelecionadas.length > 1) {
+      if (sitesOptions.length > 1) {
+        setSitesOptions((prev) => (prev.length ? [prev[prev.length - 1]] : []));
+      }
+      if (alocacoesSelecionadas.length > 1) {
         const last = alocacoesSelecionadas[alocacoesSelecionadas.length - 1];
         setAlocacoesSelecionadas(last ? [last] : []);
       }
@@ -817,12 +903,6 @@ const Despesasedicao = ({
                     <option value="Multas" disabled={!isEditing && !isFromMulta}>Multas</option>
                     <option value="Outros">OUTROS</option>
                   </Input>
-                  {!isEditing && !isFromMulta && (
-                    <small className="text-muted">Para lançar Multas, não crie manualmente — crie um lançamento de multa.</small>
-                  )}
-                  {isFromMulta && (
-                    <small className="text-muted">Despesa vinculada a multa (categoria fixa).</small>
-                  )}
                 </FormGroup>
               </Col>
 
@@ -862,7 +942,7 @@ const Despesasedicao = ({
                     disabled={periodicidade === 'Unica'}
                     onChange={(e) => {
                       if (valordaparcela) {
-                        const value = e.target.value * (parseFloat(String(valordaparcela).replace(',', '.')) || 0);
+                        const value = Number(e.target.value) * (parseFloat(String(valordaparcela).replace(',', '.')) || 0);
                         setvalordespesa(value ? value.toFixed(2) : '');
                       }
                       setParceladoEm(e.target.value);
@@ -923,9 +1003,8 @@ const Despesasedicao = ({
             <div className="row g-3 mt-2">
               <Col md="12">
                 <FormGroup>
-                  {/* Título ajustado: apenas Departamentos */}
                   Departamentos
-                  <div className="d-flex align-items-end gap-2">
+                  <div className="d-flex align-items-end gap-2 mb-2">
                     <div className="flex-grow-1">
                       <Select
                         inputId="alocacoes-select"
@@ -934,7 +1013,10 @@ const Despesasedicao = ({
                         isClearable
                         isSearchable
                         name="alocacoes"
-                        options={combinedOptions}
+                        options={departamentos.map((dep) => ({
+                          value: `DEP:${dep.nome}`,
+                          label: dep.nome,
+                        }))}
                         placeholder="Selecione departamentos"
                         value={alocacoesSelecionadas}
                         onChange={onChangeAlocacoes}
@@ -944,26 +1026,54 @@ const Despesasedicao = ({
                     </div>
                   </div>
 
-                  <div className="d-flex gap-2 mt-2 align-items-end">
+                  Projeto
+                  <div className="d-flex align-items-end gap-2 mt-2">
                     <div className="flex-grow-1">
-                      Site
-                      <Input
-                        id="site-input"
-                        type="text"
-                        placeholder='Adicionar Site (ex.: "123" ou "SITE-123")'
-                        value={siteInput}
-                        onChange={(e) => setSiteInput(e.target.value)}
+                      <Select
+                        inputId="projeto-select"
+                        instanceId="projeto-select"
+                        isClearable
+                        isSearchable
+                        name="projeto"
+                        options={projetoOptions}
+                        placeholder="Selecione o projeto"
+                        value={selectedProjeto}
+                        onChange={setSelectedProjeto}
                       />
                     </div>
-                    <div>
-                      <Button
-                        color="primary"
-                        onClick={addSite}
-                        style={{ marginTop: 24 }}
-                        disabled={(categoriaDespesa === 'Multas' || isFromMulta) && (alocacoesSelecionadas.length + sitesOptions.length) >= 1}
-                      >
-                        Adicionar Site
-                      </Button>
+                  </div>
+
+                  <div className="d-flex align-items-end gap-2 mt-2">
+                    <div className="flex-grow-1">
+                      Site
+                      <AsyncSelect
+                        inputId="site-select"
+                        instanceId="site-select"
+                        isClearable
+                        isSearchable
+                        isMulti
+                        cacheOptions
+                        defaultOptions
+                        name="site"
+                        loadOptions={loadSites}
+                        placeholder="Selecione ou busque site(s)"
+                        value={sitesOptions}
+                        onChange={(opts) => {
+                          const arr = Array.isArray(opts) ? opts : opts ? [opts] : [];
+                          let normalized = arr.map((opt) => {
+                            const value = String(opt.value).startsWith('SITE:') ? String(opt.value) : `SITE:${opt.value}`;
+                            const label = opt.label.startsWith('SITE-') ? opt.label : `SITE-${opt.label}`;
+                            return { value, label };
+                          });
+                          if (categoriaDespesa === 'Multas' || isFromMulta) {
+                            normalized = normalized.slice(-1);
+                            setAlocacoesSelecionadas([]);
+                          }
+                          setSitesOptions(normalized);
+                        }}
+                        menuPortalTarget={document.body}
+                        styles={menuPortal}
+                      />
                     </div>
                   </div>
 
@@ -1003,7 +1113,7 @@ const Despesasedicao = ({
                             type="number"
                             min="0"
                             step="0.01"
-                            value={(categoriaDespesa === 'Multas' || isFromMulta) ? '100' : item.percentual}
+                            value={categoriaDespesa === 'Multas' || isFromMulta ? '100' : item.percentual}
                             onChange={(e) => handlePercentualChange(item.key, e.target.value)}
                             placeholder="0"
                             disabled={categoriaDespesa === 'Multas' || isFromMulta}
@@ -1026,7 +1136,7 @@ const Despesasedicao = ({
                           <strong>Total</strong>
                         </td>
                         <td>
-                          <strong>{((categoriaDespesa === 'Multas' || isFromMulta) ? 100 : somaPercentuais).toFixed(2)}</strong>
+                          <strong>{(categoriaDespesa === 'Multas' || isFromMulta ? 100 : somaPercentuais).toFixed(2)}</strong>
                         </td>
                         <td></td>
                       </tr>

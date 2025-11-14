@@ -572,22 +572,29 @@ begin
     qry.CachedUpdates := False;
 
     qry.SQL.Clear;
-    qry.SQL.Add('SELECT @rownum := @rownum + 1 AS id, d.* FROM (');
-    qry.SQL.Add('  SELECT DISTINCT ac.idpmts, gp.nome AS descricao, ROUND((g.salario / 30 / 8) * ac.totaldehoras, 2) AS valor, ac.dataacionamento, gu.nome, ''ACIONAMENTO CLT'' AS tipo,    rolloutvivo.ufsigla, ');
-    qry.SQL.Add('rolloutvivo.pmosigla ');
+   qry.SQL.Add('SELECT @rownum := @rownum + 1 AS id, d.* FROM (');
+
+    qry.SQL.Add('  SELECT DISTINCT ac.idpmts, gp.nome AS descricao,');
+    qry.SQL.Add('    ROUND((g.salario / 30 / 8) * ac.totaldehoras, 2) AS valor,');
+    qry.SQL.Add('    ac.dataacionamento, gu.nome, ''ACIONAMENTO CLT'' AS tipo,');
+    qry.SQL.Add('    rolloutvivo.ufsigla, rolloutvivo.pmosigla');
     qry.SQL.Add('  FROM acionamentovivoclt ac');
     qry.SQL.Add('  INNER JOIN gespessoa gp ON gp.idpessoa = ac.idcolaborador');
     qry.SQL.Add('  INNER JOIN gesusuario gu ON gu.idusuario = ac.idfuncionario');
-    qry.SQL.Add('  INNER JOIN gesfolhapagamento g ON REPLACE(REPLACE(REPLACE(gp.cpf, ''.'', ''''), ''-'', ''''), ''/'', '''') = REPLACE(REPLACE(REPLACE(g.cpf, ''.'', ''''), ''-'', ''''), ''/'', '''')  left Join rolloutvivo On rolloutvivo.UIDIDPMTS = ac.idpmts ');
+    qry.SQL.Add('  INNER JOIN gesfolhapagamento g ON REPLACE(REPLACE(REPLACE(gp.cpf, ''.'', ''''), ''-'', ''''), ''/'', '''') = REPLACE(REPLACE(REPLACE(g.cpf, ''.'', ''''), ''-'', ''''), ''/'', '''')');
+    qry.SQL.Add('  LEFT JOIN rolloutvivo ON rolloutvivo.UIDIDPMTS = ac.idpmts');
     qry.SQL.Add('  WHERE ac.deletado = 0');
 
     qry.SQL.Add('  UNION ALL');
 
-    qry.SQL.Add('  SELECT av.idpmts, CONCAT(ge.nome, '' '', lp.CODIGOLPUVIVO) AS descricao, av.valor, av.dataacionamento, gu.nome, ''ACIONAMENTO PJ'' AS tipo, rolloutvivo.ufsigla , rolloutvivo.pmosigla ');
+    qry.SQL.Add('  SELECT av.idpmts, CONCAT(ge.nome, '' '', lp.CODIGOLPUVIVO) AS descricao,');
+    qry.SQL.Add('    lp.VALORPJ AS valor, av.dataacionamento, gu.nome, ''ACIONAMENTO PJ'' AS tipo,');
+    qry.SQL.Add('    rolloutvivo.ufsigla, rolloutvivo.pmosigla');
     qry.SQL.Add('  FROM acionamentovivo av');
     qry.SQL.Add('  INNER JOIN lpuvivo lp ON lp.ID = av.idpacote AND lp.HISTORICO = av.lpu');
     qry.SQL.Add('  INNER JOIN gesempresas ge ON ge.idempresa = av.idcolaborador');
-    qry.SQL.Add('  INNER JOIN gesusuario gu ON gu.idusuario = av.idfuncionario left Join rolloutvivo On rolloutvivo.UIDIDPMTS = av.idpmts ');
+    qry.SQL.Add('  INNER JOIN gesusuario gu ON gu.idusuario = av.idfuncionario');
+    qry.SQL.Add('  LEFT JOIN rolloutvivo ON rolloutvivo.UIDIDPMTS = av.idpmts');
     qry.SQL.Add('  WHERE av.deletado = 0');
 
     qry.SQL.Add('  UNION ALL');
@@ -595,7 +602,8 @@ begin
     qry.SQL.Add('  SELECT rv.UIDIDPMTS AS idpmts, gp.descricao,');
     qry.SQL.Add('    (SELECT gce.valor FROM gescontroleestoque gce');
     qry.SQL.Add('     WHERE gce.idtipomovimentacao = 1 AND gce.idproduto = gsi.idproduto LIMIT 1) AS valor,');
-    qry.SQL.Add('    gs.data AS dataacionamento, gu.nome, ''MATERIAL E SERVIÇO'' AS tipo , rv.UFSIGLA , rv.PMOSIGLA  ');
+    qry.SQL.Add('    gs.data AS dataacionamento, gu.nome, ''MATERIAL E SERVIÇO'' AS tipo,');
+    qry.SQL.Add('    rv.UFSIGLA, rv.PMOSIGLA');
     qry.SQL.Add('  FROM rolloutvivo rv');
     qry.SQL.Add('  INNER JOIN gessolicitacao gs ON gs.obra = rv.UIDIDPMTS');
     qry.SQL.Add('  INNER JOIN gessolicitacaoitens gsi ON gsi.idsolicitacao = gs.idsolicitacao');
@@ -605,6 +613,30 @@ begin
 
     qry.SQL.Add('  UNION ALL');
 
+    qry.SQL.Add('  SELECT');
+    qry.SQL.Add('    acv.idpmts AS idpmts,');
+    qry.SQL.Add('    despesas.descricao AS descricao,');
+    qry.SQL.Add('    despesas.valordespesa *');
+    qry.SQL.Add('    (');
+    qry.SQL.Add('        LEAST((');
+    qry.SQL.Add('            SELECT SUM(r2.percentual)');
+    qry.SQL.Add('            FROM gesdespesas_rateio r2');
+    qry.SQL.Add('            WHERE r2.iddespesas = despesas.idgeral');
+    qry.SQL.Add('        ), 100) / 100');
+    qry.SQL.Add('    ) AS valor,');
+    qry.SQL.Add('    despesas.datalancamento AS dataacionamento,');
+    qry.SQL.Add('    gesempresas.nome,');
+    qry.SQL.Add('    ''CUSTO DE FROTAS'' AS tipo,');
+    qry.SQL.Add('    rolloutvivo.ufsigla, rolloutvivo.pmosigla');
+    qry.SQL.Add('  FROM acionamentovivo acv');
+    qry.SQL.Add('  LEFT JOIN telefonicacontrolet2 ON telefonicacontrolet2.ID = acv.idatividade');
+    qry.SQL.Add('  LEFT JOIN lpuvivo ON lpuvivo.ID = acv.idpacote');
+    qry.SQL.Add('  LEFT JOIN gesempresas ON gesempresas.idempresa = acv.idcolaborador');
+    qry.SQL.Add('  LEFT JOIN rolloutvivo ON rolloutvivo.UIDIDPMTS = acv.idpmts');
+    qry.SQL.Add('  LEFT JOIN gesdespesas despesas ON despesas.idempresa = acv.idcolaborador');
+    qry.SQL.Add('  LEFT JOIN gesdespesas_rateio rateio ON rateio.iddespesas = despesas.idgeral');
+    qry.SQL.Add('  WHERE despesas.categoria = ''Locação''');
+    qry.SQL.Add('  UNION ALL');
     qry.SQL.Add('SELECT');
     qry.SQL.Add('  acionamentovivo.idpmts AS idpmts,');
     qry.SQL.Add('  despesas.descricao AS descricao,');
@@ -648,11 +680,16 @@ begin
     qry.SQL.Add(' WHERE acionamentovivo.deletado = 0');
     qry.SQL.Add('  UNION ALL');
 
-    qry.SQL.Add('  SELECT gd.siteid AS idpmts, gd.descricao, gd.valortotal AS valor, gd.datasolicitacao AS dataacionamento, gd.nomecolaborador AS nome, ''DIARIA'' AS tipo, rolloutvivo.ufsigla , rolloutvivo.pmosigla  ');
-    qry.SQL.Add('  FROM gesdiaria gd left Join rolloutvivo On rolloutvivo.UIDIDPMTS = gd.siteid  ');
+    qry.SQL.Add('  SELECT gd.siteid AS idpmts, gd.descricao, gd.valortotal AS valor,');
+    qry.SQL.Add('    gd.datasolicitacao AS dataacionamento, gd.nomecolaborador AS nome,');
+    qry.SQL.Add('    ''DIARIA'' AS tipo, rolloutvivo.ufsigla, rolloutvivo.pmosigla');
+    qry.SQL.Add('  FROM gesdiaria gd');
+    qry.SQL.Add('  LEFT JOIN rolloutvivo ON rolloutvivo.UIDIDPMTS = gd.siteid');
     qry.SQL.Add('  WHERE gd.projeto = ''TELEFONICA''');
+
     qry.SQL.Add(') AS d');
     qry.SQL.Add('WHERE 1=1');
+
 
     if AQuery.ContainsKey('idpmts') and (Trim(AQuery.Items['idpmts']) <> '') then
     begin
