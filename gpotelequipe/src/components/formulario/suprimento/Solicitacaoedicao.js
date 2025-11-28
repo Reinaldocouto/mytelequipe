@@ -116,6 +116,8 @@ const Solicitacaoedicao = ({
     listasolicatacaoitens();
   };
 
+
+
   //novo cadastro solicitação de itens vai para a tela solicitacaoedicaoitens
   const novocadastro = () => {
     api

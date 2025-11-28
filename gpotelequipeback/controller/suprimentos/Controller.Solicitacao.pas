@@ -39,6 +39,9 @@ procedure Atenderequisicao(Req: THorseRequest; Res: THorseResponse; Next: TProc)
 
 procedure Aprovarrequisicao(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
+// NOVO ENDPOINT (Huawei) – sem alterar Model nem DB:
+procedure HuaweiSolicitacaoMaterialServico(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+
 implementation
 
 procedure Registry;
@@ -59,7 +62,11 @@ begin
 
   THorse.post('v1/solicitacao/novocadastrodiaria', novocadastrodiaria);
   THorse.post('v1/solicitacao/editardiaria', editardiaria);
+
+  // NOVA ROTA (Huawei) – usa somente o que já existe (Model e DB intactos)
+  THorse.post('v1/projetohuawei/solicitacao-material-servico', HuaweiSolicitacaoMaterialServico);
 end;
+
 procedure Aprovarrequisicao(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: Tsolicitacao;
@@ -90,7 +97,6 @@ begin
     servico.Free;
   end;
 end;
-
 
 procedure Atenderequisicao(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -288,7 +294,6 @@ begin
     servicoEmail.Free;
   end;
 end;
-
 
 procedure EditarItens(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -612,6 +617,172 @@ begin
   finally
     qry.Free;
     servico.Free;
+  end;
+end;
+
+// ============================================================================
+// NOVO HANDLER: POST /v1/projetohuawei/solicitacao-material-servico
+// - Não altera Model nem DB
+// - Reusa NovoCadastro, Editar, NovoCadastroItens, EditarItens
+// - Rateia itens igualmente pelos sites
+// - Serializa os sites em JSON e coloca em 'observacao' do cabeçalho
+// ============================================================================
+procedure HuaweiSolicitacaoMaterialServico(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  Body, Ctx, SiteObj, ItemObj: TJSONObject;
+  SitesArr, ItensArr: TJSONArray;
+  Sol: Tsolicitacao;
+  Err: string;
+  IdCliente, IdUsuario, IdLoja: Integer;
+  IdSolic, IdSolicItem: Integer;
+  Projeto, Observacao, DataISO, Origem, ObraOS: string;
+  SiteCount, I, J: Integer;
+  IdProduto: Integer;
+  QtTotal: Double;
+  QtBase4, Resto4, QtStep: Integer;
+  QtDistrib: Double;
+  ObsSites: string;
+begin
+  Body := Req.Body<TJSONObject>;
+  if Body = nil then
+  begin
+    Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', 'Payload inválido')).Status(400);
+    Exit;
+  end;
+
+  // contexto pode vir em "contexto" ou diretamente no root (compatível com seu front)
+  Ctx := Body.GetValue<TJSONObject>('contexto', nil);
+  if Ctx <> nil then
+  begin
+    IdCliente := StrToIntDef(Ctx.GetValue<string>('idcliente', '0'), 0);
+    IdUsuario := StrToIntDef(Ctx.GetValue<string>('idusuario', '0'), 0);
+    IdLoja    := StrToIntDef(Ctx.GetValue<string>('idloja', '0'), 0);
+  end
+  else
+  begin
+    IdCliente := StrToIntDef(Body.GetValue<string>('idcliente', '0'), 0);
+    IdUsuario := StrToIntDef(Body.GetValue<string>('idusuario', '0'), 0);
+    IdLoja    := StrToIntDef(Body.GetValue<string>('idloja', '0'), 0);
+  end;
+
+  IdSolic    := StrToIntDef(Body.GetValue<string>('idsolicitacao', '0'), 0);
+  Projeto    := Body.GetValue<string>('projetousual', Body.GetValue<string>('projeto', 'Huawei'));
+  Observacao := Body.GetValue<string>('observacao', '');
+  DataISO    := Body.GetValue<string>('data', Body.GetValue<string>('currentDate', ''));
+  Origem     := Body.GetValue<string>('origem', 'rollout-huawei');
+
+  SitesArr   := Body.GetValue<TJSONArray>('sites', nil);
+  ItensArr   := Body.GetValue<TJSONArray>('itens', nil);
+
+  if (SitesArr = nil) or (SitesArr.Count = 0) then
+  begin
+    Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', 'Nenhum site informado')).Status(400);
+    Exit;
+  end;
+
+  if (ItensArr = nil) or (ItensArr.Count = 0) then
+  begin
+    Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', 'Nenhum item informado')).Status(400);
+    Exit;
+  end;
+
+  // obra/OS = OS do primeiro site (mantém compatibilidade com seu Editar())
+  ObraOS := '';
+  SiteObj := TJSONObject(SitesArr.Items[0]);
+  if SiteObj <> nil then
+    ObraOS := SiteObj.GetValue<string>('os', '');
+
+  // Serializa os sites sem mexer em schema (guarda no campo observacao)
+  ObsSites := '{"origem":"' + Origem + '","sites":' + SitesArr.ToJSON + '}';
+  if Observacao <> '' then
+    Observacao := Observacao + ' | ' + ObsSites
+  else
+    Observacao := ObsSites;
+
+  Sol := Tsolicitacao.Create;
+  try
+    // Gera número se não veio
+    if IdSolic = 0 then
+    begin
+      if Sol.NovoCadastro(Err) = 0 then
+      begin
+        if Err = '' then Err := 'Falha ao gerar número da solicitação';
+        Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', Err)).Status(500);
+        Exit;
+      end;
+      IdSolic := Sol.idsolicitacao;
+    end;
+
+    // Salva cabeçalho (reuso total do seu fluxo atual)
+    Sol.idusuario       := IdUsuario;
+    Sol.idsolicitacao   := IdSolic;
+    Sol.obra            := ObraOS;
+    Sol.observacao      := Observacao;
+    Sol.datasolicitacao := DataISO;
+    Sol.projeto         := Projeto;
+
+    if not Sol.Editar(Err) then
+    begin
+      if Err = '' then Err := 'Falha ao salvar solicitação';
+      Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', Err)).Status(500);
+      Exit;
+    end;
+
+    // Rateio: divide igualmente por site (com 4 casas decimais)
+    SiteCount := SitesArr.Count;
+
+    for I := 0 to ItensArr.Count - 1 do
+    begin
+      ItemObj  := TJSONObject(ItensArr.Items[I]);
+      IdProduto := ItemObj.GetValue<Integer>('idproduto', 0);
+      // quantidade pode vir string ou number — tratamos como string por segurança
+      QtTotal   := StrToFloatDef(ItemObj.GetValue<string>('quantidade', '0'), 0);
+      if (IdProduto = 0) or (QtTotal <= 0) then
+        Continue;
+
+      // trabalha em 10.000 avos
+      QtBase4 := Trunc((QtTotal / SiteCount) * 10000);
+      Resto4  := Trunc(QtTotal * 10000) - (QtBase4 * SiteCount);
+
+      for J := 0 to SiteCount - 1 do
+      begin
+        QtStep := QtBase4;
+        if J < Resto4 then
+          Inc(QtStep);
+        QtDistrib := QtStep / 10000.0;
+
+        // cria item (ponteiro) e depois edita com produto/quantidade
+        if Sol.NovoCadastroItens(Err) = 0 then
+        begin
+          if Err = '' then Err := 'Falha ao criar item';
+          Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', Err)).Status(500);
+          Exit;
+        end;
+
+        IdSolicItem := Sol.idsolicitacaoitens;
+
+        Sol.idsolicitacaoitens := IdSolicItem;
+        Sol.idsolicitacao      := IdSolic;
+        Sol.idproduto          := IdProduto;
+        Sol.quantidade         := QtDistrib;
+        Sol.idusuario          := IdUsuario;
+
+        if not Sol.EditarItens(Err) then
+        begin
+          if Err = '' then Err := 'Falha ao salvar item';
+          Res.Send<TJSONObject>(TJSONObject.Create.AddPair('erro', Err)).Status(500);
+          Exit;
+        end;
+      end;
+    end;
+
+    Res.Send<TJSONObject>(
+      TJSONObject.Create
+        .AddPair('retorno', TJSONNumber.Create(IdSolic))
+        .AddPair('mensagem', 'Solicitação Huawei processada (rateio por site, sem alterar schema)')
+    ).Status(201);
+  finally
+    Sol.Free;
   end;
 end;
 

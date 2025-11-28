@@ -35,69 +35,49 @@ procedure rollouthuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure EditarEmMassa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 function InserirSeNaoExistirRollout(id: string; obj: TJSONObject): Boolean;
 procedure diaria(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-procedure SalvarAcompanhamentoHuawei (Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
+procedure SalvarAcompanhamentoHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 procedure AdicionarSiteManualHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure VerificarDuplicidadeRolloutHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
-// >>> FALTAVA ESTA DECLARAÇÃO <<<
 procedure SalvarAcessoHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure ExcluirSiteManualHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
 procedure MarcarAvulsoHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure DesmarcarAvulsoHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-
-
 
 implementation
 
 procedure Registry;
 begin
   THorse.Get('v1/projetohuawei', ListarHuawei);
-
   THorse.Get('v1/projetohuaweiid', Listaid);
   THorse.Get('v1/projetohuaweipo', Listapo);
   THorse.Post('v1/projetohuawei/acesso', SalvarAcessoHuawei);
-
   THorse.Post('v1/projetohuawei', Salva);
   THorse.Post('v1/projetohuawei/baixardados', baixardados);
-
   THorse.Put('v1/projetohuawei/:id', AtualizarHuawei);
   THorse.Delete('v1/projetohuawei/:id', Deleta);
-
   THorse.Post('v1/projetohuawei/novocadastro', novocadastro);
-
   THorse.Get('v1/projetohuawei/listaacionamento', Listaacionamento);
   THorse.Post('v1/projetohuawei/acionamentopj', Salvaacionamentopj);
   THorse.Post('v1/projetohuawei/acionamentoclt', Salvaacionamentoclt);
   THorse.Get('v1/projetohuawei/listaacionamentopj', Listaacionamentopj);
   THorse.Get('v1/projetohuawei/listaacionamentoclt', Listaacionamentoclt);
   THorse.Post('v1/projetohuawei/listaatividadepj/salva', Salvaatividadepj);
-
   THorse.Post('v1/projetohuawei/criartarefa', criartarefa);
-
   THorse.Get('v1/rollouthuawei', rollouthuawei);
   THorse.Post('v1/rollouthuawei/editaremmassa', EditarEmMassa);
-
   THorse.get('v1/projetohuawei/diaria', diaria);
-
   THorse.Get('v1/projetohuawei/fechamento', Listafechamento);
   THorse.Get('v1/projetohuawei/consolidado', Listaconsolidado);
   THorse.Get('v1/projetohuawei/ListaDespesas', ListaDespesas);
   THorse.Get('v1/projetohuaweiid/extrato', extratopagamento);
   THorse.Get('v1/projetohuawei/totalacionamento', totalacionamento);
   THorse.Post('v1/projetohuawei/acompanhamento', SalvarAcompanhamentoHuawei);
-
   THorse.Post('v1/rollouthuawei/adicionarmanual', AdicionarSiteManualHuawei);
   THorse.Get('v1/rollouthuawei/verificarduplicidade', VerificarDuplicidadeRolloutHuawei);
   THorse.Post('v1/rollouthuawei/excluirmanual', ExcluirSiteManualHuawei);
-
   THorse.Post('v1/rollouthuawei/marcaravulso', MarcarAvulsoHuawei);
   THorse.Post('v1/rollouthuawei/desmarcaravulso', DesmarcarAvulsoHuawei);
-
-
-
 end;
 
 procedure criartarefa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
@@ -111,7 +91,6 @@ begin
     erro := '';
     try
       body := Req.body<TJSONObject>;
-
       servico.os := body.GetValue<string>('os', '');
       servico.projectno := body.GetValue<string>('projectno', '');
       servico.sitecode := body.GetValue<string>('sitecode', '');
@@ -122,10 +101,8 @@ begin
       servico.itemcode := body.GetValue<string>('itemcode', '');
       servico.vo := body.GetValue<string>('vo', '');
       servico.itemdescription := body.GetValue<string>('itemdescription', '');
-
       try servico.usuario := StrToInt(body.GetValue<string>('usuario', '')) except servico.usuario := 0; end;
-      try servico.qty     := StrToFloat(body.GetValue<string>('qty', ''))    except servico.qty     := 0; end;
-
+      try servico.qty := StrToFloat(body.GetValue<string>('qty', '')) except servico.qty := 0; end;
       if servico.criartarefa(erro) then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.id)).Status(THTTPStatus.Created)
       else
@@ -139,13 +116,11 @@ begin
   end;
 end;
 
-
 procedure Salva(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   huaweiModel: THuawei;
   body: TJSONObject;
   erro: string;
-
   function HasAny(const JO: TJSONObject; const Keys: array of string): Boolean;
   var K: string;
   begin
@@ -153,7 +128,6 @@ var
     for K in Keys do
       if JO.GetValue(K) <> nil then Exit(True);
   end;
-
 const
   PROJ_KEYS: array[0..11] of string = (
     'primaryKey','sitecode','sitename','siteid','poNumber','projectNo',
@@ -178,11 +152,9 @@ begin
         Res.Send<TJSONObject>(CreateJsonObj('erro', 'JSON inválido')).Status(THTTPStatus.BadRequest);
         Exit;
       end;
-
       precisaProjeto := HasAny(body, PROJ_KEYS);
       precisaFisico  := HasAny(body, FISICO_KEYS);
       algoFeito      := False;
-
       if precisaProjeto then
       begin
         if not huaweiModel.InserirHuawei(body, erro) then
@@ -192,7 +164,6 @@ begin
         end;
         algoFeito := True;
       end;
-
       if precisaFisico then
       begin
         if not huaweiModel.InserirHuaweiAcompanhamentoFisico(body, erro) then
@@ -203,7 +174,6 @@ begin
         end;
         algoFeito := True;
       end;
-
       if not algoFeito then
       begin
         Res.Send<TJSONObject>(CreateJsonObj('erro',
@@ -211,9 +181,7 @@ begin
           .Status(THTTPStatus.BadRequest);
         Exit;
       end;
-
       Res.Send<TJSONObject>(CreateJsonObj('retorno', 'OK')).Status(THTTPStatus.Created);
-
     except
       on ex: Exception do
         Res.Send<TJSONObject>(CreateJsonObj('erro', 'Falha ao inserir: ' + ex.Message))
@@ -223,7 +191,6 @@ begin
     huaweiModel.Free;
   end;
 end;
-
 
 procedure Salvaatividadepj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -236,20 +203,16 @@ begin
     erro := '';
     try
       body := Req.body<TJSONObject>;
-
       servico.os := body.GetValue<string>('os', '');
       if StrIsInt(body.GetValue<string>('idcolaboradorpj', '')) then
         servico.idcolaboradorpj := body.GetValue<Integer>('idcolaboradorpj', 0)
       else
         servico.idcolaboradorpj := 0;
-
       servico.po := body.GetValue<string>('selecao', '');
       servico.observacaopj := body.GetValue<string>('observacaopj', '');
       servico.negociadoSN := Ord(body.GetValue<Boolean>('opnegociado', False));
-
       try servico.porcentagempj  := StrToFloat(body.GetValue<string>('porcentagempj', ''))  except servico.porcentagempj  := 0; end;
       try servico.valornegociado := StrToFloat(body.GetValue<string>('valornegociadonum', '')) except servico.valornegociado := 0; end;
-
       if servico.Editaratividadepj(erro) then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.id)).Status(THTTPStatus.Created)
       else
@@ -276,7 +239,6 @@ begin
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
     Exit;
   end;
-
   qry := servico.listaacionamento(Req.Query.Dictionary, erro);
   try
     try
@@ -318,7 +280,6 @@ begin
   end;
 end;
 
-
 procedure Listapo(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: THuawei;
@@ -332,7 +293,6 @@ begin
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
     Exit;
   end;
-
   qry := servico.Listapo(Req.Query.Dictionary, erro);
   try
     try
@@ -383,7 +343,6 @@ begin
   try
     qry := huaweiModel.PesquisarHuaweiPorPrimaryKey(id, erro);
     if (qry = nil) or (erro <> '') then Exit;
-
     try
       qry.Open;
       if qry.IsEmpty then
@@ -410,7 +369,6 @@ begin
   try
     qry := huaweiModel.PesquisarHuaweiPorPrimaryKey(id, erro);
     if (qry = nil) or (erro <> '') then Exit;
-
     try
       qry.Open;
       if qry.IsEmpty then
@@ -425,7 +383,6 @@ begin
     huaweiModel.Free;
   end;
 end;
-
 
 procedure Listaid(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -446,24 +403,16 @@ begin
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
         Exit;
       end;
-
-      // Converte o registro principal para JSON
       obj := qry.ToJSONObject;
-
-      // Lê o acesso_id DIRETO do dataset (evita problemas de chave camelCase)
       acessoId := 0;
       if (qry.FindField('acesso_id') <> nil) and (not qry.FieldByName('acesso_id').IsNull) then
         acessoId := qry.FieldByName('acesso_id').AsInteger;
-
-      // Fallback (se quiser manter a leitura do JSON também)
       if (acessoId = 0) then
       begin
-        obj.TryGetValue<Integer>('acessoId', acessoId);   // camelCase (ToJSONObject)
+        obj.TryGetValue<Integer>('acessoId', acessoId);
         if (acessoId = 0) then
-          obj.TryGetValue<Integer>('acesso_id', acessoId); // snake_case (por garantia)
+          obj.TryGetValue<Integer>('acesso_id', acessoId);
       end;
-
-      // Monta acesso_equipe como ARRAY DE IDs (ex.: [3447, 3480])
       if (acessoId > 0) then
       begin
         equipeQ := servico.ListaEquipeAcesso(acessoId, erro);
@@ -474,11 +423,10 @@ begin
             try
               while not equipeQ.Eof do
               begin
-                // garante que a consulta ListaEquipeAcesso traga a coluna id_pessoa
                 equipeArr.Add(equipeQ.FieldByName('id_pessoa').AsInteger);
                 equipeQ.Next;
               end;
-              obj.AddPair('acesso_equipe', equipeArr); // somente IDs
+              obj.AddPair('acesso_equipe', equipeArr);
             except
               equipeArr.Free;
               raise;
@@ -493,13 +441,10 @@ begin
       end
       else
         obj.AddPair('acesso_equipe', TJSONArray.Create);
-
-      // Envia resposta
       if erro = '' then
         Res.Send<TJSONObject>(obj).Status(THTTPStatus.OK)
       else
         Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
-
     except
       on E: Exception do
       begin
@@ -512,8 +457,6 @@ begin
     servico.Free;
   end;
 end;
-
-
 
 procedure baixardados(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -564,7 +507,6 @@ begin
     Res.Send('ID inválido').Status(THTTPStatus.BadRequest);
     Exit;
   end;
-
   huaweiModel := THuawei.Create;
   try
     if huaweiModel.Deletar(id) then
@@ -622,9 +564,7 @@ begin
           .AddPair('erro', 'body vazio')).Status(THTTPStatus.BadRequest);
         Exit;
       end;
-
       sucesso := servico.EditarEmMassa(body, erro);
-
       if sucesso then
         Res.Send<TJSONObject>(TJSONObject.Create
           .AddPair('sucesso', 'true')
@@ -658,27 +598,22 @@ begin
     try
       body := Req.Body<TJSONObject>;
       erro := '';
-
       if body.TryGetValue<Integer>('idcolaborador', tempInt) then
         servico.idcolaboradorpj := tempInt
       else
         servico.idcolaboradorpj := 0;
-
       if body.TryGetValue<string>('po', tempStr) then
         servico.po := tempStr
       else
         servico.po := '';
-
       if body.TryGetValue<string>('os', tempStr) then
         servico.os := tempStr
       else
         servico.os := '';
-
       if body.TryGetValue<string>('observacao', tempStr) then
         servico.observacaopj := tempStr
       else
         servico.observacaopj := '';
-
       if servico.salvaacionamentoclt(erro) then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.id)).Status(THTTPStatus.Created)
       else
@@ -691,7 +626,6 @@ begin
     servico.Free;
   end;
 end;
-
 
 procedure SalvarAcompanhamentoHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -712,7 +646,6 @@ begin
   end;
 end;
 
-
 procedure Listaacionamentopj(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: THuawei;
@@ -730,7 +663,6 @@ begin
         value := Req.Query.Dictionary.Items[key];
         AQuery.Add(key, value);
       end;
-
       qry := servico.Listaacionamentopj(AQuery, erro);
       if qry <> nil then
         Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
@@ -763,7 +695,6 @@ begin
         value := Req.Query.Dictionary.Items[key];
         AQuery.Add(key, value);
       end;
-
       qry := servico.Listaacionamentoclt(AQuery, erro);
       if qry <> nil then
         Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
@@ -794,7 +725,6 @@ begin
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
     Exit;
   end;
-
   try
     try
       for key in Req.Query.Dictionary.Keys do
@@ -802,7 +732,6 @@ begin
         value := Req.Query.Dictionary.Items[key];
         AQuery.Add(key, value);
       end;
-
       qry := servico.Listafechamento(AQuery, erro);
       if qry <> nil then
         Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
@@ -818,7 +747,6 @@ begin
   end;
 end;
 
-// ======= HANDLER CORRIGIDO =======
 procedure SalvarAcessoHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   Body  : TJSONObject;
@@ -830,9 +758,7 @@ begin
   Body  := nil;
   Model := THuawei.Create;
   FillChar(R, SizeOf(R), 0);
-
   try
-    // ===== ÚNICA MUDANÇA AQUI: parse do JSON a partir da string =====
     Body := TJSONObject.ParseJSONValue(Req.Body) as TJSONObject;
     if Body = nil then
     begin
@@ -841,7 +767,6 @@ begin
          .Send<TJSONObject>(TJSONObject.Create.AddPair('erro', 'JSON inválido'));
       Exit;
     end;
-
     try
       if Model.SalvarAcesso(Body, Err, R) then
       begin
@@ -861,7 +786,6 @@ begin
            .Status(THTTPStatus.BadRequest)
            .Send<TJSONObject>(JResp);
       end;
-
     except
       on E: Exception do
       begin
@@ -873,16 +797,12 @@ begin
            .Send<TJSONObject>(JResp);
       end;
     end;
-
   finally
-    // Agora pode liberar porque você criou o Body com ParseJSONValue
     if Assigned(Body) then
       Body.Free;
     Model.Free;
   end;
 end;
-
-// =================================
 
 procedure Listaconsolidado(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -899,7 +819,6 @@ begin
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
     Exit;
   end;
-
   try
     try
       for key in Req.Query.Dictionary.Keys do
@@ -907,7 +826,6 @@ begin
         value := Req.Query.Dictionary.Items[key];
         AQuery.Add(key, value);
       end;
-
       qry := servico.Listaconsolidado(AQuery, erro);
       if qry <> nil then
         Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
@@ -939,7 +857,6 @@ begin
   end;
   qry := servico.diaria(Req.Query.Dictionary, erro);
   try
-
     try
       arraydados := qry.ToJSONArray();
       if erro = '' then
@@ -956,7 +873,6 @@ begin
   end;
 end;
 
-
 procedure ListaDespesas(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: THuawei;
@@ -972,7 +888,6 @@ begin
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
     Exit;
   end;
-
   try
     try
       for key in Req.Query.Dictionary.Keys do
@@ -980,7 +895,6 @@ begin
         value := Req.Query.Dictionary.Items[key];
         AQuery.Add(key, value);
       end;
-
       qry := servico.ListaDespesas(AQuery, erro);
       if qry <> nil then
         Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
@@ -1011,46 +925,38 @@ begin
     try
       body := Req.Body<TJSONObject>;
       erro := '';
-
       if body.TryGetValue<Integer>('idcolaboradorpj', tmpI) then
         servico.idcolaboradorpj := tmpI
       else if body.TryGetValue<Integer>('idcolaborador', tmpI) then
         servico.idcolaboradorpj := tmpI
       else
         servico.idcolaboradorpj := 0;
-
       if body.TryGetValue<string>('po', tmpS) then
         servico.po := tmpS
       else
         servico.po := '';
-
       if body.TryGetValue<string>('os', tmpS) then
         servico.os := tmpS
       else
         servico.os := '';
-
       if body.TryGetValue<string>('observacao', tmpS) then
         servico.observacaopj := tmpS
       else if body.TryGetValue<string>('observacaopj', tmpS) then
         servico.observacaopj := tmpS
       else
         servico.observacaopj := '';
-
       if body.TryGetValue<Boolean>('opnegociado', tmpB) then
         servico.negociadoSN := Ord(tmpB)
       else if body.TryGetValue<Integer>('negociadoSN', tmpI) then
         servico.negociadoSN := tmpI;
-
       if body.TryGetValue<Double>('porcentagempj', tmpF) then
         servico.porcentagempj := tmpF
       else if body.TryGetValue<string>('porcentagempj', tmpS) then
         servico.porcentagempj := StrToFloatDef(StringReplace(tmpS, ',', '.', [rfReplaceAll]), 0);
-
       if body.TryGetValue<Double>('valornegociadonum', tmpF) then
         servico.valornegociado := tmpF
       else if body.TryGetValue<string>('valornegociadonum', tmpS) then
         servico.valornegociado := StrToFloatDef(StringReplace(tmpS, ',', '.', [rfReplaceAll]), 0);
-
       if servico.salvaacionamentopj(erro) then
         Res.Send<TJSONObject>(CreateJsonObj('retorno', servico.id)).Status(THTTPStatus.Created)
       else
@@ -1079,7 +985,6 @@ begin
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
     Exit;
   end;
-
   try
     try
       for key in Req.Query.Dictionary.Keys do
@@ -1087,7 +992,6 @@ begin
         value := Req.Query.Dictionary.Items[key];
         AQuery.Add(key, value);
       end;
-
       qry := servico.extratopagamento(AQuery, erro);
       if qry <> nil then
         Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
@@ -1116,13 +1020,11 @@ begin
   try
     try
       servico := THuawei.Create;
-
       for key in Req.Query.Dictionary.Keys do
       begin
         value := Req.Query.Dictionary.Items[key];
         AQuery.Add(key, value);
       end;
-
       qry := servico.totalacionamento(AQuery, erro);
       if qry <> nil then
         Res.Send<TJSONArray>(qry.ToJSONArray()).Status(THTTPStatus.OK)
@@ -1140,58 +1042,131 @@ begin
   end;
 end;
 
+{ *** ADIÇÃO MÍNIMA: normalização de datas para aceitar 'dd/MM/yyyy' ou ISO e até 'yyyy' *** }
+function NormalizeSqlDate(const S: string): string;
+var
+  D: TDateTime;
+  FS: TFormatSettings;
+  STrim: string;
+  Y: Integer;
+begin
+  Result := '';
+  STrim := Trim(S);
+  if STrim = '' then Exit;
+
+  FS := TFormatSettings.Create;
+  FS.DateSeparator := '/';
+  FS.ShortDateFormat := 'dd/MM/yyyy';
+
+  if TryStrToDate(STRim, D, FS) then
+    Exit(FormatDateTime('yyyy-mm-dd', D));
+
+  if TryISO8601ToDate(STRim, D) then
+    Exit(FormatDateTime('yyyy-mm-dd', D));
+
+  if (Length(STRim) = 4) and TryStrToInt(STRim, Y) then
+    Exit(Format('%d-01-01', [Y]));
+end;
 
 procedure AdicionarSiteManualHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico: THuawei;
-  body: TJSONValue;
+  body: TJSONObject;
   erro: string;
-  retorno: Boolean;
   jsonResponse: TJSONObject;
-begin
-  try
-    servico := THuawei.Create;
-  except
-    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
-    Exit;
+  rawFech: string; { <-- adição mínima }
+
+  function GetStr(const JO: TJSONObject; const Keys: array of string; const Def: string = ''): string;
+  var
+    k: string;
+    V: TJSONValue;
+  begin
+    Result := Def;
+    if JO = nil then Exit;
+    for k in Keys do
+    begin
+      V := JO.Values[k];
+      if (V <> nil) and (not V.Null) then
+        Exit(V.Value);
+    end;
   end;
 
+  function GetInt(const JO: TJSONObject; const Keys: array of string; const Def: Integer = 0): Integer;
+  var
+    s: string;
+  begin
+    s := GetStr(JO, Keys, '');
+    Result := StrToIntDef(s, Def);
+  end;
+
+  function IsEmpty(const S: string): Boolean;
+  begin
+    Result := Trim(S) = '';
+  end;
+
+begin
+  servico := THuawei.Create;
   body := nil;
   try
-    body := TJSONObject.ParseJSONValue(TEncoding.UTF8.GetBytes(Req.Body), 0);
+    body := TJSONObject.ParseJSONValue(Req.Body) as TJSONObject;
     if body = nil then
     begin
       Res.Send<TJSONObject>(CreateJsonObj('erro', 'JSON inválido')).Status(THTTPStatus.BadRequest);
       Exit;
     end;
 
-    // Mapeamento dos campos recebidos do frontend
-    servico.uididpmts       := body.GetValue<string>('uididpmts', '');
-    servico.ufsigla         := body.GetValue<string>('ufsigla', '');
-    servico.uididcpomrf     := body.GetValue<string>('uididcpomrf', '');
-    servico.pmouf           := body.GetValue<string>('pmouf', '');
-    servico.pmoregional     := body.GetValue<string>('pmoregional', '');
-    servico.idvivo          := body.GetValue<string>('idVivo', '');
-    servico.infra           := body.GetValue<string>('infra', '');
-    servico.detentora       := body.GetValue<string>('detentora', '');
-    servico.iddetentora     := body.GetValue<string>('idDetentora', '');
-    servico.fcu             := body.GetValue<string>('fcu', '');
-    servico.rsorsascistatus := body.GetValue<string>('rsoRsaSciStatus', '');
-    servico.usuario         := body.GetValue<Integer>('idusuario', 0);
-    servico.empresa         := 'Huawei';
-    servico.origem          := 'Manual';
+    servico.name                 := GetStr(body, ['Name', 'name'], '');
+    servico.projeto              := GetStr(body, ['Projeto', 'projeto'], '');
+    servico.endSite              := GetStr(body, ['End_Site', 'endSite'], '');
+    servico.du                   := GetStr(body, ['DU', 'du'], '');
+    servico.statusGeral          := GetStr(body, ['Status_geral', 'statusGeral'], '');
+    servico.liderResponsavel     := GetStr(body, ['Lider_responsavel', 'liderResponsavel'], '');
+    servico.empresa              := GetStr(body, ['Empresa', 'empresa'], '');
+    servico.ativoNoPeriodo       := GetStr(body, ['Ativo_no_periodo', 'ativoNoPeriodo'], '');
 
-    retorno := servico.adicionarsitemanual(erro);
+    rawFech                      := GetStr(body, ['Fechamento', 'fechamento'], '');
+    servico.fechamento           := NormalizeSqlDate(rawFech); { <-- adição mínima }
 
-    if retorno then
+    servico.anoSemanaFechamento  := GetStr(body, ['Ano_Semana_Fechamento', 'anoSemanaFechamento'], '');
+    servico.pmoregional          := GetStr(body, ['Reg', 'reg'], '');
+    servico.infra                := GetStr(body, ['Infra', 'infra'], '');
+    servico.detentora            := GetStr(body, ['Detentora', 'detentora'], '');
+    servico.iddetentora          := GetStr(body, ['ID_Dententora', 'idDetentora', 'idloja'], '');
+    servico.fcu                  := GetStr(body, ['Forma_de_acesso', 'formaDeAcesso'], '');
+    servico.sitecode             := GetStr(body, ['Site_Code', 'siteCode', 'End_Site', 'endSite'], '');
+    servico.sitename             := GetStr(body, ['Site_Name', 'siteName', 'Name', 'name'], '');
+    servico.siteid               := GetStr(body, ['Site_ID', 'siteId', 'DU', 'du'], '');
+    servico.origem               := GetStr(body, ['origem'], 'Manual');
+    servico.usuario              := GetInt(body, ['Ultima_Pessoa_Atualizacao', 'idusuario'], 0);
+    servico.avulso               := GetInt(body, ['avulso'], 0);
+    servico.deletado             := 0;
+
+    if IsEmpty(servico.sitecode) then
+    begin
+      Res.Send<TJSONObject>(CreateJsonObj('erro', 'Site_Code obrigatório')).Status(THTTPStatus.BadRequest);
+      Exit;
+    end;
+
+    { validação amigável para Fechamento informado em formato inesperado }
+    if (rawFech <> '') and (servico.fechamento = '') then
+    begin
+      Res.Send<TJSONObject>(CreateJsonObj('erro',
+        'Fechamento inválido. Use dd/mm/yyyy (ex.: 01/03/2026) ou yyyy-mm-dd.')).Status(THTTPStatus.BadRequest);
+      Exit;
+    end;
+
+    if servico.adicionarsitemanual(erro) then
     begin
       jsonResponse := TJSONObject.Create;
-      jsonResponse.AddPair('sucesso', 'Site adicionado com sucesso');
-      jsonResponse.AddPair('id', TJSONNumber.Create(servico.id));
-      jsonResponse.AddPair('idgeral', TJSONNumber.Create(servico.id));
-      jsonResponse.AddPair('origem', 'Manual');
-      jsonResponse.AddPair('avulso', TJSONNumber.Create(1));
-      Res.Send<TJSONObject>(jsonResponse).Status(THTTPStatus.Created);
+      try
+        jsonResponse.AddPair('mensagem', 'Site adicionado com sucesso');
+        jsonResponse.AddPair('id', servico.id);
+        jsonResponse.AddPair('Site_Code', servico.sitecode);
+        Res.Send<TJSONObject>(jsonResponse).Status(THTTPStatus.OK);
+      except
+        jsonResponse.Free;
+        raise;
+      end;
     end
     else
       Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
@@ -1201,10 +1176,9 @@ begin
       Res.Send<TJSONObject>(CreateJsonObj('erro', E.Message)).Status(THTTPStatus.InternalServerError);
   end;
 
+  if Assigned(body) then body.Free;
   servico.Free;
-  body.Free;
 end;
-
 
 procedure VerificarDuplicidadeRolloutHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -1219,8 +1193,6 @@ begin
     Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
     exit;
   end;
-
-  // Espera parâmetros (ex.: uididpmts, uididcpomrf) em Req.Query (mesmo padrão da Telefonica)
   qry := servico.verificarduplicidaderollout(Req.Query.Dictionary, erro);
   try
     try
@@ -1239,7 +1211,6 @@ begin
   end;
 end;
 
-
 procedure ExcluirSiteManualHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   servico   : THuawei;
@@ -1254,14 +1225,9 @@ var
 begin
   servico := nil;
   bodyObj := nil;
-
   try
     servico := THuawei.Create;
-
-    // Body pode estar vazio
     bodyObj := TJSONObject.ParseJSONValue(Req.Body) as TJSONObject;
-
-    // --------- ID (prioriza idgeral; depois id) ---------
     idStr := '';
     if Assigned(bodyObj) then
     begin
@@ -1274,8 +1240,6 @@ begin
       else if bodyObj.TryGetValue<string>('id', tmpS) then
         idStr := tmpS;
     end;
-
-    // fallback: querystring (usa .AsString para evitar E2010)
     if idStr = '' then
     begin
       if Req.Query.Field('idgeral') <> nil then
@@ -1283,8 +1247,6 @@ begin
       if (idStr = '') and (Req.Query.Field('id') <> nil) then
         idStr := Req.Query.Field('id').AsString;
     end;
-
-    // --------- USUÁRIO (idusuario) ---------
     usrStr := '';
     if Assigned(bodyObj) then
     begin
@@ -1293,32 +1255,24 @@ begin
       else if bodyObj.TryGetValue<string>('idusuario', tmpS) then
         usrStr := tmpS;
     end;
-
     if usrStr = '' then
       if Req.Query.Field('idusuario') <> nil then
         usrStr := Req.Query.Field('idusuario').AsString;
-
     usuarioId := StrToIntDef(usrStr, 0);
-
-    // --------- validações ---------
     if idStr = '' then
     begin
       Res.Status(THTTPStatus.BadRequest)
          .Send<TJSONObject>(CreateJsonObj('erro', 'Informe idgeral ou id'));
       Exit;
     end;
-
     if usuarioId <= 0 then
     begin
       Res.Status(THTTPStatus.BadRequest)
          .Send<TJSONObject>(CreateJsonObj('erro', 'Informe idusuario'));
       Exit;
     end;
-
-    // executa soft delete por idgeral (no model você já aceita idgeral)
     servico.usuario := usuarioId;
     ok := servico.excluirsitemanual(idStr, erro);
-
     if ok then
     begin
       Res.Status(THTTPStatus.OK)
@@ -1339,7 +1293,6 @@ begin
              .AddPair('erro', erro)
          );
     end;
-
   except
     on E: Exception do
     begin
@@ -1351,7 +1304,6 @@ begin
          );
     end;
   end;
-
   if Assigned(bodyObj) then
     bodyObj.Free;
   if Assigned(servico) then
@@ -1372,8 +1324,6 @@ begin
   bodyObj := nil;
   try
     servico := THuawei.Create;
-
-    // Faz parse do JSON recebido
     bodyObj := TJSONObject.ParseJSONValue(Req.Body) as TJSONObject;
     if not Assigned(bodyObj) then
     begin
@@ -1381,48 +1331,39 @@ begin
          .Send<TJSONObject>(CreateJsonObj('erro', 'JSON inválido ou vazio'));
       Exit;
     end;
-
-    // Lê campos
     idsStr := bodyObj.GetValue<string>('ids', '');
     usrStr := bodyObj.GetValue<string>('idusuario', '');
     usuarioId := StrToIntDef(usrStr, 0);
-
     if (idsStr = '') then
     begin
       Res.Status(THTTPStatus.BadRequest)
          .Send<TJSONObject>(CreateJsonObj('erro', 'Informe o campo "ids" (ex: "1,2,3")'));
       Exit;
     end;
-
     if (usuarioId <= 0) then
     begin
       Res.Status(THTTPStatus.BadRequest)
          .Send<TJSONObject>(CreateJsonObj('erro', 'Informe um idusuario válido'));
       Exit;
     end;
-
     servico.usuario := usuarioId;
     ok := servico.marcarComoAvulso(idsStr, erro);
-
     if ok then
       Res.Status(THTTPStatus.OK)
          .Send<TJSONObject>(CreateJsonObj('sucesso', 'Registros marcados como avulso'))
     else
       Res.Status(THTTPStatus.BadRequest)
          .Send<TJSONObject>(CreateJsonObj('erro', erro));
-
   except
     on E: Exception do
       Res.Status(THTTPStatus.InternalServerError)
          .Send<TJSONObject>(CreateJsonObj('erro', E.Message));
   end;
-
   if Assigned(bodyObj) then
     bodyObj.Free;
   if Assigned(servico) then
     servico.Free;
 end;
-
 
 procedure DesmarcarAvulsoHuawei(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -1438,8 +1379,6 @@ begin
   bodyObj := nil;
   try
     servico := THuawei.Create;
-
-    // Faz parse do JSON recebido
     bodyObj := TJSONObject.ParseJSONValue(Req.Body) as TJSONObject;
     if not Assigned(bodyObj) then
     begin
@@ -1447,50 +1386,39 @@ begin
          .Send<TJSONObject>(CreateJsonObj('erro', 'JSON inválido ou vazio'));
       Exit;
     end;
-
-    // Lê campos
     idsStr := bodyObj.GetValue<string>('ids', '');
     usrStr := bodyObj.GetValue<string>('idusuario', '');
     usuarioId := StrToIntDef(usrStr, 0);
-
     if (idsStr = '') then
     begin
       Res.Status(THTTPStatus.BadRequest)
          .Send<TJSONObject>(CreateJsonObj('erro', 'Informe o campo "ids" (ex: "1,2,3")'));
       Exit;
     end;
-
     if (usuarioId <= 0) then
     begin
       Res.Status(THTTPStatus.BadRequest)
          .Send<TJSONObject>(CreateJsonObj('erro', 'Informe um idusuario válido'));
       Exit;
     end;
-
     servico.usuario := usuarioId;
     ok := servico.desmarcarComoAvulso(idsStr, erro);
-
     if ok then
       Res.Status(THTTPStatus.OK)
          .Send<TJSONObject>(CreateJsonObj('sucesso', 'Registros desmarcados como avulso'))
     else
       Res.Status(THTTPStatus.BadRequest)
          .Send<TJSONObject>(CreateJsonObj('erro', erro));
-
   except
     on E: Exception do
       Res.Status(THTTPStatus.InternalServerError)
          .Send<TJSONObject>(CreateJsonObj('erro', E.Message));
   end;
-
   if Assigned(bodyObj) then
     bodyObj.Free;
   if Assigned(servico) then
     servico.Free;
 end;
 
-
-
 end.
-
 

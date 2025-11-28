@@ -599,7 +599,7 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
       setemailadcional(data.emailadcional || '');
       setaceitacao(data.aceitacaofical || '');
       setpendencia(data.pendenciasobra || '');
-      setTimeout(() => {}, 3000);
+      setTimeout(() => { }, 3000);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -1701,10 +1701,10 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
           porcentagem === null || porcentagem === 0
             ? grey[350]
             : porcentagem > 0 && porcentagem < 1
-            ? yellow[500]
-            : porcentagem >= 1
-            ? green[500]
-            : undefined;
+              ? yellow[500]
+              : porcentagem >= 1
+                ? green[500]
+                : undefined;
 
         return <PaidIcon style={{ color }} />;
       },

@@ -5,7 +5,7 @@ interface
 uses
   System.Generics.Defaults, Horse, FireDAC.Comp.Client, Data.DB, System.SysUtils, model.connection, ComObj,
   System.StrUtils, FireDAC.DApt, System.Generics.Collections, UtFuncao, FireDAC.Stan.Option,
-  System.Variants,                             Winapi.Windows, System.TypInfo,
+  System.Variants, Winapi.Windows, System.TypInfo,
   FireDAC.Stan.Param, DateUtils, System.JSON, System.Classes, Model.Email;
 
 type
@@ -50,7 +50,18 @@ type
     Frsorsascistatus: string;
     Forigem: string;
     Fempresa: string;
-
+    Fname: string;
+    Fprojeto: string;
+    FendSite: string;
+    Fdu: string;
+    FstatusGeral: string;
+    FliderResponsavel: string;
+    FativoNoPeriodo: string;
+    Ffechamento: string;
+    FanoSemanaFechamento: string;
+    FcriadoPor: string;
+    FAvulso: Integer;
+    FDeletado: Integer;
   public
     constructor Create;
     destructor Destroy; override;
@@ -89,6 +100,18 @@ type
     property rsorsascistatus: string read Frsorsascistatus write Frsorsascistatus;
     property origem: string read Forigem write Forigem;
     property empresa: string read Fempresa write Fempresa;
+    property name: string read Fname write Fname;
+    property projeto: string read Fprojeto write Fprojeto;
+    property endSite: string read FendSite write FendSite;
+    property du: string read Fdu write Fdu;
+    property statusGeral: string read FstatusGeral write FstatusGeral;
+    property liderResponsavel: string read FliderResponsavel write FliderResponsavel;
+    property ativoNoPeriodo: string read FativoNoPeriodo write FativoNoPeriodo;
+    property fechamento: string read Ffechamento write Ffechamento;
+    property anoSemanaFechamento: string read FanoSemanaFechamento write FanoSemanaFechamento;
+    property criadoPor: string read FcriadoPor write FcriadoPor;
+    property avulso: Integer read FAvulso write FAvulso;
+    property deletado: Integer read FDeletado write FDeletado;
 
     function InserirHuawei(obj: TJSONObject; out erro: string): boolean;
     function Editar(out erro: string): Boolean;
@@ -132,6 +155,8 @@ implementation
 constructor THuawei.Create;
 begin
   FConn := TConnection.CreateConnection;
+  FAvulso := 1;
+  FDeletado := 0;
 end;
 
 destructor THuawei.Destroy;
@@ -140,7 +165,6 @@ begin
     FConn.Free;
   inherited;
 end;
-
 
 function THuawei.InserirHuawei(obj: TJSONObject; out erro: string): boolean;
 var
@@ -237,7 +261,6 @@ begin
   Q.Free;
 end;
 
-
 procedure DumpQueryParams(const Q: TFDQuery);
 var
   i: Integer;
@@ -245,7 +268,6 @@ var
 begin
   OutputDebugString(PChar('--- SQL ---'));
   OutputDebugString(PChar(Q.SQL.Text));
-
   OutputDebugString(PChar('--- PARAMS ---'));
   for i := 0 to Q.Params.Count - 1 do
   begin
@@ -255,7 +277,6 @@ begin
        GetEnumName(TypeInfo(TFieldType), Ord(Q.Params[i].DataType))]);
     OutputDebugString(PChar(s));
   end;
-
   resolved := Q.SQL.Text;
   for i := 0 to Q.Params.Count - 1 do
     resolved := StringReplace(
@@ -264,12 +285,10 @@ begin
       QuotedStr(Q.Params[i].AsString),
       [rfReplaceAll, rfIgnoreCase]
     );
-
   OutputDebugString(PChar('--- RESOLVED (debug only) ---'));
   OutputDebugString(PChar(resolved));
   OutputDebugString(PChar('-----------------------------'));
 end;
-
 
 function THuawei.InserirHuaweiAcompanhamentoFisico(obj: TJSONObject; out erro: string): boolean;
 var
@@ -410,8 +429,6 @@ begin
   end;
 end;
 
-
-
 function THuawei.Editar(out erro: string): Boolean;
 var
   Q: TFDQuery;
@@ -459,7 +476,6 @@ begin
     Q.Free;
   end;
 end;
-
 
 function THuawei.ListarHuawei(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
@@ -760,8 +776,6 @@ begin
   end;
 end;
 
-
-
 function THuawei.Listapo(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 begin
   Result := nil;
@@ -875,7 +889,6 @@ begin
   erro := 'Implementação pendente';
 end;
 
-
 function THuawei.RolloutHuawei(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry, qcfg: TFDQuery;
@@ -894,16 +907,22 @@ begin
     try
       qcfg.Connection := FConn;
       qcfg.SQL.Text := 'SET SESSION group_concat_max_len = 1048576';
-      try qcfg.ExecSQL; except end;
+      try
+        qcfg.ExecSQL;
+      except
+      end;
     finally
       qcfg.Free;
     end;
 
     hasBusca := AQuery.TryGetValue('busca', vBusca) and (Trim(vBusca) <> '');
-    hasId    := AQuery.TryGetValue('id', vId) and (Trim(vId) <> '');
+    hasId := AQuery.TryGetValue('id', vId) and (Trim(vId) <> '');
 
-    if not AQuery.TryGetValue('limit',  vLimit)  then vLimit  := '100';
-    if not AQuery.TryGetValue('offset', vOffset) then vOffset := '0';
+    if not AQuery.TryGetValue('limit', vLimit) then
+      vLimit := '100';
+    if not AQuery.TryGetValue('offset', vOffset) then
+      vOffset := '0';
+
     limite := StrToIntDef(Trim(vLimit), 100);
     desloc := StrToIntDef(Trim(vOffset), 0);
 
@@ -917,6 +936,7 @@ begin
       qry.SQL.Add('  DATE_FORMAT(r.Ultima_atualizacao, ''%Y-%m-%d %H:%i:%s'') AS ultimaAtualizacao,');
       qry.SQL.Add('  ph.id                               AS projetoid,');
       qry.SQL.Add('  ph.primaryKey                       AS primarykey,');
+      qry.SQL.Add('  ph.os                               AS os,');
       qry.SQL.Add('  pha.id                              AS idprojeto,');
       qry.SQL.Add('  pha.tipo_infra                      AS tipoinfra,');
       qry.SQL.Add('  pha.quadrante                       AS quadrante,');
@@ -992,7 +1012,8 @@ begin
 
       if hasId then
         qry.ParamByName('p_id').AsString := Trim(vId);
-      qry.ParamByName('p_limit').AsInteger  := limite;
+
+      qry.ParamByName('p_limit').AsInteger := limite;
       qry.ParamByName('p_offset').AsInteger := desloc;
     end
     else
@@ -1003,6 +1024,7 @@ begin
       qry.SQL.Add('  DATE_FORMAT(r.Ultima_atualizacao, ''%Y-%m-%d %H:%i:%s'') AS ultimaAtualizacao,');
       qry.SQL.Add('  ph.id                               AS projetoid,');
       qry.SQL.Add('  ph.primaryKey                       AS primarykey,');
+      qry.SQL.Add('  ph.os                               AS os,');
       qry.SQL.Add('  pha.id                              AS idprojeto,');
       qry.SQL.Add('  pha.tipo_infra                      AS tipoinfra,');
       qry.SQL.Add('  pha.quadrante                       AS quadrante,');
@@ -1068,11 +1090,13 @@ begin
       qry.SQL.Add(') eq ON eq.id_acesso = pha.id');
       qry.SQL.Add('WHERE 1=1');
       qry.SQL.Add('  AND (r.deletado IS NULL OR r.deletado <> 1)');
+
       if hasId then
       begin
         qry.SQL.Add('  AND r.id = :p_id');
         qry.ParamByName('p_id').AsString := Trim(vId);
       end;
+
       vBusca := '%' + Trim(vBusca) + '%';
       qry.SQL.Add('  AND (');
       qry.SQL.Add('       r.name LIKE :busca');
@@ -1085,7 +1109,7 @@ begin
       qry.ParamByName('busca').AsString := vBusca;
       qry.SQL.Add('ORDER BY r.idgeral DESC');
       qry.SQL.Add('LIMIT :p_limit OFFSET :p_offset');
-      qry.ParamByName('p_limit').AsInteger  := limite;
+      qry.ParamByName('p_limit').AsInteger := limite;
       qry.ParamByName('p_offset').AsInteger := desloc;
     end;
 
@@ -1145,7 +1169,6 @@ begin
     end;
   end;
 end;
-
 
 function THuawei.EditarEmMassa(const AJsonBody: string; out erro: string): Boolean;
 type
@@ -1340,7 +1363,7 @@ var
   begin
     QBuscaProjeto.Close;
     QBuscaProjeto.ParamByName('pk').AsString := '%' + Trim(IdLike) + '%';
-    QBuscaProjeto.Open;
+    QBuscaProjeto.Open();
     if QBuscaProjeto.IsEmpty then Exit;
     IdProjeto := QBuscaProjeto.FieldByName('id').AsString;
     UpsertAcesso(IdProjeto, Row);
@@ -1450,7 +1473,6 @@ begin
     Root.Free;
   end;
 end;
-
 
 function THuawei.ListaEquipeAcesso(const idAcesso: Integer; out erro: string): TFDQuery;
 var
@@ -1717,7 +1739,6 @@ begin
   end;
 end;
 
-
 function THuawei.InserirHuaweiRollout(obj: TJSONObject; out erro: string): boolean;
 begin
   Result := False;
@@ -1760,109 +1781,124 @@ begin
   erro := 'Implementação pendente';
 end;
 
-
-// [2] ADICIONE as implementações na implementation do Model.Huawei
-
-function THuawei.verificarduplicidaderollout(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+function THuawei.verificarduplicidaderollout(
+  const AQuery: TDictionary<string, string>;
+  out erro: string
+): TFDQuery;
 var
   qry: TFDQuery;
-  pk: string;
+  vName, vProjeto, vDu: string;
 begin
   Result := nil;
   erro := '';
-  try
-    qry := TFDQuery.Create(nil);
-    qry.Connection := FConn;
 
-    qry.SQL.Clear;
-    qry.SQL.Add('SELECT COUNT(*) AS total FROM rollouthuawei WHERE 1=1');
-
-    if AQuery.TryGetValue('uididpmts', pk) and (Trim(pk) <> '') then
-    begin
-      qry.SQL.Add('  AND primarykey = :pk');
-      qry.ParamByName('pk').AsString := Trim(pk);
-    end;
-
-    qry.Open;
-    Result := qry;
-  except
-    on E: Exception do
-    begin
-      erro := E.Message;
-      if Assigned(qry) then qry.Free;
-    end;
+  // exige os três campos para uma checagem consistente
+  if not (AQuery.TryGetValue('name', vName) and (Trim(vName) <> '')) then
+  begin
+    erro := 'Parâmetro "name" não informado.';
+    Exit;
   end;
-end;
-
-function THuawei.adicionarsitemanual(out erro: string): Boolean;
-var
-  qry: TFDQuery;
-  vPrimaryKey, vReg, vSiteCode, vSiteName, vSiteId: string;
-begin
-  Result := False;
-  erro := '';
-
-  vPrimaryKey := uididpmts;
-  vReg        := pmoregional;
-  vSiteCode   := uididpmts;
-  vSiteName   := ufsigla;
-  vSiteId     := idvivo;
+  if not (AQuery.TryGetValue('projeto', vProjeto) and (Trim(vProjeto) <> '')) then
+  begin
+    erro := 'Parâmetro "projeto" não informado.';
+    Exit;
+  end;
+  if not (AQuery.TryGetValue('du', vDu) and (Trim(vDu) <> '')) then
+  begin
+    erro := 'Parâmetro "du" não informado.';
+    Exit;
+  end;
 
   qry := TFDQuery.Create(nil);
   try
     qry.Connection := FConn;
+
+    // Normaliza comparação (TRIM/UPPER) e ignora deletados
     qry.SQL.Text :=
-      'INSERT INTO rollouthuawei (' +
-      '  primarykey, Empresa, Reg, Infra, Detentora, ID_Dententora, Forma_de_acesso, ' +
-      '  Site_Code, Site_Name, Site_ID, origem, criado_em, Ultima_atualizacao, Ultima_Pessoa_Atualizacao, avulso, deletado' +
-      ') VALUES (' +
-      '  :primarykey, :empresa, :reg, :infra, :detentora, :id_detentora, :forma_acesso, ' +
-      '  :site_code, :site_name, :site_id, :origem, NOW(), NOW(), :usr, :avulso, :deletado' +
-      ')';
+      'SELECT COUNT(*) AS total ' +
+      'FROM rollouthuawei r ' +
+      'WHERE (r.deletado IS NULL OR r.deletado <> 1) ' +
+      '  AND TRIM(UPPER(r.Name)) = TRIM(UPPER(:name)) ' +
+      '  AND TRIM(UPPER(r.Projeto)) = TRIM(UPPER(:projeto)) ' +
+      '  AND TRIM(UPPER(r.DU)) = TRIM(UPPER(:du))';
 
-    qry.ParamByName('primarykey').AsString   := vPrimaryKey;
-    qry.ParamByName('empresa').AsString      := empresa;
-    qry.ParamByName('reg').AsString          := vReg;
-    qry.ParamByName('infra').AsString        := infra;
-    qry.ParamByName('detentora').AsString    := detentora;
-    qry.ParamByName('id_detentora').AsString := iddetentora;
-    qry.ParamByName('forma_acesso').AsString := fcu;
-    qry.ParamByName('site_code').AsString    := vSiteCode;
-    qry.ParamByName('site_name').AsString    := vSiteName;
-    qry.ParamByName('site_id').AsString      := vSiteId;
-    qry.ParamByName('origem').AsString       := origem;      // 'Manual'
-    qry.ParamByName('usr').AsString          := IntToStr(usuario);
-    qry.ParamByName('avulso').AsInteger      := 1;
-    qry.ParamByName('deletado').AsInteger    := 0;
+    qry.ParamByName('name').AsString    := Trim(vName);
+    qry.ParamByName('projeto').AsString := Trim(vProjeto);
+    qry.ParamByName('du').AsString      := Trim(vDu);
 
-    try
-      FConn.StartTransaction;
-
-      qry.ExecSQL;
-
-      qry.SQL.Text := 'SELECT LAST_INSERT_ID() AS idgeral';
-      qry.Open;
-
-      if not qry.FieldByName('idgeral').IsNull then
-        Self.id := qry.FieldByName('idgeral').AsString
-      else
-        Self.id := '0';
-
-      FConn.Commit;
-      Result := True;
-    except
-      on E: Exception do
-      begin
-        FConn.Rollback;
-        erro := E.Message;
-        Result := False;
-      end;
+    qry.Open;
+    Result := qry; // o chamador é responsável por liberar
+  except
+    on E: Exception do
+    begin
+      erro := 'Erro ao verificar duplicidade: ' + E.Message;
+      qry.Free;
+      Result := nil;
     end;
-  finally
-    qry.Free;
   end;
 end;
 
+
+function THuawei.adicionarsitemanual(out Erro: string): Boolean;
+var
+  Q: TFDQuery;
+begin
+  Result := False;
+  Erro := '';
+  Q := TFDQuery.Create(nil);
+  try
+    Q.Connection := FConn;
+    Q.SQL.Text :=
+      'INSERT INTO rollouthuawei ('+
+      '  Name, Projeto, End_Site, DU, Status_geral, Lider_responsavel, Empresa,'+
+      '  Ativo_no_periodo, Fechamento, Ano_Semana_Fechamento, Reg, Infra, Detentora,'+
+      '  ID_Dententora, Forma_de_acesso, Site_Code, Site_Name, Site_ID, origem,'+
+      '  Ultima_Pessoa_Atualizacao, avulso, deletado, Ultima_atualizacao'+
+      ') VALUES ('+
+      '  :name, :projeto, :end_site, :du, :status_geral, :lider_responsavel, :empresa,'+
+      '  :ativo_no_periodo, :fechamento, :ano_semana_fechamento, :reg, :infra, :detentora,'+
+      '  :id_dententora, :forma_de_acesso, :site_code, :site_name, :site_id, :origem,'+
+      '  :ultima_pessoa_atualizacao, :avulso, :deletado, NOW()'+
+      ')';
+
+    if not FConn.InTransaction then FConn.StartTransaction;
+
+    Q.ParamByName('name').AsString := Self.name;
+    Q.ParamByName('projeto').AsString := Self.projeto;
+    Q.ParamByName('end_site').AsString := Self.endSite;
+    Q.ParamByName('du').AsString := Self.du;
+    Q.ParamByName('status_geral').AsString := Self.statusGeral;
+    Q.ParamByName('lider_responsavel').AsString := Self.liderResponsavel;
+    Q.ParamByName('empresa').AsString := Self.empresa;
+    Q.ParamByName('ativo_no_periodo').AsString := Self.ativoNoPeriodo;
+    Q.ParamByName('fechamento').AsString := Self.fechamento;
+    Q.ParamByName('ano_semana_fechamento').AsString := Self.anoSemanaFechamento;
+    Q.ParamByName('reg').AsString := Self.pmoregional;
+    Q.ParamByName('infra').AsString := Self.infra;
+    Q.ParamByName('detentora').AsString := Self.detentora;
+    Q.ParamByName('id_dententora').AsString := Self.iddetentora;
+    Q.ParamByName('forma_de_acesso').AsString := Self.fcu;
+    Q.ParamByName('site_code').AsString := Self.sitecode;
+    Q.ParamByName('site_name').AsString := Self.sitename;
+    Q.ParamByName('site_id').AsString := Self.siteid;
+    Q.ParamByName('origem').AsString := Self.origem;
+    Q.ParamByName('ultima_pessoa_atualizacao').AsInteger := Self.usuario;
+    Q.ParamByName('avulso').AsInteger := Self.avulso;
+    Q.ParamByName('deletado').AsInteger := Self.deletado;
+
+    Q.ExecSQL;
+    FConn.Commit;
+    Result := True;
+  except
+    on E: Exception do
+    begin
+      if FConn.InTransaction then FConn.Rollback;
+      Erro := E.Message;
+      Result := False;
+    end;
+  end;
+  Q.Free;
+end;
 
 function THuawei.excluirsitemanual(const idSite: string; out erro: string): Boolean;
 var
@@ -1874,20 +1910,15 @@ begin
   qry := TFDQuery.Create(nil);
   try
     qry.Connection := FConn;
-
-    // Exclusão lógica (soft delete) por idgeral
     qry.SQL.Text :=
       'UPDATE rollouthuawei ' +
       '   SET deletado = 1, Ultima_atualizacao = NOW(), Ultima_Pessoa_Atualizacao = :usr ' +
       ' WHERE idgeral = :idgeral AND origem = ''Manual''';
-
     qry.ParamByName('idgeral').AsInteger := StrToIntDef(Trim(idSite), 0);
-    qry.ParamByName('usr').AsString := IntToStr(usuario);
-
+    qry.ParamByName('usr').AsInteger := Self.usuario;
     FConn.StartTransaction;
     qry.ExecSQL;
     FConn.Commit;
-
     Result := qry.RowsAffected > 0;
     if not Result then
       erro := 'Nenhum registro atualizado (confira se o ID é válido e origem = ''Manual'').';
@@ -1939,7 +1970,7 @@ begin
       qry.ParamByName('pk').AsInteger := StrToIntDef(Trim(uuidps), 0);
     end;
 
-    qry.ParamByName('usr').AsString := IntToStr(usuario);
+    qry.ParamByName('usr').AsInteger := Self.usuario;
 
     FConn.StartTransaction;
     qry.ExecSQL;
@@ -1957,7 +1988,6 @@ begin
   end;
   qry.Free;
 end;
-
 
 function THuawei.desmarcarComoAvulso(const uuidps: string; out erro: string): Boolean;
 var
@@ -1995,7 +2025,7 @@ begin
       qry.ParamByName('pk').AsInteger := StrToIntDef(Trim(uuidps), 0);
     end;
 
-    qry.ParamByName('usr').AsString := IntToStr(usuario);
+    qry.ParamByName('usr').AsInteger := Self.usuario;
 
     FConn.StartTransaction;
     qry.ExecSQL;
