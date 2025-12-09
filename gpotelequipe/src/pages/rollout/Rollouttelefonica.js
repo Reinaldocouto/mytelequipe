@@ -1263,7 +1263,7 @@ const Rollouttelefonica = ({ setshow, show }) => {
         acessodatainicial.value ? createLocalDate(acessodatainicial.value) : null,
       valueFormatter: (acessodatainicial) =>
         acessodatainicial.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(params.value)
+          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(acessodatainicial.value)
           : '',
       editable: true,
     },

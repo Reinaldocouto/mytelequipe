@@ -217,6 +217,10 @@
         <DCCReference Include="model\configuracoes\Model.ConfiguracaoEmail.pas"/>
         <DCCReference Include="controller\cadastro\Controller.Monitoramento.pas"/>
         <DCCReference Include="model\cadastro\Model.Monitoramento.pas"/>
+        <DCCReference Include="controller\chg\Controller.Chg.pas"/>
+        <DCCReference Include="model\chg\Model.Chg.pas"/>
+        <DCCReference Include="controller\tp\Controller.Tp.pas"/>
+        <DCCReference Include="model\tp\Model.Tp.pas"/>
         <None Include="..\gpotelequipe\src\assets\documents\cartataf.xlsm"/>
         <None Include="..\gpotelequipe\src\assets\documents\cartatafcsv.csv"/>
         <None Include="..\gpotelequipe\src\assets\documents\~$cartataf.xlsm"/>

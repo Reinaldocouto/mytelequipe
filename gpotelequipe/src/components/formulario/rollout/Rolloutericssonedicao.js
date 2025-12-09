@@ -39,6 +39,8 @@ import Excluirregistro from '../../Excluirregistro';
 import Solicitardiaria from '../projeto/Solicitardiaria';
 import Solicitacaoedicao from '../suprimento/Solicitacaoedicao';
 import api from '../../../services/api';
+import { ChgModal } from '../../modals/ChgModal';
+import { TpModal } from '../../modals/TpModal';
 
 function TabPanel(props) {
   const { children, value, value1, index, ...other } = props;
@@ -97,7 +99,7 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
   const [pageSize, setPageSize] = useState(10);
   const [valorhora, setvalorhora] = useState('');
   const [rowSelectionEquipeFixaModel, setRowSelectionEquipeFixaModel] = useState([]);
-
+  const [idtp, setidtp] = useState(0);
   const [paginationModeldiarias, setPaginationModeldiarias] = useState({
     pageSize: 5,
     page: 0,
@@ -148,7 +150,7 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
   const [telaexclusaoclt, settelaexclusaoclt] = useState(false);
   const [idacionamentopj, setidacionamentopj] = useState(0);
   const [idacionamentoclt, setidacionamentoclt] = useState(0);
-
+  const [telaexclusaotp, settelaexclusaotp] = useState(false);
   const [pacotesacionadosclt, setpacotesacionadosclt] = useState([]);
   const [colaboradorlistapj, setcolaboradorlistapj] = useState([]);
   const [colaboradorlistaclt, setcolaboradorlistaclt] = useState([]);
@@ -182,7 +184,7 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
   const [telacadastroedicaosolicitacao, settelacadastroedicaosolicitacao] = useState('');
   const [telaexclusaosolicitacao, settelaexclusaosolicitacao] = useState('');
   const [nomecolaboradorpj, setnomecolaboradorpj] = useState('');
-
+  const [tps, setTps] = useState([]);
   const [atividadepjlista, setatividadepjlista] = useState([]);
   const [retanexo, setretanexo] = useState('');
   const [loadingpj, setloadingpj] = useState(false);
@@ -223,27 +225,73 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
   const [statuscrq, setstatuscrq] = useState('');
   const [equipefixa, setequipefixa] = useState('');
   const [statatussydle, setstatatussydle] = useState('');
+  const [tpModalOpen, setTpModalOpen] = useState(false);
   const [central, setcentral] = useState('');
   const [detentora, setdetentora] = useState('');
   const [iddentedora, setiddentedora] = useState(0);
   const [numeroativo, setnumeroativo] = useState('');
   const [statusvalidadeAcesso, setstatusvalidadeAcesso] = useState('');
+  const [tpLoading, setTpLoading] = useState(false);
+  const [chgModalOpen, setChgModalOpen] = useState(false);
+  const tpTipos = ['S/IMPACTO', 'IMPACTO'];
+  const tpStatus = ['Autorizada', 'Cancelada', 'Fechado', 'Pedir', 'Pré-Aprovada'];
+  const [tpForm, setTpForm] = useState({
+    siteId: '',
+    tipo: 'S/IMPACTO',
+    criadoEm: '',
+    dataInicio: '',
+    horaInicio: '',
+    dataFim: '',
+    horaFim: '',
+    sequenciaTp: '',
+    status: 'Pré-Aprovada',
+    itpPercent: 0,
+  });
 
   const [crqModalOpen, setCrqModalOpen] = useState(false);
-  const [crqForm, setCrqForm] = useState(null);
-  const [crqs, setCrqs] = useState([]);
-  const [crqLoading, setCrqLoading] = useState(false);
-  const [telaexclusaocrq, settelaexclusaocrq] = useState(false);
-  const [idCrqExclusao, setIdCrqExclusao] = useState(null);
   const [paginationModelEquipeFixa, setPaginationModellEquipeFixa] = useState({
     pageSize: 5,
     page: 0,
   });
 
+  const clearCrqForm = () => {
+    setTpForm({
+      id: null,
+      siteId: '',
+      tipo: 'CRQ',
+      criadoEm: '',
+      dataInicio: '',
+      horaInicio: '',
+      dataFim: '',
+      horaFim: '',
+      sequenciaTp: '',
+      itpPercent: 0,
+      impacto: 'TOTAL',
+      status: 'APROVADA',
+    });
+  }
+
+  const clearTpForm = () => {
+    setTpForm({
+      siteId: '',
+      tipo: 'S/IMPACTO',
+      criadoEm: '',
+      dataInicio: '',
+      horaInicio: '',
+      dataFim: '',
+      horaFim: '',
+      sequenciaTp: '',
+      status: 'Pré-Aprovada',
+      itpPercent: 0,
+    });
+  }
+
   const abrirCrqModal = () => {
-    setCrqForm(null);
+    clearCrqForm();
     setCrqModalOpen(true);
   };
+
+
   const formatDatePtBR = (value) => {
     if (!value) return '';
 
@@ -289,6 +337,45 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
     return d.toLocaleDateString('pt-BR');
   };
 
+  const editarTP = (row) => {
+    const novoForm = {
+      ...tpForm,
+      id: row.id ?? tpForm.id,
+      siteId: `ERICSON${row.siteId}`,
+      tipo: row.tipo ?? '',
+      criadoEm: row.criadoEm ?? row.criado_em ?? '',
+      dataInicio: row.dataInicio ?? row.data_inicio ?? '',
+      horaInicio: row.horaInicio ?? row.hora_inicio ?? '',
+      dataFim: row.dataFim ?? row.data_fim ?? '',
+      horaFim: row.horaFim ?? row.hora_fim ?? '',
+      sequenciaTp: row.sequenciaTp ?? row.sequencia_tp ?? '',
+      status: row.status ?? '',
+      itpPercent: row.itpPercent ?? row.itp_percent ?? 0,
+      deletado: Boolean(row.deletado ?? row.deleted ?? false),
+      empresa: row.empresa ?? '',
+      numero: row.numero ?? row.numeroCrq ?? '',
+      tipoRegistro: row.tipoRegistro ?? row.tipo_registro ?? '',
+      impacto: row.impacto ?? '',
+      descricao: row.descricao ?? '',
+      createdAt: row.createdAt ?? row.created_at ?? '',
+      updatedAt: row.updatedAt ?? row.updated_at ?? '',
+    };
+
+    console.log('novoForm', novoForm);
+    setTpForm(novoForm);
+    console.log('form', tpForm);
+
+    const tipoRegistro = row.tipoRegistro ?? row.tipo_registro;
+
+    if (tipoRegistro === 'CHG') {
+      setChgModalOpen(true);
+    }
+    if (tipoRegistro === 'CRQ') {
+      setCrqModalOpen(true);
+    }
+  };
+
+
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
     idusuario: localStorage.getItem('sessionId'),
@@ -302,127 +389,265 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
     obra: numero,
     projeto: 'ERICSSON',
   };
-  const pedirExclusaoCrq = (id) => {
-    setIdCrqExclusao(Number(id));
-    settelaexclusaocrq(true);
-  };
 
-  const editarCrq = (row) => {
-    setCrqForm({
-      id: row.id,
-      atividade: row.atividade,
-      impacto: row.impacto,
-      numeroCrq: row.numeroCrq,
-      inicioCrq: row.inicioCrq,
-      finalCrq: row.finalCrq,
-      status: row.status,
-      tipoCrq: row.tipoCrq,
-    });
-    setCrqModalOpen(true);
-  };
-
-  const crqColumns = [
+  const tpColumns = [
     {
       field: 'actions',
       type: 'actions',
       headerName: 'Ações',
-      width: 110,
-      getActions: (paramscrqColumns) => [
+      width: 120,
+      align: 'center',
+      sortable: false,
+      getActions: (paramsTp) => [
         <GridActionsCellItem
-          key="edit"
           icon={<EditIcon />}
           label="Editar"
-          onClick={() => editarCrq(paramscrqColumns.row)}
+          onClick={() => editarTP(paramsTp.row)}
           showInMenu={false}
         />,
         <GridActionsCellItem
-          key="delete"
           icon={<DeleteIcon />}
           label="Excluir"
-          onClick={() => pedirExclusaoCrq(paramscrqColumns.id)}
+          onClick={() => {
+            settelaexclusaotp(true);
+            setidtp(paramsTp.row.id);
+          }}
           showInMenu={false}
         />,
       ],
     },
-    { field: 'atividade', headerName: 'Atividade', flex: 1, minWidth: 220 },
-    { field: 'impacto', headerName: 'Impacto', width: 120, align: 'center', headerAlign: 'center' },
     {
-      field: 'numeroCrq',
-      headerName: 'Nº CRQ',
-      width: 140,
-      align: 'center',
-      headerAlign: 'center',
+      field: 'tipo',
+      headerName: 'Tipo',
+      width: 130,
+      type: 'singleSelect',
+      editable: true,
+      valueOptions: tpTipos,
     },
     {
-      field: 'inicioCrq',
-      headerName: 'Inicio CRQ',
+      field: 'tipoRegistro',
+      headerName: 'Registro',
+      width: 100,
+      type: 'string',
+      editable: false,
+      valueOptions: tpStatus,
+    },
+    {
+      field: 'criadoEm',
+      headerName: 'Criado em',
       width: 140,
-      align: 'center',
-      headerAlign: 'center',
+      type: 'string',
+      editable: true,
       valueFormatter: ({ value }) => formatDatePtBR(value),
     },
     {
-      field: 'finalCrq',
-      headerName: 'Final CRQ',
-      width: 140,
-      align: 'center',
-      headerAlign: 'center',
+      field: 'dataInicio',
+      headerName: 'Data Início',
+      width: 130,
+      type: 'string',
+      editable: true,
       valueFormatter: ({ value }) => formatDatePtBR(value),
     },
-    { field: 'status', headerName: 'Status', width: 160, align: 'center', headerAlign: 'center' },
+    { field: 'horaInicio', headerName: 'Hora Início', width: 120, type: 'string', editable: true },
     {
-      field: 'tipoCrq',
-      headerName: 'Tipo CRQ',
+      field: 'dataFim',
+      headerName: 'Data Fim',
+      width: 130,
+      type: 'string',
+      editable: true,
+      valueFormatter: ({ value }) => formatDatePtBR(value),
+    },
+    { field: 'horaFim', headerName: 'Hora Fim', width: 120, type: 'string', editable: true },
+    {
+      field: 'sequenciaTp',
+      headerName: 'Sequência TP',
       width: 160,
-      align: 'center',
-      headerAlign: 'center',
+      type: 'string',
+      editable: true,
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 160,
+      type: 'singleSelect',
+      editable: true,
+      valueOptions: tpStatus,
+    },
+    {
+      field: 'itpPercent',
+      headerName: 'ITP %',
+      width: 100,
+      type: 'number',
+      editable: true,
+      valueFormatter: ({ value }) =>
+        value !== null && value !== undefined ? `${Number(value)}%` : '',
+    },
+    {
+      field: 'numero',
+      headerName: 'Número',
+      width: 130,
+      type: 'string',
+      editable: false,
+    },
+    {
+      field: 'impacto',
+      headerName: 'Impacto',
+      width: 130,
+      type: 'string',
+      editable: false,
+    },
+    // descricao
+    {
+      field: 'descricao',
+      headerName: 'Descrição',
+      width: 200,
+      type: 'string',
+      editable: false,
     },
   ];
-  const carregarCRQs = useCallback(async () => {
-    if (!ididentificador) return;
-    setCrqLoading(true);
+
+  const processRowUpdateTp = async (newRow, oldRow) => {
     try {
-      const response = await api.get('v1/projetoericsson/crq', {
-        params: { site, numero: ididentificador, deletado: 0 },
-      });
-      const data = Array.isArray(response.data) ? response.data : [];
-      const normalized = data.map((item) => ({
-        id: item?.id,
-        numero,
-        site,
-        atividade: item.atividade ?? '',
-        impacto: item.impacto ?? '',
-        numeroCrq: item.numeroCrq ?? item.numero_crq ?? '',
-        inicioCrq: item.inicioCrq ?? item.inicio_crq ?? '',
-        finalCrq: item.finalCrq ?? item.final_crq ?? '',
-        status: item.status ?? '',
-        tipoCrq: item.tipoCrq ?? item.tipo_crq ?? '',
-      }));
-      setCrqs(normalized);
+      toast.success('TP atualizada.');
+      return newRow;
     } catch (err) {
-      console.error(err);
-    } finally {
-      setCrqLoading(false);
+      console.error('Erro ao atualizar TP:', err);
+      toast.error(err.response?.data?.erro || 'Falha ao atualizar TP.');
+      return oldRow;
     }
-  }, [ididentificador]);
+  };
+
+
+  const carregarTPs = useCallback(async () => {
+    try {
+      setTpLoading(true);
+      const response = await api.get('v1/acesso/tp', {
+        params: { siteId: `ERICSSON${ididentificador}`, deletado: 0, empresa: 'ERICSSON' },
+      });
+      const dados = Array.isArray(response.data) ? response.data : [];
+      const dadosFormatados = dados.map((item, idx) => ({
+        id: item.id || `${idx}-${Date.now()}`,
+        siteId: item.numero,
+        tipo: item.tipo,
+        criadoEm: item.criadoEm,
+        dataInicio: item.dataInicio,
+        horaInicio: item.horaInicio,
+        dataFim: item.dataFim,
+        horaFim: item.horaFim,
+        sequenciaTp: item.sequenciaTp,
+        numero: item.numero,
+        tipoRegistro: item.tipoRegistro,
+        status: item.status,
+        itpPercent: item.itpPercent,
+        impacto: item.impacto,
+        descricao: item.descricao,
+      }));
+      setTps(dadosFormatados);
+    } catch (err) {
+      console.error('Erro ao carregar TPs:', err);
+      setTps([]);
+    } finally {
+      setTpLoading(false);
+    }
+  }, [tpForm?.siteId]);
+
+  const criarTP = async (id = ' ', pai, empresa) => {
+    console.log(pai, empresa)
+    // Validação mínima
+    if (!tpForm?.siteId && pai === 'TP') {
+      toast.warning('Informe o Site ID para vincular a TP.');
+      return;
+    }
+    if (!tpForm?.criadoEm) {
+      toast.warning('Informe a data "Criado em".');
+      return;
+    }
+
+
+    const payload = {
+      id,
+      siteId: `ERICSSON${ididentificador}`,
+      tipo: tpForm.tipo,
+      criadoEm: tpForm.criadoEm,
+      dataInicio: tpForm.dataInicio,
+      horaInicio: tpForm.horaInicio,
+      dataFim: tpForm.dataFim,
+      horaFim: tpForm.horaFim,
+      sequenciaTp: tpForm.sequenciaTp,
+      status: tpForm.status,
+      numero: tpForm.numero,
+      empresa,
+      tipoRegistro: pai,
+      itpPercent: Number(tpForm.itpPercent) || 0,
+    };
+
+    try {
+      setTpLoading(true);
+      await api.post('v1/acesso/tp', payload);
+      toast.success('TP criada com sucesso!');
+      await carregarTPs();
+      // limpa parcialmente o form, mantendo site
+      setTpForm((prev) => ({
+        ...prev,
+        tipo: 'S/IMPACTO',
+        criadoEm: '',
+        dataInicio: '',
+        horaInicio: '',
+        dataFim: '',
+        horaFim: '',
+        sequenciaTp: '',
+        status: 'Pré-Aprovada',
+        itpPercent: 0,
+      }));
+    } catch (err) {
+      console.error('Erro ao criar TP:', err);
+      toast.error(err.response?.data?.erro || 'Falha ao criar TP.');
+    } finally {
+      setTpLoading(false);
+      setTpModalOpen(false);
+      setChgModalOpen(false);
+    }
+  };
+
+
+
+  const abrirChgModal = () => setChgModalOpen(true);
+
+  const handleTpFormChange = (e) => {
+    const { name, value } = e.target;
+    setTpForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+
+  const handleCloseModal = (type) => {
+    if (type === 'tp') {
+      setTpModalOpen(false);
+    } else if (type === 'chg') {
+      setChgModalOpen(false);
+    }
+
+    clearTpForm();
+  };
+
 
   const salvarCrq = async (data) => {
     try {
       const payload = {
-        id: crqForm?.id,
-        site,
-        numero,
-        atividade: data.atividade?.trim(),
+        id: data?.id,
+        siteId: `ERICSSON${ididentificador}`,
+        descricao: data.descricao?.trim(),
+        tipoRegistro: 'CRQ',
         impacto: data.impacto,
-        numeroCrq: data.numeroCrq?.trim(),
-        inicioCrq: data.inicioCrq || null,
-        finalCrq: data.finalCrq || null,
+        numero: data.numeroCrq?.trim(),
+        dataInicio: data.dataInicio || null,
+        dataFim: data.dataFim || null,
         status: data.status,
-        tipoCrq: data.tipoCrq,
+        tipo: data.tipo,
+        empresa: 'ERICSSON',
       };
-      await api.post('v1/projetoericsson/crq', payload);
+      await api.post('v1/acesso/tp', payload);
       setCrqModalOpen(false);
-      carregarCRQs();
+      carregarTPs();
     } catch (err) {
       console.error(err);
     }
@@ -2073,13 +2298,11 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
       Promise.resolve(despesasrelaotrioericsson()),
       Promise.resolve(listasolicitacaodiaria()),
       Promise.resolve(listasolicitacao()),
-      Promise.resolve(carregarCRQs()),
+      Promise.resolve(carregarTPs()),
     ];
 
-    // Executa as críticas em paralelo, sem bloquear umas às outras
     await Promise.allSettled(fastTasks);
 
-    // Defer: roda as demais quando o navegador estiver ocioso ou no próximo tick
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
       window.requestIdleCallback(async () => {
         await Promise.allSettled(backgroundTasks);
@@ -2140,8 +2363,10 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
         isOpen={crqModalOpen}
         onClose={() => setCrqModalOpen(false)}
         onSubmit={salvarCrq}
-        initialData={crqForm}
+        tpForm={tpForm}
+
       />
+
       {telaexclusaodiaria ? (
         <>
           {' '}
@@ -2615,46 +2840,91 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
               </Button>
             </div>
           </div>
-          <div className="col-sm-12 align-items-end">
-            <Button color="primary" className="btn btn-primary w-100" onClick={abrirCrqModal}>
-              Criar CRQ
-            </Button>
+          <div className="row my-3 align-items-end">
+            <div className="col-12 col-md-6 mb-2 mb-md-0">
+              <Button color="primary" className="btn btn-primary w-100" onClick={abrirCrqModal}>
+                Criar CRQ
+              </Button>
+            </div>
+
+            <div className="col-12 col-md-6">
+              <Button
+                color="primary"
+                className="w-100"
+                onClick={abrirChgModal}
+                disabled={tpLoading}
+              >
+                Criar CHG
+              </Button>
+            </div>
             <Box sx={{ height: 500, width: '100%' }}>
               <DataGrid
-                rows={crqs}
-                columns={crqColumns}
-                loading={crqLoading}
-                disableSelectionOnClick
-                components={{ LoadingOverlay: LinearProgress }}
-                localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+                rows={tps}
+                columns={tpColumns}
+                loading={tpLoading}
+                pagination
+                pageSizeOptions={[10, 25, 50]}
                 initialState={{
                   pagination: { paginationModel: { pageSize: 10, page: 0 } },
+                  sorting: { sortModel: [{ field: 'criadoEm', sort: 'desc' }] },
                 }}
+                disableRowSelectionOnClick
+                editMode="row"
+                processRowUpdate={processRowUpdateTp}
+                onProcessRowUpdateError={(error) => console.error(error)}
+                getRowId={(row) => row.id}
               />
+
             </Box>
           </div>
         </CardBody>
 
-        {crqModalOpen && (
-          <CrqModal
-            isOpen={crqModalOpen}
-            onClose={() => setCrqModalOpen(false)}
-            onSubmit={salvarCrq}
-            initialData={crqForm}
-          />
-        )}
+        <CrqModal
+          isOpen={crqModalOpen}
+          onClose={() => setCrqModalOpen(false)}
+          onSubmit={salvarCrq}
+          initialData={tpForm}
+        />
 
-        {telaexclusaocrq ? (
+        <TpModal
+          open={tpModalOpen}
+          onClose={() => handleCloseModal('tp')}
+          onCreate={criarTP}
+          tpForm={tpForm}
+          onChange={handleTpFormChange}
+          tpTipos={tpTipos}
+          tpStatus={tpStatus}
+          loading={tpLoading}
+          empresa="ERICSSON"
+          pai="TP"
+        />
+
+        <ChgModal
+          open={chgModalOpen}
+          onClose={() => handleCloseModal('chg')}
+          onCreate={criarTP}
+          tpForm={tpForm}
+          onChange={handleTpFormChange}
+          tpTipos={tpTipos}
+          tpStatus={tpStatus}
+          loading={tpLoading}
+          empresa="ERICSSON"
+          pai="CHG"
+        />
+
+
+        {telaexclusaotp ? (
           <>
             <Excluirregistro
-              show={telaexclusaocrq}
-              setshow={settelaexclusaocrq}
-              ididentificador={idCrqExclusao}
-              quemchamou="CRQERICSSON"
-              atualiza={carregarCRQs}
-            />
+              show={telaexclusaotp}
+              setshow={settelaexclusaotp}
+              ididentificador={idtp}
+              quemchamou="TPTELEFONICA"
+              atualiza={carregarTPs}
+            />{' '}
           </>
         ) : null}
+
 
         {/* === Acompanhamento Físico === */}
         <br />
@@ -3370,6 +3640,8 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
         </Button>
       </ModalFooter>
     </Modal>
+
+
   );
 };
 

@@ -3969,15 +3969,22 @@ begin
   end;
 end;
 
+
+
 function TProjetotelefonica.EditarTP(const ABody: TJSONObject; out erro: string): Boolean;
 var
   Qry: TFDQuery;
   hasId: Boolean;
   id: Integer;
   strId: string;
-  siteId, tipo, criadoEm, dataInicio, horaInicio, dataFim, horaFim, sequenciaTp, status: string;
+
+  // Campos
+  siteId, tipo, status, criadoEm, dataInicio, horaInicio, dataFim, horaFim: string;
+  sequenciaTp, numero, empresa, tipoRegistro: string;
   itpPercent, deletado: Integer;
   deletadoBool: Boolean;
+
+  // Aux
   dtTmp: TDateTime;
 
   function TryGetIntValue(const Obj: TJSONObject; const Key1, Key2: string; out Value: Integer): Boolean;
@@ -3992,54 +3999,133 @@ var
 
   function ParseDateSafe(const S: string; out D: TDateTime): Boolean;
   begin
-    Result := TryISO8601ToDate(S, D) or TryStrToDate(S, D);
+    Result := False;
+    if Trim(S) = '' then Exit(False);
+    Result := TryISO8601ToDate(S, D, False) or TryStrToDate(S, D);
   end;
 
   function CleanTime(const S: string): string;
+  var
+    T: string;
   begin
-    Result := Copy(Trim(S), 1, 8); // mantém apenas HH:MM:SS
+    T := Trim(S);
+    // Mantém até HH:MM:SS (evita milissegundos vindos do front)
+    if Length(T) >= 8 then
+      Result := Copy(T, 1, 8)
+    else
+      Result := T;
+  end;
+
+  function AsIntOrZero(const S: string): Integer;
+  begin
+    Result := StrToIntDef(Trim(S), 0);
+  end;
+
+  procedure DefineParamTypes(const Q: TFDQuery; const IsUpdate: Boolean);
+  begin
+    // Ordem importa pouco, mas definimos todos explicitamente
+    if IsUpdate then
+      Q.ParamByName('id').DataType := ftInteger;
+
+    Q.ParamByName('site_id').DataType       := ftString;
+    Q.ParamByName('tipo').DataType          := ftString;
+    Q.ParamByName('criado_em').DataType     := ftDateTime;
+    Q.ParamByName('data_inicio').DataType   := ftDate;
+    Q.ParamByName('hora_inicio').DataType   := ftTime;
+    Q.ParamByName('data_fim').DataType      := ftDate;
+    Q.ParamByName('hora_fim').DataType      := ftTime;
+
+    // Novos campos para CHG/TP
+    Q.ParamByName('numero').DataType        := ftString;
+    Q.ParamByName('empresa').DataType       := ftString;
+    Q.ParamByName('tipo_registro').DataType := ftString;
+
+    Q.ParamByName('sequencia_tp').DataType  := ftString;
+    Q.ParamByName('status').DataType        := ftString;
+    Q.ParamByName('itp_percent').DataType   := ftInteger;
+    Q.ParamByName('deletado').DataType      := ftInteger;
+  end;
+
+  procedure BindCommonParams(const Q: TFDQuery);
+  begin
+    // Campos texto básicos
+    Q.ParamByName('tipo').AsString         := Trim(tipo);
+    Q.ParamByName('status').AsString       := Trim(status);
+    Q.ParamByName('sequencia_tp').AsString := Trim(sequenciaTp);
+    Q.ParamByName('empresa').AsString      := Trim(empresa);
+    Q.ParamByName('tipo_registro').AsString:= Trim(tipoRegistro);
+    Q.ParamByName('numero').AsString       := Trim(numero);
+
+    // site_id pode ser vazio em CHG; em TP é obrigatório (validado antes)
+    Q.ParamByName('site_id').AsString := Trim(siteId);
+
+    // Inteiros
+    Q.ParamByName('itp_percent').AsInteger := itpPercent;
+    Q.ParamByName('deletado').AsInteger    := deletado;
+
+    // Datas
+    if ParseDateSafe(criadoEm, dtTmp) then
+      Q.ParamByName('criado_em').AsDateTime := dtTmp
+    else
+      Q.ParamByName('criado_em').Clear;
+
+    if ParseDateSafe(dataInicio, dtTmp) then
+      Q.ParamByName('data_inicio').AsDate := dtTmp
+    else
+      Q.ParamByName('data_inicio').Clear;
+
+    if ParseDateSafe(dataFim, dtTmp) then
+      Q.ParamByName('data_fim').AsDate := dtTmp
+    else
+      Q.ParamByName('data_fim').Clear;
+
+    // Horários (usar string HH:MM:SS já funciona com ftTime; FireDAC converte)
+    if Trim(horaInicio) <> '' then
+      Q.ParamByName('hora_inicio').AsString := CleanTime(horaInicio)
+    else
+      Q.ParamByName('hora_inicio').Clear;
+
+    if Trim(horaFim) <> '' then
+      Q.ParamByName('hora_fim').AsString := CleanTime(horaFim)
+    else
+      Q.ParamByName('hora_fim').Clear;
   end;
 
 begin
   Result := False;
   erro := '';
+
   Qry := TFDQuery.Create(nil);
   try
     Qry.Connection := FConn;
 
-    // --- ID ---
+    // --- ID (aceita string " " vinda do front) ---
     hasId := ABody.TryGetValue<Integer>('id', id) or ABody.TryGetValue<Integer>('tId', id);
     if not hasId then
     begin
       if ABody.TryGetValue<string>('id', strId) then
-        id := StrToIntDef(Trim(strId), 0)
+        id := AsIntOrZero(strId)
       else if ABody.TryGetValue<string>('tId', strId) then
-        id := StrToIntDef(Trim(strId), 0)
+        id := AsIntOrZero(strId)
       else
         id := 0;
       hasId := id > 0;
     end;
 
-    // --- Campos principais ---
-    if not TryGetStrValue(ABody, 'site_id', 'siteId', siteId) then
-    begin
-      erro := 'Campo "site_id" (ou "siteId") não encontrado';
-      Exit;
-    end;
-
+    // --- Campos comuns ---
+    TryGetStrValue(ABody, 'site_id', 'siteId', siteId); // pode estar vazio em CHG
     if not ABody.TryGetValue<string>('tipo', tipo) then
     begin
       erro := 'Campo "tipo" não encontrado';
       Exit;
     end;
-
     if not ABody.TryGetValue<string>('status', status) then
     begin
       erro := 'Campo "status" não encontrado';
       Exit;
     end;
 
-    // --- Datas e horários ---
+    // Datas/horas/strings flex
     TryGetStrValue(ABody, 'criado_em', 'criadoEm', criadoEm);
     TryGetStrValue(ABody, 'data_inicio', 'dataInicio', dataInicio);
     TryGetStrValue(ABody, 'hora_inicio', 'horaInicio', horaInicio);
@@ -4047,11 +4133,17 @@ begin
     TryGetStrValue(ABody, 'hora_fim', 'horaFim', horaFim);
     TryGetStrValue(ABody, 'sequencia_tp', 'sequenciaTp', sequenciaTp);
 
-    // --- Percentual ---
+    // Novos campos (CHG exige numero)
+    TryGetStrValue(ABody, 'numero', 'numero', numero); // mesmo nome nos 2 casos
+    TryGetStrValue(ABody, 'empresa', 'empresa', empresa);
+    if not TryGetStrValue(ABody, 'tipo_registro', 'tipoRegistro', tipoRegistro) then
+      tipoRegistro := ''; // default vazio (trataremos como TP se vier vazio)
+
+    // Percentual
     if not TryGetIntValue(ABody, 'itp_percent', 'itpPercent', itpPercent) then
       itpPercent := 0;
 
-    // --- Deletado ---
+    // Deletado pode vir bool/int
     if not ABody.TryGetValue<Integer>('deletado', deletado) then
     begin
       if ABody.TryGetValue<Boolean>('deletado', deletadoBool) then
@@ -4060,53 +4152,92 @@ begin
         deletado := 0;
     end;
 
-    // --- Validações ---
-    siteId := Trim(siteId);
-    tipo := Trim(tipo);
-    status := Trim(status);
+    // --- Normalizações ---
+    tipoRegistro := UpperCase(Trim(tipoRegistro)); // 'TP' ou 'CHG' (ou vazio)
+    tipo         := Trim(tipo);
+    status       := Trim(status);
+    siteId       := Trim(siteId);
+    numero       := Trim(numero);
+    empresa      := Trim(empresa);
 
-    if siteId = '' then
-    begin
-      erro := 'site_id não pode ser vazio';
-      Exit;
-    end;
-    if tipo = '' then
+    // --- Validações por tipoRegistro ---
+    if (tipo = '') then
     begin
       erro := 'tipo não pode ser vazio';
       Exit;
     end;
-    if status = '' then
+
+    if (status = '') then
     begin
       erro := 'status não pode ser vazio';
       Exit;
     end;
+
     if (itpPercent < 0) or (itpPercent > 100) then
     begin
       erro := 'itp_percent deve estar entre 0 e 100';
       Exit;
     end;
 
+    // Regras:
+    // - TP (ou vazio): exige site_id
+    // - CHG: exige numero; não exige site_id
+    if (tipoRegistro = '') or (tipoRegistro = 'TP') then
+    begin
+      if siteId = '' then
+      begin
+        erro := 'site_id não pode ser vazio';
+        Exit;
+      end;
+    end
+    else if (tipoRegistro = 'CHG') then
+    begin
+      if numero = '' then
+      begin
+        erro := 'numero é obrigatório para CHG';
+        Exit;
+      end;
+    end
+    else
+    begin
+      erro := 'tipo_registro inválido. Use "TP" ou "CHG".';
+      Exit;
+    end;
+
     // --- Transação ---
     if not FConn.InTransaction then
       FConn.StartTransaction;
+
     try
       if hasId and (id > 0) then
       begin
         // UPDATE
         Qry.SQL.Text :=
           'UPDATE tp SET ' +
-          'site_id = :site_id, ' +
-          'tipo = :tipo, ' +
-          'criado_em = :criado_em, ' +
-          'data_inicio = :data_inicio, ' +
-          'hora_inicio = :hora_inicio, ' +
-          'data_fim = :data_fim, ' +
-          'hora_fim = :hora_fim, ' +
-          'sequencia_tp = :sequencia_tp, ' +
-          'status = :status, ' +
-          'itp_percent = :itp_percent, ' +
-          'deletado = :deletado ' +
+          '  site_id = :site_id, ' +
+          '  tipo = :tipo, ' +
+          '  criado_em = :criado_em, ' +
+          '  data_inicio = :data_inicio, ' +
+          '  hora_inicio = :hora_inicio, ' +
+          '  data_fim = :data_fim, ' +
+          '  hora_fim = :hora_fim, ' +
+          '  numero = :numero, ' +
+          '  empresa = :empresa, ' +
+          '  tipo_registro = :tipo_registro, ' +
+          '  sequencia_tp = :sequencia_tp, ' +
+          '  status = :status, ' +
+          '  itp_percent = :itp_percent, ' +
+          '  deletado = :deletado, ' +
+          '  updated_at = NOW() ' +
           'WHERE id = :id';
+
+        // Define tipos dos parâmetros
+        DefineParamTypes(Qry, True);
+
+        // Bind comum
+        BindCommonParams(Qry);
+
+        // Bind do ID
         Qry.ParamByName('id').AsInteger := id;
       end
       else
@@ -4114,39 +4245,26 @@ begin
         // INSERT
         Qry.SQL.Text :=
           'INSERT INTO tp (' +
-          'site_id, tipo, criado_em, data_inicio, hora_inicio, data_fim, hora_fim, sequencia_tp, status, itp_percent, deletado' +
+          '  site_id, tipo, criado_em, data_inicio, hora_inicio, data_fim, hora_fim, ' +
+          '  numero, empresa, tipo_registro, sequencia_tp, status, itp_percent, deletado, created_at, updated_at' +
           ') VALUES (' +
-          ':site_id, :tipo, :criado_em, :data_inicio, :hora_inicio, :data_fim, :hora_fim, :sequencia_tp, :status, :itp_percent, :deletado' +
+          '  :site_id, :tipo, :criado_em, :data_inicio, :hora_inicio, :data_fim, :hora_fim, ' +
+          '  :numero, :empresa, :tipo_registro, :sequencia_tp, :status, :itp_percent, :deletado, NOW(), NOW()' +
           ')';
+
+        // Define tipos dos parâmetros
+        DefineParamTypes(Qry, False);
+
+        // Bind comum
+        BindCommonParams(Qry);
       end;
 
-      // --- Bind de parâmetros ---
-      Qry.ParamByName('site_id').AsString := siteId;
-      Qry.ParamByName('tipo').AsString := tipo;
-      Qry.ParamByName('status').AsString := status;
-      Qry.ParamByName('itp_percent').AsInteger := itpPercent;
-      Qry.ParamByName('deletado').AsInteger := deletado;
-
-      // Datas
-      if ParseDateSafe(criadoEm, dtTmp) then Qry.ParamByName('criado_em').AsDateTime := dtTmp else Qry.ParamByName('criado_em').Clear;
-      if ParseDateSafe(dataInicio, dtTmp) then Qry.ParamByName('data_inicio').AsDateTime := dtTmp else Qry.ParamByName('data_inicio').Clear;
-      if ParseDateSafe(dataFim, dtTmp) then Qry.ParamByName('data_fim').AsDateTime := dtTmp else Qry.ParamByName('data_fim').Clear;
-
-      // Horas (limpa milissegundos)
-      if Trim(horaInicio) <> '' then Qry.ParamByName('hora_inicio').AsString := CleanTime(horaInicio) else Qry.ParamByName('hora_inicio').Clear;
-      if Trim(horaFim) <> '' then Qry.ParamByName('hora_fim').AsString := CleanTime(horaFim) else Qry.ParamByName('hora_fim').Clear;
-
-      if Trim(sequenciaTp) <> '' then
-        Qry.ParamByName('sequencia_tp').AsString := sequenciaTp
-      else
-        Qry.ParamByName('sequencia_tp').Clear;
-
-      // --- Execução ---
+      // Execução
       Qry.ExecSQL;
 
       if Qry.RowsAffected = 0 then
       begin
-        erro := 'Nenhuma linha afetada ao salvar TP';
+        erro := 'Nenhuma linha afetada ao salvar TP/CHG';
         FConn.Rollback;
         Exit;
       end;
@@ -4159,7 +4277,7 @@ begin
       begin
         if FConn.InTransaction then
           FConn.Rollback;
-        erro := 'Erro ao salvar TP: ' + E.Message;
+        erro := 'Erro ao salvar TP/CHG: ' + E.Message;
       end;
     end;
 
@@ -4167,6 +4285,7 @@ begin
     Qry.Free;
   end;
 end;
+
 
 
 function TProjetotelefonica.listat2(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
@@ -5055,11 +5174,18 @@ end;
 function TProjetotelefonica.ListaTP(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
 var
   qry: TFDQuery;
-  siteId, tipo, status, deletadoStr: string;
-  hasSiteId, hasTipo, hasStatus, hasDeletado: Boolean;
+  v: string;
+  hasSiteId, hasTipo, hasStatus, hasDel, hasNumero, hasEmpresa, hasTipoRegistro: Boolean;
+  siteId, tipo, status, deletadoStr, numero, empresa, tipoRegistro: string;
   deletadoInt: Integer;
+
+  function GetStr(const K1, K2: string; out S: string): Boolean;
+  begin
+    Result := AQuery.TryGetValue(K1, S) or ((K2 <> '') and AQuery.TryGetValue(K2, S));
+    if Result then S := Trim(S);
+  end;
+
 begin
-  // ... existing code ...
   Result := nil;
   erro := '';
   qry := nil;
@@ -5081,6 +5207,9 @@ begin
       SQL.Add('  hora_inicio,');
       SQL.Add('  data_fim,');
       SQL.Add('  hora_fim,');
+      SQL.Add('  numero,');            // novo (CHG)
+      SQL.Add('  empresa,');           // novo
+      SQL.Add('  tipo_registro,');     // novo ("TP" / "CHG")
       SQL.Add('  sequencia_tp,');
       SQL.Add('  status,');
       SQL.Add('  itp_percent,');
@@ -5090,40 +5219,71 @@ begin
       SQL.Add('FROM tp');
       SQL.Add('WHERE 1=1');
 
-      // Filtros opcionais vindos de AQuery
-      hasSiteId := AQuery.TryGetValue('site_id', siteId) or AQuery.TryGetValue('siteId', siteId);
-      if hasSiteId and (Trim(siteId) <> '') then
-        SQL.Add('AND site_id = :site_id');
+      // filtros
+      hasSiteId       := GetStr('site_id','siteId', siteId) and (siteId <> '');
+      hasTipo         := GetStr('tipo','', tipo) and (tipo <> '');
+      hasStatus       := GetStr('status','', status) and (status <> '');
+      hasNumero       := GetStr('numero','', numero) and (numero <> '');
+      hasEmpresa      := GetStr('empresa','', empresa) and (empresa <> '');
+      hasTipoRegistro := GetStr('tipo_registro','tipoRegistro', tipoRegistro) and (tipoRegistro <> '');
+      hasDel          := GetStr('deletado','', deletadoStr);
 
-      hasTipo := AQuery.TryGetValue('tipo', tipo);
-      if hasTipo and (Trim(tipo) <> '') then
-        SQL.Add('AND tipo = :tipo');
+      if hasSiteId       then SQL.Add('  AND site_id = :p_site_id');
+      if hasTipo         then SQL.Add('  AND tipo = :p_tipo');
+      if hasStatus       then SQL.Add('  AND status = :p_status');
+      if hasNumero       then SQL.Add('  AND numero = :p_numero');
+      if hasEmpresa      then SQL.Add('  AND empresa = :p_empresa');
+      if hasTipoRegistro then SQL.Add('  AND tipo_registro = :p_tipo_registro');
 
-      hasStatus := AQuery.TryGetValue('status', status);
-      if hasStatus and (Trim(status) <> '') then
-        SQL.Add('AND status = :status');
-
-      hasDeletado := AQuery.TryGetValue('deletado', deletadoStr);
-      if hasDeletado then
-        SQL.Add('AND COALESCE(deletado, 0) = :deletado')
+      if hasDel then
+        SQL.Add('  AND COALESCE(deletado,0) = :p_deletado')
       else
-        SQL.Add('AND COALESCE(deletado, 0) = 0');
+        SQL.Add('  AND COALESCE(deletado,0) = 0');
 
       SQL.Add('ORDER BY criado_em DESC, id DESC');
 
-      if hasSiteId and (Trim(siteId) <> '') then
-        ParamByName('site_id').AsString := Trim(siteId);
-
-      if hasTipo and (Trim(tipo) <> '') then
-        ParamByName('tipo').AsString := Trim(tipo);
-
-      if hasStatus and (Trim(status) <> '') then
-        ParamByName('status').AsString := Trim(status);
-
-      if hasDeletado then
+      // bind com tipos explícitos (evita "[...] data type is unknown")
+      if hasSiteId then
       begin
-        deletadoInt := StrToIntDef(Trim(deletadoStr), 0);
-        ParamByName('deletado').AsInteger := deletadoInt;
+        ParamByName('p_site_id').DataType := ftString;
+        ParamByName('p_site_id').AsString := siteId;
+      end;
+
+      if hasTipo then
+      begin
+        ParamByName('p_tipo').DataType := ftString;
+        ParamByName('p_tipo').AsString := tipo;
+      end;
+
+      if hasStatus then
+      begin
+        ParamByName('p_status').DataType := ftString;
+        ParamByName('p_status').AsString := status;
+      end;
+
+      if hasNumero then
+      begin
+        ParamByName('p_numero').DataType := ftString;
+        ParamByName('p_numero').AsString := numero;
+      end;
+
+      if hasEmpresa then
+      begin
+        ParamByName('p_empresa').DataType := ftString;
+        ParamByName('p_empresa').AsString := empresa;
+      end;
+
+      if hasTipoRegistro then
+      begin
+        ParamByName('p_tipo_registro').DataType := ftString;
+        ParamByName('p_tipo_registro').AsString := tipoRegistro; // "TP" ou "CHG"
+      end;
+
+      if hasDel then
+      begin
+        deletadoInt := StrToIntDef(deletadoStr, 0);
+        ParamByName('p_deletado').DataType := ftInteger;
+        ParamByName('p_deletado').AsInteger := deletadoInt;
       end;
 
       Active := True;
@@ -5133,9 +5293,8 @@ begin
   except
     on ex: Exception do
     begin
-      erro := 'Erro ao consultar TP: ' + ex.Message;
-      if Assigned(qry) then
-        qry.Free;
+      erro := 'Erro ao consultar TP/CHG: ' + ex.Message;
+      if Assigned(qry) then qry.Free;
       Result := nil;
     end;
   end;

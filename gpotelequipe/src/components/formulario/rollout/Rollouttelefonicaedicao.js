@@ -357,6 +357,7 @@ const Rollouttelefonicaedicao = ({
         tipo: 'S/IMPACTO',
         criadoEm: '',
         dataInicio: '',
+        numero: '',
         horaInicio: '',
         dataFim: '',
         horaFim: '',

@@ -1770,83 +1770,54 @@ var
   servico: TProjetotelefonica;
   erro: string;
   sucesso: Boolean;
-  jsonBody: TJSONObject;
   resultado: TJSONObject;
-  bodyUtf8: TBytes;
+  jsonBody: TJSONObject;
 begin
-  Res.ContentType('application/json; charset=utf-8');
-
-  if Trim(Req.Body) = '' then
-  begin
-    resultado := TJSONObject.Create
-      .AddPair('sucesso', TJSONBool.Create(False))
-      .AddPair('erro', 'Body vazio');
-    try
-      Res.Status(THTTPStatus.BadRequest).Send(resultado.ToJSON);
-    finally
-      resultado.Free;
-    end;
-    Exit;
-  end;
-
-  bodyUtf8 := TEncoding.UTF8.GetBytes(Req.Body);
-  jsonBody := TJSONObject(TJSONObject.ParseJSONValue(bodyUtf8, 0));
-  if not Assigned(jsonBody) then
-  begin
-    resultado := TJSONObject.Create
-      .AddPair('sucesso', TJSONBool.Create(False))
-      .AddPair('erro', 'Body da requisição não é um JSON válido');
-    try
-      Res.Status(THTTPStatus.BadRequest).Send(resultado.ToJSON);
-    finally
-      resultado.Free;
-    end;
-    Exit;
-  end;
-
   servico := TProjetotelefonica.Create;
   try
     try
-      sucesso := servico.EditarTP(jsonBody, erro);
+      // Pega o body e converte para JSON
+      jsonBody := TJSONObject.ParseJSONValue(Req.Body) as TJSONObject;
+      try
+        if not Assigned(jsonBody) then
+        begin
+          resultado := TJSONObject.Create
+            .AddPair('sucesso', TJSONBool.Create(False))
+            .AddPair('erro', 'Body da requisição não é um JSON válido');
+          Res.Send<TJSONObject>(resultado).Status(THTTPStatus.BadRequest);
+          Exit;
+        end;
 
-      if sucesso then
-      begin
-        resultado := TJSONObject.Create
-          .AddPair('sucesso', TJSONBool.Create(True))
-          .AddPair('mensagem', 'Registro salvo com sucesso');
-        try
-          Res.Status(THTTPStatus.OK).Send(resultado.ToJSON);
-        finally
-          resultado.Free;
+        // Chama seu serviço passando o body JSON
+        sucesso := servico.EditarTP(jsonBody, erro);
+
+        if sucesso then
+        begin
+          resultado := TJSONObject.Create
+            .AddPair('sucesso', TJSONBool.Create(True))
+            .AddPair('mensagem', 'TP salva com sucesso');
+          Res.Send<TJSONObject>(resultado).Status(THTTPStatus.OK);
+        end
+        else
+        begin
+          resultado := TJSONObject.Create
+            .AddPair('sucesso', TJSONBool.Create(False))
+            .AddPair('erro', erro);
+          Res.Send<TJSONObject>(resultado).Status(THTTPStatus.BadRequest);
         end;
-      end
-      else
-      begin
-        resultado := TJSONObject.Create
-          .AddPair('sucesso', TJSONBool.Create(False))
-          .AddPair('erro', erro);
-        try
-          Res.Status(THTTPStatus.BadRequest).Send(resultado.ToJSON);
-        finally
-          resultado.Free;
-        end;
+      finally
+        jsonBody.Free; // libera o JSON do body
       end;
-
     except
       on E: Exception do
       begin
         resultado := TJSONObject.Create
           .AddPair('sucesso', TJSONBool.Create(False))
           .AddPair('erro', 'Erro ao processar requisição: ' + E.Message);
-        try
-          Res.Status(THTTPStatus.InternalServerError).Send(resultado.ToJSON);
-        finally
-          resultado.Free;
-        end;
+        Res.Send<TJSONObject>(resultado).Status(THTTPStatus.InternalServerError);
       end;
     end;
   finally
-    jsonBody.Free;
     servico.Free;
   end;
 end;
@@ -3124,19 +3095,10 @@ begin
       Sheet.Cells[17, 14].Value := ParamValue;
 
     if Req.Query.TryGetValue('vlrunitarioliq', ParamValue) then
-      Sheet.Cells[17, 15].Value := ParamValue;
-      Sheet.Cells[17, 19].Value := ParamValue;
-      Sheet.Cells[18, 19].Value := ParamValue;
-      Sheet.Cells[17, 26].Value := ParamValue;
-      Sheet.Cells[18, 26].Value := ParamValue;
+      Sheet.Cells[18, 15].Value := ParamValue;
 
     if Req.Query.TryGetValue('vlrtotalcimpostos', ParamValue) then
       Sheet.Cells[17, 27].Value := ParamValue;
-      Sheet.Cells[18, 27].Value := ParamValue;
-      Sheet.Cells[23, 18].Value := ParamValue;
-      Sheet.Cells[24, 18].Value := ParamValue;
-      Sheet.Cells[23, 22].Value := ParamValue;
-      Sheet.Cells[24, 22].Value := ParamValue;
 
     Sheet.Cells[17, 5].Value := 'M_REDE ACESSO RÁDIO-RAN-SERV-NAC';
 

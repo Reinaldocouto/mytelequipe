@@ -10,39 +10,45 @@ import {
   Label,
   FormGroup,
 } from 'reactstrap';
+import api from '../../services/api';
 
 export function CrqModalComponent({ isOpen, onClose, onSubmit, initialData }) {
   const [form, setForm] = useState({
-    atividade: '',
+    id: '',
+    descricao: '',
     impacto: 'Total',
     numeroCrq: '',
-    inicioCrq: '',
-    finalCrq: '',
+    dataInicio: '',
+    dataFim: '',
     status: 'Solicitada',
-    tipoCrq: 'CRQ',
+    tipo: 'CRQ',
   });
-  const formatDate = (value) => {
+
+  const formatDateForInput = (value) => {
     if (!value) return '';
-    return value.split(' ')[0]; // remove hora se vier do backend
+    if (value.includes('T')) return value.substring(0, 10);
+    return value.split(' ')[0];
   };
+
   useEffect(() => {
     if (initialData) {
       setForm((prev) => ({
         ...prev,
-        atividade: initialData.atividade ?? prev.atividade,
-        impacto: initialData.impacto ?? prev.impacto,
-        numeroCrq: initialData.numeroCrq ?? prev.numeroCrq,
-        inicioCrq: initialData.inicioCrq ?? prev.inicioCrq,
-        finalCrq: initialData.finalCrq ?? prev.finalCrq,
-        status: initialData.status ?? prev.status,
-        tipoCrq: initialData.tipoCrq ?? prev.tipoCrq,
+        id: initialData?.id ?? '',
+        descricao: initialData?.descricao ?? '',
+        impacto: initialData?.impacto ?? 'Total',
+        numeroCrq: initialData?.numero ?? '',
+        dataInicio: formatDateForInput(initialData?.dataInicio ?? ''),
+        dataFim: formatDateForInput(initialData?.dataFim ?? ''),
+        status: initialData?.status ?? 'Solicitada',
+        tipo: initialData?.tipo ?? 'CRQ',
       }));
     }
   }, [initialData]);
 
   const impactoOptions = ['Total', 'Parcial'];
   const statusOptions = ['Aprovada', 'Cancelada', 'Fechada', 'Pedir', 'Rejeitada', 'Solicitada'];
-  const tipoCrqOptions = ['Impacto', 'Instalação', 'CRQ'];
+  const tipoOptions = ['Impacto', 'Instalação', 'CRQ'];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -62,14 +68,14 @@ export function CrqModalComponent({ isOpen, onClose, onSubmit, initialData }) {
           <div className="row">
             <div className="col-md-6">
               <FormGroup>
-                <Label for="atividade">Atividade</Label>
+                <Label for="descricao">descricao</Label>
                 <Input
-                  id="atividade"
-                  name="atividade"
+                  id="descricao"
+                  name="descricao"
                   type="text"
-                  value={form.atividade}
+                  value={form.descricao}
                   onChange={handleChange}
-                  placeholder="Descreva a atividade"
+                  placeholder="Descreva a descricao"
                 />
               </FormGroup>
             </div>
@@ -109,31 +115,31 @@ export function CrqModalComponent({ isOpen, onClose, onSubmit, initialData }) {
           <div className="row">
             <div className="col-md-3">
               <FormGroup>
-                <Label for="inicioCrq">Início CRQ</Label>
+                <Label for="dataInicio">Início CRQ</Label>
                 <Input
-                  id="inicioCrq"
-                  name="inicioCrq"
+                  id="dataInicio"
+                  name="dataInicio"
                   type="date"
-                  value={formatDate(form.inicioCrq)}
+                  value={form.dataInicio}
                   onChange={handleChange}
                 />
               </FormGroup>
             </div>
             <div className="col-md-3">
               <FormGroup>
-                <Label for="finalCrq">Final CRQ</Label>
+                <Label for="dataFim">Final CRQ</Label>
                 <Input
-                  id="finalCrq"
-                  name="finalCrq"
+                  id="dataFim"
+                  name="dataFim"
                   type="date"
-                  value={formatDate(form.finalCrq)}
+                  value={form.dataFim}
                   onChange={handleChange}
                 />
               </FormGroup>
             </div>
             <div className="col-md-3">
               <FormGroup>
-                <Label for="status">Status</Label>
+                <Label for="status">status</Label>
                 <Input
                   id="status"
                   name="status"
@@ -151,15 +157,15 @@ export function CrqModalComponent({ isOpen, onClose, onSubmit, initialData }) {
             </div>
             <div className="col-md-3">
               <FormGroup>
-                <Label for="tipoCrq">Tipo CRQ</Label>
+                <Label for="tipo">Tipo CRQ</Label>
                 <Input
-                  id="tipoCrq"
-                  name="tipoCrq"
+                  id="tipo"
+                  name="tipo"
                   type="select"
-                  value={form.tipoCrq}
+                  value={form.tipo}
                   onChange={handleChange}
                 >
-                  {tipoCrqOptions.map((opt) => (
+                  {tipoOptions.map((opt) => (
                     <option key={opt} value={opt}>
                       {opt}
                     </option>
@@ -171,11 +177,11 @@ export function CrqModalComponent({ isOpen, onClose, onSubmit, initialData }) {
         </div>
       </ModalBody>
       <ModalFooter className="d-flex justify-content-end">
-        <Button color="secondary" onClick={onClose} className="me-2">
-          Cancelar
-        </Button>
         <Button color="primary" onClick={handleSubmit}>
           Salvar CRQ
+        </Button>
+        <Button color="secondary" onClick={onClose} className="mr-2">
+          Cancelar
         </Button>
       </ModalFooter>
     </Modal>
@@ -187,11 +193,12 @@ CrqModalComponent.propTypes = {
   onClose: PropTypes.func.isRequired,
   onSubmit: PropTypes.func.isRequired,
   initialData: PropTypes.shape({
-    atividade: PropTypes.string,
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    descricao: PropTypes.string,
     impacto: PropTypes.oneOf(['Total', 'Parcial']),
-    numeroCrq: PropTypes.string,
-    inicioCrq: PropTypes.string,
-    finalCrq: PropTypes.string,
+    numero: PropTypes.string,
+    dataInicio: PropTypes.string,
+    dataFim: PropTypes.string,
     status: PropTypes.oneOf([
       'Aprovada',
       'Cancelada',
@@ -200,8 +207,32 @@ CrqModalComponent.propTypes = {
       'Rejeitada',
       'Solicitada',
     ]),
-    tipoCrq: PropTypes.oneOf(['Impacto', 'Instalação', 'CRQ']),
+    tipo: PropTypes.oneOf(['Impacto', 'Instalação', 'CRQ']),
   }),
 };
 
 export default CrqModalComponent;
+
+export const salvarCrq = async (data, ididentificador, setCrqModalOpen, carregarTPs) => {
+  try {
+    const payload = {
+      id: data?.id,
+      siteId: `ERICSSON${ididentificador}`,
+      descricao: data.descricao?.trim(),
+      tipoRegistro: 'CRQ',
+      impacto: data.impacto,
+      numero: data.numeroCrq?.trim(),
+      dataInicio: data.dataInicio ? `${data.dataInicio} 00:00:00` : null,
+      dataFim: data.dataFim ? `${data.dataFim} 00:00:00` : null,
+      status: data.status,
+      tipo: data.tipo,
+      empresa: 'ERICSSON',
+    };
+
+    await api.post('v1/acesso/tp', payload);
+    setCrqModalOpen(false);
+    await carregarTPs();
+  } catch (err) {
+    console.error(err);
+  }
+};

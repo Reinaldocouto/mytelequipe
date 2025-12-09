@@ -26,7 +26,7 @@ export function TpModal({ open, onClose, tpForm, onChange, tpTipos, tpStatus, on
                   type="text"
                   className="form-control"
                   name="siteId"
-                  value={tpForm.siteId}
+                  value={tpForm?.siteId ?? ''}
                   onChange={onChange}
                   placeholder="Site ID"
                   disabled
@@ -43,7 +43,7 @@ export function TpModal({ open, onClose, tpForm, onChange, tpTipos, tpStatus, on
                   type="select"
                   className="form-select"
                   name="tipo"
-                  value={tpForm.tipo}
+                  value={tpForm?.tipo ?? ''}
                   onChange={onChange}
                 >
                   {tpTipos.map((t) => (
@@ -64,7 +64,7 @@ export function TpModal({ open, onClose, tpForm, onChange, tpTipos, tpStatus, on
                   type="date"
                   className="form-control"
                   name="criadoEm"
-                  value={tpForm.criadoEm}
+                  value={tpForm?.criadoEm ?? ''}
                   onChange={onChange}
                 />
               </FormGroup>
@@ -81,7 +81,7 @@ export function TpModal({ open, onClose, tpForm, onChange, tpTipos, tpStatus, on
                   type="date"
                   className="form-control"
                   name="dataInicio"
-                  value={tpForm.dataInicio}
+                  value={tpForm?.dataInicio ?? ''}
                   onChange={onChange}
                 />
               </FormGroup>
@@ -96,7 +96,7 @@ export function TpModal({ open, onClose, tpForm, onChange, tpTipos, tpStatus, on
                   type="time"
                   className="form-control"
                   name="horaInicio"
-                  value={tpForm.horaInicio}
+                  value={tpForm?.horaInicio ?? ''}
                   onChange={onChange}
                 />
               </FormGroup>
@@ -111,7 +111,7 @@ export function TpModal({ open, onClose, tpForm, onChange, tpTipos, tpStatus, on
                   type="date"
                   className="form-control"
                   name="dataFim"
-                  value={tpForm.dataFim}
+                  value={tpForm?.dataFim ?? ''}
                   onChange={onChange}
                 />
               </FormGroup>
@@ -126,7 +126,7 @@ export function TpModal({ open, onClose, tpForm, onChange, tpTipos, tpStatus, on
                   type="time"
                   className="form-control"
                   name="horaFim"
-                  value={tpForm.horaFim}
+                  value={tpForm?.horaFim ?? ''}
                   onChange={onChange}
                 />
               </FormGroup>
@@ -143,7 +143,7 @@ export function TpModal({ open, onClose, tpForm, onChange, tpTipos, tpStatus, on
                   type="text"
                   className="form-control"
                   name="sequenciaTp"
-                  value={tpForm.sequenciaTp}
+                  value={tpForm?.sequenciaTp ?? ''}
                   onChange={onChange}
                   placeholder="Sequência da TP"
                 />
@@ -159,7 +159,7 @@ export function TpModal({ open, onClose, tpForm, onChange, tpTipos, tpStatus, on
                   type="select"
                   className="form-select"
                   name="status"
-                  value={tpForm.status}
+                  value={tpForm?.status ?? ''}
                   onChange={onChange}
                 >
                   {tpStatus.map((s) => (
@@ -180,7 +180,7 @@ export function TpModal({ open, onClose, tpForm, onChange, tpTipos, tpStatus, on
                   type="number"
                   className="form-control"
                   name="itpPercent"
-                  value={tpForm.itpPercent}
+                  value={tpForm?.itpPercent ?? ''}
                   min={0}
                   max={100}
                   onChange={onChange}

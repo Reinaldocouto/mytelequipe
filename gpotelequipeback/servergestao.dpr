@@ -117,7 +117,11 @@ uses
   Controller.configuracaoemail in 'controller\configuracoes\Controller.configuracaoemail.pas',
   Model.ConfiguracaoEmail in 'model\configuracoes\Model.ConfiguracaoEmail.pas',
   Controller.Monitoramento in 'controller\cadastro\Controller.Monitoramento.pas',
-  Model.Monitoramento in 'model\cadastro\Model.Monitoramento.pas';
+  Model.Monitoramento in 'model\cadastro\Model.Monitoramento.pas',
+  Controller.Chg in 'controller\chg\Controller.Chg.pas',
+  Model.Chg in 'model\chg\Model.Chg.pas',
+  Controller.Tp in 'controller\tp\Controller.Tp.pas',
+  Model.Tp in 'model\tp\Model.Tp.pas';
 
 var
   CronJob: TCronJob;
@@ -187,6 +191,7 @@ begin
   Controller.Projetotelefonica.Registry;
   Controller.configuracaoemail.Registry;
   Controller.Monitoramento.Registry;
+  Controller.Tp.Registry;
   CronJob := TCronJob.Create(EncodeTime(15, 0,0,0)); // Cron job executado a cada 5 da manh� um vez por dia!
   // CronJob := TCronJob.Create(EncodeTime(0, 0, 2, 0));
   CronJob.Start;
