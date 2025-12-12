@@ -2350,7 +2350,7 @@ begin
       servico.lpuhistorico := body.GetValue<string>('lpuhistorico', '');
       servico.idfuncionario := body.GetValue<integer>('idfuncionario', 0);
       servico.observacaopj := body.GetValue<string>('observacaopj', '');
-      servico.quantidade := body.GetValue<integer>('quantidade', 0);
+      servico.quantidade := body.GetValue<double>('qtd', 0);
       servico.valornegociado := body.GetValue<double>('valornegociado', 0);
       if servico.quantidade = 0 then
         servico.quantidade := 1;

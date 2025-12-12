@@ -510,15 +510,10 @@ function RelatorioEricssonFaturamento({ setshow, show }) {
     {
       field: 'doc',
       headerName: 'DOC',
-      width: 120,
+      width: 150,
       align: 'center',
-      type: 'date',
+      type: 'string',
       headerClassName: 'light-green-header',
-      valueGetter: (parametros) => createLocalDate(parametros.value),
-      valueFormatter: (parametros) =>
-        parametros.value
-          ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(parametros.value)
-          : '',
     },
     {
       field: 'aprovacaoDocs',

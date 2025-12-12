@@ -52,6 +52,10 @@ const Rollouttelefonicaedicao = ({
   const [pacotesacionadospj, setpacotesacionadospj] = useState([]);
   const [atividades, setatividades] = useState([]);
   const [paginationModel, setPaginationModel] = useState({ pageSize: 10, page: 0 });
+  const [paginationModelacionadosCLT, setPaginationModelacionadosCLT] = useState({
+    pageSize: 10,
+    page: 0,
+  });
   const [paginationModelatividade, setPaginationModelatividade] = useState({
     pageSize: 5,
     page: 0,
@@ -538,36 +542,36 @@ const Rollouttelefonicaedicao = ({
 
     ...(modofinanceiro()
       ? [
-        {
-          field: 'valor',
-          headerName: 'VALOR R$',
-          type: 'currency',
-          width: 150,
-          align: 'left',
-          editable: false,
-          valueFormatter: (parametros) => {
-            if (parametros.value == null) return '';
-            return parametros.value.toLocaleString('pt-BR', {
-              style: 'currency',
-              currency: 'BRL',
-            });
+          {
+            field: 'valor',
+            headerName: 'VALOR R$',
+            type: 'currency',
+            width: 150,
+            align: 'left',
+            editable: false,
+            valueFormatter: (parametros) => {
+              if (parametros.value == null) return '';
+              return parametros.value.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              });
+            },
           },
-        },
-        {
-          field: 'valortotal',
-          headerName: 'VALOR TOTAL',
-          width: 150,
-          align: 'left',
-          editable: false,
-          valueFormatter: (parametros) => {
-            if (parametros.value == null) return '';
-            return parametros.value.toLocaleString('pt-BR', {
-              style: 'currency',
-              currency: 'BRL',
-            });
+          {
+            field: 'valortotal',
+            headerName: 'VALOR TOTAL',
+            width: 150,
+            align: 'left',
+            editable: false,
+            valueFormatter: (parametros) => {
+              if (parametros.value == null) return '';
+              return parametros.value.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              });
+            },
           },
-        },
-      ]
+        ]
       : []),
     {
       field: 'statust2',
@@ -964,7 +968,7 @@ const Rollouttelefonicaedicao = ({
           icon={<DeleteIcon />}
           disabled={modoVisualizador()}
           label="Delete"
-          onClick={() => deleteUser(parametros.id)}
+          onClick={() => deleteUser(parametros.row?.id)}
         />,
       ],
     },
@@ -1125,8 +1129,8 @@ const Rollouttelefonicaedicao = ({
   };
 
   const salvarclt = async (atividadeid) => {
-    api
-      .post('v1/projetotelefonica/acionamentoclt', {
+    try {
+      const response = await api.post('v1/projetotelefonica/acionamentoclt', {
         idrollout: idr,
         idatividade: atividadeid,
         idcolaborador: idcolaboradorclt,
@@ -1140,28 +1144,27 @@ const Rollouttelefonicaedicao = ({
         hora50clt,
         hora100clt,
         idfuncionario: localStorage.getItem('sessionId'),
-      })
-      .then((response) => {
-        if (response.status !== 201) {
-          toast.error(response.status);
-        } else {
-          setdatainicioclt('');
-          setdatafinalclt('');
-          settotalhorasclt('0');
-          setobservacaoclt('0');
-          sethoranormalclt('0');
-          sethora50clt('0');
-          sethora100clt('0');
-          listapacotesacionadosclt();
-        }
-      })
-      .catch((err) => {
-        if (err.response) {
-          toast.error(err.response.data.erro);
-        } else {
-          toast.error('Ocorreu um erro na requisição.');
-        }
       });
+      if (response.status !== 201) {
+        toast.error(response.status);
+        return false;
+      }
+      setdatainicioclt('');
+      setdatafinalclt('');
+      settotalhorasclt('0');
+      setobservacaoclt('0');
+      sethoranormalclt('0');
+      sethora50clt('0');
+      sethora100clt('0');
+      return true;
+    } catch (err) {
+      if (err.response) {
+        toast.error(err.response.data.erro);
+      } else {
+        toast.error('Ocorreu um erro na requisição.');
+      }
+      return false;
+    }
   };
 
   function ProcessaCadastro(e) {
@@ -2173,8 +2176,8 @@ const Rollouttelefonicaedicao = ({
                     }}
                     localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
                     // Usa estado para controlar a paginação dinamicamente
-                    paginationModel={paginationModelacionados}
-                    onPaginationModelChange={setPaginationModelacionados}
+                    paginationModel={paginationModelacionadosCLT}
+                    onPaginationModelChange={setPaginationModelacionadosCLT}
                   />
                 </Box>
                 <br></br>
@@ -2401,7 +2404,6 @@ const Rollouttelefonicaedicao = ({
             onPaginationModelChange={setPaginationModeldiarias}
             onNovoCadastro={novocadastrodiaria}
           />
-
 
           <div>
             <b>Financeiro</b>

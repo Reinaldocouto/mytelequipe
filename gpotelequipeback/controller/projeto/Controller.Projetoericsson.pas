@@ -89,12 +89,14 @@ procedure EditarEmMassaRollout(Req: THorseRequest; Res: THorseResponse; Next: TP
 procedure ListaCRQ(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure EditarCRQ(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 procedure EnviarEmailFixa(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+procedure ListaIDEricsson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 
 implementation
 
 procedure Registry;
 begin
   THorse.get('v1/projetoericsson', Lista);
+  THorse.get('v1/projetoericsson/id', ListaIDEricsson);
   THorse.get('v1/projetoericsson/fechamento', Listafechamento);
   THorse.get('v1/projetoericsson/fechamentoporempresa', Listafechamentoporempresa);
   THorse.get('v1/projetoericsson/extrato', Extratopagamento);
@@ -144,6 +146,37 @@ begin
 end;
 
 
+procedure ListaIDEricsson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  servico: TProjetoericsson;
+  qry: TFDQuery;
+  erro: string;
+  arraydados: TJSONObject;
+  body: TJSONValue;
+begin
+  try
+    servico := TProjetoericsson.Create;
+  except
+    Res.Send<TJSONObject>(CreateJsonObj('erro', 'Erro ao conectar com o banco')).Status(500);
+    exit;
+  end;
+  qry := servico.Listaid(Req.Query.Dictionary, erro);
+  try
+    try
+      arraydados := qry.ToJSONObject;
+      if erro = '' then
+        Res.Send<TJSONObject>(arraydados).Status(THTTPStatus.OK)
+      else
+        Res.Send<TJSONObject>(CreateJsonObj('erro', erro)).Status(THTTPStatus.InternalServerError);
+    except
+      on ex: exception do
+        Res.Send<TJSONObject>(CreateJsonObj('erro', ex.Message)).Status(THTTPStatus.InternalServerError);
+    end;
+  finally
+    qry.Free;
+    servico.Free;
+  end;
+end;
 
 procedure regionalericsson(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
@@ -408,28 +441,36 @@ var
   servico: TProjetoericsson;
   body: TJSONObject;
   erro: string;
+  dict: TDictionary<string, string>;
+function JsonToDictionary(const JSON: TJSONObject): TDictionary<string, string>;
+var
+  Pair: TJSONPair;
+begin
+  Result := TDictionary<string, string>.Create;
+  for Pair in JSON do
+    Result.AddOrSetValue(Pair.JsonString.Value, Pair.JsonValue.Value);
+end;
 begin
   servico := TProjetoericsson.Create;
   try
+    body := Req.Body<TJSONObject>;
+    dict := JsonToDictionary(body);
+
     erro := '';
-    try
-      // Lê o corpo da requisição como TJSONObject
-      body := Req.Body<TJSONObject>;
 
-      // Execução principal
+    if not servico.SendEmailEquipeFixa(dict, erro) then
+      Res.Send<TJSONObject>(CreateJsonObj('erro', erro))
+         .Status(THTTPStatus.BadRequest)
+    else
+      Res.Send<TJSONObject>(CreateJsonObj('retorno', 'Enviado com sucesso'))
+         .Status(THTTPStatus.Created);
 
-    servico.SendEmailEquipeFixa(Req.Query.Dictionary, erro);
-    Res.Send<TJSONObject>(CreateJsonObj('retorno', 'Enviado com sucesso'))
-      .Status(THTTPStatus.Created);
-    except
-      on Ex: Exception do
-        Res.Send<TJSONObject>(CreateJsonObj('erro', Ex.Message))
-          .Status(THTTPStatus.InternalServerError);
-    end;
   finally
+    dict.Free;
     servico.Free;
   end;
 end;
+
 
 procedure Extratopagamentototal(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var

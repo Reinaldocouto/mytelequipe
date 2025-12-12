@@ -3,8 +3,8 @@ unit Cron.Huawei;
 interface
 
 uses
-  System.Classes, DateUtils, System.SysUtils, System.JSON, IdHTTP, DB,
-  FireDAC.Comp.Client, FireDAC.Stan.Param, Controller.Projetohuawei;
+  System.Classes, DateUtils, System.SysUtils, System.JSON, System.Generics.Collections, IdHTTP, DB,
+  FireDAC.Comp.Client, FireDAC.Stan.Param, Controller.Projetohuawei, System.IOUtils;
 
 type
   TCronJob = class(TThread)
@@ -46,73 +46,77 @@ begin
   end;
 end;
 
+
 procedure TCronJob.ExecuteHTTPRequest;
 var
   HttpClient: TIdHTTP;
-  URL, ResponseContent: string;
+  URL, ResponseContent, FileName: string;
   RequestData: TStringStream;
   JSONObj, PageVOObj: TJSONObject;
   ResultArray: TJSONArray;
   i: Integer;
-  ResultItem: TJSONArray;
-  //Item: TJSONValue;
-  Obj, Item: TJSONObject;
+  Item: TJSONObject;
   primaryKey: string;
   curPage, totalPages: Integer;
 begin
   HttpClient := TIdHTTP.Create(nil);
   try
     HttpClient.Request.ContentType := 'application/json';
-    HttpClient.Request.CustomHeaders.Values['Cookie'] := 'ztsg_ruuid=dc4b1e80f0d0bbd0-506f-47df-9912-af2f13900d98';
+    HttpClient.Request.CustomHeaders.Values['Cookie'] :=
+      'ztsg_ruuid=dc4b1e80f0d0bbd0-506f-47df-9912-af2f13900d98';
 
-    // URL base da API
-  //  URL := 'https://openapi.huawei.com/service/esupplier/findPoLineList/1.0.0?X-HW-ID=APP_Z02XAC_gpo&X-HW-APPKEY=1aka1TOHrCUJ%2FIev3aJnyg%3D%3D';
-
-    curPage := 1; // Página inicial
-    totalPages := 1; // Inicialização temporária
+    curPage := 1;
+    totalPages := 1;
 
     while curPage <= totalPages do
     begin
+      // URL da página atual
+      URL :=
+        'https://openapi.huawei.com/service/esupplier/findPoLineList/1.0.0' +
+        '?X-HW-ID=APP_Z02XAC_gpo' +
+        '&X-HW-APPKEY=1aka1TOHrCUJ%2FIev3aJnyg%3D%3D' +
+        '&suffix_path=/200/' + IntToStr(curPage);
 
-      // URL base da API
-      URL := 'https://openapi.huawei.com/service/esupplier/findPoLineList/1.0.0?X-HW-ID=APP_Z02XAC_gpo&X-HW-APPKEY=1aka1TOHrCUJ%2FIev3aJnyg%3D%3D&suffix_path=/200/' + IntToStr(curPage);
-
-
-
-      // Define o corpo da requisição com a página atual
-      RequestData := TStringStream.Create('{"poSubType": "E", "statusType": "COL_TASK_STATUS", "colTaskOrPoStatus": "all"}', TEncoding.UTF8);
+      // Corpo da requisição
+      RequestData := TStringStream.Create(
+        '{"poSubType": "E", "statusType": "COL_TASK_STATUS", "colTaskOrPoStatus": "all"}',
+        TEncoding.UTF8
+      );
 
       try
         ResponseContent := HttpClient.Post(URL, RequestData);
+        // Parse JSON para continuar o processamento
         JSONObj := TJSONObject.ParseJSONValue(ResponseContent) as TJSONObject;
         try
-          // Pega os dados de paginação
-          PageVOObj := JSONObj.GetValue('pageVO') as TJSONObject;
-          if Assigned(PageVOObj) then
+          if not Assigned(JSONObj) then
           begin
-            // Atualiza o total de páginas (caso ainda não esteja definido)
-            totalPages := PageVOObj.GetValue<Integer>('totalPages');
+            Writeln('Erro: resposta não é JSON válido.');
+            Exit;
           end;
 
-          // Verifica e processa o array 'result'
+          // Paginação
+          PageVOObj := JSONObj.GetValue('pageVO') as TJSONObject;
+          if Assigned(PageVOObj) then
+            totalPages := PageVOObj.GetValue<Integer>('totalPages');
+
+          // Processar "result"
           if JSONObj.TryGetValue('result', ResultArray) then
           begin
             Writeln('Processando página ', curPage, ' de ', totalPages, '...');
+
             for i := 0 to ResultArray.Count - 1 do
             begin
-              Item := ResultArray.Get(i) as TJSONObject;
-
+              Item := ResultArray.Items[i] as TJSONObject;
               primaryKey := Item.GetValue<string>('primaryKey');
+
               Controller.Projetohuawei.InserirSeNaoExistir(primaryKey, Item);
               Controller.Projetohuawei.InserirSeNaoExistirRollout(primaryKey, Item);
             end;
           end
           else
-          begin
-            Writeln('Erro: A chave "result" não existe ou não é um array.');
-          end;
+            Writeln('A chave "result" não existe na página ', curPage, '.');
 
-          Inc(curPage); // Incrementa a página para a próxima requisição
+          Inc(curPage);
         finally
           JSONObj.Free;
         end;
@@ -120,12 +124,15 @@ begin
         RequestData.Free;
       end;
     end;
+
   except
     on E: Exception do
       Writeln('Erro ao fazer a requisição: ', E.Message);
   end;
+
   HttpClient.Free;
 end;
+
 
 procedure TCronJob.ExecuteJob;
 begin
@@ -137,4 +144,5 @@ begin
 end;
 
 end.
+
 

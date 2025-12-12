@@ -321,11 +321,11 @@ begin
     Add('  m.medidafiltrounitario,');
     Add('  m.id AS idobraericsson,');
     Add('  m.classificacaopo,');
-    Add('  f.MOSREAL AS MOS,');
-    Add('  f.INSTALREAL AS INSTALACAO,');
-    Add('  f.INTEGREAL AS INTEGRACAO,');
-    Add('  s.aceitacaofinal AS ACEITACAO,');
-    Add('  f.DOCINSTAL AS DOC,');
+    Add('  s.`MOS Real` AS MOS,');
+    Add('  s.`Fim Instalação Real` AS INSTALACAO,');
+    Add('  s.`Integração Confirmada` AS INTEGRACAO,');
+    Add('  s.aceitacaofical AS ACEITACAO,');
+    Add('  s.statusdoc AS DOC,');
     Add('  s.`Aprovação todos Docs.` AS APROVACAO_DOCS,');
     Add('  m.analise,');
     Add('  m.valorafaturar,');
@@ -338,7 +338,20 @@ begin
     Add('  END AS fat');
     Add('FROM obraericssonmigo m');
     Add('LEFT JOIN obraericssonfechamento f ON m.po = f.PO AND m.poritem = f.POITEM');
-    Add('LEFT JOIN obrasericssonlistasites s ON m.siteid = s.Site');
+    Add('LEFT JOIN atualizaobrasericssonlistasites s ON m.siteid = s.Site AND s.SEED = (');
+    Add('  SELECT s2.SEED');
+    Add('  FROM atualizaobrasericssonlistasites s2');
+    Add('  WHERE s2.Site = m.siteid');
+    Add('  ORDER BY');
+    Add('    CASE WHEN s2.`MOS Real` IS NOT NULL THEN 0 ELSE 1 END,');
+    Add('    CASE WHEN s2.`Fim Instalação Real` IS NOT NULL THEN 0 ELSE 1 END,');
+    Add('    CASE WHEN s2.`Integração Confirmada` IS NOT NULL THEN 0 ELSE 1 END,');
+    Add('    CASE WHEN s2.aceitacaofical IS NOT NULL THEN 0 ELSE 1 END,');
+    Add('    CASE WHEN s2.statusdoc IS NOT NULL AND s2.statusdoc <> '''' THEN 0 ELSE 1 END,');
+    Add('    CASE WHEN s2.`Aprovação todos Docs.` IS NOT NULL THEN 0 ELSE 1 END,');
+    Add('    s2.SEED DESC');
+    Add('  LIMIT 1');
+    Add(')');
     Add('WHERE 1 = 1');
 
 
@@ -476,31 +489,31 @@ begin
 
       if AQuery.ContainsKey('mos') and (AQuery.Items['mos'].Trim > '') then
       begin
-        Add('AND f.MOSREAL = :mos');
+        Add('AND s.`MOS Real` = :mos');
         TemFiltro := True;
       end;
 
       if AQuery.ContainsKey('instalacao') and (AQuery.Items['instalacao'].Trim > '') then
       begin
-        Add('AND f.INSTALREAL = :instalacao');
+        Add('AND s.`Fim Instalação Real` = :instalacao');
         TemFiltro := True;
       end;
 
       if AQuery.ContainsKey('integracao') and (AQuery.Items['integracao'].Trim > '') then
       begin
-        Add('AND f.INTEGREAL = :integracao');
+        Add('AND s.`Integração Confirmada` = :integracao');
         TemFiltro := True;
       end;
 
       if AQuery.ContainsKey('aceitacao') and (AQuery.Items['aceitacao'].Trim > '') then
       begin
-        Add('AND s.aceitacaofinal = :aceitacao');
+        Add('AND s.aceitacaofical = :aceitacao');
         TemFiltro := True;
       end;
 
       if AQuery.ContainsKey('doc') and (AQuery.Items['doc'].Trim > '') then
       begin
-        Add('AND f.DOCINSTAL = :doc');
+        Add('AND s.statusdoc = :doc');
         TemFiltro := True;
       end;
 
@@ -544,10 +557,11 @@ begin
         TemFiltro := True;
       end;
       // Filtros específicos
-     if not TemFiltro then
-    begin
-      Add(' AND m.datacriacaopo   BETWEEN DATE_ADD(CURRENT_DATE(), INTERVAL -30 DAY) AND CURRENT_DATE() ');
-    end;
+      // Filtro padrão comentado - exibe todos os registros
+      if not TemFiltro then
+      begin
+        Add(' AND m.datacriacaopo   BETWEEN DATE_ADD(CURRENT_DATE(), INTERVAL -30 DAY) AND CURRENT_DATE() ');
+      end;
 
       Add('ORDER BY m.po, m.poritem');
     end;

@@ -3447,23 +3447,39 @@ begin
     // ---------------------------------------------------------------
     // FROTAS
     // ---------------------------------------------------------------
-    Qry.SQL.Add('  UNION ALL');
-    Qry.SQL.Add('  SELECT');
-    Qry.SQL.Add('    ge.siteid AS idpmts,');
-    Qry.SQL.Add('    gr.descricao,');
-    qry.SQL.Add('    despesas.valordespesa *');
-    qry.SQL.Add('    (');
-    qry.SQL.Add('        LEAST((');
-    qry.SQL.Add('            SELECT SUM(r2.percentual)');
-    qry.SQL.Add('            FROM gesdespesas_rateio r2');
-    qry.SQL.Add('            WHERE r2.iddespesas = despesas.idgeral');
-    qry.SQL.Add('        ), 100) / 100');
-    qry.SQL.Add('    ) AS valor,');
-    Qry.SQL.Add('    ge.datalancamento AS dataacionamento,');
-    Qry.SQL.Add('    ge.despesacadastradapor AS nome,');
-    qry.SQL.Add('    ''CUSTO DE FROTAS'' AS tipo');
-    Qry.SQL.Add('  FROM gesdespesas gr');
-    Qry.SQL.Add('    JOIN gesdespesas_rateio ge ON ge.iddespesas = gr.idgeral');
+    // Qry.SQL.Add('  UNION ALL');
+    //     Qry.SQL.Add('  SELECT');
+    //     Qry.SQL.Add('    ge.siteid AS idpmts,');
+    //     Qry.SQL.Add('    gr.descricao,');
+    //     qry.SQL.Add('    despesas.valordespesa *');
+    //     qry.SQL.Add('    (');
+    //     qry.SQL.Add('        LEAST((');
+    //     qry.SQL.Add('            SELECT SUM(r2.percentual)');
+    //     qry.SQL.Add('            FROM gesdespesas_rateio r2');
+    //     qry.SQL.Add('            WHERE r2.iddespesas = despesas.idgeral');
+    //     qry.SQL.Add('        ), 100) / 100');
+    //     qry.SQL.Add('    ) AS valor,');
+    //     Qry.SQL.Add('    ge.datalancamento AS dataacionamento,');
+    //     Qry.SQL.Add('    ge.despesacadastradapor AS nome,');
+    //     qry.SQL.Add('    ''CUSTO DE FROTAS'' AS tipo');
+    //     Qry.SQL.Add('  FROM gesdespesas gr');
+    //     Qry.SQL.Add('    JOIN gesdespesas_rateio ge ON ge.iddespesas = gr.idgeral');Qry.SQL.Add('  UNION ALL');
+    //     Qry.SQL.Add('  SELECT');
+    //     Qry.SQL.Add('    ge.siteid AS idpmts,');
+    //     Qry.SQL.Add('    gr.descricao,');
+    //     qry.SQL.Add('    despesas.valordespesa *');
+    //     qry.SQL.Add('    (');
+    //     qry.SQL.Add('        LEAST((');
+    //     qry.SQL.Add('            SELECT SUM(r2.percentual)');
+    //     qry.SQL.Add('            FROM gesdespesas_rateio r2');
+    //     qry.SQL.Add('            WHERE r2.iddespesas = despesas.idgeral');
+    //     qry.SQL.Add('        ), 100) / 100');
+    //     qry.SQL.Add('    ) AS valor,');
+    //     Qry.SQL.Add('    ge.datalancamento AS dataacionamento,');
+    //     Qry.SQL.Add('    ge.despesacadastradapor AS nome,');
+    //     qry.SQL.Add('    ''CUSTO DE FROTAS'' AS tipo');
+    //     Qry.SQL.Add('  FROM gesdespesas gr');
+    //     Qry.SQL.Add('    JOIN gesdespesas_rateio ge ON ge.iddespesas = gr.idgeral');
 
     // Fecha subquery
     Qry.SQL.Add(') AS d');

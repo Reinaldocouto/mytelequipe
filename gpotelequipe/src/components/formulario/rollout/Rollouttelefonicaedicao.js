@@ -35,6 +35,7 @@ import Select from 'react-select';
 import { toast, ToastContainer } from 'react-toastify';
 import { NumericFormat } from 'react-number-format';
 import { TpModal } from '../../modals/TpModal';
+import { ChgModal } from '../../modals/ChgModal';
 import 'react-toastify/dist/ReactToastify.css';
 import api from '../../../services/api';
 import modoVisualizador from '../../../services/modovisualizador';
@@ -45,6 +46,7 @@ import Mensagemsimples from '../../Mensagemsimples';
 import Solicitardiaria from '../projeto/Solicitardiaria';
 import Tarefaedicaotelefonica from '../projeto/Tarefaedicaotelefonica';
 import S3Service from '../../../services/s3Service';
+import CrqModal from '../../modals/CrqModal';
 
 let s3Service;
 const fetchS3Credentials = async () => {
@@ -71,6 +73,7 @@ const statusOptions = [
   { value: 'Incompleto', label: 'Incompleto' },
   { value: 'Reprovado', label: 'Reprovado' },
 ];
+
 
 const Rollouttelefonicaedicao = ({
   setshow,
@@ -257,6 +260,8 @@ const Rollouttelefonicaedicao = ({
   const [responsibleTeamOptions, setResponsibleTeamOptions] = useState([]);
   const [tps, setTps] = useState([]);
   const [tpLoading, setTpLoading] = useState(false);
+  const [crqModalOpen, setCrqModalOpen] = useState(false);
+  const [siteId, setSiteId] = useState('');
   const [tpForm, setTpForm] = useState({
     siteId: '',
     tipo: 'S/IMPACTO',
@@ -269,9 +274,31 @@ const Rollouttelefonicaedicao = ({
     status: 'Pré-Aprovada',
     itpPercent: 0,
   });
+  const clearCrqForm = () => {
+    setTpForm({
+      id: null,
+      siteId: '',
+      tipo: 'CRQ',
+      criadoEm: '',
+      dataInicio: '',
+      horaInicio: '',
+      dataFim: '',
+      horaFim: '',
+      sequenciaTp: '',
+      itpPercent: 0,
+      impacto: 'TOTAL',
+      status: 'APROVADA',
+    });
+  }
   const [telaexclusaotp, settelaexclusaotp] = useState(false);
   const [tpModalOpen, setTpModalOpen] = useState(false);
+  const [chgModalOpen, setChgModalOpen] = useState(false);
   const abrirTpModal = () => setTpModalOpen(true);
+  const abrirChgModal = () => setChgModalOpen(true);
+  const abrirCrqModal = () => {
+    clearCrqForm();
+    setCrqModalOpen(true);
+  };
 
   // Estado adicional e helpers para CRUD de TPs
   const params = {
@@ -288,15 +315,44 @@ const Rollouttelefonicaedicao = ({
     projeto: 'TELEFONICA',
   };
 
+  const clearTpForm = () => {
+    setTpForm({
+      siteId: '',
+      tipo: 'S/IMPACTO',
+      criadoEm: '',
+      dataInicio: '',
+      horaInicio: '',
+      dataFim: '',
+      horaFim: '',
+      sequenciaTp: '',
+      status: 'Pré-Aprovada',
+      itpPercent: 0,
+    });
+  }
+
+
   const handleTpFormChange = (e) => {
     const { name, value } = e.target;
     setTpForm((prev) => ({ ...prev, [name]: value }));
   };
+
+  const handleCloseModal = (type) => {
+    if (type === 'tp') {
+      setTpModalOpen(false);
+    } else if (type === 'chg') {
+      setChgModalOpen(false);
+    }
+
+    clearTpForm();
+  };
+
+
+
   const carregarTPs = useCallback(async () => {
     try {
       setTpLoading(true);
-      const response = await api.get('v1/projetotelefonica/acesso/tp', {
-        params: { siteId: tpForm.siteId, deletado: 0 },
+      const response = await api.get('v1/acesso/tp', {
+        params: { siteId: tpForm.siteId, deletado: 0, empresa: 'TELEFONICA' },
       });
       const dados = Array.isArray(response.data) ? response.data : [];
       const dadosFormatados = dados.map((item, idx) => ({
@@ -309,9 +365,12 @@ const Rollouttelefonicaedicao = ({
         dataFim: item.dataFim,
         horaFim: item.horaFim,
         sequenciaTp: item.sequenciaTp,
+        numero: item.numero,
+        tipoRegistro: item.tipoRegistro,
         status: item.status,
         itpPercent: item.itpPercent,
       }));
+      setSiteId(tpForm.siteId);
       setTps(dadosFormatados);
     } catch (err) {
       console.error('Erro ao carregar TPs:', err);
@@ -321,9 +380,10 @@ const Rollouttelefonicaedicao = ({
     }
   }, [tpForm.siteId]);
 
-  const criarTP = async (id = ' ') => {
+  const criarTP = async (id = ' ', pai, empresa) => {
+    console.log(pai, empresa)
     // Validação mínima
-    if (!tpForm.siteId) {
+    if (!tpForm.siteId && pai === 'TP') {
       toast.warning('Informe o Site ID para vincular a TP.');
       return;
     }
@@ -343,12 +403,15 @@ const Rollouttelefonicaedicao = ({
       horaFim: tpForm.horaFim,
       sequenciaTp: tpForm.sequenciaTp,
       status: tpForm.status,
+      numero: tpForm.numero,
+      empresa,
+      tipoRegistro: pai,
       itpPercent: Number(tpForm.itpPercent) || 0,
     };
 
     try {
       setTpLoading(true);
-      await api.post('v1/projetotelefonica/acesso/tp', payload);
+      await api.post('v1/acesso/tp', payload);
       toast.success('TP criada com sucesso!');
       await carregarTPs();
       // limpa parcialmente o form, mantendo site
@@ -357,7 +420,6 @@ const Rollouttelefonicaedicao = ({
         tipo: 'S/IMPACTO',
         criadoEm: '',
         dataInicio: '',
-        numero: '',
         horaInicio: '',
         dataFim: '',
         horaFim: '',
@@ -370,6 +432,8 @@ const Rollouttelefonicaedicao = ({
       toast.error(err.response?.data?.erro || 'Falha ao criar TP.');
     } finally {
       setTpLoading(false);
+      setTpModalOpen(false);
+      setChgModalOpen(false);
     }
   };
 
@@ -404,8 +468,16 @@ const Rollouttelefonicaedicao = ({
       status: row.status ?? '',
       itpPercent: row.itpPercent ?? row.itp_percent ?? 0,
       deletado: Boolean(row.deletado ?? row.deleted ?? false),
+      empresa: row.empresa ?? '',
+      numero: row.numero ?? '',
+      tipoRegistro: row.tipoRegistro ?? '',
     });
-    setTpModalOpen(true);
+
+    if (row.tipoRegistro === 'CHG') {
+      setChgModalOpen(true);
+    } else {
+      setTpModalOpen(true);
+    }
   };
   const formatDatePtBR = (value) => {
     if (!value) return '';
@@ -452,6 +524,30 @@ const Rollouttelefonicaedicao = ({
     return d.toLocaleDateString('pt-BR');
   };
 
+  const salvarCrq = async (data) => {
+    console.log(data);
+    try {
+      const payload = {
+        id: data?.id,
+        siteId: siteId.trim(),
+        descricao: data.descricao?.trim(),
+        tipoRegistro: 'CRQ',
+        impacto: data.impacto,
+        numero: data.numeroCrq?.trim(),
+        dataInicio: data.dataInicio || null,
+        dataFim: data.dataFim || null,
+        status: data.status,
+        tipo: data.tipo,
+        empresa: 'TELEFONICA',
+      };
+      await api.post('v1/acesso/tp', payload);
+      setCrqModalOpen(false);
+      carregarTPs();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const tpColumns = [
     {
       field: 'actions',
@@ -485,6 +581,14 @@ const Rollouttelefonicaedicao = ({
       type: 'singleSelect',
       editable: true,
       valueOptions: tpTipos,
+    },
+    {
+      field: 'tipoRegistro',
+      headerName: 'Registro',
+      width: 100,
+      type: 'string',
+      editable: false,
+      valueOptions: tpStatus,
     },
     {
       field: 'criadoEm',
@@ -536,6 +640,13 @@ const Rollouttelefonicaedicao = ({
       valueFormatter: ({ value }) =>
         value !== null && value !== undefined ? `${Number(value)}%` : '',
     },
+    {
+      field: 'numero',
+      headerName: 'Número',
+      width: 130,
+      type: 'string',
+      editable: false,
+    }
   ];
 
   useEffect(() => {
@@ -1051,36 +1162,36 @@ const Rollouttelefonicaedicao = ({
 
     ...(modofinanceiro()
       ? [
-          {
-            field: 'valor',
-            headerName: 'VALOR R$',
-            type: 'currency',
-            width: 150,
-            align: 'left',
-            editable: false,
-            valueFormatter: (parametros) => {
-              if (parametros.value == null) return '';
-              return parametros.value.toLocaleString('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              });
-            },
+        {
+          field: 'valor',
+          headerName: 'VALOR R$',
+          type: 'currency',
+          width: 150,
+          align: 'left',
+          editable: false,
+          valueFormatter: (parametros) => {
+            if (parametros.value == null) return '';
+            return parametros.value.toLocaleString('pt-BR', {
+              style: 'currency',
+              currency: 'BRL',
+            });
           },
-          {
-            field: 'valortotal',
-            headerName: 'VALOR TOTAL',
-            width: 150,
-            align: 'left',
-            editable: false,
-            valueFormatter: (parametros) => {
-              if (parametros.value == null) return '';
-              return parametros.value.toLocaleString('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              });
-            },
+        },
+        {
+          field: 'valortotal',
+          headerName: 'VALOR TOTAL',
+          width: 150,
+          align: 'left',
+          editable: false,
+          valueFormatter: (parametros) => {
+            if (parametros.value == null) return '';
+            return parametros.value.toLocaleString('pt-BR', {
+              style: 'currency',
+              currency: 'BRL',
+            });
           },
-        ]
+        },
+      ]
       : []),
     {
       field: 'statust2',
@@ -1398,8 +1509,8 @@ const Rollouttelefonicaedicao = ({
       valueFormatter: (paramsacessodatasolicitacao) =>
         paramsacessodatasolicitacao.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(
-              paramsacessodatasolicitacao.value,
-            )
+            paramsacessodatasolicitacao.value,
+          )
           : '',
       editable: true,
     },
@@ -1414,8 +1525,8 @@ const Rollouttelefonicaedicao = ({
       valueFormatter: (paramsacessodatainicial) =>
         paramsacessodatainicial.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(
-              paramsacessodatainicial.value,
-            )
+            paramsacessodatainicial.value,
+          )
           : '',
       editable: true,
     },
@@ -1430,8 +1541,8 @@ const Rollouttelefonicaedicao = ({
       valueFormatter: (paramsacessodatafinal) =>
         paramsacessodatafinal.value
           ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(
-              paramsacessodatafinal.value,
-            )
+            paramsacessodatafinal.value,
+          )
           : '',
       editable: true,
     },
@@ -1640,9 +1751,9 @@ const Rollouttelefonicaedicao = ({
       valueFormatter: (parametros) =>
         parametros.value
           ? parametros.value.toLocaleString('pt-BR', {
-              style: 'currency',
-              currency: 'BRL',
-            })
+            style: 'currency',
+            currency: 'BRL',
+          })
           : '',
     },
     {
@@ -1747,9 +1858,9 @@ const Rollouttelefonicaedicao = ({
       valueFormatter: (parametros) =>
         parametros.value
           ? parametros.value.toLocaleString('pt-BR', {
-              style: 'currency',
-              currency: 'BRL',
-            })
+            style: 'currency',
+            currency: 'BRL',
+          })
           : '',
     },
     {
@@ -1932,10 +2043,10 @@ const Rollouttelefonicaedicao = ({
     },
   ];
   /*  const salvarpj = async (pacoteid, atividadeid) => {
-  
+   
       if (lpuhistorico === 'NEGOCIAVEL') {
         const valorNumerico = parseFloat(valornegociado);
-  
+   
         if (Number.isNaN(valorNumerico) || valorNumerico <= 0) {
           toast.error('É necessário informar um valor válido para acionamento negociável.');
           return; // interrompe a execução
@@ -1955,11 +2066,11 @@ const Rollouttelefonicaedicao = ({
           observacaopj,
           idfuncionario: localStorage.getItem('sessionId'),
         });
-  
+   
         if (response.status !== 201) {
           throw new Error(`Erro ao salvar pacote ${pacoteid}: status ${response.status}`);
         }
-  
+   
         listapacotesacionados(); // você pode manter isso
         return true; // ✅ sinaliza que deu certo
       } catch (err) {
@@ -2327,6 +2438,7 @@ const Rollouttelefonicaedicao = ({
     }
   };
 
+
   const enviaremailEquipeResponsavel = () => {
     const idsEquipeResponsavel = rowSelectionEquipeResponsavelModel.map((item) => {
       const partes = item.trim().split(/\s+/); // divide por espaço(s)
@@ -2679,13 +2791,35 @@ const Rollouttelefonicaedicao = ({
     <>
       <TpModal
         open={tpModalOpen}
-        onClose={() => setTpModalOpen(false)}
+        onClose={() => handleCloseModal('tp')}
         onCreate={criarTP}
         tpForm={tpForm}
         onChange={handleTpFormChange}
         tpTipos={tpTipos}
         tpStatus={tpStatus}
         loading={tpLoading}
+        empresa="Telefônica"
+        pai="TP"
+      />
+
+      <CrqModal
+        isOpen={crqModalOpen}
+        onClose={() => setCrqModalOpen(false)}
+        onSubmit={salvarCrq}
+        initialData={tpForm}
+      />
+
+      <ChgModal
+        open={chgModalOpen}
+        onClose={() => handleCloseModal('chg')}
+        onCreate={criarTP}
+        tpForm={tpForm}
+        onChange={handleTpFormChange}
+        tpTipos={tpTipos}
+        tpStatus={tpStatus}
+        loading={tpLoading}
+        empresa="Telefônica"
+        pai="CHG"
       />
 
       <Modal
@@ -3111,16 +3245,41 @@ const Rollouttelefonicaedicao = ({
                   <Input type="text" value={statusvalidadeAcesso} disabled />
                 </div>
               </div>
-              <div className="col-sm-12 col-md-12 d-flex align-items-end my-3">
-                <Button
-                  color="primary"
-                  className="w-100"
-                  onClick={abrirTpModal}
-                  disabled={tpLoading}
-                >
-                  Criar TP
-                </Button>
+              <div className="row my-3 align-items-end">
+                <div className="col-4 col-md-4 mb-2 mb-md-0">
+                  <Button
+                    color="primary"
+                    className="w-100"
+                    onClick={abrirTpModal}
+                    disabled={tpLoading}
+                  >
+                    Criar TP
+                  </Button>
+                </div>
+
+                <div className="col-4 col-md-4 mb-2 mb-md-0">
+                  <Button
+                    color="primary"
+                    className="w-100"
+                    onClick={abrirCrqModal}
+                    disabled={tpLoading}
+                  >
+                    Criar CRQ
+                  </Button>
+                </div>
+
+                <div className="col-4 col-md-4">
+                  <Button
+                    color="primary"
+                    className="w-100"
+                    onClick={abrirChgModal}
+                    disabled={tpLoading}
+                  >
+                    Criar CHG
+                  </Button>
+                </div>
               </div>
+
 
               <div style={{ height: 500, width: '100%' }}>
                 <DataGrid
@@ -3895,24 +4054,24 @@ const Rollouttelefonicaedicao = ({
                       usuario === '35' ||
                       usuario === '78' ||
                       usuario === '51') && (
-                      <div className="col-sm-2">
-                        Valor Negociado
-                        <NumericFormat
-                          className="form-control"
-                          value={valornegociado}
-                          thousandSeparator="."
-                          decimalSeparator=","
-                          prefix="R$ "
-                          allowNegative={false}
-                          decimalScale={2}
-                          fixedDecimalScale
-                          onValueChange={(values) => {
-                            const { floatValue } = values;
-                            setvalornegociado(floatValue || 0);
-                          }}
-                        />
-                      </div>
-                    )}
+                        <div className="col-sm-2">
+                          Valor Negociado
+                          <NumericFormat
+                            className="form-control"
+                            value={valornegociado}
+                            thousandSeparator="."
+                            decimalSeparator=","
+                            prefix="R$ "
+                            allowNegative={false}
+                            decimalScale={2}
+                            fixedDecimalScale
+                            onValueChange={(values) => {
+                              const { floatValue } = values;
+                              setvalornegociado(floatValue || 0);
+                            }}
+                          />
+                        </div>
+                      )}
                   </>
                 )}
 

@@ -3360,6 +3360,7 @@ var
   qry, qry1, qry2: TFDQuery;
   id, demanda: Integer;
   valorlpu: Real;
+  vValor: Double;
   cliente, empresa, site, polocal: string;
 begin
   try
@@ -3406,10 +3407,12 @@ begin
           ParamByName('idcolaborador').asinteger := idcolaborador;
           ParamByName('idpacote').asinteger := idpacote;
           ParamByName('lpu').asstring := lpuhistorico;
-          if lpuhistorico = 'NEGOCIADO' then
-            ParamByName('valor').asfloat := valornegociado
+         if lpuhistorico = 'NEGOCIADO' then
+            vValor := valornegociado
           else
-            ParamByName('valor').asfloat := valorlpu;
+            vValor := valorlpu;
+
+          ParamByName('valor').AsFloat := RoundTo(vValor * quantidade, -2);
           ParamByName('dataacionamento').AsDateTime := now;
           ParamByName('idfuncionario').asinteger := idfuncionario;
           ParamByName('deletado').asinteger := 0;
@@ -3524,7 +3527,7 @@ function TProjetotelefonica.salvaacionamentoclt(out erro: string): Boolean;
     FS: TFormatSettings;
   begin
     if DateStr = '' then
-      Result := StrToDate('30/12/1899') // Data padrão para valores vazios
+      Result := StrToDate('30/12/1899')
     else
     begin
       FS := TFormatSettings.Create;
@@ -3538,75 +3541,170 @@ function TProjetotelefonica.salvaacionamentoclt(out erro: string): Boolean;
 
 var
   qry: TFDQuery;
-  polocal: string;
-  poValue: Int64; // Para armazenar o PO convertido para BIGINT
+  vFolha, vTicket, vVT, vBaseMensal, vCustoAcionamento: Double;
+  vRegistro: string; // << NOVO
+const
+  HORAS_MES = 220.0;
 begin
   Result := False;
   erro := '';
   qry := TFDQuery.Create(nil);
+
   try
     qry.Connection := FConn;
     FConn.StartTransaction;
+
     try
-      with qry do
+      // ============================================================
+      // 0) Buscar nregistro usando o idpessoa
+      // ============================================================
+      qry.Active := False;
+      qry.SQL.Clear;
+      qry.SQL.Add('SELECT nregistro FROM gespessoa WHERE idpessoa = :idpessoa LIMIT 1');
+      qry.ParamByName('idpessoa').AsInteger := idcolaborador;
+      qry.Open;
+
+      if qry.IsEmpty then
       begin
-
-        Active := False;
-        SQL.Clear;
-        SQL.Add('SELECT consolidadotelefonica.PO FROM consolidadotelefonica WHERE id=:id');
-        ParamByName('id').AsInteger := idatividade;
-        Open();
-
-        Active := False;
-        SQL.Clear;
-        SQL.Add('INSERT INTO acionamentovivoclt(po, atividade, idatividade, idcolaborador, idpacote, valor, dataacionamento,');
-        SQL.Add('idfuncionario, deletado, idrollout, idpmts, dataincio, datafinal, horanormal, horas50, horas100, totaldehoras) ');
-        SQL.Add('VALUES(:po, :atividade, :idatividade, :idcolaborador, :idpacote, :valor, :dataacionamento,');
-        SQL.Add(':idfuncionario, :deletado, :idrollout, :idpmts, :dataincio, :datafinal, :horanormal, :horas50, :horas100, :totaldehoras)');
-        ParamByName('po').AsString := po;
-        ParamByName('idcolaborador').AsInteger := idcolaborador;
-        ParamByName('idatividade').AsInteger := idatividade;
-        ParamByName('idpacote').AsInteger := 0;
-        ParamByName('valor').AsFloat := 0;
-        ParamByName('atividade').AsString := atividade;
-        ParamByName('dataacionamento').AsDateTime := Now;
-        ParamByName('idfuncionario').AsInteger := idfuncionario;
-        ParamByName('deletado').AsInteger := 0;
-        ParamByName('idrollout').AsInteger := idrollout;
-        ParamByName('idpmts').AsString := idpmts;
-
-        if datainicioclt <> '' then
-          ParamByName('dataincio').AsDateTime := StringToDateISO(datainicioclt)
-        else
-          ParamByName('dataincio').AsDateTime := StrToDate('30/12/1899');
-
-        if datafinalclt <> '' then
-          ParamByName('datafinal').AsDateTime := StringToDateISO(datafinalclt)
-        else
-          ParamByName('datafinal').AsDateTime := StrToDate('30/12/1899');
-
-        ParamByName('horanormal').AsFloat := horanormalclt;
-        ParamByName('horas50').AsFloat := hora50clt;
-        ParamByName('horas100').AsFloat := hora100clt;
-        ParamByName('totaldehoras').AsFloat := totalhorasclt;
-
-        ExecSQL;
-        if qry.RowsAffected = 0 then
-          raise Exception.Create('Nenhuma linha inserida');
-
+        FConn.Rollback;
+        erro := 'Colaborador não encontrado na tabela gespessoa.';
+        Exit(False);
       end;
+
+      vRegistro := qry.FieldByName('nregistro').AsString;
+
+      if Trim(vRegistro) = '' then
+      begin
+        FConn.Rollback;
+        erro := 'O colaborador não possui nregistro cadastrado. Atualize o cadastro.';
+        Exit(False);
+      end;
+
+      // ============================================================
+      // 1) Buscar Folha de Pagamento usando NREGISTRO
+      // ============================================================
+      qry.Active := False;
+      qry.SQL.Clear;
+      qry.SQL.Add('SELECT salario ');
+      qry.SQL.Add('FROM gesfolhapagamento ');
+      qry.SQL.Add('WHERE codigo = :codigo ORDER BY idgeral DESC LIMIT 1');
+      qry.ParamByName('codigo').AsString := vRegistro;
+      qry.Open;
+
+      if (qry.IsEmpty) or qry.FieldByName('salario').IsNull or
+         (qry.FieldByName('salario').AsFloat <= 0) then
+      begin
+        FConn.Rollback;
+        erro := 'Não foi possível calcular o custo do acionamento. Folha de Pagamento não encontrada.';
+        Exit(False);
+      end;
+
+      vFolha := qry.FieldByName('salario').AsFloat;
+
+      // ============================================================
+      // 2) Buscar Ticket Restaurante usando NREGISTRO
+      // ============================================================
+      qry.Active := False;
+      qry.SQL.Clear;
+      qry.SQL.Add('SELECT beneficio FROM ticket ');
+      qry.SQL.Add('WHERE codigo = :codigo ORDER BY idgeral DESC LIMIT 1');
+      qry.ParamByName('codigo').AsString := vRegistro;
+      qry.Open;
+
+      if (not qry.IsEmpty) and (not qry.FieldByName('beneficio').IsNull) then
+        vTicket := qry.FieldByName('beneficio').AsFloat
+      else
+        vTicket := 0;
+
+      // ============================================================
+      // 3) Buscar Vale Transporte usando NREGISTRO
+      // ============================================================
+      qry.Active := False;
+      qry.SQL.Clear;
+      qry.SQL.Add('SELECT beneficio FROM valetransporte ');
+      qry.SQL.Add('WHERE codigo = :codigo ORDER BY idgeral DESC LIMIT 1');
+      qry.ParamByName('codigo').AsString := vRegistro;
+      qry.Open;
+
+      if (not qry.IsEmpty) and (not qry.FieldByName('beneficio').IsNull) then
+        vVT := qry.FieldByName('beneficio').AsFloat
+      else
+        vVT := 0;
+
+      // ============================================================
+      // 4) Calcular custo CLT
+      // ============================================================
+      vBaseMensal := vFolha + vTicket + vVT;
+      vCustoAcionamento := RoundTo(totalhorasclt * (vBaseMensal / HORAS_MES), -2);
+
+      // ============================================================
+      // 5) Buscar PO
+      // ============================================================
+      qry.Active := False;
+      qry.SQL.Clear;
+      qry.SQL.Add('SELECT consolidadotelefonica.PO ');
+      qry.SQL.Add('FROM consolidadotelefonica WHERE id = :id');
+      qry.ParamByName('id').AsInteger := idatividade;
+      qry.Open;
+
+      // ============================================================
+      // 6) Inserir Acionamento CLT
+      // ============================================================
+      qry.Active := False;
+      qry.SQL.Clear;
+      qry.SQL.Add('INSERT INTO acionamentovivoclt(');
+      qry.SQL.Add('  po, atividade, idatividade, idcolaborador, idpacote, valor, dataacionamento,');
+      qry.SQL.Add('  idfuncionario, deletado, idrollout, idpmts, dataincio, datafinal,');
+      qry.SQL.Add('  horanormal, horas50, horas100, totaldehoras)');
+      qry.SQL.Add('VALUES(');
+      qry.SQL.Add('  :po, :atividade, :idatividade, :idcolaborador, :idpacote, :valor, :dataacionamento,');
+      qry.SQL.Add('  :idfuncionario, :deletado, :idrollout, :idpmts, :dataincio, :datafinal,');
+      qry.SQL.Add('  :horanormal, :horas50, :horas100, :totaldehoras)');
+
+      qry.ParamByName('po').AsString := po;
+      qry.ParamByName('idcolaborador').AsInteger := idcolaborador;
+      qry.ParamByName('idatividade').AsInteger := idatividade;
+      qry.ParamByName('idpacote').AsInteger := 0;
+      qry.ParamByName('valor').AsFloat := vCustoAcionamento;
+      qry.ParamByName('atividade').AsString := atividade;
+      qry.ParamByName('dataacionamento').AsDateTime := Now;
+      qry.ParamByName('idfuncionario').AsInteger := idfuncionario;
+      qry.ParamByName('deletado').AsInteger := 0;
+      qry.ParamByName('idrollout').AsInteger := idrollout;
+      qry.ParamByName('idpmts').AsString := idpmts;
+
+      if datainicioclt <> '' then
+        qry.ParamByName('dataincio').AsDateTime := StringToDateISO(datainicioclt)
+      else
+        qry.ParamByName('dataincio').AsDateTime := StrToDate('30/12/1899');
+
+      if datafinalclt <> '' then
+        qry.ParamByName('datafinal').AsDateTime := StringToDateISO(datafinalclt)
+      else
+        qry.ParamByName('datafinal').AsDateTime := StrToDate('30/12/1899');
+
+      qry.ParamByName('horanormal').AsFloat := horanormalclt;
+      qry.ParamByName('horas50').AsFloat := hora50clt;
+      qry.ParamByName('horas100').AsFloat := hora100clt;
+      qry.ParamByName('totaldehoras').AsFloat := totalhorasclt;
+
+      qry.ExecSQL;
+
+      if qry.RowsAffected = 0 then
+        raise Exception.Create('Nenhuma linha inserida.');
 
       FConn.Commit;
       Result := True;
+
     except
       on ex: Exception do
       begin
         FConn.Rollback;
         erro := 'Erro ao fazer lançamento: ' + ex.Message;
-        Writeln(erro);
         Result := False;
       end;
     end;
+
   finally
     qry.Free;
   end;
@@ -6582,74 +6680,76 @@ begin
   end;
 end;
 
-function TProjetotelefonica.Listaacionamentoclt(const AQuery: TDictionary<string, string>; out erro: string): TFDQuery;
+function TProjetotelefonica.Listaacionamentoclt(
+  const AQuery: TDictionary<string, string>;
+  out erro: string
+): TFDQuery;
 var
   qry: TFDQuery;
   idpmts: string;
 begin
   Result := nil;
   erro := '';
+
+  // Validação básica do parâmetro ---------------------------------------------
+  if not AQuery.ContainsKey('osouobra') then
+  begin
+    erro := 'Parâmetro "osouobra" não informado';
+    Exit;
+  end;
+
+  idpmts := Trim(AQuery['osouobra']);
+  if idpmts = '' then
+  begin
+    erro := 'Parâmetro "osouobra" está vazio';
+    Exit;
+  end;
+
+  // Criação da query -----------------------------------------------------------
+  qry := TFDQuery.Create(nil);
   try
-    qry := TFDQuery.Create(nil);
     qry.Connection := FConn;
+    qry.FetchOptions.AutoClose := False;
 
+    qry.SQL.Clear;
+    qry.SQL.Add('SELECT DISTINCT');
+    qry.SQL.Add('  ac.po,');
+    qry.SQL.Add('  ac.id,');
+    qry.SQL.Add('  t2.T2CODMATSERVSW,');
+    qry.SQL.Add('  t2.T2DESCRICAOCOD,');
+    qry.SQL.Add('  p.nome AS nome,');
+    qry.SQL.Add('  u.nome AS usuario,');
+    qry.SQL.Add('  ac.valor,');
+    qry.SQL.Add('  ac.dataacionamento,');
+    qry.SQL.Add('  ac.atividade,');
+    qry.SQL.Add('  ac.dataincio,');
+    qry.SQL.Add('  ac.datafinal');
+    qry.SQL.Add('FROM acionamentovivoclt ac');
+    qry.SQL.Add('LEFT JOIN telefonicacontrolet2 t2 ON t2.id = ac.idatividade');
+    qry.SQL.Add('LEFT JOIN gespessoa p ON p.idpessoa = ac.idcolaborador');
+    qry.SQL.Add('LEFT JOIN gesusuario u ON u.idusuario = ac.idfuncionario');
+    qry.SQL.Add('WHERE ac.deletado = 0');
+    qry.SQL.Add('  AND ac.idpmts = :idpmts');
+    qry.SQL.Add('ORDER BY ac.dataacionamento DESC');
 
-    with qry do
-    begin
-      SQL.Clear;
-      SQL.Add('SELECT ');
-      SQL.Add('  acionamentovivoclt.po, ');
-      SQL.Add('  acionamentovivoclt.id, ');
-      SQL.Add('  telefonicacontrolet2.T2CODMATSERVSW, ');
-      SQL.Add('  telefonicacontrolet2.T2DESCRICAOCOD, ');
-      SQL.Add('  gespessoa.nome, ');
-      SQL.Add('  gesusuario.nome AS usuario, ');
-      SQL.Add('  acionamentovivoclt.valor, ');
-      SQL.Add('  acionamentovivoclt.dataacionamento, ');
-      SQL.Add('  acionamentovivoclt.atividade, ');
-      SQL.Add('  acionamentovivoclt.dataincio, ');
-      SQL.Add('  acionamentovivoclt.datafinal ');
-      SQL.Add('FROM ');
-      SQL.Add('  acionamentovivoclt ');
-      SQL.Add('LEFT JOIN telefonicacontrolet2 ON telefonicacontrolet2.id = acionamentovivoclt.idatividade ');
-      SQL.Add('LEFT JOIN gespessoa ON gespessoa.idpessoa = acionamentovivoclt.idcolaborador ');
-      SQL.Add('LEFT JOIN gesusuario ON gesusuario.idusuario = acionamentovivoclt.idfuncionario ');
-      SQL.Add('WHERE ');
-      SQL.Add('  acionamentovivoclt.deletado = 0 ');
+    qry.ParamByName('idpmts').AsString := idpmts;
 
-      // Verifica se o parâmetro idrollout existe e é válido
-      if AQuery.ContainsKey('osouobra') then
+    try
+      qry.Open;
+      Result := qry; // retorno normal
+    except
+      on E: Exception do
       begin
-        idpmts := AQuery.Items['osouobra'];
-        SQL.Add('AND acionamentovivoclt.idpmts = :idpmts');
-        ParamByName('idpmts').AsString := idpmts;
-      end
-      else
-      begin
-        erro := 'Parâmetro osouobra não informado';
+        erro := 'Erro ao executar consulta: ' + E.Message;
         FreeAndNil(qry);
-        Exit;
-      end;
-
-      FetchOptions.AutoClose := False;
-
-      try
-        Open;
-        Result := qry;
-      except
-        on E: Exception do
-        begin
-          erro := 'Erro ao executar consulta: ' + E.Message;
-          FreeAndNil(qry);
-        end;
       end;
     end;
+
   except
-    on Ex: Exception do
+    on E: Exception do
     begin
-      erro := 'Erro ao preparar consulta: ' + Ex.Message;
-      if Assigned(qry) then
-        FreeAndNil(qry);
+      erro := 'Erro ao montar consulta: ' + E.Message;
+      FreeAndNil(qry);
     end;
   end;
 end;

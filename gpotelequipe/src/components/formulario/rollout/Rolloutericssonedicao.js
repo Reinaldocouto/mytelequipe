@@ -269,7 +269,7 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
       impacto: 'TOTAL',
       status: 'APROVADA',
     });
-  }
+  };
 
   const clearTpForm = () => {
     setTpForm({
@@ -284,13 +284,12 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
       status: 'Pré-Aprovada',
       itpPercent: 0,
     });
-  }
+  };
 
   const abrirCrqModal = () => {
     clearCrqForm();
     setCrqModalOpen(true);
   };
-
 
   const formatDatePtBR = (value) => {
     if (!value) return '';
@@ -374,7 +373,6 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
       setCrqModalOpen(true);
     }
   };
-
 
   const params = {
     idcliente: localStorage.getItem('sessionCodidcliente'),
@@ -517,7 +515,6 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
     }
   };
 
-
   const carregarTPs = useCallback(async () => {
     try {
       setTpLoading(true);
@@ -552,7 +549,7 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
   }, [tpForm?.siteId]);
 
   const criarTP = async (id = ' ', pai, empresa) => {
-    console.log(pai, empresa)
+    console.log(pai, empresa);
     // Validação mínima
     if (!tpForm?.siteId && pai === 'TP') {
       toast.warning('Informe o Site ID para vincular a TP.');
@@ -562,7 +559,6 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
       toast.warning('Informe a data "Criado em".');
       return;
     }
-
 
     const payload = {
       id,
@@ -609,15 +605,12 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
     }
   };
 
-
-
   const abrirChgModal = () => setChgModalOpen(true);
 
   const handleTpFormChange = (e) => {
     const { name, value } = e.target;
     setTpForm((prev) => ({ ...prev, [name]: value }));
   };
-
 
   const handleCloseModal = (type) => {
     if (type === 'tp') {
@@ -628,7 +621,6 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
 
     clearTpForm();
   };
-
 
   const salvarCrq = async (data) => {
     try {
@@ -750,7 +742,7 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
     try {
       setloading(true);
 
-      const response = await api.get('v1/projetoericssonid', { params });
+      const response = await api.get('v1/projetoericsson/id', { params });
 
       const { data } = response;
       console.log(data);
@@ -824,7 +816,7 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
       setemailadcional(data.emailadcional || '');
       setaceitacao(data.aceitacaofical || '');
       setpendencia(data.pendenciasobra || '');
-      setTimeout(() => { }, 3000);
+      setTimeout(() => {}, 3000);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -1926,10 +1918,10 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
           porcentagem === null || porcentagem === 0
             ? grey[350]
             : porcentagem > 0 && porcentagem < 1
-              ? yellow[500]
-              : porcentagem >= 1
-                ? green[500]
-                : undefined;
+            ? yellow[500]
+            : porcentagem >= 1
+            ? green[500]
+            : undefined;
 
         return <PaidIcon style={{ color }} />;
       },
@@ -2364,7 +2356,6 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
         onClose={() => setCrqModalOpen(false)}
         onSubmit={salvarCrq}
         tpForm={tpForm}
-
       />
 
       {telaexclusaodiaria ? (
@@ -2874,7 +2865,6 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
                 onProcessRowUpdateError={(error) => console.error(error)}
                 getRowId={(row) => row.id}
               />
-
             </Box>
           </div>
         </CardBody>
@@ -2912,7 +2902,6 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
           pai="CHG"
         />
 
-
         {telaexclusaotp ? (
           <>
             <Excluirregistro
@@ -2924,7 +2913,6 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
             />{' '}
           </>
         ) : null}
-
 
         {/* === Acompanhamento Físico === */}
         <br />
@@ -3640,8 +3628,6 @@ const Rolloutericssonedicao = ({ show, setshow, ididentificador, titulotopo, atu
         </Button>
       </ModalFooter>
     </Modal>
-
-
   );
 };
 
