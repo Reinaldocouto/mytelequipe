@@ -789,12 +789,36 @@ end;
 function TExclusao.excluiracionamentopjtelefonica(out erro: string): Boolean;
 var
   qry: TFDQuery;
+  totalPagamentos: Integer;
 begin
   try
     qry := TFDQuery.Create(nil);
     qry.connection := FConn;
     try
+      // Primeiro verifica se existe algum pagamento registrado (ANTES de iniciar a transaÃ§Ã£o)
+      with qry do
+      begin
+        Active := false;
+        sql.Clear;
+        SQL.Add('SELECT COUNT(*) AS total FROM telefonicapagamento WHERE idacionamentovivo = :id');
+        ParamByName('id').AsInteger := StrToInt(id);
+        Open;
+
+        totalPagamentos := FieldByName('total').AsInteger;
+        Close;
+      end;
+
+      // Se tem pagamento registrado, impede a exclusÃ£o
+      if totalPagamentos > 0 then
+      begin
+        erro := 'Este acionamento nao pode ser excluido porque possui pagamento registrado.';
+        Result := False;
+        Exit;
+      end;
+
+      // Se nÃ£o tem pagamento, inicia transaÃ§Ã£o e prossegue com a exclusÃ£o
       FConn.StartTransaction;
+
       with qry do
       begin
         Active := false;
@@ -803,12 +827,15 @@ begin
         ParamByName('id').AsInteger := StrToInt(id);
         ExecSQL;
       end;
-      erro := '';
+
       FConn.Commit;
+      erro := '';
       result := true;
     except
       on ex: exception do
       begin
+        if FConn.InTransaction then
+          FConn.Rollback;
         erro := 'Erro ao excluir registro: ' + ex.Message;
         Result := false;
       end;
@@ -1125,23 +1152,23 @@ begin
         end
         else
         begin
-          erro := 'Veículo não encontrado.';
+          erro := 'Veï¿½culo nï¿½o encontrado.';
           Result := False;
           FConn.Rollback;
           Exit;
         end;
       end;
 
-      // se status 'ATIVO', não deleta
+      // se status 'ATIVO', nï¿½o deleta
       if vehicleStatus = 'ATIVO' then
       begin
-        erro := 'Primeiro é necessário desativar esse veículo.';
+        erro := 'Primeiro ï¿½ necessï¿½rio desativar esse veï¿½culo.';
         Result := False;
         FConn.Rollback;
       end
       else
       begin
-        // continua para deleção
+        // continua para deleï¿½ï¿½o
         qry.Active := False;
         qry.SQL.Clear;
         qry.SQL.Add('UPDATE gesveiculos SET deletado = :deletado WHERE idveiculo = :ID');
@@ -1225,7 +1252,7 @@ begin
             SQL.add('update telefonicacontrolet2 set itemt2=:t2, tipo=:tipo  where id=:id ');
             ParamByName('id').asinteger := qry2.fieldbyname('id').asinteger;
             ParamByName('t2').asinteger := cont;
-            ParamByName('tipo').asstring := 'serviço'+inttostr(cont);
+            ParamByName('tipo').asstring := 'serviï¿½o'+inttostr(cont);
             execsql;
           end;
           Next;
